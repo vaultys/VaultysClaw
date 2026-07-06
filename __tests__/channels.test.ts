@@ -4,7 +4,7 @@
  *   Dispatcher:    MessageDispatcher (lib/message-dispatcher.ts)
  *   Bridge layer:  ChannelBridgeService, WebhookGateway, BridgeFactory
  *   API routes:
- *     GET  /api/channels                                    — list channels in realm
+ *     GET  /api/channels                                    — list channels in workspace
  *     POST /api/channels                                    — create channel
  *     GET  /api/channels/[id]                               — channel detail
  *     PATCH /api/channels/[id]                              — update channel
@@ -20,7 +20,7 @@
  *     DELETE /api/channels/[id]/bridges/[bridgeId]          — delete bridge
  *     POST /api/bridges/webhook/[bridgeId]/incoming         — incoming webhook
  *     GET  /api/agents/search                               — search agents by name
- *     GET  /api/me/realms                                   — realms for current user
+ *     GET  /api/me/workspaces                                   — workspaces for current user
  *   Peer agents removal:
  *     Peer grant API routes have been deleted
  *     pushPeerCatalog has been removed from WSServer
@@ -110,7 +110,7 @@ import {
   DELETE as bridgeDELETE,
 } from "../packages/control-plane/app/api/channels/[id]/bridges/[bridgeId]/route";
 import { POST as webhookIncomingPOST } from "../packages/control-plane/app/api/bridges/webhook/[bridgeId]/incoming/route";
-import { GET as meRealmsGET } from "../packages/control-plane/app/api/realms/me/route";
+import { GET as meWorkspacesGET } from "../packages/control-plane/app/api/workspaces/me/route";
 
 // Bridge / gateway layer
 import { ChannelBridgeService } from "../packages/control-plane/lib/channel-bridge-service";
@@ -129,13 +129,13 @@ const T = "test:channels:";
 /** Slug-safe prefix — only lowercase letters, numbers, hyphens (valid channel slug chars) */
 const S = "tch-";
 
-function makeAdminContext(realmId?: string) {
+function makeAdminContext(workspaceId?: string) {
   return {
     did: "did:test:admin",
     isGlobalAdmin: true,
     isOwner: true,
-    canAccessRealm: (_id: string) => true,
-    canAdminRealm: (_id: string) => true,
+    canAccessWorkspace: (_id: string) => true,
+    canAdminWorkspace: (_id: string) => true,
   };
 }
 
@@ -144,8 +144,8 @@ function makeMemberContext(channelId?: string) {
     did: "did:test:member",
     isGlobalAdmin: false,
     isOwner: false,
-    canAccessRealm: (_id: string) => true,
-    canAdminRealm: (_id: string) => false,
+    canAccessWorkspace: (_id: string) => true,
+    canAdminWorkspace: (_id: string) => false,
   };
 }
 
@@ -188,34 +188,35 @@ function req(method: string, url: string, body?: unknown): NextRequest {
  * minimal fake that satisfies exactly what the route handler needs.
  */
 function webhookReq(url: string, bodyStr: string, sig: string): NextRequest {
+  const headers = new Headers();
+  headers.set("x-signature", sig);
   return {
+    url,
     text: async () => bodyStr,
-    headers: {
-      get: (h: string) => (h.toLowerCase() === "x-signature" ? sig : null),
-    },
+    headers,
   } as unknown as NextRequest;
 }
 
 // ---------------------------------------------------------------------------
-// Test realm + agent setup
+// Test workspace + agent setup
 // ---------------------------------------------------------------------------
 
-let testRealmId: string;
+let testWorkspaceId: string;
 let testAgentDid: string;
 let testAgentName: string;
 
 beforeAll(async () => {
-  testRealmId = `${T}realm-1`;
+  testWorkspaceId = `${T}workspace-1`;
   testAgentDid = `${T}agent-did-1`;
   testAgentName = "tch-test-agent";
 
   // ── Prisma (ChannelService + API routes use Prisma) ──────────────────────
-  await prisma.realm.upsert({
-    where: { id: testRealmId },
+  await prisma.workspace.upsert({
+    where: { id: testWorkspaceId },
     create: {
-      id: testRealmId,
-      name: "Channel Test Realm",
-      slug: "channel-test-realm",
+      id: testWorkspaceId,
+      name: "Channel Test Workspace",
+      slug: "channel-test-workspace",
       color: "#6366f1",
     },
     update: {},
@@ -230,14 +231,14 @@ beforeAll(async () => {
     create: { id: "user-uuid-123", did: "did:test:admin", name: "Test Admin" },
     update: {},
   });
-  await prisma.userRealm.upsert({
+  await prisma.userWorkspace.upsert({
     where: {
-      userId_realmId: { userId: "user-uuid-123", realmId: testRealmId },
+      userId_workspaceId: { userId: "user-uuid-123", workspaceId: testWorkspaceId },
     },
     create: {
       userId: "user-uuid-123",
-      realmId: testRealmId,
-      isRealmAdmin: true,
+      workspaceId: testWorkspaceId,
+      role: "Admin",
     },
     update: {},
   });
@@ -245,10 +246,10 @@ beforeAll(async () => {
 
 afterAll(async () => {
   // Prisma cleanup
-  await prisma.userRealm.deleteMany({ where: { userId: "user-uuid-123" } });
+  await prisma.userWorkspace.deleteMany({ where: { userId: "user-uuid-123" } });
   await prisma.user.deleteMany({ where: { id: "user-uuid-123" } });
   await prisma.agent.deleteMany({ where: { did: testAgentDid } });
-  await prisma.realm.deleteMany({ where: { id: { startsWith: T } } });
+  await prisma.workspace.deleteMany({ where: { id: { startsWith: T } } });
 });
 
 beforeEach(() => {
@@ -264,7 +265,7 @@ describe("ChannelService: createChannel", () => {
     const channel = await ChannelService.createChannel({
       name: "Test Channel",
       slug: `${S}create-basic`,
-      realmId: testRealmId,
+      workspaceId: testWorkspaceId,
       creatorDid: "did:test:creator",
     });
 
@@ -275,7 +276,7 @@ describe("ChannelService: createChannel", () => {
       expect(fetched).not.toBeNull();
       expect(fetched!.name).toBe("Test Channel");
       expect(fetched!.slug).toBe(`${S}create-basic`);
-      expect(fetched!.realmId).toBe(testRealmId);
+      expect(fetched!.workspaceId).toBe(testWorkspaceId);
       expect(fetched!.isArchived).toBe(false);
 
       // Creator should be an owner member
@@ -299,18 +300,18 @@ describe("ChannelService: createChannel", () => {
       ChannelService.createChannel({
         name: "Bad Slug",
         slug: "Bad Slug!",
-        realmId: testRealmId,
+        workspaceId: testWorkspaceId,
         creatorDid: "did:test:admin",
       })
     ).rejects.toThrow(/slug/i);
   });
 
-  it("throws on duplicate slug within the same realm", async () => {
+  it("throws on duplicate slug within the same workspace", async () => {
     const slug = `${S}dup-slug`;
     const channel = await ChannelService.createChannel({
       name: "First",
       slug,
-      realmId: testRealmId,
+      workspaceId: testWorkspaceId,
       creatorDid: "did:test:admin",
     });
 
@@ -319,7 +320,7 @@ describe("ChannelService: createChannel", () => {
         ChannelService.createChannel({
           name: "Second",
           slug,
-          realmId: testRealmId,
+          workspaceId: testWorkspaceId,
           creatorDid: "did:test:admin",
         })
       ).rejects.toThrow(/already exists/i);
@@ -343,7 +344,7 @@ describe("ChannelService: getChannel", () => {
     const channel = await ChannelService.createChannel({
       name: "Get Test",
       slug: `${S}get-test`,
-      realmId: testRealmId,
+      workspaceId: testWorkspaceId,
       creatorDid: "did:test:admin",
     });
 
@@ -367,7 +368,7 @@ describe("ChannelService: postMessage", () => {
     const channel = await ChannelService.createChannel({
       name: "Msg Test",
       slug: `${S}msg-test`,
-      realmId: testRealmId,
+      workspaceId: testWorkspaceId,
       creatorDid: "did:test:admin",
     });
 
@@ -404,7 +405,7 @@ describe("ChannelService: postMessage", () => {
     const channel = await ChannelService.createChannel({
       name: "Agent Msg",
       slug: `${S}agent-msg`,
-      realmId: testRealmId,
+      workspaceId: testWorkspaceId,
       creatorDid: "did:test:admin",
     });
 
@@ -441,7 +442,7 @@ describe("ChannelService: createThreadReply", () => {
     const channel = await ChannelService.createChannel({
       name: "Thread Test",
       slug: `${S}thread-test`,
-      realmId: testRealmId,
+      workspaceId: testWorkspaceId,
       creatorDid: "did:test:admin",
     });
 
@@ -481,7 +482,7 @@ describe("ChannelService: createThreadReply", () => {
     const channel = await ChannelService.createChannel({
       name: "Thread Err",
       slug: `${S}thread-err`,
-      realmId: testRealmId,
+      workspaceId: testWorkspaceId,
       creatorDid: "did:test:admin",
     });
 
@@ -511,7 +512,7 @@ describe("ChannelService: addChannelMember / removeChannelMember", () => {
     const channel = await ChannelService.createChannel({
       name: "Member Test",
       slug: `${S}member-test`,
-      realmId: testRealmId,
+      workspaceId: testWorkspaceId,
       creatorDid: "did:test:admin",
     });
 
@@ -544,7 +545,7 @@ describe("ChannelService: addChannelMember / removeChannelMember", () => {
     const channel = await ChannelService.createChannel({
       name: "Dup Member",
       slug: `${S}dup-member`,
-      realmId: testRealmId,
+      workspaceId: testWorkspaceId,
       creatorDid: "did:test:admin",
     });
 
@@ -576,7 +577,7 @@ describe("ChannelService: addChannelMember / removeChannelMember", () => {
     const channel = await ChannelService.createChannel({
       name: "Remove Member",
       slug: `${S}remove-member`,
-      realmId: testRealmId,
+      workspaceId: testWorkspaceId,
       creatorDid: "did:test:admin",
     });
 
@@ -615,7 +616,7 @@ describe("ChannelService: getMemberRole", () => {
     const channel = await ChannelService.createChannel({
       name: "Role Test",
       slug: `${S}role-test`,
-      realmId: testRealmId,
+      workspaceId: testWorkspaceId,
       creatorDid: "did:test:admin",
     });
 
@@ -648,7 +649,7 @@ describe("ChannelService: getMemberRole", () => {
     const channel = await ChannelService.createChannel({
       name: "Null Role",
       slug: `${S}null-role`,
-      realmId: testRealmId,
+      workspaceId: testWorkspaceId,
       creatorDid: "did:test:admin",
     });
 
@@ -672,7 +673,7 @@ describe("ChannelService: getChannelStats", () => {
     const channel = await ChannelService.createChannel({
       name: "Stats Test",
       slug: `${S}stats-test`,
-      realmId: testRealmId,
+      workspaceId: testWorkspaceId,
       creatorDid: "did:test:admin",
     });
 
@@ -751,7 +752,7 @@ describe("MessageDispatcher: processMessage", () => {
     const channel = await ChannelService.createChannel({
       name: "Dispatcher No Mention",
       slug: `${S}dispatcher-no-mention`,
-      realmId: testRealmId,
+      workspaceId: testWorkspaceId,
       creatorDid: "did:test:admin",
     });
 
@@ -790,7 +791,7 @@ describe("MessageDispatcher: processMessage", () => {
     const channel = await ChannelService.createChannel({
       name: "Dispatcher Mention",
       slug: `${S}dispatcher-mention`,
-      realmId: testRealmId,
+      workspaceId: testWorkspaceId,
       creatorDid: "did:test:admin",
     });
 
@@ -830,7 +831,7 @@ describe("MessageDispatcher: processMessage", () => {
     const channel = await ChannelService.createChannel({
       name: "Dispatcher Offline",
       slug: `${S}dispatcher-offline`,
-      realmId: testRealmId,
+      workspaceId: testWorkspaceId,
       creatorDid: "did:test:admin",
     });
 
@@ -876,38 +877,38 @@ describe("MessageDispatcher: processMessage", () => {
 describe("GET /api/channels", () => {
   it("returns 401 when unauthenticated", async () => {
     mockGetAuthContext.mockRejectedValueOnce(new APIException("UNAUTHORIZED"));
-    const r = req("GET", `http://localhost/api/channels?realm=${testRealmId}`);
+    const r = req("GET", `http://localhost/api/channels?workspace=${testWorkspaceId}`);
     const res = await channelsGET(r as any);
     expect(res._status).toBe(401);
   });
 
-  it("returns 400 if realm query param is missing", async () => {
+  it("returns 400 if workspace query param is missing", async () => {
     const r = req("GET", "http://localhost/api/channels");
     const res = await channelsGET(r as any);
     expect(res._status).toBe(400);
   });
 
-  it("returns 404 if realm does not exist", async () => {
+  it("returns 404 if workspace does not exist", async () => {
     const r = req(
       "GET",
-      "http://localhost/api/channels?realm=nonexistent-realm"
+      "http://localhost/api/channels?workspace=nonexistent-workspace"
     );
     const res = await channelsGET(r as any);
     expect(res._status).toBe(404);
   });
 
-  it("returns 200 with channels array for valid realm", async () => {
+  it("returns 200 with channels array for valid workspace", async () => {
     const channel = await ChannelService.createChannel({
       name: "List API Test",
       slug: `${S}list-api-test`,
-      realmId: testRealmId,
+      workspaceId: testWorkspaceId,
       creatorDid: "did:test:admin",
     });
 
     try {
       const r = req(
         "GET",
-        `http://localhost/api/channels?realm=${testRealmId}`
+        `http://localhost/api/channels?workspace=${testWorkspaceId}`
       );
       const res = await channelsGET(r as any);
       expect(res._status).toBe(200);
@@ -935,7 +936,7 @@ describe("POST /api/channels", () => {
     mockGetAuthContext.mockRejectedValueOnce(new APIException("UNAUTHORIZED"));
     const r = req("POST", "http://localhost/api/channels", {
       name: "Test",
-      realmId: testRealmId,
+      workspaceId: testWorkspaceId,
     });
     const res = await channelsPOST(r as any);
     expect(res._status).toBe(401);
@@ -943,7 +944,7 @@ describe("POST /api/channels", () => {
 
   it("returns 400 if name is missing", async () => {
     const r = req("POST", "http://localhost/api/channels", {
-      realmId: testRealmId,
+      workspaceId: testWorkspaceId,
     });
     const res = await channelsPOST(r as any);
     expect(res._status).toBe(400);
@@ -958,10 +959,10 @@ describe("POST /api/channels", () => {
     expect(res._status).toBe(403);
   });
 
-  it("creates a realm-scoped channel and returns 201", async () => {
+  it("creates a workspace-scoped channel and returns 201", async () => {
     const r = req("POST", "http://localhost/api/channels", {
       name: "Created Via API",
-      realmId: testRealmId,
+      workspaceId: testWorkspaceId,
       description: "desc",
     });
     const res = await channelsPOST(r as any);
@@ -971,15 +972,15 @@ describe("POST /api/channels", () => {
       channel: {
         id: string;
         name: string;
-        realm_id?: string;
-        realmId?: string;
+        workspace_id?: string;
+        workspaceId?: string;
       };
     };
     expect(body.channel.id).toBeTruthy();
     expect(body.channel.name).toBe("Created Via API");
-    // ChannelDao.create returns raw row (realm_id), so accept either form
-    const returnedRealmId = body.channel.realmId ?? body.channel.realm_id;
-    expect(returnedRealmId).toBe(testRealmId);
+    // ChannelDao.create returns raw row (workspace_id), so accept either form
+    const returnedWorkspaceId = body.channel.workspaceId ?? body.channel.workspace_id;
+    expect(returnedWorkspaceId).toBe(testWorkspaceId);
 
     // Cleanup
     await prisma.channelMember.deleteMany({
@@ -1008,7 +1009,7 @@ describe("GET /api/channels/[id]", () => {
     const channel = await ChannelService.createChannel({
       name: "Detail Test",
       slug: `${S}detail-test`,
-      realmId: testRealmId,
+      workspaceId: testWorkspaceId,
       creatorDid: "did:test:admin",
     });
 
@@ -1050,7 +1051,7 @@ describe("PATCH /api/channels/[id]", () => {
     const channel = await ChannelService.createChannel({
       name: "Patch Forbidden",
       slug: `${S}patch-forbidden`,
-      realmId: testRealmId,
+      workspaceId: testWorkspaceId,
       creatorDid: "did:test:someone-else",
     });
 
@@ -1074,7 +1075,7 @@ describe("PATCH /api/channels/[id]", () => {
     const channel = await ChannelService.createChannel({
       name: "Old Name",
       slug: `${S}patch-name`,
-      realmId: testRealmId,
+      workspaceId: testWorkspaceId,
       creatorDid: "did:test:admin",
     });
 
@@ -1108,7 +1109,7 @@ describe("DELETE /api/channels/[id]", () => {
     const channel = await ChannelService.createChannel({
       name: "Delete Forbidden",
       slug: `${S}delete-forbidden`,
-      realmId: testRealmId,
+      workspaceId: testWorkspaceId,
       creatorDid: "did:test:someone-else",
     });
 
@@ -1132,7 +1133,7 @@ describe("DELETE /api/channels/[id]", () => {
     const channel = await ChannelService.createChannel({
       name: "Archive Me",
       slug: `${S}archive-me`,
-      realmId: testRealmId,
+      workspaceId: testWorkspaceId,
       creatorDid: "did:test:admin",
     });
 
@@ -1164,7 +1165,7 @@ describe("POST /api/channels/[id]/members", () => {
     const channel = await ChannelService.createChannel({
       name: "Members 400",
       slug: `${S}members-400`,
-      realmId: testRealmId,
+      workspaceId: testWorkspaceId,
       creatorDid: "did:test:admin",
     });
 
@@ -1189,7 +1190,7 @@ describe("POST /api/channels/[id]/members", () => {
     const channel = await ChannelService.createChannel({
       name: "Members 409",
       slug: `${S}members-409`,
-      realmId: testRealmId,
+      workspaceId: testWorkspaceId,
       creatorDid: "did:test:admin",
     });
 
@@ -1223,7 +1224,7 @@ describe("POST /api/channels/[id]/members", () => {
     const channel = await ChannelService.createChannel({
       name: "Members 201",
       slug: `${S}members-201`,
-      realmId: testRealmId,
+      workspaceId: testWorkspaceId,
       creatorDid: "did:test:admin",
     });
 
@@ -1263,7 +1264,7 @@ describe("DELETE /api/channels/[id]/members/[memberDid]", () => {
     const channel = await ChannelService.createChannel({
       name: "Remove Via API",
       slug: `${S}remove-via-api`,
-      realmId: testRealmId,
+      workspaceId: testWorkspaceId,
       creatorDid: "did:test:admin",
     });
 
@@ -1331,7 +1332,7 @@ describe("GET /api/channels/[id]/messages", () => {
     const channel = await ChannelService.createChannel({
       name: "Msgs List",
       slug: `${S}msgs-list`,
-      realmId: testRealmId,
+      workspaceId: testWorkspaceId,
       creatorDid: "did:test:admin",
     });
 
@@ -1375,7 +1376,7 @@ describe("GET /api/channels/[id]/messages", () => {
     const channel = await ChannelService.createChannel({
       name: "Msgs Forbidden",
       slug: `${S}msgs-forbidden`,
-      realmId: testRealmId,
+      workspaceId: testWorkspaceId,
       creatorDid: "did:test:someone-else",
     });
 
@@ -1408,7 +1409,7 @@ describe("POST /api/channels/[id]/messages", () => {
     const channel = await ChannelService.createChannel({
       name: "Post Msg 400",
       slug: `${S}post-msg-400`,
-      realmId: testRealmId,
+      workspaceId: testWorkspaceId,
       creatorDid: "did:test:admin",
     });
 
@@ -1432,7 +1433,7 @@ describe("POST /api/channels/[id]/messages", () => {
     const channel = await ChannelService.createChannel({
       name: "Post Msg 201",
       slug: `${S}post-msg-201`,
-      realmId: testRealmId,
+      workspaceId: testWorkspaceId,
       creatorDid: "did:test:admin",
     });
 
@@ -1472,14 +1473,14 @@ describe("POST /api/channels/[id]/messages/agent-response", () => {
     mockGetAuthContext.mockResolvedValueOnce({
       did: "did:test:unknown-agent",
       isGlobalAdmin: false,
-      canAccessRealm: () => true,
-      canAdminRealm: () => false,
+      canAccessWorkspace: () => true,
+      canAdminWorkspace: () => false,
     });
 
     const channel = await ChannelService.createChannel({
       name: "Agent Resp 403",
       slug: `${S}agent-resp-403`,
-      realmId: testRealmId,
+      workspaceId: testWorkspaceId,
       creatorDid: "did:test:admin",
     });
 
@@ -1503,7 +1504,7 @@ describe("POST /api/channels/[id]/messages/agent-response", () => {
     const channel = await ChannelService.createChannel({
       name: "Agent Resp 201",
       slug: `${S}agent-resp-201`,
-      realmId: testRealmId,
+      workspaceId: testWorkspaceId,
       creatorDid: "did:test:admin",
     });
 
@@ -1519,8 +1520,8 @@ describe("POST /api/channels/[id]/messages/agent-response", () => {
       mockGetAuthContext.mockResolvedValueOnce({
         did: testAgentDid,
         isGlobalAdmin: false,
-        canAccessRealm: () => true,
-        canAdminRealm: () => false,
+        canAccessWorkspace: () => true,
+        canAdminWorkspace: () => false,
       });
 
       const res = await agentResponsePOST(
@@ -1551,29 +1552,29 @@ describe("POST /api/channels/[id]/messages/agent-response", () => {
 });
 
 // ===========================================================================
-// API: GET /api/realms/me
+// API: GET /api/workspaces/me
 // ===========================================================================
 
-describe("GET /api/realms/me", () => {
+describe("GET /api/workspaces/me", () => {
   it("returns 401 when unauthenticated", async () => {
     // The migrated route relies on getAuthContext throwing (not returning null);
     // createNextRoute maps the APIException to its HTTP status.
     mockGetAuthContext.mockRejectedValueOnce(new APIException("UNAUTHORIZED"));
-    const r = req("GET", "http://localhost/api/realms/me");
-    const res = await meRealmsGET(r as any);
+    const r = req("GET", "http://localhost/api/workspaces/me");
+    const res = await meWorkspacesGET(r as any);
     expect(res.status).toBe(401);
   });
 
-  it("returns 200 with realms for the authenticated user", async () => {
+  it("returns 200 with workspaces for the authenticated user", async () => {
     // did:test:admin → UserDao.getByDid returns { id: 'user-uuid-123' }
-    // user-uuid-123 is enrolled in testRealmId in beforeAll
-    const r = req("GET", "http://localhost/api/realms/me");
-    const res = await meRealmsGET(r as any);
+    // user-uuid-123 is enrolled in testWorkspaceId in beforeAll
+    const r = req("GET", "http://localhost/api/workspaces/me");
+    const res = await meWorkspacesGET(r as any);
     expect(res.status).toBe(200);
 
-    const body = (await res.json()) as { userRealms: { realmId: string }[] };
-    expect(Array.isArray(body.userRealms)).toBe(true);
-    expect(body.userRealms.some((r) => r.realmId === testRealmId)).toBe(true);
+    const body = (await res.json()) as { userWorkspaces: { workspaceId: string }[] };
+    expect(Array.isArray(body.userWorkspaces)).toBe(true);
+    expect(body.userWorkspaces.some((r) => r.workspaceId === testWorkspaceId)).toBe(true);
   });
 });
 
@@ -1694,7 +1695,7 @@ describe("BridgeFactory: fanOutMessage", () => {
     const channel = await ChannelService.createChannel({
       name: "Fan-out Test",
       slug: `${S}fan-out-test`,
-      realmId: testRealmId,
+      workspaceId: testWorkspaceId,
       creatorDid: "did:test:admin",
     });
 
@@ -1746,7 +1747,7 @@ describe("BridgeFactory: fanOutMessage", () => {
     const channel = await ChannelService.createChannel({
       name: "Skip Disabled",
       slug: `${S}skip-disabled`,
-      realmId: testRealmId,
+      workspaceId: testWorkspaceId,
       creatorDid: "did:test:admin",
     });
 
@@ -1798,7 +1799,7 @@ describe("BridgeFactory: fanOutMessage", () => {
     const channel = await ChannelService.createChannel({
       name: "Skip Incoming",
       slug: `${S}skip-incoming`,
-      realmId: testRealmId,
+      workspaceId: testWorkspaceId,
       creatorDid: "did:test:admin",
     });
 
@@ -1853,7 +1854,7 @@ describe("ChannelBridgeService: createBridge / listBridges / deleteBridge", () =
     const channel = await ChannelService.createChannel({
       name: "Bridge CRUD",
       slug: `${S}bridge-crud`,
-      realmId: testRealmId,
+      workspaceId: testWorkspaceId,
       creatorDid: "did:test:admin",
     });
 
@@ -1898,7 +1899,7 @@ describe("ChannelBridgeService: createBridge / listBridges / deleteBridge", () =
     const channel = await ChannelService.createChannel({
       name: "Bridge Dup",
       slug: `${S}bridge-dup`,
-      realmId: testRealmId,
+      workspaceId: testWorkspaceId,
       creatorDid: "did:test:admin",
     });
 
@@ -1944,7 +1945,7 @@ describe("ChannelBridgeService: createBridge / listBridges / deleteBridge", () =
     const channel = await ChannelService.createChannel({
       name: "Bridge Toggle",
       slug: `${S}bridge-toggle`,
-      realmId: testRealmId,
+      workspaceId: testWorkspaceId,
       creatorDid: "did:test:admin",
     });
 
@@ -2015,7 +2016,7 @@ describe("GET /api/channels/[id]/bridges", () => {
     const channel = await ChannelService.createChannel({
       name: "Bridges GET",
       slug: `${S}bridges-get`,
-      realmId: testRealmId,
+      workspaceId: testWorkspaceId,
       creatorDid: "did:test:admin",
     });
 
@@ -2084,7 +2085,7 @@ describe("POST /api/channels/[id]/bridges", () => {
     const channel = await ChannelService.createChannel({
       name: "Bridge POST 400a",
       slug: `${S}bridge-post-400a`,
-      realmId: testRealmId,
+      workspaceId: testWorkspaceId,
       creatorDid: "did:test:admin",
     });
 
@@ -2113,7 +2114,7 @@ describe("POST /api/channels/[id]/bridges", () => {
     const channel = await ChannelService.createChannel({
       name: "Bridge POST 400b",
       slug: `${S}bridge-post-400b`,
-      realmId: testRealmId,
+      workspaceId: testWorkspaceId,
       creatorDid: "did:test:admin",
     });
 
@@ -2143,7 +2144,7 @@ describe("POST /api/channels/[id]/bridges", () => {
     const channel = await ChannelService.createChannel({
       name: "Bridge POST 201",
       slug: `${S}bridge-post-201`,
-      realmId: testRealmId,
+      workspaceId: testWorkspaceId,
       creatorDid: "did:test:admin",
     });
 
@@ -2187,7 +2188,7 @@ describe("POST /api/channels/[id]/bridges", () => {
     const channel = await ChannelService.createChannel({
       name: "Bridge POST 409",
       slug: `${S}bridge-post-409`,
-      realmId: testRealmId,
+      workspaceId: testWorkspaceId,
       creatorDid: "did:test:admin",
     });
 
@@ -2255,7 +2256,7 @@ describe("PATCH /api/channels/[id]/bridges/[bridgeId]", () => {
     const channel = await ChannelService.createChannel({
       name: "Bridge PATCH",
       slug: `${S}bridge-patch`,
-      realmId: testRealmId,
+      workspaceId: testWorkspaceId,
       creatorDid: "did:test:admin",
     });
 
@@ -2299,7 +2300,7 @@ describe("PATCH /api/channels/[id]/bridges/[bridgeId]", () => {
     const channel = await ChannelService.createChannel({
       name: "Bridge PATCH Dir",
       slug: `${S}bridge-patch-dir`,
-      realmId: testRealmId,
+      workspaceId: testWorkspaceId,
       creatorDid: "did:test:admin",
     });
 
@@ -2366,7 +2367,7 @@ describe("DELETE /api/channels/[id]/bridges/[bridgeId]", () => {
     const channel = await ChannelService.createChannel({
       name: "Bridge DELETE",
       slug: `${S}bridge-delete`,
-      realmId: testRealmId,
+      workspaceId: testWorkspaceId,
       creatorDid: "did:test:admin",
     });
 
@@ -2433,7 +2434,7 @@ describe("POST /api/bridges/webhook/[bridgeId]/incoming", () => {
     const channel = await ChannelService.createChannel({
       name: "Webhook Sig Fail",
       slug: `${S}webhook-sig-fail`,
-      realmId: testRealmId,
+      workspaceId: testWorkspaceId,
       creatorDid: "did:test:admin",
     });
 
@@ -2479,7 +2480,7 @@ describe("POST /api/bridges/webhook/[bridgeId]/incoming", () => {
     const channel = await ChannelService.createChannel({
       name: "Webhook Outgoing Only",
       slug: `${S}webhook-out-only`,
-      realmId: testRealmId,
+      workspaceId: testWorkspaceId,
       creatorDid: "did:test:admin",
     });
 
@@ -2526,7 +2527,7 @@ describe("POST /api/bridges/webhook/[bridgeId]/incoming", () => {
     const channel = await ChannelService.createChannel({
       name: "Webhook Success",
       slug: `${S}webhook-success`,
-      realmId: testRealmId,
+      workspaceId: testWorkspaceId,
       creatorDid: "did:test:admin",
     });
 

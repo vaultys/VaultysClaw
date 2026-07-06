@@ -1,7 +1,7 @@
 /**
  * Tests for:
  *   GET/PUT/DELETE /api/agents/[did]/llm-config
- *   GET             /api/agents/[did]/realm-llm
+ *   GET             /api/agents/[did]/workspace-llm
  *
  * Uses the same mocking strategy as security.test.ts.
  */
@@ -63,7 +63,7 @@ import {
   PUT as llmConfigPUT,
   DELETE as llmConfigDELETE,
 } from "../packages/control-plane/app/api/agents/[did]/llm-config/route";
-import { GET as realmLlmGET } from "../packages/control-plane/app/api/agents/[did]/realm-llm/route";
+import { GET as workspaceLlmGET } from "../packages/control-plane/app/api/agents/[did]/workspace-llm/route";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -76,7 +76,7 @@ function adminContext() {
     did: "did:test:admin",
     isGlobalAdmin: true,
     isOwner: true,
-    canAdminRealm: () => true,
+    canAdminWorkspace: () => true,
   };
 }
 
@@ -99,28 +99,28 @@ const T = "did:test:llm-config-routes:";
 // ---------------------------------------------------------------------------
 
 let agentDid: string;
-let testRealmId: string;
+let testWorkspaceId: string;
 let modelId: string;
 
 beforeAll(async () => {
   agentDid = `${T}agent-1`;
-  testRealmId = `${T}realm-1`;
+  testWorkspaceId = `${T}workspace-1`;
   modelId = `${T}model-1`;
 
   await prisma.agent.upsert({ where: { did: agentDid }, create: { did: agentDid, name: "Test Agent", capabilities: [] }, update: {} });
-  await prisma.realm.upsert({ where: { id: testRealmId }, create: { id: testRealmId, name: "Test Realm", slug: "test-realm-llmcfg", color: "#6366f1" }, update: {} });
-  await prisma.agentRealm.upsert({ where: { agentDid_realmId: { agentDid, realmId: testRealmId } }, create: { agentDid, realmId: testRealmId, isPrimary: true }, update: {} });
+  await prisma.workspace.upsert({ where: { id: testWorkspaceId }, create: { id: testWorkspaceId, name: "Test Workspace", slug: "test-workspace-llmcfg", color: "#6366f1" }, update: {} });
+  await prisma.agentWorkspace.upsert({ where: { agentDid_workspaceId: { agentDid, workspaceId: testWorkspaceId } }, create: { agentDid, workspaceId: testWorkspaceId, isPrimary: true }, update: {} });
   await prisma.modelRegistry.upsert({ where: { id: modelId }, create: { id: modelId, name: "Test Model", provider: "openai-compatible", modelId: "ft-model", baseUrl: "http://vllm:8080", litellmModelName: "openai-compatible/ft-model", status: "active" }, update: {} });
-  await prisma.modelRealmAccess.upsert({ where: { modelId_realmId: { modelId, realmId: testRealmId } }, create: { modelId, realmId: testRealmId }, update: {} });
-  await prisma.realmRouterKey.upsert({ where: { realmId: testRealmId }, create: { realmId: testRealmId, litellmVirtualKey: "sk-test-virtual-key", allowedModelIds: ["openai-compatible/ft-model"] }, update: {} });
+  await prisma.modelWorkspaceAccess.upsert({ where: { modelId_workspaceId: { modelId, workspaceId: testWorkspaceId } }, create: { modelId, workspaceId: testWorkspaceId }, update: {} });
+  await prisma.workspaceRouterKey.upsert({ where: { workspaceId: testWorkspaceId }, create: { workspaceId: testWorkspaceId, litellmVirtualKey: "sk-test-virtual-key", allowedModelIds: ["openai-compatible/ft-model"] }, update: {} });
 });
 
 afterAll(async () => {
-  await prisma.realmRouterKey.deleteMany({ where: { realmId: testRealmId } });
-  await prisma.modelRealmAccess.deleteMany({ where: { realmId: testRealmId } });
-  await prisma.agentRealm.deleteMany({ where: { agentDid } });
+  await prisma.workspaceRouterKey.deleteMany({ where: { workspaceId: testWorkspaceId } });
+  await prisma.modelWorkspaceAccess.deleteMany({ where: { workspaceId: testWorkspaceId } });
+  await prisma.agentWorkspace.deleteMany({ where: { agentDid } });
   await prisma.modelRegistry.deleteMany({ where: { id: modelId } });
-  await prisma.realm.deleteMany({ where: { id: testRealmId } });
+  await prisma.workspace.deleteMany({ where: { id: testWorkspaceId } });
   await prisma.agent.deleteMany({ where: { did: agentDid } });
 });
 
@@ -235,14 +235,14 @@ describe("PUT /api/agents/[did]/llm-config (registryModelId)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// PUT /api/agents/[did]/llm-config — realmId + realmModelId shortcut
+// PUT /api/agents/[did]/llm-config — workspaceId + workspaceModelId shortcut
 // ---------------------------------------------------------------------------
 
-describe("PUT /api/agents/[did]/llm-config (realmId + realmModelId)", () => {
-  it("resolves virtual key and model from realm", async () => {
+describe("PUT /api/agents/[did]/llm-config (workspaceId + workspaceModelId)", () => {
+  it("resolves virtual key and model from workspace", async () => {
     const r = req("PUT", "http://localhost", {
-      realmId: testRealmId,
-      realmModelId: modelId,
+      workspaceId: testWorkspaceId,
+      workspaceModelId: modelId,
     });
     const res = await llmConfigPUT(r as any, params(agentDid));
     expect(res._status).toBe(200);
@@ -257,23 +257,23 @@ describe("PUT /api/agents/[did]/llm-config (realmId + realmModelId)", () => {
     expect((body.config as any).apiKey).toBeUndefined();
   });
 
-  it("returns 400 when realm has no virtual key", async () => {
-    const emptyRealmId = `${T}no-key-realm`;
-    await prisma.realm.upsert({ where: { id: emptyRealmId }, create: { id: emptyRealmId, name: "NKR", slug: "nkr", color: "#000" }, update: {} });
+  it("returns 400 when workspace has no virtual key", async () => {
+    const emptyWorkspaceId = `${T}no-key-workspace`;
+    await prisma.workspace.upsert({ where: { id: emptyWorkspaceId }, create: { id: emptyWorkspaceId, name: "NKR", slug: "nkr", color: "#000" }, update: {} });
 
     try {
-      const r = req("PUT", "http://localhost", { realmId: emptyRealmId, realmModelId: modelId });
+      const r = req("PUT", "http://localhost", { workspaceId: emptyWorkspaceId, workspaceModelId: modelId });
       const res = await llmConfigPUT(r as any, params(agentDid));
       expect(res._status).toBe(400);
     } finally {
-      await prisma.realm.deleteMany({ where: { id: emptyRealmId } });
+      await prisma.workspace.deleteMany({ where: { id: emptyWorkspaceId } });
     }
   });
 
-  it("returns 404 when model is not in realm", async () => {
+  it("returns 404 when model is not in workspace", async () => {
     const r = req("PUT", "http://localhost", {
-      realmId: testRealmId,
-      realmModelId: "does-not-exist",
+      workspaceId: testWorkspaceId,
+      workspaceModelId: "does-not-exist",
     });
     const res = await llmConfigPUT(r as any, params(agentDid));
     expect(res._status).toBe(404);
@@ -300,41 +300,41 @@ describe("DELETE /api/agents/[did]/llm-config", () => {
 });
 
 // ---------------------------------------------------------------------------
-// GET /api/agents/[did]/realm-llm
+// GET /api/agents/[did]/workspace-llm
 // ---------------------------------------------------------------------------
 
-describe("GET /api/agents/[did]/realm-llm", () => {
+describe("GET /api/agents/[did]/workspace-llm", () => {
   it("returns 401 when unauthenticated", async () => {
     mockGetAuthContext.mockRejectedValueOnce(new APIException("UNAUTHORIZED"));
-    const res = await realmLlmGET(
+    const res = await workspaceLlmGET(
       req("GET", "http://localhost") as any,
       params(agentDid)
     );
     expect(res._status).toBe(401);
   });
 
-  it("returns realm options with models and virtual key status", async () => {
-    const res = await realmLlmGET(
+  it("returns workspace options with models and virtual key status", async () => {
+    const res = await workspaceLlmGET(
       req("GET", "http://localhost") as any,
       params(agentDid)
     );
     expect(res._status).toBe(200);
     const body = (await res.json()) as {
       litellmBaseUrl: string;
-      realms: {
-        realmId: string;
+      workspaces: {
+        workspaceId: string;
         hasVirtualKey: boolean;
         models: { id: string }[];
       }[];
     };
-    const realm = body.realms.find((r) => r.realmId === testRealmId);
-    expect(realm).toBeTruthy();
-    expect(realm!.hasVirtualKey).toBe(true);
-    expect(realm!.models.some((m) => m.id === modelId)).toBe(true);
+    const workspace = body.workspaces.find((r) => r.workspaceId === testWorkspaceId);
+    expect(workspace).toBeTruthy();
+    expect(workspace!.hasVirtualKey).toBe(true);
+    expect(workspace!.models.some((m) => m.id === modelId)).toBe(true);
   });
 
   it("returns 404 for unknown agent", async () => {
-    const res = await realmLlmGET(
+    const res = await workspaceLlmGET(
       req("GET", "http://localhost") as any,
       params("did:test:does-not-exist")
     );

@@ -36,7 +36,7 @@ interface WorkflowStep {
 
 1. Navigate to **Workflows** in the sidebar
 2. Click **New Workflow**
-3. Select a realm and give the workflow a name
+3. Select a workspace and give the workflow a name
 4. Add steps using the visual editor
 
 ### Via API
@@ -47,7 +47,7 @@ curl -X POST https://vaultysclaw.acme.com/api/workflows \
   -d '{
     "name": "Daily Research Digest",
     "description": "Scrapes research papers and emails a summary",
-    "realmId": "realm_research",
+    "workspaceId": "workspace_research",
     "definition": {
       "variables": {
         "topic": "large language models",

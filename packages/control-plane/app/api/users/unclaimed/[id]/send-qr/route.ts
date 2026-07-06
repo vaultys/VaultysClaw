@@ -1,147 +1,74 @@
 /**
  * POST /api/users/unclaimed/:id/send-qr
- * Send a QR code to an unclaimed user via email.
- * Admin-only.
- *
- * Body:
- *   sendByEmail boolean  When true, emails the QR URL to the user's email address (default: true)
+ * Send a QR code to an unclaimed user via email. Admin-only.
  */
 
-import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import {
-  forbidden,
-  malformed,
-  notFound,
-  unauthorized,
-} from "@/lib/api/utils/api-utils";
+import { APIException } from "@/lib/api/utils/api-utils";
 import { UserServerChannel } from "@/lib/user-server-channel";
 import { VaultysId } from "@vaultys/id";
 import { sendMail, getSmtpConfig } from "@/lib/smtp";
 import { SettingsDAO, UserDAO } from "@/db";
-import { withError } from "@/lib/api/handlers/with-error";
+import { createNextRoute } from "@/lib/api/ts-rest/next-route";
+import { usersContract } from "@/lib/contracts";
 
-/**
- * @openapi
- * /api/users/unclaimed/{id}/send-qr:
- *   post:
- *     summary: Send a QR code to an unclaimed user via email.
- *     tags: [Users]
- *     parameters:
- *       - name: id
- *         in: path
- *         required: true
- *         description: The ID of the unclaimed user.
- *         schema:
- *           type: string
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               sendByEmail:
- *                 type: boolean
- *                 description: When true, emails the QR URL to the user's email address.
- *                 default: true
- *     responses:
- *       200:
- *         description: QR code sent successfully.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 qrUrl:
- *                   type: string
- *                   description: The URL of the QR code.
- *                 token:
- *                   type: string
- *                   description: The connection token.
- *                 key:
- *                   type: string
- *                   description: The connection key.
- *                 serverDid:
- *                   type: string
- *                   description: The server DID.
- *                 emailSent:
- *                   type: boolean
- *                   description: Indicates if the email was sent.
- *       400:
- *         $ref: '#/components/responses/BadRequest'
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       403:
- *         $ref: '#/components/responses/Forbidden'
- *       404:
- *         $ref: '#/components/responses/NotFound'
- */
-export const POST = withError(async (
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) => {
-  const auth = await getAuthContext(req);
-  if (!auth) return unauthorized();
-  if (!auth.isGlobalAdmin) return forbidden();
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
 
-  const { id } = await params;
-  const body = (await req.json()) as {
-    sendByEmail?: boolean;
-  };
+const handlers = createNextRoute(usersContract, {
+  sendUnclaimedQr: async ({ params, body, request }) => {
+    const auth = await getAuthContext(request);
+    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
 
-  const user = await UserDAO.findById(id);
-  if (!user) {
-    return notFound("User not found");
-  }
-  if (user.did) {
-    return forbidden("User has already claimed their account");
-  }
-  if (!user.email) {
-    return notFound("User has no email address");
-  }
+    const user = await UserDAO.findById(params.id);
+    if (!user) throw new APIException("NOT_FOUND", "User not found");
+    if (user.did)
+      throw new APIException("FORBIDDEN", "User has already claimed their account");
+    if (!user.email)
+      throw new APIException("NOT_FOUND", "User has no email address");
 
-  // Create a registration certificate
-  const cert = await UserServerChannel.createRegistrationCertificate({
-    pendingUserId: user.id,
-  });
-  const connectionString = await UserServerChannel.startP2PSession(cert);
+    const cert = await UserServerChannel.createRegistrationCertificate({
+      pendingUserId: user.id,
+    });
+    const connectionString = await UserServerChannel.startP2PSession(cert);
 
-  const serverSecret = await SettingsDAO.get("serverSecret");
-  let serverDid: string | null = null;
-  if (serverSecret) {
-    serverDid = VaultysId.fromSecret(serverSecret, "base64").did;
-  }
+    const serverSecret = await SettingsDAO.get("serverSecret");
+    const serverDid = serverSecret
+      ? VaultysId.fromSecret(serverSecret, "base64").did
+      : null;
 
-  const didParam = serverDid ? `&did=${encodeURIComponent(serverDid)}` : "";
-  const walletUrl =
-    (await SettingsDAO.get("wallet_url")) ?? "https://wallet.vaultys.net";
-  const qrUrl = `${walletUrl}/#${connectionString}&protocol=p2p&service=auth${didParam}`;
+    const didParam = serverDid ? `&did=${encodeURIComponent(serverDid)}` : "";
+    const walletUrl =
+      (await SettingsDAO.get("wallet_url")) ?? "https://wallet.vaultys.net";
+    const qrUrl = `${walletUrl}/#${connectionString}&protocol=p2p&service=auth${didParam}`;
 
-  const sendByEmail = body.sendByEmail !== false;
-  if (sendByEmail) {
-    if (!getSmtpConfig()) {
-      return malformed("SMTP is not configured");
-    }
+    const sendByEmail = body.sendByEmail !== false;
+    if (sendByEmail) {
+      if (!getSmtpConfig())
+        throw new APIException("MALFORMED", "SMTP is not configured");
 
-    const displayName = user.name ?? user.email;
-
-    await sendMail({
-      to: user.email,
-      subject: "Claim your VaultysClaw account",
-      text: [
-        `Hi ${displayName},`,
-        "",
-        "An administrator has sent you a registration link to activate your VaultysClaw account.",
-        "Scan the QR code or open the link below in your Vaultys wallet:",
-        "",
-        qrUrl,
-        "",
-        "This link is single-use and will expire after 4 minutes of inactivity.",
-        "",
-        "If you did not expect this email, please ignore it.",
-      ].join("\n"),
-      html: `
+      const displayName = user.name ?? user.email;
+      await sendMail({
+        to: user.email,
+        subject: "Claim your VaultysClaw account",
+        text: [
+          `Hi ${displayName},`,
+          "",
+          "An administrator has sent you a registration link to activate your VaultysClaw account.",
+          "Scan the QR code or open the link below in your Vaultys wallet:",
+          "",
+          qrUrl,
+          "",
+          "This link is single-use and will expire after 4 minutes of inactivity.",
+          "",
+          "If you did not expect this email, please ignore it.",
+        ].join("\n"),
+        html: `
         <div style="font-family:sans-serif;max-width:520px;margin:0 auto">
           <h2 style="color:#4f46e5">Claim your VaultysClaw account</h2>
           <p>Hi <strong>${escapeHtml(displayName)}</strong>,</p>
@@ -159,22 +86,20 @@ export const POST = withError(async (
             If you did not expect this email, please ignore it.
           </p>
         </div>`,
-    });
-  }
+      });
+    }
 
-  return NextResponse.json({
-    qrUrl,
-    token: cert.connection,
-    key: cert.key,
-    serverDid,
-    emailSent: sendByEmail && !!user.email,
-  });
+    return {
+      status: 200,
+      body: {
+        qrUrl,
+        token: cert.connection!,
+        key: cert.key,
+        serverDid: serverDid ?? "",
+        emailSent: sendByEmail && !!user.email,
+      },
+    };
+  },
 });
 
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
+export const POST = handlers.POST!;

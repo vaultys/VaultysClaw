@@ -1,25 +1,25 @@
 import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
-import { AgentDAO, KnowledgeDAO, RealmDAO } from "@/db";
+import { AgentDAO, KnowledgeDAO, WorkspaceDAO } from "@/db";
 import { knowledgeContract } from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
 const handlers = createNextRoute(knowledgeContract, {
-  // ── GET /api/knowledge?realmId=&agentDid= ─────────────────────────────────
+  // ── GET /api/knowledge?workspaceId=&agentDid= ─────────────────────────────────
   list: async ({ query, request }) => {
     const auth = await getAuthContext(request);
-    const { realmId, agentDid } = query;
+    const { workspaceId, agentDid } = query;
 
-    // Non-admins can only list sources for realms they can access.
+    // Non-admins can only list sources for workspaces they can access.
     if (
       !auth.isGlobalAdmin &&
-      realmId &&
-      !(await auth.canAccessRealm(realmId))
+      workspaceId &&
+      !(await auth.canAccessWorkspace(workspaceId))
     ) {
       throw new APIException("FORBIDDEN");
     }
 
-    const sources = await KnowledgeDAO.listSources({ realmId, agentDid });
+    const sources = await KnowledgeDAO.listSources({ workspaceId, agentDid });
     return { status: 200, body: { sources } };
   },
 
@@ -28,16 +28,16 @@ const handlers = createNextRoute(knowledgeContract, {
     const auth = await getAuthContext(request);
     if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
 
-    const { realmId, agentDid, name, sourceType, config } = body;
+    const { workspaceId, agentDid, name, sourceType, config } = body;
 
-    const realm = await RealmDAO.findById(realmId);
-    if (!realm) throw new APIException("NOT_FOUND", "Realm not found");
+    const workspace = await WorkspaceDAO.findById(workspaceId);
+    if (!workspace) throw new APIException("NOT_FOUND", "Workspace not found");
 
     const agent = await AgentDAO.findByDid(agentDid);
     if (!agent) throw new APIException("NOT_FOUND", "Agent not found");
 
     const source = await KnowledgeDAO.createSource({
-      realmId,
+      workspaceId,
       agentDid,
       name,
       sourceType,

@@ -12,7 +12,11 @@ import ReactFlow, {
   Position,
 } from "reactflow";
 import "reactflow/dist/style.css";
-import type { GraphData, GraphNode } from "@vaultysclaw/shared";
+import {
+  getInitials,
+  type GraphData,
+  type GraphNode,
+} from "@vaultysclaw/shared";
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -34,16 +38,6 @@ const ROLE_STYLE: Record<string, { bg: string; border: string; text: string }> =
       border: "border-primary-600",
       text: "text-primary-700",
     },
-    manager: {
-      bg: "bg-primary-900/30",
-      border: "border-primary-600",
-      text: "text-primary-700",
-    },
-    operator: {
-      bg: "bg-success-900/30",
-      border: "border-success-600",
-      text: "text-success-700",
-    },
     member: {
       bg: "bg-neutral-900/30",
       border: "border-neutral-600",
@@ -60,18 +54,6 @@ const AGENT_STYLE = {
 function roleStyle(role?: string) {
   return ROLE_STYLE[role ?? "member"] ?? ROLE_STYLE.member;
 }
-
-function initials(label: string): string {
-  return (
-    label
-      .split(/\s+/)
-      .map((w) => w[0] ?? "")
-      .join("")
-      .toUpperCase()
-      .slice(0, 2) || "?"
-  );
-}
-
 function truncate(s: string, max: number) {
   return s.length > max ? s.slice(0, max - 1) + "…" : s;
 }
@@ -95,11 +77,7 @@ const AgentUserNode: React.FC<NodeProps<NodeData>> = ({ data, selected }) => {
       ? "bg-warning-600"
       : data.role === "admin"
         ? "bg-primary-600"
-        : data.role === "manager"
-          ? "bg-primary-600"
-          : data.role === "operator"
-            ? "bg-success-600"
-            : "bg-neutral-600";
+        : "bg-neutral-600";
 
   return (
     <div
@@ -117,7 +95,7 @@ const AgentUserNode: React.FC<NodeProps<NodeData>> = ({ data, selected }) => {
         <div
           className={`w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 ${bgColor}`}
         >
-          {initials(data.label)}
+          {getInitials(data.label)}
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-xs font-semibold text-foreground truncate">
@@ -395,8 +373,6 @@ export default function AgentChartFlowView({
             const role = node.data?.role;
             if (role === "owner") return "rgb(var(--warning-600))";
             if (role === "admin") return "rgb(var(--primary-600))";
-            if (role === "manager") return "rgb(var(--primary-500))";
-            if (role === "operator") return "rgb(var(--success-600))";
             return "rgb(var(--neutral-500))";
           }}
           style={{

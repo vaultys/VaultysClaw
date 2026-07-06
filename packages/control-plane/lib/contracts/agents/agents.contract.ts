@@ -296,11 +296,11 @@ export const agentsContract = c.router({
     },
   },
 
-  // ─── Realm LLM ───────────────────────────────────────────────────────────────
+  // ─── Workspace LLM ───────────────────────────────────────────────────────────────
 
-  getRealmLlm: {
+  getWorkspaceLlm: {
     method: "GET",
-    path: "/api/agents/:did/realm-llm",
+    path: "/api/agents/:did/workspace-llm",
     pathParams: z.object({ did: z.string() }),
     responses: {
       200: c.type<any>(),

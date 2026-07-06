@@ -1,7 +1,7 @@
 ---
 name: add-api-route
 description: "Add a new REST API route to the control-plane. Use when creating a new resource endpoint, adding GET/POST/PUT/DELETE handlers, building paginated list APIs, or extending the REST API surface. Covers file creation, auth guard, DB queries, response shape, api-types.ts registration, and test scaffolding."
-argument-hint: "<resource> [sub-resource] — e.g. 'invitations' or 'realms/members'"
+argument-hint: "<resource> [sub-resource] — e.g. 'invitations' or 'workspaces/members'"
 ---
 
 # Add API Route — Control Plane
@@ -21,14 +21,14 @@ From the argument (e.g. `invitations`):
 - Collection: `app/api/invitations/route.ts` — `GET` (list) + `POST` (create)
 - Item: `app/api/invitations/[id]/route.ts` — `GET` (detail) + `PUT`/`PATCH` (update) + `DELETE`
 
-If sub-resource (e.g. `realms/members`): `app/api/realms/[id]/members/route.ts`.
+If sub-resource (e.g. `workspaces/members`): `app/api/workspaces/[id]/members/route.ts`.
 
 ### 2. Create the Route File
 
 Use [./assets/route-template.ts](./assets/route-template.ts) as starting point. Key rules:
 
 - Always call `getAuthContext(request)` first (pass `request` for API key auth); return `unauthorized()` if null
-- Use `forbidden()` for permission failures (e.g. `!auth.isGlobalAdmin`, `!auth.canAccessRealm(id)`)
+- Use `forbidden()` for permission failures (e.g. `!auth.isGlobalAdmin`, `!auth.canAccessWorkspace(id)`)
 - Wrap all handlers in `try/catch`; log with `console.error("METHOD /api/<resource> error:", err)`
 - For list endpoints, apply pagination — see template for the pattern
 - Parse `[id]` from dynamic segments with `const { id } = await params`

@@ -12,7 +12,7 @@ const handlers = createNextRoute(knowledgeContract, {
     const source = await KnowledgeDAO.findSource(params.id);
     if (!source) throw new APIException("NOT_FOUND", "Knowledge source not found");
 
-    if (!auth.isGlobalAdmin && !(await auth.canAccessRealm(source.realmId))) {
+    if (!auth.isGlobalAdmin && !(await auth.canAccessWorkspace(source.workspaceId))) {
       throw new APIException("FORBIDDEN");
     }
 

@@ -24,7 +24,7 @@ From the repo root the equivalent aliases are `pnpm agent:dev`, `pnpm agent:tui`
 - **`src/llm.ts`** — LLM invocation via Mastra + AI SDK; supports OpenAI,
   Anthropic, Google, and Ollama.
 - **`src/tools/`** — built-in tools: file ops, shell, code runner, HTTP, remote-agent calls.
-- **`src/skills/`** — plugin-based skills (npm packages or local dirs), enabled per-realm.
+- **`src/skills/`** — plugin-based skills (npm packages or local dirs), enabled per-workspace.
 - **`src/memory/`** — semantic memory: SQLite persistence, vector retrieval, LLM summarization.
 
 Local state lives in `agent.db` (delegation certs, peer grants, LLM config, token

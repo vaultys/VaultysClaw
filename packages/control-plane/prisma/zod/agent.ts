@@ -1,5 +1,5 @@
 import * as z from "zod"
-import { CompleteAgentRealm, RelatedAgentRealmModel, CompleteAgentTokenUsage, RelatedAgentTokenUsageModel, CompleteAgentTokenUsageHistory, RelatedAgentTokenUsageHistoryModel, CompleteAgentPeerGrant, RelatedAgentPeerGrantModel, CompleteAgentSkillOverride, RelatedAgentSkillOverrideModel, CompleteKnowledgeSource, RelatedKnowledgeSourceModel } from "./index"
+import { CompleteAgentWorkspace, RelatedAgentWorkspaceModel, CompleteAgentTokenUsage, RelatedAgentTokenUsageModel, CompleteAgentTokenUsageHistory, RelatedAgentTokenUsageHistoryModel, CompleteAgentPeerGrant, RelatedAgentPeerGrantModel, CompleteAgentSkillOverride, RelatedAgentSkillOverrideModel, CompleteKnowledgeSource, RelatedKnowledgeSourceModel } from "./index"
 
 // Helper schema for JSON fields
 type Literal = boolean | number | string
@@ -29,7 +29,7 @@ export const AgentModel = z.object({
 })
 
 export interface CompleteAgent extends z.infer<typeof AgentModel> {
-  agentRealms: CompleteAgentRealm[]
+  agentWorkspaces: CompleteAgentWorkspace[]
   tokenUsage?: CompleteAgentTokenUsage | null
   tokenHistory: CompleteAgentTokenUsageHistory[]
   peerGrantsSource: CompleteAgentPeerGrant[]
@@ -44,7 +44,7 @@ export interface CompleteAgent extends z.infer<typeof AgentModel> {
  * NOTE: Lazy required in case of potential circular dependencies within schema
  */
 export const RelatedAgentModel: z.ZodSchema<CompleteAgent> = z.lazy(() => AgentModel.extend({
-  agentRealms: RelatedAgentRealmModel.array(),
+  agentWorkspaces: RelatedAgentWorkspaceModel.array(),
   tokenUsage: RelatedAgentTokenUsageModel.nullish(),
   tokenHistory: RelatedAgentTokenUsageHistoryModel.array(),
   peerGrantsSource: RelatedAgentPeerGrantModel.array(),

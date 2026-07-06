@@ -11,10 +11,10 @@ description: Create and configure channels, manage membership, and understand pu
 ### Via the dashboard
 
 1. Navigate to **Channels** in the left sidebar.
-2. Select the realm you want the channel to belong to (or choose **Global** for cross-realm channels).
+2. Select the workspace you want the channel to belong to (or choose **Global** for cross-workspace channels).
 3. Click **New Channel**.
 4. Enter a **name** (human-readable, e.g. "Engineering") and an optional **description** and **topic**.
-5. Choose **Public** (all realm members can read) or **Private** (invite-only).
+5. Choose **Public** (all workspace members can read) or **Private** (invite-only).
 6. Click **Create**. You are automatically added as the channel owner.
 
 ### Via API
@@ -27,12 +27,12 @@ POST /api/channels
 {
   "name": "Engineering",
   "description": "Internal engineering channel",
-  "realmId": "realm_01HZ...",
+  "workspaceId": "workspace_01HZ...",
   "isPublic": true
 }
 ```
 
-Omit `realmId` to create a **global** channel (requires global admin).
+Omit `workspaceId` to create a **global** channel (requires global admin).
 
 **Response:**
 
@@ -40,7 +40,7 @@ Omit `realmId` to create a **global** channel (requires global admin).
 {
   "channel": {
     "id": "ch_01HZ...",
-    "realmId": "realm_01HZ...",
+    "workspaceId": "workspace_01HZ...",
     "name": "Engineering",
     "slug": "engineering",
     "isPublic": true,
@@ -52,13 +52,13 @@ Omit `realmId` to create a **global** channel (requires global admin).
 }
 ```
 
-The `slug` is auto-generated from the name (lowercase, spaces replaced with hyphens). Slugs must be unique within a realm. You can override the auto-generated slug by including `slug` in the request body.
+The `slug` is auto-generated from the name (lowercase, spaces replaced with hyphens). Slugs must be unique within a workspace. You can override the auto-generated slug by including `slug` in the request body.
 
 ## Channel visibility
 
 ### Public channels
 
-Public channels are visible and readable to **all members of the realm**. Any realm member can view the message history. Posting still requires being an explicit member with at least the `member` role.
+Public channels are visible and readable to **all members of the workspace**. Any workspace member can view the message history. Posting still requires being an explicit member with at least the `member` role.
 
 ### Private channels
 
@@ -66,7 +66,7 @@ Private channels are only visible to their explicit member list. Non-members rec
 
 ### Global channels
 
-A global channel has `realmId: null` and is accessible to authenticated users across all realms. Only a global admin can create global channels. Global channels are designed for organisation-wide announcements or infrastructure alerts.
+A global channel has `workspaceId: null` and is accessible to authenticated users across all workspaces. Only a global admin can create global channels. Global channels are designed for organisation-wide announcements or infrastructure alerts.
 
 ## Managing membership
 
@@ -152,13 +152,13 @@ DELETE /api/channels/:channelId
 
 The channel's `isArchived` flag is set to `true`. The channel remains accessible via `GET /api/channels/:channelId` for history browsing.
 
-## Listing channels for a realm
+## Listing channels for a workspace
 
 ```http
-GET /api/channels?realm=realm_01HZ...
+GET /api/channels?workspace=workspace_01HZ...
 ```
 
-Returns all non-archived channels in the realm plus all global channels. Include `includeArchived=true` to also return archived channels.
+Returns all non-archived channels in the workspace plus all global channels. Include `includeArchived=true` to also return archived channels.
 
 ```json
 {
@@ -184,7 +184,7 @@ Agents are added to channels exactly like users. Once an agent is a member, it c
 - Post messages via `POST /api/channels/:channelId/messages/agent-response`
 - Be targeted by bridge-incoming messages that contain its @name
 
-When you add an agent to a channel, consider whether the channel is **public** (anyone who joins the realm can now trigger the agent via @mention) or **private** (only your explicitly invited list can interact with it).
+When you add an agent to a channel, consider whether the channel is **public** (anyone who joins the workspace can now trigger the agent via @mention) or **private** (only your explicitly invited list can interact with it).
 
 ```bash
 # Add the code-review agent to #engineering

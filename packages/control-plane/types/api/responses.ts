@@ -7,9 +7,9 @@ export type FileContent = {
 
 export type SafeLlmConfig = Omit<LlmConfig, "apiKey"> & { apiKeySet: boolean };
 
-export type AgentRealmInfo = {
-  realmId: string;
-  realmName: string;
+export type AgentWorkspaceInfo = {
+  workspaceId: string;
+  workspaceName: string;
   isPrimary: boolean;
   hasVirtualKey: boolean;
   models: ModelRegistry[];
@@ -28,8 +28,8 @@ export type TokenUsageHistory = {
   data: TokenUsageBucket[];
 };
 
-export type RealmLlmData = {
+export type WorkspaceLlmData = {
   litellmConfigured: boolean;
   litellmBaseUrl: string | null;
-  realms: AgentRealmInfo[];
+  workspaces: AgentWorkspaceInfo[];
 };

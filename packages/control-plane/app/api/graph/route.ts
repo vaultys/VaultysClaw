@@ -9,8 +9,14 @@ import type {
 } from "@vaultysclaw/shared";
 import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
-import { graphContract } from "@/lib/contracts";
+import {
+  AgentRecord,
+  Filters,
+  graphContract,
+  UserRecord,
+} from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
+import { normalizeRole } from "@/lib/roles";
 
 /**
  * GET /api/graph — return the full relationship graph (nodes + edges). Global admin only.
@@ -18,7 +24,7 @@ import { createNextRoute } from "@/lib/api/ts-rest/next-route";
  * Query params:
  *   ?agent=<did>       — scope to a single agent and its direct neighbours
  *   ?user=<did>        — scope to a single user and its direct neighbours
- *   ?realm=<id>        — scope to users and agents that are members of the realm
+ *   ?workspace=<id>        — scope to users and agents that are members of the workspace
  */
 /**
  * @openapi
@@ -39,9 +45,9 @@ import { createNextRoute } from "@/lib/api/ts-rest/next-route";
  *         required: false
  *         schema:
  *           type: string
- *       - name: realm
+ *       - name: workspace
  *         in: query
- *         description: Scope to users and agents that are members of the realm.
+ *         description: Scope to users and agents that are members of the workspace.
  *         required: false
  *         schema:
  *           type: string
@@ -69,28 +75,28 @@ import { createNextRoute } from "@/lib/api/ts-rest/next-route";
  *         description: Failed to build graph.
  */
 const handlers = createNextRoute(graphContract, {
-  // ── GET /api/graph?agent=&user=&realm= ────────────────────────────────────
+  // ── GET /api/graph?agent=&user=&workspace= ────────────────────────────────────
   get: async ({ query, request }) => {
     const auth = await getAuthContext(request);
 
     const agentDid = query.agent ?? null;
     const userDid = query.user ?? null;
-    const realmId = query.realm ?? null;
+    const workspaceId = query.workspace ?? null;
 
     // Full graph is global-admin only; scoped views require matching access
     if (!auth.isGlobalAdmin) {
       if (agentDid) {
         if (!(await auth.canAccessAgent(agentDid)))
           throw new APIException("FORBIDDEN");
-      } else if (realmId) {
-        if (!(await auth.canAccessRealm(realmId)))
+      } else if (workspaceId) {
+        if (!(await auth.canAccessWorkspace(workspaceId)))
           throw new APIException("FORBIDDEN");
       } else {
         throw new APIException("FORBIDDEN");
       }
     }
 
-    const graph = await buildGraph({ agentDid, userDid, realmId });
+    const graph = await buildGraph({ agentDid, userDid, workspaceId });
     return { status: 200, body: graph };
   },
 });
@@ -99,35 +105,9 @@ export const GET = handlers.GET!;
 
 // ---------------------------------------------------------------------------
 
-interface Filters {
-  agentDid: string | null;
-  userDid: string | null;
-  realmId: string | null;
-}
-
-// Shape returned by prisma.user.findMany / findUnique for graph use
-type UserRecord = {
-  id: string;
-  did: string | null;
-  name: string | null;
-  role: string;
-  reportsTo: string | null;
-  isOwner: boolean;
-  isAdmin: boolean;
-};
-
-// Shape returned by prisma.agent queries
-type AgentRecord = {
-  did: string;
-  name: string;
-};
-
 function effectiveUserRole(u: UserRecord): UserRole {
-  return u.isOwner
-    ? "owner"
-    : u.isAdmin
-      ? "admin"
-      : ((u.role as UserRole) ?? "member");
+  // Graph node roles are the lowercase presentation enum (shared UserRole).
+  return normalizeRole(u.role).toLowerCase() as UserRole;
 }
 
 function addUserNode(nodes: Map<string, GraphNode>, u: UserRecord): void {
@@ -175,8 +155,6 @@ async function buildGraph(filters: Filters): Promise<GraphData> {
         name: true,
         role: true,
         reportsTo: true,
-        isOwner: true,
-        isAdmin: true,
       },
     });
     const children = targetUser
@@ -188,8 +166,6 @@ async function buildGraph(filters: Filters): Promise<GraphData> {
             name: true,
             role: true,
             reportsTo: true,
-            isOwner: true,
-            isAdmin: true,
           },
         })
       : [];
@@ -207,8 +183,6 @@ async function buildGraph(filters: Filters): Promise<GraphData> {
               name: true,
               role: true,
               reportsTo: true,
-              isOwner: true,
-              isAdmin: true,
             },
           },
         },
@@ -232,14 +206,12 @@ async function buildGraph(filters: Filters): Promise<GraphData> {
               name: true,
               role: true,
               reportsTo: true,
-              isOwner: true,
-              isAdmin: true,
             },
           })
         : [];
-  } else if (filters.realmId) {
-    const userRealms = await prisma.userRealm.findMany({
-      where: { realmId: filters.realmId },
+  } else if (filters.workspaceId) {
+    const userWorkspaces = await prisma.userWorkspace.findMany({
+      where: { workspaceId: filters.workspaceId },
       select: {
         user: {
           select: {
@@ -248,13 +220,11 @@ async function buildGraph(filters: Filters): Promise<GraphData> {
             name: true,
             role: true,
             reportsTo: true,
-            isOwner: true,
-            isAdmin: true,
           },
         },
       },
     });
-    users = userRealms.map((ur) => ur.user);
+    users = userWorkspaces.map((ur) => ur.user);
   } else {
     users = await prisma.user.findMany({
       select: {
@@ -263,8 +233,6 @@ async function buildGraph(filters: Filters): Promise<GraphData> {
         name: true,
         role: true,
         reportsTo: true,
-        isOwner: true,
-        isAdmin: true,
       },
     });
   }
@@ -307,12 +275,12 @@ async function buildGraph(filters: Filters): Promise<GraphData> {
             select: { did: true, name: true },
           })
         : [];
-  } else if (filters.realmId) {
-    const agentRealms = await prisma.agentRealm.findMany({
-      where: { realmId: filters.realmId },
+  } else if (filters.workspaceId) {
+    const agentWorkspaces = await prisma.agentWorkspace.findMany({
+      where: { workspaceId: filters.workspaceId },
       select: { agent: { select: { did: true, name: true } } },
     });
-    agents = agentRealms.map((ar) => ar.agent);
+    agents = agentWorkspaces.map((ar) => ar.agent);
   } else {
     agents = await prisma.agent.findMany({ select: { did: true, name: true } });
   }
@@ -341,8 +309,6 @@ async function buildGraph(filters: Filters): Promise<GraphData> {
             name: true,
             role: true,
             reportsTo: true,
-            isOwner: true,
-            isAdmin: true,
           },
         })) ?? undefined;
       if (manager) {
@@ -375,14 +341,14 @@ async function buildGraph(filters: Filters): Promise<GraphData> {
       where: { OR: [{ agentDid: filters.agentDid }, { agentDid: null }] },
       select: { userDid: true, agentDid: true, capabilities: true },
     });
-  } else if (filters.realmId) {
-    // Only grants where both the user and agent are realm members
-    const realmUserDids = Array.from(userDids);
-    const realmAgentDids = Array.from(agentDids);
+  } else if (filters.workspaceId) {
+    // Only grants where both the user and agent are workspace members
+    const workspaceUserDids = Array.from(userDids);
+    const workspaceAgentDids = Array.from(agentDids);
     grants = await prisma.userGrant.findMany({
       where: {
-        userDid: { in: realmUserDids },
-        OR: [{ agentDid: null }, { agentDid: { in: realmAgentDids } }],
+        userDid: { in: workspaceUserDids },
+        OR: [{ agentDid: null }, { agentDid: { in: workspaceAgentDids } }],
       },
       select: { userDid: true, agentDid: true, capabilities: true },
     });
@@ -407,8 +373,6 @@ async function buildGraph(filters: Filters): Promise<GraphData> {
               name: true,
               role: true,
               reportsTo: true,
-              isOwner: true,
-              isAdmin: true,
             },
           });
           if (u) {
@@ -433,7 +397,7 @@ async function buildGraph(filters: Filters): Promise<GraphData> {
         label: caps.join(", "),
         capabilities: caps,
       });
-    } else if (!filters.agentDid && !filters.userDid && !filters.realmId) {
+    } else if (!filters.agentDid && !filters.userDid && !filters.workspaceId) {
       // Wildcard grant — only expand in full view to avoid flooding focused views
       for (const aDid of agentDids) {
         edges.push({
@@ -463,8 +427,8 @@ async function buildGraph(filters: Filters): Promise<GraphData> {
       where: { userDid: filters.userDid },
       select: { userDid: true, agentDid: true, capabilities: true },
     });
-  } else if (filters.realmId) {
-    // Only delegations where both user and agent are realm members
+  } else if (filters.workspaceId) {
+    // Only delegations where both user and agent are workspace members
     delegations = await prisma.delegationCert.findMany({
       where: {
         userDid: { in: Array.from(userDids) },

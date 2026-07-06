@@ -1,6 +1,6 @@
 "use client";
-import { agentsClient, unwrap } from "@/lib/api/ts-rest/client";
-import { AgentInfo } from "@/lib/contracts";
+import { agentsClient, usersClient, unwrap } from "@/lib/api/ts-rest/client";
+import { AgentInfo, type UserGrant } from "@/lib/contracts";
 import { useState, useEffect, useCallback } from "react";
 
 const CAPABILITIES = [
@@ -13,14 +13,7 @@ const CAPABILITIES = [
   { id: "system_command", label: "System Command" },
 ] as const;
 
-interface Grant {
-  id: string;
-  agentDid: string | null;
-  capabilities: string[];
-  grantedBy: string;
-  expiresAt: string | null;
-  createdAt: string;
-}
+type Grant = UserGrant;
 
 interface UserGrantsPanelProps {
   userDid: string;
@@ -40,9 +33,10 @@ export default function UserGrantsPanel({ userDid }: UserGrantsPanelProps) {
   }, []);
 
   const loadGrants = useCallback(async () => {
-    const res = await fetch(`/api/users/${encodeURIComponent(userDid)}/grants`);
-    const data = (await res.json()) as { grants: Grant[] };
-    setGrants(data.grants ?? []);
+    const { grants } = unwrap(
+      await usersClient.listGrants({ params: { did: userDid } })
+    );
+    setGrants(grants ?? []);
   }, [userDid]);
 
   useEffect(() => {
@@ -60,13 +54,12 @@ export default function UserGrantsPanel({ userDid }: UserGrantsPanelProps) {
     if (selectedCaps.length === 0) return;
     setSaving(true);
     try {
-      await fetch(`/api/users/${encodeURIComponent(userDid)}/grants`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      await usersClient.createGrant({
+        params: { did: userDid },
+        body: {
           agentDid: selectedAgent === "*" ? null : selectedAgent,
           capabilities: selectedCaps,
-        }),
+        },
       });
       setSelectedCaps([]);
       await loadGrants();
@@ -78,10 +71,9 @@ export default function UserGrantsPanel({ userDid }: UserGrantsPanelProps) {
   const handleRevoke = async (grantId: string) => {
     setRevoking(grantId);
     try {
-      await fetch(
-        `/api/users/${encodeURIComponent(userDid)}/grants/${grantId}`,
-        { method: "DELETE" }
-      );
+      await usersClient.revokeGrant({
+        params: { did: userDid, id: grantId },
+      });
       await loadGrants();
     } finally {
       setRevoking(null);

@@ -2,19 +2,14 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Loader2, UserMinus, Plus, Bot, User, Search, X } from "lucide-react";
+import { shortDid, getInitials, type ChannelMember } from "@vaultysclaw/shared";
 import {
-  shortDid,
-  getInitials,
-  type ChannelMember,
-} from "@vaultysclaw/shared";
-import { agentsClient, channelsClient, unwrap } from "@/lib/api/ts-rest/client";
-import { AgentInfo } from "@/lib/contracts";
-
-interface UserRecord {
-  did: string;
-  name: string | null;
-  email: string | null;
-}
+  agentsClient,
+  channelsClient,
+  unwrap,
+  usersClient,
+} from "@/lib/api/ts-rest/client";
+import { AgentInfo, UserListItem } from "@/lib/contracts";
 
 interface MemberListProps {
   channelId: string;
@@ -38,10 +33,10 @@ export default function MemberList({ channelId }: MemberListProps) {
   const [addType, setAddType] = useState<"agent" | "user">("agent");
   const [searchQuery, setSearchQuery] = useState("");
   const [agentResults, setAgentResults] = useState<AgentInfo[]>([]);
-  const [userResults, setUserResults] = useState<UserRecord[]>([]);
-  const [allUsers, setAllUsers] = useState<UserRecord[]>([]);
+  const [userResults, setUserResults] = useState<UserListItem[]>([]);
+  const [allUsers, setAllUsers] = useState<UserListItem[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [selectedDid, setSelectedDid] = useState("");
+  const [selectedDid, setSelectedDid] = useState<string>();
   const [selectedName, setSelectedName] = useState(""); // for display in input after pick
   const [isAdding, setIsAdding] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
@@ -70,14 +65,11 @@ export default function MemberList({ channelId }: MemberListProps) {
 
   // ── Users list for the add-member search (admin-only — graceful fallback) ───
   useEffect(() => {
-    fetch("/api/users?pageSize=100")
-      .then(async (r) => {
-        if (!r.ok) {
-          setUsersAccessible(false);
-          return;
-        }
-        const d = (await r.json()) as { users?: UserRecord[] };
-        setAllUsers(d.users ?? []);
+    usersClient
+      .list({ query: { pageSize: 100 } })
+      .then((res) => unwrap(res))
+      .then(({ users }) => {
+        setAllUsers(users ?? []);
       })
       .catch(() => setUsersAccessible(false));
   }, []);
@@ -139,7 +131,7 @@ export default function MemberList({ channelId }: MemberListProps) {
           (u) =>
             u.name?.toLowerCase().includes(q) ||
             u.email?.toLowerCase().includes(q) ||
-            u.did.toLowerCase().includes(q)
+            u.did?.toLowerCase().includes(q)
         )
         .slice(0, 8)
     );
@@ -322,64 +314,68 @@ export default function MemberList({ channelId }: MemberListProps) {
               {/* Suggestions */}
               {!selectedDid && suggestions.length > 0 && (
                 <div className="absolute top-full left-0 right-0 mt-1 bg-background-100 border border-neutral-200 rounded-lg shadow-xl z-20 overflow-hidden max-h-52 overflow-y-auto">
-                  {(suggestions as (AgentInfo | UserRecord)[]).map((item) => {
-                    const agentItem = item as AgentInfo;
-                    const userItem = item as UserRecord;
-                    const did = item.did;
-                    const label =
-                      addType === "agent"
-                        ? agentItem.name
-                        : (userItem.name ?? userItem.email ?? shortDid(did));
-                    const sub =
-                      addType === "agent"
-                        ? shortDid(did)
-                        : userItem.name && userItem.email
-                          ? userItem.email
-                          : shortDid(did);
-                    const already = alreadyMemberDids.has(did);
+                  {(suggestions as (AgentInfo | UserListItem)[]).map(
+                    (item: AgentInfo | UserListItem) => {
+                      const agentItem = item as AgentInfo;
+                      const userItem = item as UserListItem;
+                      const did = item.did;
+                      const label =
+                        addType === "agent"
+                          ? agentItem.name
+                          : (userItem.name ??
+                            userItem.email ??
+                            shortDid(did ?? undefined));
+                      const sub =
+                        addType === "agent"
+                          ? shortDid(did ?? undefined)
+                          : userItem.name && userItem.email
+                            ? userItem.email
+                            : shortDid(did ?? undefined);
+                      const already = did ? alreadyMemberDids.has(did) : false;
 
-                    return (
-                      <button
-                        key={did}
-                        type="button"
-                        disabled={already}
-                        onClick={() => {
-                          setSelectedDid(did);
-                          setSelectedName(label);
-                          setSearchQuery("");
-                        }}
-                        className={`w-full flex items-center gap-3 px-3 py-2.5 text-left transition ${
-                          already
-                            ? "opacity-40 cursor-not-allowed"
-                            : "hover:bg-background-200"
-                        }`}
-                      >
-                        {/* Avatar */}
-                        <div
-                          className={`w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 ${
-                            addType === "agent"
-                              ? "bg-gradient-to-br from-secondary-500 to-primary-600"
-                              : "bg-gradient-to-br from-primary-500 to-primary-600"
+                      return (
+                        <button
+                          key={did}
+                          type="button"
+                          disabled={already}
+                          onClick={() => {
+                            setSelectedDid(did ?? "");
+                            setSelectedName(label);
+                            setSearchQuery("");
+                          }}
+                          className={`w-full flex items-center gap-3 px-3 py-2.5 text-left transition ${
+                            already
+                              ? "opacity-40 cursor-not-allowed"
+                              : "hover:bg-background-200"
                           }`}
                         >
-                          {getInitials(label)}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-foreground truncate">
-                            {label}
-                          </p>
-                          <p className="text-xs text-foreground-500 truncate">
-                            {sub}
-                          </p>
-                        </div>
-                        {already && (
-                          <span className="text-xs text-foreground-500 flex-shrink-0">
-                            already member
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
+                          {/* Avatar */}
+                          <div
+                            className={`w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 ${
+                              addType === "agent"
+                                ? "bg-gradient-to-br from-secondary-500 to-primary-600"
+                                : "bg-gradient-to-br from-primary-500 to-primary-600"
+                            }`}
+                          >
+                            {getInitials(label)}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-foreground truncate">
+                              {label}
+                            </p>
+                            <p className="text-xs text-foreground-500 truncate">
+                              {sub}
+                            </p>
+                          </div>
+                          {already && (
+                            <span className="text-xs text-foreground-500 flex-shrink-0">
+                              already member
+                            </span>
+                          )}
+                        </button>
+                      );
+                    }
+                  )}
                 </div>
               )}
             </div>

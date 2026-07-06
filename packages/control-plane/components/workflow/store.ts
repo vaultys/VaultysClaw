@@ -6,7 +6,7 @@ export interface WorkflowState {
   workflowId: string | null;
   workflowName: string;
   workflowDescription: string;
-  workflowRealmId: string;
+  workflowWorkspaceId: string;
   workflowInput: string;
   definition: WorkflowDefinition;
 
@@ -27,12 +27,12 @@ export interface WorkflowState {
     name: string,
     description: string,
     definition: WorkflowDefinition,
-    realmId?: string
+    workspaceId?: string
   ) => void;
   setDefinition: (definition: WorkflowDefinition) => void;
   setSelectedNode: (nodeId: string | null) => void;
   clearWorkflow: () => void;
-  setRealmId: (realmId: string) => void;
+  setWorkspaceId: (workspaceId: string) => void;
   setWorkflowInput: (input: string) => void;
   setWorkflowName: (name: string) => void;
   setWorkflowDescription: (description: string) => void;
@@ -54,7 +54,7 @@ export const useWorkflowStore = create<WorkflowState>((set) => ({
   workflowId: null,
   workflowName: "Untitled Workflow",
   workflowDescription: "",
-  workflowRealmId: "default",
+  workflowWorkspaceId: "default",
   workflowInput: "",
   definition: initialDefinition,
   isExecuting: false,
@@ -65,20 +65,20 @@ export const useWorkflowStore = create<WorkflowState>((set) => ({
   selectedNodeId: null,
   showExecutionPanel: false,
 
-  setWorkflow: (id, name, description, definition, realmId = "default") =>
+  setWorkflow: (id, name, description, definition, workspaceId = "default") =>
     set({
       workflowId: id,
       workflowName: name,
       workflowDescription: description,
       definition,
-      workflowRealmId: realmId,
+      workflowWorkspaceId: workspaceId,
     }),
 
   setDefinition: (definition) => set({ definition }),
 
   setSelectedNode: (nodeId) => set({ selectedNodeId: nodeId }),
 
-  setRealmId: (realmId) => set({ workflowRealmId: realmId }),
+  setWorkspaceId: (workspaceId) => set({ workflowWorkspaceId: workspaceId }),
 
   setWorkflowInput: (input) => set({ workflowInput: input }),
 
@@ -92,7 +92,7 @@ export const useWorkflowStore = create<WorkflowState>((set) => ({
       workflowId: null,
       workflowName: "Untitled Workflow",
       workflowDescription: "",
-      workflowRealmId: "default",
+      workflowWorkspaceId: "default",
       workflowInput: "",
       definition: initialDefinition,
       selectedNodeId: null,

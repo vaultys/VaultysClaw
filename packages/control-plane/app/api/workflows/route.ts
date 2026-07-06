@@ -13,21 +13,21 @@ const handlers = createNextRoute(workflowsContract, {
   list: async ({ query, request }) => {
     const auth = await getAuthContext(request);
 
-    const { createdBy, realmId } = query;
+    const { createdBy, workspaceId } = query;
 
-    // Members can only query realms they belong to
-    if (realmId && !(await auth.canAccessRealm(realmId)))
+    // Members can only query workspaces they belong to
+    if (workspaceId && !(await auth.canAccessWorkspace(workspaceId)))
       throw new APIException("FORBIDDEN");
 
     let workflows = await WorkflowDAO.list({
       createdBy: createdBy ?? undefined,
-      realmId: realmId ?? undefined,
+      workspaceId: workspaceId ?? undefined,
     });
 
-    // Non-admins: filter to workflows in their realms
+    // Non-admins: filter to workflows in their workspaces
     if (!auth.isGlobalAdmin) {
       workflows = workflows.filter(
-        (w) => w.realmId && auth.realmIds.has(w.realmId)
+        (w) => w.workspaceId && auth.workspaceIds.has(w.workspaceId)
       );
     }
 
@@ -44,13 +44,13 @@ const handlers = createNextRoute(workflowsContract, {
     const auth = await getAuthContext(request);
 
     const { name, description, definition } = body;
-    // "default" is a client-side sentinel meaning "no explicit realm" — let the
-    // DAO resolve the actual default realm instead of treating it as a realm id.
-    const realmId = body.realmId === "default" ? undefined : body.realmId;
+    // "default" is a client-side sentinel meaning "no explicit workspace" — let the
+    // DAO resolve the actual default workspace instead of treating it as a workspace id.
+    const workspaceId = body.workspaceId === "default" ? undefined : body.workspaceId;
 
-    // If no realmId, must be global admin (no implicit realm to check admin on)
-    if (realmId) {
-      if (!(await auth.canAdminRealm(realmId)))
+    // If no workspaceId, must be global admin (no implicit workspace to check admin on)
+    if (workspaceId) {
+      if (!(await auth.canAdminWorkspace(workspaceId)))
         throw new APIException("FORBIDDEN");
     } else if (!auth.isGlobalAdmin) {
       throw new APIException("FORBIDDEN");
@@ -60,7 +60,7 @@ const handlers = createNextRoute(workflowsContract, {
       name,
       definition as unknown as Prisma.InputJsonValue,
       undefined,
-      realmId
+      workspaceId
     );
 
     if (!workflow) {

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { USER_ROLES } from "@/lib/roles";
 
 // ── Path params
 export const DidParamSchema = z.object({ did: z.string().min(1) });
@@ -10,17 +11,11 @@ export const DidGrantParamSchema = z.object({
 export const TokenParamSchema = z.object({ token: z.string() });
 
 // ── Shared enums / objects
-export const RoleEnum = z.enum([
-  "owner",
-  "admin",
-  "manager",
-  "operator",
-  "member",
-]);
+export const RoleEnum = z.enum(USER_ROLES);
 
 export const UserGrantSchema = z.object({
   id: z.string(),
-  agentDid: z.string(),
+  agentDid: z.string().nullable(),
   capabilities: z.array(z.string()),
   grantedBy: z.string(),
   expiresAt: z.string().nullable().optional(),
@@ -31,9 +26,8 @@ export const UserGrantSchema = z.object({
 export const ListUsersQuerySchema = z.object({
   q: z.string().optional(),
   role: RoleEnum.optional(),
-  isAdmin: z.enum(["true", "false"]).optional(),
   hasAccount: z.enum(["true", "false"]).optional(),
-  realm: z.string().optional(),
+  workspace: z.string().optional(),
   page: z.coerce.number().optional(),
   pageSize: z.coerce.number().optional(),
   sortBy: z.enum(["name", "email", "registeredAt"]).optional(),
@@ -41,8 +35,14 @@ export const ListUsersQuerySchema = z.object({
 });
 
 export const SearchUsersQuerySchema = z.object({
-  realm: z.string(),
+  workspace: z.string(),
   q: z.string().optional(),
+});
+
+// Optional unclaimed-user id to bind a registration QR to an existing record,
+// so scanning it claims that user instead of creating a brand-new one.
+export const InviteQuerySchema = z.object({
+  userId: z.string().optional(),
 });
 
 // ── Bodies

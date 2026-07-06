@@ -32,18 +32,6 @@ export const aboutContract = c.router({
   },
 });
 
-export const docsContract = c.router({
-  swagger: {
-    method: "GET",
-    path: "/api/docs/swagger.json",
-    summary: "OpenAPI 3.0 specification for the API (admin only)",
-    responses: {
-      200: c.type<Record<string, unknown>>(),
-      ...commonErrorResponses,
-    },
-  },
-});
-
 export const userStatusContract = c.router({
   status: {
     method: "GET",

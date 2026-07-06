@@ -2,7 +2,7 @@
  * Tests for the model registry API routes:
  *   GET/POST /api/models
  *   GET/PUT/DELETE /api/models/[id]
- *   GET/POST/DELETE /api/models/[id]/realms
+ *   GET/POST/DELETE /api/models/[id]/workspaces
  *
  * Uses the same mocking strategy as security.test.ts:
  *   - vi.mock("@/lib/auth-utils") controls the current user
@@ -54,7 +54,7 @@ vi.mock("@/lib/litellm-client", () => ({
   getLiteLLMBaseUrl: vi.fn(() => undefined),
   registerModel: vi.fn(() => Promise.resolve()),
   removeModel: vi.fn(() => Promise.resolve()),
-  createRealmKey: vi.fn(() =>
+  createWorkspaceKey: vi.fn(() =>
     Promise.resolve({ virtualKey: "sk-mock-virtual-key" })
   ),
 }));
@@ -71,7 +71,7 @@ import {
   isLiteLLMConfigured,
   registerModel,
   removeModel,
-  createRealmKey,
+  createWorkspaceKey,
 } from "../packages/control-plane/lib/litellm-client";
 import { NextRequest } from "next/server";
 
@@ -85,10 +85,10 @@ import {
   DELETE as modelDetailDELETE,
 } from "../packages/control-plane/app/api/models/[id]/route";
 import {
-  GET as modelRealmsGET,
-  POST as modelRealmsPOST,
-  DELETE as modelRealmsDELETE,
-} from "../packages/control-plane/app/api/models/[id]/realms/route";
+  GET as modelWorkspacesGET,
+  POST as modelWorkspacesPOST,
+  DELETE as modelWorkspacesDELETE,
+} from "../packages/control-plane/app/api/models/[id]/workspaces/route";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -98,14 +98,14 @@ const mockGetAuthContext = getAuthContext as ReturnType<typeof vi.fn>;
 const mockIsLiteLLMConfigured = isLiteLLMConfigured as ReturnType<typeof vi.fn>;
 const mockRegisterModel = registerModel as ReturnType<typeof vi.fn>;
 const mockRemoveModel = removeModel as ReturnType<typeof vi.fn>;
-const mockCreateRealmKey = createRealmKey as ReturnType<typeof vi.fn>;
+const mockCreateWorkspaceKey = createWorkspaceKey as ReturnType<typeof vi.fn>;
 
 function makeAdminContext() {
   return {
     did: "did:test:admin",
     isGlobalAdmin: true,
     isOwner: true,
-    canAdminRealm: () => true,
+    canAdminWorkspace: () => true,
   };
 }
 
@@ -124,21 +124,21 @@ function params(id: string) {
 const T = "test:models-routes:";
 
 // ---------------------------------------------------------------------------
-// DB setup: ensure a default realm exists so realm operations work
+// DB setup: ensure a default workspace exists so workspace operations work
 // ---------------------------------------------------------------------------
 
-let testRealmId: string;
+let testWorkspaceId: string;
 
 beforeAll(async () => {
-  testRealmId = `${T}realm-1`;
-  await prisma.realm.upsert({ where: { id: testRealmId }, create: { id: testRealmId, name: "Test Realm", slug: "test-realm-mr", color: "#6366f1" }, update: {} });
+  testWorkspaceId = `${T}workspace-1`;
+  await prisma.workspace.upsert({ where: { id: testWorkspaceId }, create: { id: testWorkspaceId, name: "Test Workspace", slug: "test-workspace-mr", color: "#6366f1" }, update: {} });
 });
 
 afterAll(async () => {
-  await prisma.modelRealmAccess.deleteMany({ where: { realmId: testRealmId } });
-  await prisma.realmRouterKey.deleteMany({ where: { realmId: testRealmId } });
+  await prisma.modelWorkspaceAccess.deleteMany({ where: { workspaceId: testWorkspaceId } });
+  await prisma.workspaceRouterKey.deleteMany({ where: { workspaceId: testWorkspaceId } });
   await prisma.modelRegistry.deleteMany({ where: { id: { startsWith: T } } });
-  await prisma.realm.deleteMany({ where: { id: testRealmId } });
+  await prisma.workspace.deleteMany({ where: { id: testWorkspaceId } });
 });
 
 beforeEach(() => {
@@ -146,7 +146,7 @@ beforeEach(() => {
   mockIsLiteLLMConfigured.mockReturnValue(false);
   mockRegisterModel.mockResolvedValue(undefined);
   mockRemoveModel.mockResolvedValue(undefined);
-  mockCreateRealmKey.mockResolvedValue({ virtualKey: "sk-mock-virtual-key" });
+  mockCreateWorkspaceKey.mockResolvedValue({ virtualKey: "sk-mock-virtual-key" });
 });
 
 // ---------------------------------------------------------------------------
@@ -322,60 +322,60 @@ describe("DELETE /api/models/[id]", () => {
 });
 
 // ---------------------------------------------------------------------------
-// POST /api/models/[id]/realms — grant access
+// POST /api/models/[id]/workspaces — grant access
 // ---------------------------------------------------------------------------
 
-describe("POST /api/models/[id]/realms", () => {
-  it("grants realm access and stores it in DB", async () => {
-    const id = `${T}realm-grant-1`;
-    await prisma.modelRegistry.upsert({ where: { id }, create: { id, name: "Realm Model", provider: "ollama", modelId: "llama3:8b", baseUrl: "http://localhost:11434", status: "active" }, update: {} });
+describe("POST /api/models/[id]/workspaces", () => {
+  it("grants workspace access and stores it in DB", async () => {
+    const id = `${T}workspace-grant-1`;
+    await prisma.modelRegistry.upsert({ where: { id }, create: { id, name: "Workspace Model", provider: "ollama", modelId: "llama3:8b", baseUrl: "http://localhost:11434", status: "active" }, update: {} });
     try {
-      const r = req("POST", `http://localhost/api/models/${id}/realms`, { realmId: testRealmId });
-      const res = await modelRealmsPOST(r as any, params(id));
+      const r = req("POST", `http://localhost/api/models/${id}/workspaces`, { workspaceId: testWorkspaceId });
+      const res = await modelWorkspacesPOST(r as any, params(id));
       expect(res._status).toBe(200);
-      const row = await prisma.modelRealmAccess.findUnique({ where: { modelId_realmId: { modelId: id, realmId: testRealmId } } });
+      const row = await prisma.modelWorkspaceAccess.findUnique({ where: { modelId_workspaceId: { modelId: id, workspaceId: testWorkspaceId } } });
       expect(row).toBeTruthy();
     } finally {
-      await prisma.modelRealmAccess.deleteMany({ where: { modelId: id } });
+      await prisma.modelWorkspaceAccess.deleteMany({ where: { modelId: id } });
       await prisma.modelRegistry.deleteMany({ where: { id } });
     }
   });
 
   it("creates a LiteLLM virtual key when configured and litellm_model_name is set", async () => {
     mockIsLiteLLMConfigured.mockReturnValue(true);
-    const id = `${T}realm-grant-litellm-1`;
-    await prisma.modelRegistry.upsert({ where: { id }, create: { id, name: "LiteLLM Realm Model", provider: "openai-compatible", modelId: "ft-v1", baseUrl: "http://vllm:8080", litellmModelName: "openai-compatible/ft-v1", status: "active" }, update: {} });
+    const id = `${T}workspace-grant-litellm-1`;
+    await prisma.modelRegistry.upsert({ where: { id }, create: { id, name: "LiteLLM Workspace Model", provider: "openai-compatible", modelId: "ft-v1", baseUrl: "http://vllm:8080", litellmModelName: "openai-compatible/ft-v1", status: "active" }, update: {} });
     try {
-      const r = req("POST", `http://localhost/api/models/${id}/realms`, { realmId: testRealmId });
-      await modelRealmsPOST(r as any, params(id));
-      expect(mockCreateRealmKey).toHaveBeenCalledWith(testRealmId, ["openai-compatible/ft-v1"], undefined);
-      const keyRow = await prisma.realmRouterKey.findUnique({ where: { realmId: testRealmId } });
+      const r = req("POST", `http://localhost/api/models/${id}/workspaces`, { workspaceId: testWorkspaceId });
+      await modelWorkspacesPOST(r as any, params(id));
+      expect(mockCreateWorkspaceKey).toHaveBeenCalledWith(testWorkspaceId, ["openai-compatible/ft-v1"], undefined);
+      const keyRow = await prisma.workspaceRouterKey.findUnique({ where: { workspaceId: testWorkspaceId } });
       expect(keyRow?.litellmVirtualKey).toBe("sk-mock-virtual-key");
     } finally {
-      await prisma.modelRealmAccess.deleteMany({ where: { modelId: id } });
-      await prisma.realmRouterKey.deleteMany({ where: { realmId: testRealmId } });
+      await prisma.modelWorkspaceAccess.deleteMany({ where: { modelId: id } });
+      await prisma.workspaceRouterKey.deleteMany({ where: { workspaceId: testWorkspaceId } });
       await prisma.modelRegistry.deleteMany({ where: { id } });
     }
   });
 });
 
 // ---------------------------------------------------------------------------
-// DELETE /api/models/[id]/realms?realmId=x — revoke access
+// DELETE /api/models/[id]/workspaces?workspaceId=x — revoke access
 // ---------------------------------------------------------------------------
 
-describe("DELETE /api/models/[id]/realms", () => {
-  it("revokes realm access from DB", async () => {
-    const id = `${T}realm-revoke-1`;
+describe("DELETE /api/models/[id]/workspaces", () => {
+  it("revokes workspace access from DB", async () => {
+    const id = `${T}workspace-revoke-1`;
     await prisma.modelRegistry.upsert({ where: { id }, create: { id, name: "Revoke Model", provider: "ollama", modelId: "llama3:8b", baseUrl: "http://localhost:11434", status: "active" }, update: {} });
-    await prisma.modelRealmAccess.upsert({ where: { modelId_realmId: { modelId: id, realmId: testRealmId } }, create: { modelId: id, realmId: testRealmId }, update: {} });
+    await prisma.modelWorkspaceAccess.upsert({ where: { modelId_workspaceId: { modelId: id, workspaceId: testWorkspaceId } }, create: { modelId: id, workspaceId: testWorkspaceId }, update: {} });
     try {
-      const r = req("DELETE", `http://localhost/api/models/${id}/realms?realmId=${testRealmId}`);
-      const res = await modelRealmsDELETE(r as any, params(id));
+      const r = req("DELETE", `http://localhost/api/models/${id}/workspaces?workspaceId=${testWorkspaceId}`);
+      const res = await modelWorkspacesDELETE(r as any, params(id));
       expect(res._status).toBe(200);
-      const row = await prisma.modelRealmAccess.findUnique({ where: { modelId_realmId: { modelId: id, realmId: testRealmId } } });
+      const row = await prisma.modelWorkspaceAccess.findUnique({ where: { modelId_workspaceId: { modelId: id, workspaceId: testWorkspaceId } } });
       expect(row).toBeNull();
     } finally {
-      await prisma.modelRealmAccess.deleteMany({ where: { modelId: id } });
+      await prisma.modelWorkspaceAccess.deleteMany({ where: { modelId: id } });
       await prisma.modelRegistry.deleteMany({ where: { id } });
     }
   });

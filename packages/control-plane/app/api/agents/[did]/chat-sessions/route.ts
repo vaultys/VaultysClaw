@@ -1,3 +1,4 @@
+import { isAdminRole } from "@/lib/roles";
 import { NextRequest } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
@@ -79,7 +80,7 @@ export const POST = withError(
     let callerDid: string | undefined;
 
     if (session?.user) {
-      isAdmin = Boolean(session.user.isAdmin);
+      isAdmin = Boolean(isAdminRole(session.user.role));
       callerDid = session.user.did ?? undefined;
     } else {
       const auth = await getAuthContext(request).catch(() => null);

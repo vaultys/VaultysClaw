@@ -37,7 +37,7 @@ export function RenewPolicyModal({
         await policiesClient.create({
           body: {
             agentDid: policy.agentDid ?? undefined,
-            realmId: policy.realmId ?? undefined,
+            workspaceId: policy.workspaceId ?? undefined,
             capabilities: policy.capabilities,
             resourceLimits: resourceLimits as
               | Record<string, unknown>

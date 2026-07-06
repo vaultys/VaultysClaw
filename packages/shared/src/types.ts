@@ -1,10 +1,4 @@
 /**
- * Core types for VaultysClaw agent orchestration platform
- */
-
-import type { ChannelEvent } from "./channel-types";
-
-/**
  * Non-transferable identity bound to a specific instance
  */
 export interface VaultysIdentity {
@@ -374,6 +368,7 @@ export interface WSDelegationUpdatePayload {
 export interface ChatMessageEntry {
   role: "user" | "assistant";
   content: string;
+  thinkingContent?: string;
 }
 
 /**
@@ -528,12 +523,12 @@ export interface WSScheduleDeletePayload {
   id: string;
 }
 
-// ---- Realms ----
+// ---- Workspaces ----
 
-/** Role a user holds within the organisation / realm hierarchy */
-export type UserRole = "owner" | "admin" | "manager" | "operator" | "member";
+/** Role a user holds within the organisation / workspace hierarchy */
+export type UserRole = "owner" | "admin" | "member";
 
-export interface Realm {
+export interface Workspace {
   id: string;
   name: string;
   slug: string;
@@ -543,25 +538,25 @@ export interface Realm {
   createdAt: string; // ISO datetime
 }
 
-export interface RealmMembership {
-  realmId: string;
-  realmName: string;
-  realmSlug: string;
-  realmColor: string;
+export interface WorkspaceMembership {
+  workspaceId: string;
+  workspaceName: string;
+  workspaceSlug: string;
+  workspaceColor: string;
   isPrimary: boolean;
 }
 
-export interface RealmConfig {
-  realmId: string;
+export interface WorkspaceConfig {
+  workspaceId: string;
   llmConfig?: import("./types").LlmConfig;
   defaultCapabilities?: import("./types").AgentCapability[];
 }
 
-// ---- Realm skill management ----
+// ---- Workspace skill management ----
 
-export interface RealmSkill {
+export interface WorkspaceSkill {
   id: string;
-  realmId: string;
+  workspaceId: string;
   name: string;
   description: string | null;
   version: string | null;
@@ -572,7 +567,7 @@ export interface RealmSkill {
 
 export interface AgentSkillOverride {
   agentDid: string;
-  realmSkillId: string;
+  workspaceSkillId: string;
   enabled: boolean;
 }
 
@@ -593,19 +588,19 @@ export interface WSSkillsConfigPayload {
 
 // ---- Graph visualisation ----
 
-export type GraphNodeType = "realm" | "user" | "agent";
+export type GraphNodeType = "workspace" | "user" | "agent";
 
 export interface GraphNode {
   id: string;
   label: string;
   type: GraphNodeType;
   role?: UserRole; // users only
-  color?: string; // realm accent color or computed
+  color?: string; // workspace accent color or computed
   isOnline?: boolean; // agents only
 }
 
 export type GraphEdgeType =
-  | "realm_member" // user/agent belongs to realm
+  | "workspace_member" // user/agent belongs to workspace
   | "grant" // user grants capabilities to agent
   | "reports_to" // user reports to another user
   | "delegation" // delegation cert exists

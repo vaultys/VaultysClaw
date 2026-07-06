@@ -75,7 +75,7 @@ describe("Sidebar", () => {
       "Agents",
       "Registrations",
       "Users",
-      "Realms",
+      "Workspaces",
       "Graph",
       "Chat",
       "Server",
@@ -119,7 +119,7 @@ describe("Sidebar", () => {
   });
 
   it("does not highlight Chat when on a different route", () => {
-    mockUsePathname.mockReturnValue("/agents");
+    mockUsePathname.mockReturnValue("/admin/agents");
     render(<Sidebar collapsed={false} onToggle={onToggle} />);
     const chatLink = screen.getByText("Chat").closest("a");
     expect(chatLink?.className).not.toContain("indigo");

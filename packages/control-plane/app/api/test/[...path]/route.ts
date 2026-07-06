@@ -5,7 +5,7 @@
  *   GET  /api/test/registrations              — list pending registrations
  *   POST /api/test/registrations/:id/approve  — approve a pending registration
  *   GET  /api/test/agents                     — list connected agents
- *   GET  /api/test/agents/:id/realm-llm       — realm LiteLLM options for agent
+ *   GET  /api/test/agents/:id/workspace-llm       — workspace LiteLLM options for agent
  *   POST /api/test/agents/:id/llm-config      — set agent LLM config (PUT shortcut)
  *   POST /api/test/intent                     — send intent {agentId, action, params}
  *   GET  /api/test/results                    — recent intent_result activity entries
@@ -13,19 +13,25 @@
  *   GET  /api/test/models                     — list all model registry entries
  *   POST /api/test/models                     — create a model registry entry
  *   DELETE /api/test/models/:id               — delete a model registry entry
- *   POST /api/test/models/:id/realms          — grant model access to realm
- *   GET  /api/test/realms                     — list all realms
+ *   POST /api/test/models/:id/workspaces          — grant model access to workspace
+ *   GET  /api/test/workspaces                     — list all workspaces
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { getWSServer } from "@/lib/ws-server";
-import { ActivityLogDAO, AgentDAO, ModelDAO, PendingRegistrationDAO, RealmDAO } from "@/db";
+import {
+  ActivityLogDAO,
+  AgentDAO,
+  ModelDAO,
+  PendingRegistrationDAO,
+  WorkspaceDAO,
+} from "@/db";
 import {
   isLiteLLMConfigured,
   getLiteLLMBaseUrl,
   registerModel,
   removeModel,
-  createRealmKey,
+  createWorkspaceKey,
 } from "@/lib/litellm-client";
 import type { LlmConfig } from "@vaultysclaw/shared";
 import { withError } from "@/lib/api/handlers/with-error";
@@ -71,10 +77,7 @@ function guard(): NextResponse | null {
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-export const GET = withError(async (
-  _req: NextRequest,
-  ctx: RouteContext
-) => {
+export const GET = withError(async (_req: NextRequest, ctx: RouteContext) => {
   const g = guard();
   if (g) return g;
 
@@ -99,35 +102,37 @@ export const GET = withError(async (
     return NextResponse.json(agents);
   }
 
-  // GET /api/test/agents/:id/realm-llm
-  if (resource === "agents" && rest[1] === "realm-llm") {
+  // GET /api/test/agents/:id/workspace-llm
+  if (resource === "agents" && rest[1] === "workspace-llm") {
     const agentDid = rest[0];
-    const memberships = await AgentDAO.getRealms(agentDid);
-    const realms = await Promise.all(memberships.map(async (m) => {
-      const routerKey = await RealmDAO.getRouterKey(m.realmId);
-      const models = (await ModelDAO.findByRealm(m.realmId))
-        .filter(
-          (model) => model.status === "active" && model.litellmModelName
-        )
-        .map((model) => ({
-          id: model.id,
-          name: model.name,
-          provider: model.provider,
-          modelId: model.modelId,
-          litellmModelName: model.litellmModelName,
-        }));
-      return {
-        realmId: m.realmId,
-        realmName: m.realm.name,
-        isPrimary: Boolean(m.isPrimary),
-        hasVirtualKey: Boolean(routerKey?.litellmVirtualKey),
-        models,
-      };
-    }));
+    const memberships = await AgentDAO.getWorkspaces(agentDid);
+    const workspaces = await Promise.all(
+      memberships.map(async (m) => {
+        const routerKey = await WorkspaceDAO.getRouterKey(m.workspaceId);
+        const models = (await ModelDAO.findByWorkspace(m.workspaceId))
+          .filter(
+            (model) => model.status === "active" && model.litellmModelName
+          )
+          .map((model) => ({
+            id: model.id,
+            name: model.name,
+            provider: model.provider,
+            modelId: model.modelId,
+            litellmModelName: model.litellmModelName,
+          }));
+        return {
+          workspaceId: m.workspaceId,
+          workspaceName: m.workspace.name,
+          isPrimary: Boolean(m.isPrimary),
+          hasVirtualKey: Boolean(routerKey?.litellmVirtualKey),
+          models,
+        };
+      })
+    );
     return NextResponse.json({
       litellmConfigured: isLiteLLMConfigured(),
       litellmBaseUrl: getLiteLLMBaseUrl(),
-      realms,
+      workspaces,
     });
   }
 
@@ -147,11 +152,11 @@ export const GET = withError(async (
     });
   }
 
-  // GET /api/test/realms — list all realms
-  if (resource === "realms") {
-    const realms = await RealmDAO.findAll();
+  // GET /api/test/workspaces — list all workspaces
+  if (resource === "workspaces") {
+    const workspaces = await WorkspaceDAO.findAll();
     return NextResponse.json({
-      realms: realms.map((r) => ({
+      workspaces: workspaces.map((r) => ({
         id: r.id,
         name: r.name,
         slug: r.slug,
@@ -201,10 +206,7 @@ export const GET = withError(async (
  *       503:
  *         description: WS server not initialised
  */
-export const POST = withError(async (
-  req: NextRequest,
-  ctx: RouteContext
-) => {
+export const POST = withError(async (req: NextRequest, ctx: RouteContext) => {
   const g = guard();
   if (g) return g;
 
@@ -236,7 +238,7 @@ export const POST = withError(async (
     return NextResponse.json({ ok: true, registrationId: id, capabilities });
   }
 
-  // POST /api/test/agents/:id/llm-config — set agent LLM config (realm routing shortcut)
+  // POST /api/test/agents/:id/llm-config — set agent LLM config (workspace routing shortcut)
   if (resource === "agents" && rest[1] === "llm-config") {
     const agentDid = rest[0];
     const body = (await req.json().catch(() => ({}))) as Record<
@@ -244,21 +246,21 @@ export const POST = withError(async (
       unknown
     >;
     if (
-      typeof body.realmId === "string" &&
-      typeof body.realmModelId === "string"
+      typeof body.workspaceId === "string" &&
+      typeof body.workspaceModelId === "string"
     ) {
-      const routerKey = await RealmDAO.getRouterKey(body.realmId);
+      const routerKey = await WorkspaceDAO.getRouterKey(body.workspaceId);
       if (!routerKey?.litellmVirtualKey) {
         return NextResponse.json(
-          { error: "Realm has no LiteLLM virtual key configured" },
+          { error: "Workspace has no LiteLLM virtual key configured" },
           { status: 400 }
         );
       }
-      const realmModels = await ModelDAO.findByRealm(body.realmId);
-      const model = realmModels.find((m) => m.id === body.realmModelId);
+      const workspaceModels = await ModelDAO.findByWorkspace(body.workspaceId);
+      const model = workspaceModels.find((m) => m.id === body.workspaceModelId);
       if (!model?.litellmModelName) {
         return NextResponse.json(
-          { error: "Model not found in realm" },
+          { error: "Model not found in workspace" },
           { status: 404 }
         );
       }
@@ -298,7 +300,7 @@ export const POST = withError(async (
       });
     }
     return NextResponse.json(
-      { error: "realmId and realmModelId (or provider and model) required" },
+      { error: "workspaceId and workspaceModelId (or provider and model) required" },
       { status: 400 }
     );
   }
@@ -344,39 +346,39 @@ export const POST = withError(async (
     );
   }
 
-  // POST /api/test/models/:id/realms — grant realm access
-  if (resource === "models" && rest[1] === "realms") {
+  // POST /api/test/models/:id/workspaces — grant workspace access
+  if (resource === "models" && rest[1] === "workspaces") {
     const modelId = rest[0];
-    const body = (await req.json().catch(() => ({}))) as { realmId?: string };
-    if (!body.realmId)
-      return NextResponse.json({ error: "realmId required" }, { status: 400 });
+    const body = (await req.json().catch(() => ({}))) as { workspaceId?: string };
+    if (!body.workspaceId)
+      return NextResponse.json({ error: "workspaceId required" }, { status: 400 });
     const entry = await ModelDAO.findById(modelId);
     if (!entry)
       return NextResponse.json({ error: "Model not found" }, { status: 404 });
 
-    await ModelDAO.grantRealmAccess(modelId, body.realmId);
+    await ModelDAO.grantWorkspaceAccess(modelId, body.workspaceId);
 
     if (isLiteLLMConfigured() && entry.litellmModelName) {
       try {
-        const existing = await RealmDAO.getRouterKey(body.realmId);
+        const existing = await WorkspaceDAO.getRouterKey(body.workspaceId);
         const currentModels: string[] = existing
           ? (existing.allowedModelIds as string[])
           : [];
         if (!currentModels.includes(entry.litellmModelName)) {
           const updated = [...currentModels, entry.litellmModelName];
-          const { virtualKey } = await createRealmKey(
-            body.realmId,
+          const { virtualKey } = await createWorkspaceKey(
+            body.workspaceId,
             updated,
             existing?.monthlyBudgetUsd ?? undefined
           );
-          await RealmDAO.upsertRouterKey(body.realmId, {
+          await WorkspaceDAO.upsertRouterKey(body.workspaceId, {
             litellmVirtualKey: virtualKey,
             allowedModelIds: updated,
           });
         }
       } catch (e) {
         console.warn(
-          "[test-api] LiteLLM realm key update failed (non-fatal):",
+          "[test-api] LiteLLM workspace key update failed (non-fatal):",
           e
         );
       }
@@ -542,31 +544,30 @@ export const POST = withError(async (
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-export const DELETE = withError(async (
-  _req: NextRequest,
-  ctx: RouteContext
-) => {
-  const g = guard();
-  if (g) return g;
+export const DELETE = withError(
+  async (_req: NextRequest, ctx: RouteContext) => {
+    const g = guard();
+    if (g) return g;
 
-  const { path } = await ctx.params;
-  const [resource, id] = path;
+    const { path } = await ctx.params;
+    const [resource, id] = path;
 
-  // DELETE /api/test/models/:id
-  if (resource === "models" && id) {
-    const entry = await ModelDAO.findById(id);
-    if (!entry)
-      return NextResponse.json({ error: "Model not found" }, { status: 404 });
-    if (isLiteLLMConfigured() && entry.litellmModelName) {
-      try {
-        await removeModel(entry.litellmModelName);
-      } catch (e) {
-        console.warn("[test-api] LiteLLM removeModel failed (non-fatal):", e);
+    // DELETE /api/test/models/:id
+    if (resource === "models" && id) {
+      const entry = await ModelDAO.findById(id);
+      if (!entry)
+        return NextResponse.json({ error: "Model not found" }, { status: 404 });
+      if (isLiteLLMConfigured() && entry.litellmModelName) {
+        try {
+          await removeModel(entry.litellmModelName);
+        } catch (e) {
+          console.warn("[test-api] LiteLLM removeModel failed (non-fatal):", e);
+        }
       }
+      await ModelDAO.delete(id);
+      return NextResponse.json({ ok: true });
     }
-    await ModelDAO.delete(id);
-    return NextResponse.json({ ok: true });
-  }
 
-  return NextResponse.json({ error: "Not found" }, { status: 404 });
-});
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+);

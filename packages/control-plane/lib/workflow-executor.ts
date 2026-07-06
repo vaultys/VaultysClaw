@@ -16,22 +16,7 @@ import type { Value as ExprValue } from "expr-eval";
 import { WorkflowDAO } from "../db";
 import { trace, SpanStatusCode } from "@opentelemetry/api";
 import { workflowRunsTotal } from "./metrics";
-
-export interface WorkflowDefinition {
-  nodes: Array<{
-    id: string;
-    type: string;
-    data: Record<string, unknown>;
-    position?: { x: number; y: number };
-  }>;
-  edges: Array<{
-    id: string;
-    source: string;
-    target: string;
-    data?: Record<string, unknown>;
-  }>;
-  input?: string;
-}
+import { WorkflowDefinition } from "./workflow-types";
 
 const logger = pino({ name: "workflow-executor" });
 
@@ -63,7 +48,7 @@ export interface ExecutionContext {
   stepOutputs: Map<string, unknown>; // step_id -> output
   stepStatus: Map<string, string>; // step_id -> status
   stepIds: Map<string, string>; // node_id -> step_id in DB
-  realmId?: string; // for skill-node agent resolution
+  workspaceId?: string; // for skill-node agent resolution
 }
 
 /**
@@ -287,22 +272,22 @@ export async function executeStep(
 
     await WorkflowDAO.updateStep(stepDbId, { status: "running" });
 
-    // Skill nodes: resolve agentId from the first capable agent in the realm if not explicit
-    if (node.type === "skill" && !node.data.agentId && context.realmId) {
+    // Skill nodes: resolve agentId from the first capable agent in the workspace if not explicit
+    if (node.type === "skill" && !node.data.agentId && context.workspaceId) {
       try {
         const { getWSServer } = await import("./ws-server");
         const wsServer = getWSServer();
-        const realmAgents =
+        const workspaceAgents =
           (await (
             WorkflowDAO as {
-              getRealmAgents?: (
-                realmId: string
+              getWorkspaceAgents?: (
+                workspaceId: string
               ) => Promise<
                 Array<{ agentDid: string; agent?: { capabilities: unknown } }>
               >;
             }
-          ).getRealmAgents?.(context.realmId)) ?? [];
-        for (const ra of realmAgents as Array<{
+          ).getWorkspaceAgents?.(context.workspaceId)) ?? [];
+        for (const ra of workspaceAgents as Array<{
           agentDid: string;
           agent?: { capabilities: unknown };
         }>) {
@@ -500,14 +485,14 @@ export async function executeWorkflow(
   definition: WorkflowDefinition,
   input?: string,
   workflowId?: string,
-  realmId?: string
+  workspaceId?: string
 ): Promise<void> {
   const tracer = trace.getTracer("vaultysclaw-control-plane");
   const workflowSpan = tracer.startSpan("vc.workflow.run", {
     attributes: {
       "workflow.run_id": runId,
       ...(workflowId ? { "workflow.id": workflowId } : {}),
-      ...(realmId ? { "realm.id": realmId } : {}),
+      ...(workspaceId ? { "workspace.id": workspaceId } : {}),
     },
   });
 
@@ -536,7 +521,7 @@ export async function executeWorkflow(
       stepOutputs: new Map(),
       stepStatus: new Map(),
       stepIds: new Map(),
-      realmId: realmId ?? workflowRow?.realmId ?? undefined,
+      workspaceId: workspaceId ?? workflowRow?.workspaceId ?? undefined,
     };
 
     // If input provided, store it in the context as a well-known "input" key

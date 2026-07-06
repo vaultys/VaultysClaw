@@ -1,152 +1,87 @@
-import { NextRequest, NextResponse } from "next/server";
+/**
+ * POST /api/bridges/webhook/[bridgeId]/incoming
+ * Public endpoint — authenticated via HMAC-SHA256 over the raw request body.
+ * Accepts inbound messages from external webhook sources.
+ */
+
 import { ChannelBridgeService } from "@/lib/channel-bridge-service";
 import { ChannelService } from "@/lib/channel-service";
 import { MessageDispatcher } from "@/lib/message-dispatcher";
 import { WebhookGateway } from "@/lib/bridges/webhook-gateway";
 import type { WebhookBridgeConfig } from "@vaultysclaw/shared";
-import { forbidden, malformed, notFound, unauthorized } from "@/lib/api/utils/api-utils";
-import { withError } from "@/lib/api/handlers/with-error";
+import { APIException } from "@/lib/api/utils/api-utils";
+import { createNextRoute } from "@/lib/api/ts-rest/next-route";
+import { bridgesContract } from "@/lib/contracts";
 
-type Ctx = { params: Promise<{ bridgeId: string }> };
+const handlers = createNextRoute(bridgesContract, {
+  // The contract body is opaque so createNextRoute leaves the request stream
+  // intact — we read the raw text here to verify the HMAC over the exact bytes.
+  webhookIncoming: async ({ params, request }) => {
+    const body = await request.text();
+    const signatureHeader = request.headers.get("x-signature");
 
-/**
- * POST /api/bridges/webhook/[bridgeId]/incoming
- * Public endpoint — authenticated via HMAC-SHA256 signature.
- * Accepts inbound messages from external webhook sources.
- */
-/**
- * @openapi
- * /api/bridges/webhook/{bridgeId}/incoming:
- *   post:
- *     summary: Accepts inbound messages from external webhook sources.
- *     tags: [Bridges]
- *     parameters:
- *       - name: bridgeId
- *         in: path
- *         required: true
- *         description: The ID of the webhook bridge.
- *         schema:
- *           type: string
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               message:
- *                 type: string
- *                 description: The message content.
- *               author:
- *                 type: string
- *                 description: The author of the message.
- *               metadata:
- *                 type: object
- *                 additionalProperties: true
- *                 description: Additional metadata for the message.
- *     responses:
- *       200:
- *         description: Message processed successfully.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 ok:
- *                   type: boolean
- *                 messageId:
- *                   type: string
- *       400:
- *         $ref: '#/components/responses/BadRequest'
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       403:
- *         $ref: '#/components/responses/Forbidden'
- *       404:
- *         $ref: '#/components/responses/NotFound'
- *       500:
- *         description: Failed to process incoming webhook.
- */
-export const POST = withError(async (req: NextRequest, ctx: Ctx) => {
-  const { bridgeId } = await ctx.params;
+    const bridge = await ChannelBridgeService.getBridge(params.bridgeId);
+    if (!bridge) throw new APIException("NOT_FOUND", "Bridge not found");
 
-  // Read raw body as text for HMAC verification
-  const body = await req.text();
-  const signatureHeader = req.headers.get("x-signature");
+    if (bridge.externalService !== "webhook")
+      throw new APIException("FORBIDDEN", "Bridge is not a webhook bridge");
+    if (!bridge.isSyncEnabled)
+      throw new APIException("FORBIDDEN", "Bridge sync is disabled");
+    if (bridge.syncDirection === "outgoing")
+      throw new APIException("FORBIDDEN", "Bridge does not accept incoming messages");
 
-  // Look up bridge
-  const bridge = await ChannelBridgeService.getBridge(bridgeId);
-  if (!bridge) {
-    return notFound("Bridge not found");
-  }
+    const config = ChannelBridgeService.getDecryptedConfig(
+      bridge
+    ) as WebhookBridgeConfig;
 
-  // Validate bridge type and sync settings
-  if (bridge.externalService !== "webhook") {
-    return forbidden("Bridge is not a webhook bridge");
-  }
-  if (!bridge.isSyncEnabled) {
-    return forbidden("Bridge sync is disabled");
-  }
-  if (bridge.syncDirection === "outgoing") {
-    return forbidden("Bridge does not accept incoming messages");
-  }
+    if (!WebhookGateway.verifySignature(body, config.secret, signatureHeader))
+      throw new APIException("UNAUTHORIZED", "Invalid signature");
 
-  // Decrypt config and verify HMAC
-  const config = ChannelBridgeService.getDecryptedConfig(
-    bridge
-  ) as WebhookBridgeConfig;
-
-  if (!WebhookGateway.verifySignature(body, config.secret, signatureHeader)) {
-    return unauthorized("Invalid signature");
-  }
-
-  // Parse body JSON
-  let parsed: {
-    message?: string;
-    author?: string;
-    metadata?: Record<string, unknown>;
-  };
-  try {
-    parsed = JSON.parse(body) as typeof parsed;
-  } catch {
-    return malformed("Invalid JSON body");
-  }
-
-  const content = parsed.message?.trim();
-  if (!content) {
-    return malformed("message is required");
-  }
-
-  const authorDid = parsed.author ?? "webhook:external";
-
-  // Create channel message
-  const message = await ChannelService.postMessage({
-    channelId: bridge.channelId,
-    authorDid,
-    authorType: "user",
-    content,
-    metadata: {
-      attachments: [],
-      agentAction: "webhook_incoming",
-      ...(parsed.metadata
-        ? { toolCalls: parsed.metadata as Record<string, unknown> }
-        : {}),
-    },
-  });
-
-  // Check for @mentions and trigger agent dispatch
-  await MessageDispatcher.processMessage(
-    bridge.channelId,
-    message.id,
-    authorDid,
-    content,
-    {
-      id: message.id,
-      authorType: "user",
-      threadId: message.threadId,
-      createdAt: message.createdAt,
+    let parsed: {
+      message?: string;
+      author?: string;
+      metadata?: Record<string, unknown>;
+    };
+    try {
+      parsed = JSON.parse(body) as typeof parsed;
+    } catch {
+      throw new APIException("MALFORMED", "Invalid JSON body");
     }
-  );
 
-  return NextResponse.json({ ok: true, messageId: message.id });
+    const content = parsed.message?.trim();
+    if (!content) throw new APIException("MALFORMED", "message is required");
+
+    const authorDid = parsed.author ?? "webhook:external";
+
+    const message = await ChannelService.postMessage({
+      channelId: bridge.channelId,
+      authorDid,
+      authorType: "user",
+      content,
+      metadata: {
+        attachments: [],
+        agentAction: "webhook_incoming",
+        ...(parsed.metadata
+          ? { toolCalls: parsed.metadata as Record<string, unknown> }
+          : {}),
+      },
+    });
+
+    await MessageDispatcher.processMessage(
+      bridge.channelId,
+      message.id,
+      authorDid,
+      content,
+      {
+        id: message.id,
+        authorType: "user",
+        threadId: message.threadId,
+        createdAt: message.createdAt,
+      }
+    );
+
+    return { status: 200, body: { ok: true, messageId: message.id } };
+  },
 });
+
+export const POST = handlers.POST!;

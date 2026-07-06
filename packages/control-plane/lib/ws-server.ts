@@ -20,7 +20,7 @@ import {
   KnowledgeDAO,
   PendingRegistrationDAO,
   PolicyDAO,
-  RealmDAO,
+  WorkspaceDAO,
   SkillOverrideDAO,
 } from "@/db";
 import {
@@ -53,7 +53,12 @@ import {
   type PolicyMeta,
 } from "./auth-handler";
 import { geolocateIp } from "./geoip";
-import { trace, context, propagation, SpanStatusCode } from "@opentelemetry/api";
+import {
+  trace,
+  context,
+  propagation,
+  SpanStatusCode,
+} from "@opentelemetry/api";
 import { agentsConnected, llmTokens, intentsTotal } from "./metrics";
 import { ChannelService } from "./channel-service";
 import { crypto } from "@vaultys/id";
@@ -84,6 +89,12 @@ type PendingPhase =
   | "awaiting_register"
   | "awaiting_approval"
   | "authenticating";
+
+export type ToolApproval = WSToolApprovalRequestPayload & {
+  agentId: string;
+  agentName?: string;
+  createdAt: number;
+};
 
 interface PendingConnection {
   sender: AgentSender;
@@ -279,86 +290,91 @@ export class AgentWSServer {
   }
 
   private setupServer(): void {
-    this.wss.on("connection", async (ws: WebSocket, request: import("http").IncomingMessage) => {
-      logger.info(
-        "New WebSocket connection — awaiting register or auth_challenge"
-      );
+    this.wss.on(
+      "connection",
+      async (ws: WebSocket, request: import("http").IncomingMessage) => {
+        logger.info(
+          "New WebSocket connection — awaiting register or auth_challenge"
+        );
 
-      const clientIp =
-        (request.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim() ??
-        request.socket.remoteAddress ??
-        undefined;
+        const clientIp =
+          (request.headers["x-forwarded-for"] as string | undefined)
+            ?.split(",")[0]
+            ?.trim() ??
+          request.socket.remoteAddress ??
+          undefined;
 
-      const sender = new WsSender(ws);
-      this.wsSenders.set(ws, sender);
-      this.transportStats.ws.connectionsTotal++;
-      this.appendLog("ws", "info", "connected", `new TCP connection`);
+        const sender = new WsSender(ws);
+        this.wsSenders.set(ws, sender);
+        this.transportStats.ws.connectionsTotal++;
+        this.appendLog("ws", "info", "connected", `new TCP connection`);
 
-      try {
-        const { sessionId } = await createAuthSession();
+        try {
+          const { sessionId } = await createAuthSession();
 
-        // Set initial auth timeout
-        const timer = setTimeout(() => {
-          logger.warn({ sessionId }, "Auth timeout — closing connection");
+          // Set initial auth timeout
+          const timer = setTimeout(() => {
+            logger.warn({ sessionId }, "Auth timeout — closing connection");
+            this.appendLog(
+              "ws",
+              "warn",
+              "auth_timeout",
+              `session ${sessionId.slice(0, 8)}`
+            );
+            this.sendMessage(sender, {
+              messageId: `auth-fail-${Date.now()}`,
+              type: "auth_failed",
+              payload: {
+                reason: "Authentication timeout",
+              } satisfies WSAuthFailedPayload,
+              timestamp: new Date().toISOString(),
+            });
+            sender.close();
+            this.pending.delete(sender);
+          }, AUTH_TIMEOUT_MS);
+
+          this.pending.set(sender, {
+            sender,
+            sessionId,
+            phase: "awaiting_register",
+            timer,
+            clientIp,
+          });
+
+          // Send session ID to agent — agent decides to register (new) or auth (returning)
           this.appendLog(
             "ws",
-            "warn",
-            "auth_timeout",
+            "info",
+            "auth_challenge_sent",
             `session ${sessionId.slice(0, 8)}`
           );
           this.sendMessage(sender, {
-            messageId: `auth-fail-${Date.now()}`,
-            type: "auth_failed",
-            payload: {
-              reason: "Authentication timeout",
-            } satisfies WSAuthFailedPayload,
+            messageId: `auth-${Date.now()}`,
+            type: "auth_challenge",
+            payload: { sessionId, data: "" } satisfies WSAuthChallengePayload,
             timestamp: new Date().toISOString(),
           });
+        } catch (error) {
+          logger.error(error, "Failed to start auth session");
           sender.close();
-          this.pending.delete(sender);
-        }, AUTH_TIMEOUT_MS);
+          this.wsSenders.delete(ws);
+          return;
+        }
 
-        this.pending.set(sender, {
-          sender,
-          sessionId,
-          phase: "awaiting_register",
-          timer,
-          clientIp,
+        ws.on("message", (data: WebSocketData) => {
+          this.handleMessage(sender, data as string);
         });
 
-        // Send session ID to agent — agent decides to register (new) or auth (returning)
-        this.appendLog(
-          "ws",
-          "info",
-          "auth_challenge_sent",
-          `session ${sessionId.slice(0, 8)}`
-        );
-        this.sendMessage(sender, {
-          messageId: `auth-${Date.now()}`,
-          type: "auth_challenge",
-          payload: { sessionId, data: "" } satisfies WSAuthChallengePayload,
-          timestamp: new Date().toISOString(),
+        ws.on("close", () => {
+          this.handleDisconnect(sender);
+          this.wsSenders.delete(ws);
         });
-      } catch (error) {
-        logger.error(error, "Failed to start auth session");
-        sender.close();
-        this.wsSenders.delete(ws);
-        return;
+
+        ws.on("error", (error: Error) => {
+          logger.error(error, "WebSocket error");
+        });
       }
-
-      ws.on("message", (data: WebSocketData) => {
-        this.handleMessage(sender, data as string);
-      });
-
-      ws.on("close", () => {
-        this.handleDisconnect(sender);
-        this.wsSenders.delete(ws);
-      });
-
-      ws.on("error", (error: Error) => {
-        logger.error(error, "WebSocket error");
-      });
-    });
+    );
   }
 
   private handleMessage(
@@ -577,9 +593,11 @@ export class AgentWSServer {
 
           // Auto-geolocate from IP if no location stored yet
           if (!knownAgent.locationLat && pending.clientIp) {
-            geolocateIp(pending.clientIp).then((geo) => {
-              if (geo) AgentDAO.updateLocation(agentDid, geo).catch(() => {});
-            }).catch(() => {});
+            geolocateIp(pending.clientIp)
+              .then((geo) => {
+                if (geo) AgentDAO.updateLocation(agentDid, geo).catch(() => {});
+              })
+              .catch(() => {});
           }
 
           await ActivityLogDAO.log("agent_reconnected", agentDid, agent.name);
@@ -798,9 +816,13 @@ export class AgentWSServer {
             "intent.status": payload.status ?? "unknown",
           },
         });
-        if (payload.status !== "success") span.setStatus({ code: SpanStatusCode.ERROR });
+        if (payload.status !== "success")
+          span.setStatus({ code: SpanStatusCode.ERROR });
         span.end();
-        intentsTotal.add(1, { status: payload.status ?? "unknown", "agent.did": agentId ?? "" });
+        intentsTotal.add(1, {
+          status: payload.status ?? "unknown",
+          "agent.did": agentId ?? "",
+        });
       }
 
       // Persist result so test/observability endpoints can retrieve it
@@ -958,7 +980,10 @@ export class AgentWSServer {
         if (hbPayload.tokenUsage.dailyPriceSpent !== undefined) {
           agent.dailyPriceSpent = hbPayload.tokenUsage.dailyPriceSpent;
           // Persist daily price spent to DB
-          await AgentDAO.updateDailyPriceSpent(agentId, hbPayload.tokenUsage.dailyPriceSpent);
+          await AgentDAO.updateDailyPriceSpent(
+            agentId,
+            hbPayload.tokenUsage.dailyPriceSpent
+          );
         }
 
         // Persist token usage to DB for the agent
@@ -968,9 +993,9 @@ export class AgentWSServer {
           agent.tokenUsage.completionTokens
         );
 
-        // Update realm token usage if delta is provided
+        // Update workspace token usage if delta is provided
         if (hbPayload.tokenUsage.sinceLastSync) {
-          const agentRealms = await AgentDAO.getRealms(agentId);
+          const agentWorkspaces = await AgentDAO.getWorkspaces(agentId);
           const deltaPrompt = hbPayload.tokenUsage.sinceLastSync.promptTokens;
           const deltaCompletion =
             hbPayload.tokenUsage.sinceLastSync.completionTokens;
@@ -981,8 +1006,13 @@ export class AgentWSServer {
             model: agent.reportedLlm?.model ?? "unknown",
             provider: agent.reportedLlm?.provider ?? "unknown",
           };
-          if (deltaPrompt > 0) llmTokens.add(deltaPrompt, { ...llmAttrs, token_type: "prompt" });
-          if (deltaCompletion > 0) llmTokens.add(deltaCompletion, { ...llmAttrs, token_type: "completion" });
+          if (deltaPrompt > 0)
+            llmTokens.add(deltaPrompt, { ...llmAttrs, token_type: "prompt" });
+          if (deltaCompletion > 0)
+            llmTokens.add(deltaCompletion, {
+              ...llmAttrs,
+              token_type: "completion",
+            });
 
           // Record in daily/monthly history buckets
           await AgentDAO.addTokenUsageHistory(
@@ -991,15 +1021,15 @@ export class AgentWSServer {
             deltaCompletion
           );
 
-          for (const realmMembership of agentRealms) {
-            const realmId = realmMembership.realmId;
-            // Get current realm token usage (uses snake_case fields from DB row)
-            const currentUsage = await RealmDAO.getTokenUsage(realmId);
+          for (const workspaceMembership of agentWorkspaces) {
+            const workspaceId = workspaceMembership.workspaceId;
+            // Get current workspace token usage (uses snake_case fields from DB row)
+            const currentUsage = await WorkspaceDAO.getTokenUsage(workspaceId);
             const currentPrompt = currentUsage?.promptTokens ?? 0;
             const currentCompletion = currentUsage?.completionTokens ?? 0;
             // Add the delta
-            await RealmDAO.upsertTokenUsage(
-              realmId,
+            await WorkspaceDAO.upsertTokenUsage(
+              workspaceId,
               currentPrompt + deltaPrompt,
               currentCompletion + deltaCompletion
             );
@@ -1214,20 +1244,9 @@ export class AgentWSServer {
   }
 
   /** Get all pending tool approval requests (for admin UI). */
-  getPendingToolApprovals(): Array<
-    WSToolApprovalRequestPayload & {
-      agentId: string;
-      agentName?: string;
-      createdAt: number;
-    }
-  > {
-    const result: Array<
-      WSToolApprovalRequestPayload & {
-        agentId: string;
-        agentName?: string;
-        createdAt: number;
-      }
-    > = [];
+  getPendingToolApprovals(): ToolApproval[] {
+    const result: ToolApproval[] = [];
+
     for (const [, entry] of this.pendingToolApprovals) {
       const agent = this.agents.get(entry.agentId);
       result.push({
@@ -1501,8 +1520,8 @@ export class AgentWSServer {
     );
     this.broadcastAdminUpdate("registration_approved");
 
-    // Enroll agent in default realm on first approval
-    await RealmDAO.enrollInDefault("agent", agentDid);
+    // Enroll agent in default workspace on first approval
+    await WorkspaceDAO.enrollInDefault("agent", agentDid);
 
     // Notify agent — approved and connected
     this.sendMessage(target.sender, {
@@ -1538,22 +1557,32 @@ export class AgentWSServer {
     await this.triggerCertReissue(agent, capabilities, policyMeta);
 
     // Auto-provision a per-agent LiteLLM virtual key if LiteLLM is configured
-    // and the agent's primary realm has a router key set up.
+    // and the agent's primary workspace has a router key set up.
     if (isLiteLLMConfigured()) {
       try {
-        const agentRealms = await AgentDAO.getRealms(agentDid);
-        const primary = agentRealms.find((r) => r.isPrimary) ?? agentRealms[0];
+        const agentWorkspaces = await AgentDAO.getWorkspaces(agentDid);
+        const primary = agentWorkspaces.find((r) => r.isPrimary) ?? agentWorkspaces[0];
         if (primary) {
-          const routerKey = await RealmDAO.getRouterKey(primary.realmId);
+          const routerKey = await WorkspaceDAO.getRouterKey(primary.workspaceId);
           if (routerKey?.litellmVirtualKey && routerKey.allowedModelIds) {
             const allowedModels = routerKey.allowedModelIds as string[];
             const virtualKey = await createAgentKey(agentDid, allowedModels);
-            await AgentDAO.updateLiteLLMKey(agentDid, virtualKey, allowedModels);
-            logger.info({ agentDid, modelCount: allowedModels.length }, "Auto-provisioned LiteLLM agent key");
+            await AgentDAO.updateLiteLLMKey(
+              agentDid,
+              virtualKey,
+              allowedModels
+            );
+            logger.info(
+              { agentDid, modelCount: allowedModels.length },
+              "Auto-provisioned LiteLLM agent key"
+            );
           }
         }
       } catch (err) {
-        logger.warn({ agentDid, err: String(err) }, "Failed to auto-provision LiteLLM agent key — skipping");
+        logger.warn(
+          { agentDid, err: String(err) },
+          "Failed to auto-provision LiteLLM agent key — skipping"
+        );
       }
     }
 
@@ -1891,7 +1920,13 @@ export class AgentWSServer {
     const tracer = trace.getTracer("vaultysclaw-control-plane");
     return tracer.startActiveSpan(
       "vc.intent.dispatch",
-      { attributes: { "agent.did": agentId, "intent.id": intentId, "intent.action": action } },
+      {
+        attributes: {
+          "agent.did": agentId,
+          "intent.id": intentId,
+          "intent.action": action,
+        },
+      },
       async (span) => {
         // Inject W3C traceparent so the agent can create a child span
         const traceContext: Record<string, string> = {};
@@ -1909,7 +1944,9 @@ export class AgentWSServer {
             params,
             timestamp: new Date().toISOString(),
             ...(userDid ? { userDid } : {}),
-            ...(Object.keys(traceContext).length > 0 ? { _traceContext: traceContext } : {}),
+            ...(Object.keys(traceContext).length > 0
+              ? { _traceContext: traceContext }
+              : {}),
           },
           timestamp: new Date().toISOString(),
           ...(signature ? { signature } : {}),
@@ -2070,7 +2107,10 @@ export class AgentWSServer {
     const pendingRegs = (await PendingRegistrationDAO.findAll()).filter(
       (r: any) => r.status === "pending"
     );
-    const regMeta = new Map<string, { connected: boolean; agentDid: string | null }>();
+    const regMeta = new Map<
+      string,
+      { connected: boolean; agentDid: string | null }
+    >();
     for (const p of this.pending.values()) {
       if (p.registrationId && p.phase === "awaiting_approval") {
         regMeta.set(p.registrationId, {
@@ -2186,7 +2226,7 @@ export class AgentWSServer {
    * Priority:
    *   1. Explicit llmConfig set manually by admin (stored on agent row)
    *   2. Per-agent LiteLLM virtual key (litellmVirtualKey on agent row)
-   *   3. Realm-level LiteLLM virtual key (RealmRouterKey)
+   *   3. Workspace-level LiteLLM virtual key (WorkspaceRouterKey)
    * Called automatically after auth_complete for registered agents.
    */
   private async pushStoredLlmConfig(agentDid: string): Promise<void> {
@@ -2200,7 +2240,10 @@ export class AgentWSServer {
         await this.sendLlmConfig(agentDid, config);
         return;
       } catch {
-        logger.warn({ agentDid }, "Failed to parse stored LLM config — skipping push");
+        logger.warn(
+          { agentDid },
+          "Failed to parse stored LLM config — skipping push"
+        );
       }
     }
 
@@ -2218,12 +2261,12 @@ export class AgentWSServer {
       return;
     }
 
-    // Priority 3: realm-level LiteLLM virtual key
+    // Priority 3: workspace-level LiteLLM virtual key
     if (isLiteLLMConfigured()) {
-      const agentRealms = await AgentDAO.getRealms(agentDid);
-      const primary = agentRealms.find((r) => r.isPrimary) ?? agentRealms[0];
+      const agentWorkspaces = await AgentDAO.getWorkspaces(agentDid);
+      const primary = agentWorkspaces.find((r) => r.isPrimary) ?? agentWorkspaces[0];
       if (primary) {
-        const routerKey = await RealmDAO.getRouterKey(primary.realmId);
+        const routerKey = await WorkspaceDAO.getRouterKey(primary.workspaceId);
         if (routerKey?.litellmVirtualKey) {
           const allowedModels = (routerKey.allowedModelIds as string[]) ?? [];
           const model = allowedModels[0] ?? "all-team-models";
@@ -2240,14 +2283,14 @@ export class AgentWSServer {
 
   /**
    * Push the effective skills configuration to a specific connected agent.
-   * Called on reconnect, registration approval, and when realm skills change.
+   * Called on reconnect, registration approval, and when workspace skills change.
    */
   async pushSkillsConfig(agentDid: string): Promise<void> {
     const agent = this.agents.get(agentDid);
     if (!agent) return;
 
     const skills = await SkillOverrideDAO.getEffectiveSkills(agentDid);
-    // Only push if there are realm-defined skills (empty = no realm config = agent uses all local skills)
+    // Only push if there are workspace-defined skills (empty = no workspace config = agent uses all local skills)
     this.sendMessage(agent.sender, {
       messageId: `skills-config-${Date.now()}`,
       type: "skills_config",
@@ -2523,15 +2566,15 @@ export function sendSkillsConfig(agentDid: string): void {
 }
 
 /**
- * Push updated skills configuration to all agents in a realm.
- * Called when realm skill definitions are created, updated, or deleted.
+ * Push updated skills configuration to all agents in a workspace.
+ * Called when workspace skill definitions are created, updated, or deleted.
  * Exported for use by API route handlers.
  */
-export async function broadcastSkillsConfig(realmId: string): Promise<void> {
+export async function broadcastSkillsConfig(workspaceId: string): Promise<void> {
   const wsServer = getWSServer();
   if (!wsServer) return;
 
-  const agents = await RealmDAO.getAgents(realmId);
+  const agents = await WorkspaceDAO.getAgents(workspaceId);
   for (const agent of agents) {
     wsServer.pushSkillsConfig(agent.agentDid);
   }

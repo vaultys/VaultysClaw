@@ -8,7 +8,7 @@ import {
   ChannelDAO,
   ChannelMemberDAO,
   ChannelMessageDAO,
-  RealmDAO,
+  WorkspaceDAO,
   UserDAO,
   prisma,
 } from "@/db";
@@ -92,7 +92,7 @@ export class ChannelService {
   static async createChannel(input: {
     name: string;
     slug: string;
-    realmId?: string; // undefined/null = global channel
+    workspaceId?: string; // undefined/null = global channel
     description?: string;
     isPublic?: boolean;
     topic?: string;
@@ -105,8 +105,8 @@ export class ChannelService {
       );
     }
 
-    // Check for duplicate slug within realm/global scope
-    const existing = await ChannelDAO.findBySlug(input.slug, input.realmId);
+    // Check for duplicate slug within workspace/global scope
+    const existing = await ChannelDAO.findBySlug(input.slug, input.workspaceId);
     if (existing) {
       throw new Error(`Channel #${input.slug} already exists in this scope`);
     }
@@ -114,7 +114,7 @@ export class ChannelService {
     const channel = await ChannelDAO.create({
       name: input.name,
       slug: input.slug,
-      realmId: input.realmId ?? undefined,
+      workspaceId: input.workspaceId ?? undefined,
       description: input.description ?? undefined,
       isPublic: input.isPublic ?? true,
       isArchived: false,
@@ -141,10 +141,10 @@ export class ChannelService {
   }
 
   /**
-   * List channels in a realm (includes global channels)
+   * List channels in a workspace (includes global channels)
    */
-  static async listChannels(realmId: string): Promise<Channel[]> {
-    return (await ChannelDAO.listByRealmWithGlobal(realmId)) as unknown as Channel[];
+  static async listChannels(workspaceId: string): Promise<Channel[]> {
+    return (await ChannelDAO.listByWorkspaceWithGlobal(workspaceId)) as unknown as Channel[];
   }
 
   /**
@@ -240,14 +240,14 @@ export class ChannelService {
     const member = await ChannelMemberDAO.findMembership(channelId, memberDid);
     if (member !== null) return true;
 
-    // Realm members have implicit access to all channels in their realm
+    // Workspace members have implicit access to all channels in their workspace
     const channel = await ChannelDAO.findById(channelId);
-    if (!channel?.realmId) return false;
+    if (!channel?.workspaceId) return false;
 
     const user = await UserDAO.findByDid(memberDid);
     if (!user) return false;
 
-    return RealmDAO.isUserInRealm(user.id, channel.realmId);
+    return WorkspaceDAO.isUserInWorkspace(user.id, channel.workspaceId);
   }
 
   /**

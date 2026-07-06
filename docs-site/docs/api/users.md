@@ -53,7 +53,7 @@ GET /api/users/me
 
 **Auth:** Required.
 
-Returns the authenticated user's profile, realm memberships, and capability grants.
+Returns the authenticated user's profile, workspace memberships, and capability grants.
 
 ### Response
 
@@ -67,9 +67,9 @@ Returns the authenticated user's profile, realm memberships, and capability gran
     "isAdmin": true,
     "registeredAt": "2026-01-10T09:00:00Z"
   },
-  "realms": [
+  "workspaces": [
     {
-      "id": "realm_eng",
+      "id": "workspace_eng",
       "name": "Engineering",
       "slug": "eng",
       "color": "#3b82f6",
@@ -102,7 +102,7 @@ GET /api/users
 | ------------ | ------- | ------------------------------------------------------------------ |
 | `q`          | string  | Search by name, email, or DID                                      |
 | `role`       | string  | Filter by role (`owner`, `admin`, `manager`, `operator`, `member`) |
-| `realm`      | string  | Filter by realm ID or slug                                         |
+| `workspace`      | string  | Filter by workspace ID or slug                                         |
 | `isAdmin`    | boolean | `true` = global admins only, `false` = non-admins only             |
 | `hasAccount` | boolean | `true` = claimed users (did not null), `false` = unclaimed         |
 | `page`       | integer | Page number (default 1)                                            |
@@ -127,9 +127,9 @@ Use `hasAccount=false` to list only Entra-provisioned users who have not yet cla
       "registeredAt": "2026-01-10T09:00:00Z",
       "entraId": null,
       "claimedAt": null,
-      "realms": [
+      "workspaces": [
         {
-          "id": "realm_eng",
+          "id": "workspace_eng",
           "name": "Engineering",
           "slug": "eng",
           "color": "#3b82f6",
@@ -210,9 +210,9 @@ Returns 404 if the user does not exist or has already claimed their account (use
   "registeredAt": "2026-03-01T08:00:00Z",
   "entraId": "aad-object-id-...",
   "claimedAt": null,
-  "realms": [
+  "workspaces": [
     {
-      "id": "realm_ops",
+      "id": "workspace_ops",
       "name": "Operations",
       "slug": "ops",
       "color": "#f59e0b",

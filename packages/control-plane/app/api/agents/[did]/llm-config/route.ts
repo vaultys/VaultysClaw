@@ -3,7 +3,7 @@ import { APIException } from "@/lib/api/utils/api-utils";
 import { getWSServer } from "@/lib/ws-server";
 import { getLiteLLMBaseUrl } from "@/lib/litellm-client";
 import type { LlmConfig, LlmProviderType } from "@vaultysclaw/shared";
-import { AgentDAO, ModelDAO, RealmDAO } from "@/db";
+import { AgentDAO, ModelDAO, WorkspaceDAO } from "@/db";
 import { agentsContract } from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
@@ -97,23 +97,23 @@ const handlers = createNextRoute(agentsContract, {
     const agent = await AgentDAO.findByDid(did);
     if (!agent) throw new APIException("NOT_FOUND");
 
-    // Realm routing shortcut
+    // Workspace routing shortcut
     if (
-      typeof body.realmId === "string" &&
-      typeof body.realmModelId === "string"
+      typeof body.workspaceId === "string" &&
+      typeof body.workspaceModelId === "string"
     ) {
-      const routerKey = await RealmDAO.getRouterKey(body.realmId as string);
+      const routerKey = await WorkspaceDAO.getRouterKey(body.workspaceId as string);
       if (!routerKey?.litellmVirtualKey)
         throw new APIException(
           "MALFORMED",
-          "Realm has no LiteLLM virtual key configured"
+          "Workspace has no LiteLLM virtual key configured"
         );
-      const realmModels = await ModelDAO.findByRealm(body.realmId as string);
-      const model = realmModels.find((m) => m.id === body.realmModelId);
+      const workspaceModels = await ModelDAO.findByWorkspace(body.workspaceId as string);
+      const model = workspaceModels.find((m) => m.id === body.workspaceModelId);
       if (!model?.litellmModelName)
         throw new APIException(
           "NOT_FOUND",
-          "Model not found in realm or not registered with LiteLLM"
+          "Model not found in workspace or not registered with LiteLLM"
         );
       const config: LlmConfig = {
         provider: "openai-compatible",

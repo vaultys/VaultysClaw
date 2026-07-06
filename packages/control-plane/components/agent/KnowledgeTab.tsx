@@ -21,7 +21,7 @@ import {
 } from "@/lib/api/ts-rest/client";
 import { KsSourceCard } from "./knowledge/KsSourceCard";
 import { KsAddSourceModal } from "./knowledge/KsAddSourceModal";
-import type { KsRealmOption } from "./knowledge/types";
+import type { KsWorkspaceOption } from "./knowledge/types";
 import { KnowledgeSource } from "@prisma/client";
 
 export function KnowledgeTab({
@@ -35,7 +35,7 @@ export function KnowledgeTab({
   capabilities: string[];
 }) {
   const [sources, setSources] = useState<KnowledgeSource[]>([]);
-  const [realms, setRealms] = useState<KsRealmOption[]>([]);
+  const [workspaces, setWorkspaces] = useState<KsWorkspaceOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -58,11 +58,11 @@ export function KnowledgeTab({
     try {
       const [ksRes, rlRes] = await Promise.all([
         knowledgeClient.list({ query: { agentDid: did } }),
-        fetch("/api/realms"),
+        fetch("/api/workspaces"),
       ]);
-      const rlData = (await rlRes.json()) as { realms?: KsRealmOption[] };
+      const rlData = (await rlRes.json()) as { workspaces?: KsWorkspaceOption[] };
       setSources(unwrap(ksRes).sources);
-      setRealms(rlData.realms ?? []);
+      setWorkspaces(rlData.workspaces ?? []);
     } finally {
       setLoading(false);
     }
@@ -176,8 +176,8 @@ export function KnowledgeTab({
     }
   }
 
-  const getRealmName = (id: string) =>
-    realms.find((r) => r.id === id)?.name ?? id;
+  const getWorkspaceName = (id: string) =>
+    workspaces.find((r) => r.id === id)?.name ?? id;
   const totalChunks = sources.reduce((sum, s) => sum + (s.chunkCount ?? 0), 0);
   const readyCount = sources.filter((s) => s.status === "ready").length;
   const hasFileSources = sources.some((s) => s.sourceType === "files");
@@ -336,7 +336,7 @@ export function KnowledgeTab({
             <KsSourceCard
               key={source.id}
               source={source}
-              realmName={getRealmName(source.realmId)}
+              workspaceName={getWorkspaceName(source.workspaceId)}
               isSyncing={
                 syncingIds.has(source.id) || source.status === "syncing"
               }
@@ -356,7 +356,7 @@ export function KnowledgeTab({
       {showCreate && (
         <KsAddSourceModal
           did={did}
-          realms={realms}
+          workspaces={workspaces}
           doclingConfigured={doclingConfigured}
           onClose={() => setShowCreate(false)}
           onCreated={load}

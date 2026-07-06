@@ -23,7 +23,7 @@ export const SaveServerSettingsBodySchema = z.object({
 
 export const EntraSyncBodySchema = z.object({
   groupIds: z.array(z.string()).optional(),
-  groupRealmMap: z.record(z.string(), z.string()).optional(),
+  groupWorkspaceMap: z.record(z.string(), z.string()).optional(),
   groupNames: z.record(z.string(), z.string()).optional(),
 });
 

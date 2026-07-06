@@ -5,11 +5,11 @@ import {
   CreateModelBodySchema,
   TestModelBodySchema,
   UpdateModelBodySchema,
-  GrantRealmBodySchema,
-  RevokeRealmQuerySchema,
+  GrantWorkspaceBodySchema,
+  RevokeWorkspaceQuerySchema,
   ModelConnectivitySchema,
 } from "./models.schemas";
-import type { SafeModel, CreatedModel } from "./models.types";
+import type { SafeModel, CreatedModel, LiteLlmModel } from "./models.types";
 import { ModelRegistry } from "@prisma/client";
 
 export const modelsContract = c.router({
@@ -91,21 +91,21 @@ export const modelsContract = c.router({
     },
   },
 
-  grantRealm: {
+  grantWorkspace: {
     method: "POST",
-    path: "/api/models/:id/realms",
+    path: "/api/models/:id/workspaces",
     pathParams: ModelIdParamSchema,
-    summary: "Grant realm access to a model",
-    body: GrantRealmBodySchema,
+    summary: "Grant workspace access to a model",
+    body: GrantWorkspaceBodySchema,
     responses: { 200: c.type<void>(), ...commonErrorResponses },
   },
 
-  revokeRealm: {
+  revokeWorkspace: {
     method: "DELETE",
-    path: "/api/models/:id/realms",
+    path: "/api/models/:id/workspaces",
     pathParams: ModelIdParamSchema,
-    summary: "Revoke realm access for a model",
-    query: RevokeRealmQuerySchema,
+    summary: "Revoke workspace access for a model",
+    query: RevokeWorkspaceQuerySchema,
     responses: { 200: c.type<void>(), ...commonErrorResponses },
   },
 });
@@ -117,7 +117,7 @@ export const litellmContract = c.router({
     summary: "List available models in LiteLLM",
     responses: {
       200: c.type<{
-        models: Array<{ name: string; params: Record<string, unknown> }>;
+        models: Array<LiteLlmModel>;
         configured: boolean;
       }>(),
       ...commonErrorResponses,

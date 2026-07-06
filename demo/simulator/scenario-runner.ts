@@ -11,7 +11,7 @@ import { BASE_URL, DEMO_API_KEY } from "./config.js";
 interface WorkflowListItem {
   id: string;
   name: string;
-  realmId?: string | null;
+  workspaceId?: string | null;
 }
 
 interface WorkflowTriggerResult {

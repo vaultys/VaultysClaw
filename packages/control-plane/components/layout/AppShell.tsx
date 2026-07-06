@@ -14,9 +14,9 @@ import WorkflowApprovalInbox from "@/components/workflow/WorkflowApprovalInbox";
 // Auth on these routes is handled by the page itself.
 const STANDALONE_PATHS = [
   "/login",
-  "/setup",
+  "/admin/setup",
   "/quick-start",
-  "/mission-control/fullscreen",
+  "/admin/mission-control/fullscreen",
 ];
 
 // Pages that show only the TopBar (no sidebar). Used for full-screen flows
@@ -60,12 +60,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </BreadcrumbProvider>
     );
-  }
-
-  // Unauthenticated on non-login pages (landing page at /): render children only
-  if (status === "unauthenticated") {
-    router.replace("/login?redirect=" + encodeURIComponent(pathname));
-    return <>{children}</>;
   }
 
   // Still loading session or authenticated: render full shell

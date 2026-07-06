@@ -1,215 +1,103 @@
-import { NextRequest, NextResponse } from "next/server";
 import { getWSServer } from "@/lib/ws-server";
 import { getAuthContext } from "@/lib/auth-utils";
-import {
-  unauthorized,
-  forbidden,
-  unavailable,
-  conflict,
-  notFound,
-} from "@/lib/api/utils/api-utils";
-import { AgentDAO, RealmDAO, WorkflowDAO } from "@/db";
-import type { WorkflowDefinition } from "@/lib/workflow-executor";
+import { APIException } from "@/lib/api/utils/api-utils";
+import { AgentDAO, WorkspaceDAO, WorkflowDAO } from "@/db";
+
 import { Prisma } from "@prisma/client";
-import { withError } from "@/lib/api/handlers/with-error";
+import { createNextRoute } from "@/lib/api/ts-rest/next-route";
+import { workflowsContract } from "@/lib/contracts";
+import { WorkflowDefinition } from "@/lib/workflow-types";
 
 /**
  * POST /api/workflows/test-seed
- * Create a test workflow with 4 real agents in sequence. Global admin only.
- * Requires 4 agents to be online and registered
+ * Create a test workflow with 4 real online agents in sequence. Global admin
+ * only. Requires 4 agents to be online and registered.
  */
-/**
- * @openapi
- * /api/workflows/test-seed:
- *   post:
- *     summary: Create a test workflow with 4 real agents in sequence.
- *     tags: [Workflows]
- *     responses:
- *       200:
- *         description: Successfully created a test workflow.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 workflowId:
- *                   type: string
- *                 name:
- *                   type: string
- *                 realmId:
- *                   type: string
- *                 agents:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       did:
- *                         type: string
- *                       name:
- *                         type: string
- *                       capability:
- *                         type: string
- *                 nodes:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       id:
- *                         type: string
- *                       type:
- *                         type: string
- *                       data:
- *                         type: object
- *                         properties:
- *                           agentId:
- *                             type: string
- *                           action:
- *                             type: string
- *                           params:
- *                             type: object
- *                             properties:
- *                               test:
- *                                 type: boolean
- *                               step:
- *                                 type: integer
- *                       position:
- *                         type: object
- *                         properties:
- *                           x:
- *                             type: integer
- *                           y:
- *                             type: integer
- *       400:
- *         $ref: '#/components/responses/BadRequest'
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       403:
- *         $ref: '#/components/responses/Forbidden'
- *       500:
- *         description: Internal server error.
- */
-export const POST = withError(async (request: NextRequest) => {
-  const auth = await getAuthContext(request);
-  if (!auth) return unauthorized();
-  if (!auth.isGlobalAdmin) return forbidden();
+const handlers = createNextRoute(workflowsContract, {
+  testSeed: async ({ request }) => {
+    const auth = await getAuthContext(request);
+    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
 
-  const wsServer = getWSServer();
-  if (!wsServer) {
-    return unavailable("WebSocket server not available");
-  }
+    const wsServer = getWSServer();
+    if (!wsServer)
+      throw new APIException("UNAVAILABLE", "WebSocket server not available");
 
-  // Get connected agents
-  const dbAgents = await AgentDAO.findAll();
-  const connectedAgents = wsServer.getConnectedAgents().slice(0, 4);
+    const dbAgents = await AgentDAO.findAll();
+    const connectedAgents = wsServer.getConnectedAgents().slice(0, 4);
+    if (connectedAgents.length < 4)
+      throw new APIException(
+        "CONFLICT",
+        `Not enough agents connected. Found ${connectedAgents.length}, need 4`
+      );
 
-  if (connectedAgents.length < 4) {
-    return conflict(
-      `Not enough agents connected. Found ${connectedAgents.length}, need 4`
+    const connectedAgentIds = connectedAgents.map((a) => a.id);
+    const agents = connectedAgentIds
+      .map((did) => dbAgents.find((a) => a.did === did))
+      .filter((a): a is NonNullable<typeof a> => a != null);
+
+    if (agents.length < 4)
+      throw new APIException(
+        "CONFLICT",
+        `Not enough agents with details found in DB. Found ${agents.length}, need 4`
+      );
+
+    const defaultWorkspace = await WorkspaceDAO.findDefault();
+    if (!defaultWorkspace)
+      throw new APIException("NOT_FOUND", "Default workspace not found");
+
+    // Use each agent's first granted capability, falling back to a generic one.
+    const getAgentCapability = (agent: { capabilities?: unknown }): string => {
+      const caps = JSON.parse((agent.capabilities as string) || "[]");
+      return caps.length > 0 ? caps[0] : "execute_task";
+    };
+    const capabilities = connectedAgents.map((agent) =>
+      getAgentCapability(agents.find((a) => a.did === agent.id) ?? {})
     );
-  }
 
-  const connectedAgentIds = connectedAgents.map((a) => a.id);
-  const agents = connectedAgentIds
-    .map((did) => dbAgents.find((a) => a.did === did))
-    .filter((a): a is NonNullable<typeof a> => a != null);
+    const nodes = connectedAgentIds.map((did, i) => ({
+      id: `agent${i + 1}`,
+      type: "agent",
+      data: {
+        agentId: did,
+        action: capabilities[i],
+        params: { test: true, step: i + 1 },
+      },
+      position: { x: 100 + i * 200, y: 100 },
+    }));
+    const edges = [
+      { id: "e1-2", source: "agent1", target: "agent2" },
+      { id: "e2-3", source: "agent2", target: "agent3" },
+      { id: "e3-4", source: "agent3", target: "agent4" },
+    ];
 
-  if (agents.length < 4) {
-    return conflict(
-      `Not enough agents with details found in DB. Found ${agents.length}, need 4`
+    const definition: WorkflowDefinition = {
+      nodes,
+      edges,
+    } as unknown as WorkflowDefinition;
+
+    const workflow = await WorkflowDAO.create(
+      "Test E2E Workflow",
+      definition as unknown as Prisma.InputJsonValue,
+      undefined,
+      defaultWorkspace.id
     );
-  }
 
-  // Get default realm
-  const defaultRealm = await RealmDAO.findDefault();
-  if (!defaultRealm) {
-    return notFound("Default realm not found");
-  }
-
-  // Use the first agent's first capability, or fallback to a generic action
-  // This ensures the agents actually have the capability granted
-  const getAgentCapability = (agent: any): string => {
-    const caps = JSON.parse(agent.capabilities || "[]");
-    return caps.length > 0 ? caps[0] : "execute_task";
-  };
-
-  const capabilities = connectedAgents.map((agent) => {
-    const agent_db = agents.find((a) => a.did === agent.id);
-    return getAgentCapability(agent_db);
-  });
-
-  // Create workflow definition with 4 agents in sequence
-  // Use minimal params to avoid triggering file system access
-  const nodes: any[] = [
-    {
-      id: "agent1",
-      type: "agent",
-      data: {
-        agentId: connectedAgentIds[0],
-        action: capabilities[0],
-        params: { test: true, step: 1 },
+    return {
+      status: 200,
+      body: {
+        success: true,
+        workflowId: workflow.id,
+        name: "Test E2E Workflow",
+        workspaceId: defaultWorkspace.id,
+        agents: agents.map((a, idx) => ({
+          did: a.did,
+          name: a.name,
+          capability: capabilities[idx],
+        })),
+        nodes,
       },
-      position: { x: 100, y: 100 },
-    },
-    {
-      id: "agent2",
-      type: "agent",
-      data: {
-        agentId: connectedAgentIds[1],
-        action: capabilities[1],
-        params: { test: true, step: 2 },
-      },
-      position: { x: 300, y: 100 },
-    },
-    {
-      id: "agent3",
-      type: "agent",
-      data: {
-        agentId: connectedAgentIds[2],
-        action: capabilities[2],
-        params: { test: true, step: 3 },
-      },
-      position: { x: 500, y: 100 },
-    },
-    {
-      id: "agent4",
-      type: "agent",
-      data: {
-        agentId: connectedAgentIds[3],
-        action: capabilities[3],
-        params: { test: true, step: 4 },
-      },
-      position: { x: 700, y: 100 },
-    },
-  ];
-
-  const edges: any[] = [
-    { id: "e1-2", source: "agent1", target: "agent2" },
-    { id: "e2-3", source: "agent2", target: "agent3" },
-    { id: "e3-4", source: "agent3", target: "agent4" },
-  ];
-
-  const definition: WorkflowDefinition = { nodes, edges };
-
-  // Create the workflow
-  const workflowId = await WorkflowDAO.create(
-    "Test E2E Workflow",
-    definition as unknown as Prisma.InputJsonValue,
-    undefined,
-    defaultRealm.id
-  );
-
-  return NextResponse.json({
-    success: true,
-    workflowId,
-    name: "Test E2E Workflow",
-    realmId: defaultRealm.id,
-    agents: agents.map((a, idx) => ({
-      did: a.did,
-      name: a.name,
-      capability: capabilities[idx],
-    })),
-    nodes,
-  });
+    };
+  },
 });
+
+export const POST = handlers.POST!;

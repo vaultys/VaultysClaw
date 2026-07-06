@@ -7,7 +7,9 @@ import { z } from "zod";
 export const ListAgentsQuerySchema = z.object({
   search: z.string().optional(),
   online: z.enum(["true", "false"]).optional(),
-  realm: z.string().optional(),
+  workspace: z.string().optional(),
+  /** When "true", restrict to agents in the caller's workspaces even for global admins. */
+  mine: z.enum(["true", "false"]).optional(),
   capabilities: z.string().optional(),
   page: z.coerce.number().optional(),
   pageSize: z.coerce.number().optional(),
@@ -23,7 +25,7 @@ export const TokenUsageQuerySchema = z.object({
 
 export const SearchAgentsQuerySchema = z.object({
   q: z.string().optional(),
-  realm: z.string().optional(),
+  workspace: z.string().optional(),
 });
 
 // ─────────────────────────────────────────────
@@ -55,7 +57,7 @@ export const UpdateSkillBodySchema = z.object({
 });
 
 export const UpdateSkillOverrideBodySchema = z.object({
-  realmSkillId: z.string(),
+  workspaceSkillId: z.string(),
   enabled: z.boolean(),
 });
 

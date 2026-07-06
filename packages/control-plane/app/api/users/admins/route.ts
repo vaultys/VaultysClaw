@@ -1,31 +1,26 @@
-import { NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { APIException } from "@/lib/api/utils/api-utils";
 import { UserDAO } from "@/db";
-import { withError } from "@/lib/api/handlers/with-error";
+import { createNextRoute } from "@/lib/api/ts-rest/next-route";
+import { usersContract } from "@/lib/contracts";
 
 /**
- * GET /api/users/admins
- * List global admins (name + email only)
- * Returns basic contact info (name + email) for global admins.
- * Accessible to any authenticated user — used to show the "contact admin"
- * screen to users who are not yet assigned to a realm.
+ * GET /api/users/admins — list global admins (name + email only).
+ * Accessible to any authenticated user (used by the "contact admin" screen for
+ * users not yet assigned to a workspace).
  */
-export const GET = withError(async (request: Request) => {
-  await getAuthContext(request); // throws UNAUTHORIZED if not logged in
+const handlers = createNextRoute(usersContract, {
+  admins: async ({ request }) => {
+    await getAuthContext(request); // throws UNAUTHORIZED if not logged in
 
-  const { users } = await UserDAO.list({
-    isAdmin: true,
-    hasAccount: true,
-    pageSize: 20,
-    sortBy: "name",
-    sortDir: "asc",
-  });
+    const users = await UserDAO.listAdmins(20);
 
-  return NextResponse.json({
-    admins: users.map((u) => ({
-      name: u.name,
-      email: u.email,
-    })),
-  });
+    return {
+      status: 200,
+      body: {
+        admins: users.map((u) => ({ name: u.name, email: u.email })),
+      },
+    };
+  },
 });
+
+export const GET = handlers.GET!;

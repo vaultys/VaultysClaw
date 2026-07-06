@@ -87,19 +87,19 @@ export function RegisteredUsersTable({
                       </span>
                     )}
                   </span>
-                  {u.realms.length > 0 && (
+                  {u.workspaces.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-0.5">
-                      {u.realms.map((r) => (
+                      {u.workspaces.map((r) => (
                         <span
-                          key={r.realmId}
+                          key={r.workspaceId}
                           className="inline-flex items-center text-xs px-1.5 py-0.5 rounded-md"
                           style={{
-                            backgroundColor: r.realm.color + "22",
-                            color: r.realm.color,
-                            border: `1px solid ${r.realm.color}44`,
+                            backgroundColor: r.workspace.color + "22",
+                            color: r.workspace.color,
+                            border: `1px solid ${r.workspace.color}44`,
                           }}
                         >
-                          {r.realm.name}
+                          {r.workspace.name}
                         </span>
                       ))}
                     </div>
@@ -114,17 +114,17 @@ export function RegisteredUsersTable({
               <span title={u.did ?? ""}>{shortDid(u.did ?? undefined)}</span>
             </td>
             <td className="px-5 py-3.5">
-              {u.isOwner ? (
+              {u.role === "Owner" ? (
                 <span className="px-2 py-0.5 bg-warning-100 text-warning-700 border border-warning-300 rounded-full text-xs font-medium">
                   Owner
                 </span>
-              ) : u.isAdmin ? (
+              ) : u.role === "Admin" ? (
                 <span className="px-2 py-0.5 bg-primary-100 text-primary-700 border border-primary-300 rounded-full text-xs font-medium">
                   Admin
                 </span>
               ) : (
-                <span className="px-2 py-0.5 bg-background-200 text-foreground-500 border border-neutral-200 rounded-full text-xs font-medium capitalize">
-                  {u.role || "Member"}
+                <span className="px-2 py-0.5 bg-background-200 text-foreground-500 border border-neutral-200 rounded-full text-xs font-medium">
+                  Member
                 </span>
               )}
             </td>

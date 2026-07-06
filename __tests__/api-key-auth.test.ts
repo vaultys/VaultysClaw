@@ -14,8 +14,8 @@
  *   - Inactive key is rejected (401)
  *   - Expired key is rejected (401)
  *   - Key without route permission is rejected (403)
- *   - Realm-scoped key cannot access other realms
- *   - Global key (realmId=null) can access any realm
+ *   - Workspace-scoped key cannot access other workspaces
+ *   - Global key (workspaceId=null) can access any workspace
  *   - lastUsedAt is updated on successful auth
  */
 
@@ -44,7 +44,7 @@ import { APIException } from "../packages/control-plane/lib/api/utils/api-utils"
 import { generateApiKey } from "../packages/control-plane/lib/api/utils/api-key-utils";
 import { ApiKeyDAO } from "../packages/control-plane/db/api-key.dao";
 import { AgentDAO } from "../packages/control-plane/db/agent.dao";
-import { RealmDAO } from "../packages/control-plane/db/realm.dao";
+import { WorkspaceDAO } from "../packages/control-plane/db/workspace.dao";
 import { prisma } from "../packages/control-plane/db/client";
 import crypto from "crypto";
 
@@ -68,8 +68,8 @@ function makeRequest(
 
 async function createTestKey(opts: {
   allowedRoutes: string[];
-  realmId?: string | null;
-  isRealmAdmin?: boolean;
+  workspaceId?: string | null;
+  isWorkspaceAdmin?: boolean;
   isActive?: boolean;
   expiresAt?: Date;
 }): Promise<{ key: string; id: string }> {
@@ -81,8 +81,8 @@ async function createTestKey(opts: {
     keyHash: hash,
     keyPrefix: prefix,
     allowedRoutes: opts.allowedRoutes,
-    realmId: opts.realmId ?? undefined,
-    isRealmAdmin: opts.isRealmAdmin,
+    workspaceId: opts.workspaceId ?? undefined,
+    isWorkspaceAdmin: opts.isWorkspaceAdmin,
     createdBy: `did:vaultys:${SENTINEL}`,
     ...(opts.isActive === false ? {} : {}), // default isActive=true
     ...(opts.expiresAt ? { expiresAt: opts.expiresAt } : {}),
@@ -100,23 +100,23 @@ async function createTestKey(opts: {
 // Setup / teardown
 // ---------------------------------------------------------------------------
 
-let testRealmId: string;
-let otherRealmId: string;
+let testWorkspaceId: string;
+let otherWorkspaceId: string;
 let testAgentDid: string;
 
 beforeAll(async () => {
-  testRealmId = `realm-${SENTINEL}`;
-  otherRealmId = `realm-other-${SENTINEL}`;
+  testWorkspaceId = `workspace-${SENTINEL}`;
+  otherWorkspaceId = `workspace-other-${SENTINEL}`;
   testAgentDid = `did:vaultys:agent-${SENTINEL}`;
 
-  await prisma.realm.upsert({
-    where: { id: testRealmId },
-    create: { id: testRealmId, name: "AK Auth Test Realm", slug: `ak-auth-test-${SENTINEL}`, color: "#000" },
+  await prisma.workspace.upsert({
+    where: { id: testWorkspaceId },
+    create: { id: testWorkspaceId, name: "AK Auth Test Workspace", slug: `ak-auth-test-${SENTINEL}`, color: "#000" },
     update: {},
   });
-  await prisma.realm.upsert({
-    where: { id: otherRealmId },
-    create: { id: otherRealmId, name: "AK Auth Other Realm", slug: `ak-auth-other-${SENTINEL}`, color: "#111" },
+  await prisma.workspace.upsert({
+    where: { id: otherWorkspaceId },
+    create: { id: otherWorkspaceId, name: "AK Auth Other Workspace", slug: `ak-auth-other-${SENTINEL}`, color: "#111" },
     update: {},
   });
   await prisma.agent.upsert({
@@ -124,18 +124,18 @@ beforeAll(async () => {
     create: { did: testAgentDid, name: `agent-${SENTINEL}`, capabilities: [] },
     update: {},
   });
-  await prisma.agentRealm.upsert({
-    where: { agentDid_realmId: { agentDid: testAgentDid, realmId: testRealmId } },
-    create: { agentDid: testAgentDid, realmId: testRealmId },
+  await prisma.agentWorkspace.upsert({
+    where: { agentDid_workspaceId: { agentDid: testAgentDid, workspaceId: testWorkspaceId } },
+    create: { agentDid: testAgentDid, workspaceId: testWorkspaceId },
     update: {},
   });
 });
 
 afterAll(async () => {
   await prisma.apiKey.deleteMany({ where: { name: { contains: SENTINEL } } });
-  await prisma.agentRealm.deleteMany({ where: { realmId: { contains: SENTINEL } } });
+  await prisma.agentWorkspace.deleteMany({ where: { workspaceId: { contains: SENTINEL } } });
   await prisma.agent.deleteMany({ where: { did: { contains: SENTINEL } } });
-  await prisma.realm.deleteMany({ where: { id: { contains: SENTINEL } } });
+  await prisma.workspace.deleteMany({ where: { id: { contains: SENTINEL } } });
 });
 
 // ---------------------------------------------------------------------------
@@ -157,19 +157,19 @@ describe("API key auth — valid key", () => {
     expect(ctx.did).toMatch(/^apikey:/);
   });
 
-  it("returns isGlobalAdmin=false for a realm-scoped key", async () => {
+  it("returns isGlobalAdmin=false for a workspace-scoped key", async () => {
     const { key } = await createTestKey({
       allowedRoutes: ["GET /api/agents"],
-      realmId: testRealmId,
+      workspaceId: testWorkspaceId,
     });
     const ctx = await getAuthContext(makeRequest("/api/agents", "GET", key));
     expect(ctx.isGlobalAdmin).toBe(false);
   });
 
-  it("returns isGlobalAdmin=true for a global key (realmId=null)", async () => {
+  it("returns isGlobalAdmin=true for a global key (workspaceId=null)", async () => {
     const { key } = await createTestKey({
       allowedRoutes: ["GET /api/agents"],
-      realmId: null,
+      workspaceId: null,
     });
     const ctx = await getAuthContext(makeRequest("/api/agents", "GET", key));
     expect(ctx.isGlobalAdmin).toBe(true);
@@ -260,82 +260,82 @@ describe("API key auth — route permission (matchRoute integration)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Realm scope isolation
+// Workspace scope isolation
 // ---------------------------------------------------------------------------
 
-describe("API key auth — realm scope isolation", () => {
-  it("canAccessRealm returns true for the key's own realm", async () => {
+describe("API key auth — workspace scope isolation", () => {
+  it("canAccessWorkspace returns true for the key's own workspace", async () => {
     const { key } = await createTestKey({
       allowedRoutes: ["GET /api/agents"],
-      realmId: testRealmId,
+      workspaceId: testWorkspaceId,
     });
     const ctx = await getAuthContext(makeRequest("/api/agents", "GET", key));
-    expect(await ctx.canAccessRealm(testRealmId)).toBe(true);
+    expect(await ctx.canAccessWorkspace(testWorkspaceId)).toBe(true);
   });
 
-  it("canAccessRealm returns false for a different realm", async () => {
+  it("canAccessWorkspace returns false for a different workspace", async () => {
     const { key } = await createTestKey({
       allowedRoutes: ["GET /api/agents"],
-      realmId: testRealmId,
+      workspaceId: testWorkspaceId,
     });
     const ctx = await getAuthContext(makeRequest("/api/agents", "GET", key));
-    expect(await ctx.canAccessRealm(otherRealmId)).toBe(false);
+    expect(await ctx.canAccessWorkspace(otherWorkspaceId)).toBe(false);
   });
 
-  it("global key canAccessRealm returns true for any realm", async () => {
+  it("global key canAccessWorkspace returns true for any workspace", async () => {
     const { key } = await createTestKey({
       allowedRoutes: ["GET /api/agents"],
-      realmId: null,
+      workspaceId: null,
     });
     const ctx = await getAuthContext(makeRequest("/api/agents", "GET", key));
-    expect(await ctx.canAccessRealm(testRealmId)).toBe(true);
-    expect(await ctx.canAccessRealm(otherRealmId)).toBe(true);
-    expect(await ctx.canAccessRealm("any-realm-id")).toBe(true);
+    expect(await ctx.canAccessWorkspace(testWorkspaceId)).toBe(true);
+    expect(await ctx.canAccessWorkspace(otherWorkspaceId)).toBe(true);
+    expect(await ctx.canAccessWorkspace("any-workspace-id")).toBe(true);
   });
 
-  it("canAdminRealm returns false for non-admin realm-scoped key", async () => {
+  it("canAdminWorkspace returns false for non-admin workspace-scoped key", async () => {
     const { key } = await createTestKey({
       allowedRoutes: ["GET /api/agents"],
-      realmId: testRealmId,
-      isRealmAdmin: false,
+      workspaceId: testWorkspaceId,
+      isWorkspaceAdmin: false,
     });
     const ctx = await getAuthContext(makeRequest("/api/agents", "GET", key));
-    expect(await ctx.canAdminRealm(testRealmId)).toBe(false);
+    expect(await ctx.canAdminWorkspace(testWorkspaceId)).toBe(false);
   });
 
-  it("canAdminRealm returns true for realm-admin key on its realm", async () => {
+  it("canAdminWorkspace returns true for workspace-admin key on its workspace", async () => {
     const { key } = await createTestKey({
       allowedRoutes: ["GET /api/agents"],
-      realmId: testRealmId,
-      isRealmAdmin: true,
+      workspaceId: testWorkspaceId,
+      isWorkspaceAdmin: true,
     });
     const ctx = await getAuthContext(makeRequest("/api/agents", "GET", key));
-    expect(await ctx.canAdminRealm(testRealmId)).toBe(true);
+    expect(await ctx.canAdminWorkspace(testWorkspaceId)).toBe(true);
   });
 
-  it("canAdminRealm returns false even for admin key on a different realm", async () => {
+  it("canAdminWorkspace returns false even for admin key on a different workspace", async () => {
     const { key } = await createTestKey({
       allowedRoutes: ["GET /api/agents"],
-      realmId: testRealmId,
-      isRealmAdmin: true,
+      workspaceId: testWorkspaceId,
+      isWorkspaceAdmin: true,
     });
     const ctx = await getAuthContext(makeRequest("/api/agents", "GET", key));
-    expect(await ctx.canAdminRealm(otherRealmId)).toBe(false);
+    expect(await ctx.canAdminWorkspace(otherWorkspaceId)).toBe(false);
   });
 
-  it("canAccessAgent returns true when agent is in key's realm", async () => {
+  it("canAccessAgent returns true when agent is in key's workspace", async () => {
     const { key } = await createTestKey({
       allowedRoutes: ["GET /api/agents"],
-      realmId: testRealmId,
+      workspaceId: testWorkspaceId,
     });
     const ctx = await getAuthContext(makeRequest("/api/agents", "GET", key));
     expect(await ctx.canAccessAgent(testAgentDid)).toBe(true);
   });
 
-  it("canAccessAgent returns false when agent is in a different realm", async () => {
+  it("canAccessAgent returns false when agent is in a different workspace", async () => {
     const { key } = await createTestKey({
       allowedRoutes: ["GET /api/agents"],
-      realmId: otherRealmId,
+      workspaceId: otherWorkspaceId,
     });
     const ctx = await getAuthContext(makeRequest("/api/agents", "GET", key));
     expect(await ctx.canAccessAgent(testAgentDid)).toBe(false);
@@ -344,7 +344,7 @@ describe("API key auth — realm scope isolation", () => {
   it("global key canAccessAgent returns true for any agent", async () => {
     const { key } = await createTestKey({
       allowedRoutes: ["GET /api/agents"],
-      realmId: null,
+      workspaceId: null,
     });
     const ctx = await getAuthContext(makeRequest("/api/agents", "GET", key));
     expect(await ctx.canAccessAgent(testAgentDid)).toBe(true);

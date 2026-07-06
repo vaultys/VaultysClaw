@@ -5,7 +5,7 @@ export class KnowledgeDAO {
   // ─── Sources ─────────────────────────────────────────────────────────────────
 
   static async createSource(data: {
-    realmId: string;
+    workspaceId: string;
     agentDid: string;
     name: string;
     sourceType: string;
@@ -27,12 +27,12 @@ export class KnowledgeDAO {
   }
 
   static async listSources(opts?: {
-    realmId?: string;
+    workspaceId?: string;
     agentDid?: string;
   }): Promise<KnowledgeSource[]> {
     return prisma.knowledgeSource.findMany({
       where: {
-        ...(opts?.realmId && { realmId: opts.realmId }),
+        ...(opts?.workspaceId && { workspaceId: opts.workspaceId }),
         ...(opts?.agentDid && { agentDid: opts.agentDid }),
       },
       orderBy: { createdAt: "desc" },

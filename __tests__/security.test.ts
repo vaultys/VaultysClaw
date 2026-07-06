@@ -2,7 +2,7 @@
  * Security tests — authorization rules for the control-plane API.
  *
  * Three layers:
- *   1. DB helpers    — isUserInRealm, isUserRealmAdmin, setUserRealmAdmin
+ *   1. DB helpers    — isUserInWorkspace, isUserWorkspaceAdmin, setUserWorkspaceAdmin
  *   2. Auth context  — AuthContext methods per role (via makeAuthContext helper)
  *   3. Route handlers — 401 when unauthenticated, 403 when insufficient role
  *
@@ -71,23 +71,24 @@ import {
   PATCH as agentDetailPATCH,
 } from "../packages/control-plane/app/api/agents/[did]/route";
 import {
-  GET as realmsGET,
-  POST as realmsPOST,
-} from "../packages/control-plane/app/api/realms/route";
+  GET as workspacesGET,
+  POST as workspacesPOST,
+} from "../packages/control-plane/app/api/workspaces/route";
 import {
-  GET as realmDetailGET,
-  PATCH as realmDetailPATCH,
-  DELETE as realmDetailDELETE,
-} from "../packages/control-plane/app/api/realms/[id]/route";
+  GET as workspaceDetailGET,
+  PATCH as workspaceDetailPATCH,
+  DELETE as workspaceDetailDELETE,
+} from "../packages/control-plane/app/api/workspaces/[id]/route";
 import {
-  POST as realmAgentsPOST,
-  DELETE as realmAgentsDELETE,
-} from "../packages/control-plane/app/api/realms/[id]/agents/route";
+  POST as workspaceAgentsPOST,
+  DELETE as workspaceAgentsDELETE,
+} from "../packages/control-plane/app/api/workspaces/[id]/agents/route";
 import {
-  POST as realmUsersPOST,
-  PATCH as realmUsersPATCH,
-  DELETE as realmUsersDELETE,
-} from "../packages/control-plane/app/api/realms/[id]/users/route";
+  POST as workspaceUsersPOST,
+  PATCH as workspaceUsersPATCH,
+  DELETE as workspaceUsersDELETE,
+} from "../packages/control-plane/app/api/workspaces/[id]/users/route";
+import { POST as workspaceOwnerPOST } from "../packages/control-plane/app/api/workspaces/[id]/owner/route";
 import {
   GET as workflowsGET,
   POST as workflowsPOST,
@@ -127,30 +128,35 @@ function makeAuthContext(
     did,
     isOwner,
     isGlobalAdmin,
-    realmIds: new Set<string>(),
-    async canAccessRealm(realmId: string) {
+    workspaceIds: new Set<string>(),
+    async canAccessWorkspace(workspaceId: string) {
       if (isGlobalAdmin) return true;
-      const membership = await prisma.userRealm.findFirst({ where: { userId: did, realmId } });
+      const membership = await prisma.userWorkspace.findFirst({ where: { userId: did, workspaceId } });
       return membership !== null;
     },
-    async canAdminRealm(realmId: string) {
-      if (isGlobalAdmin) return true;
-      const membership = await prisma.userRealm.findFirst({ where: { userId: did, realmId } });
-      return membership?.isRealmAdmin === true;
+    // Admin/owner powers come only from the workspace membership role —
+    // global-admin status grants visibility, not workspace authority.
+    async canAdminWorkspace(workspaceId: string) {
+      const membership = await prisma.userWorkspace.findFirst({ where: { userId: did, workspaceId } });
+      return membership?.role === "Admin" || membership?.role === "Owner";
+    },
+    async canOwnWorkspace(workspaceId: string) {
+      const membership = await prisma.userWorkspace.findFirst({ where: { userId: did, workspaceId } });
+      return membership?.role === "Owner";
     },
     async canAccessAgent(agentDid: string) {
       if (isGlobalAdmin) return true;
-      const agentRealms = await prisma.agentRealm.findMany({ where: { agentDid } });
-      const agentRealmIds = new Set(agentRealms.map((r) => r.realmId));
-      const userMemberships = await prisma.userRealm.findMany({ where: { userId: did } });
-      return userMemberships.some((r) => agentRealmIds.has(r.realmId));
+      const agentWorkspaces = await prisma.agentWorkspace.findMany({ where: { agentDid } });
+      const agentWorkspaceIds = new Set(agentWorkspaces.map((r) => r.workspaceId));
+      const userMemberships = await prisma.userWorkspace.findMany({ where: { userId: did } });
+      return userMemberships.some((r) => agentWorkspaceIds.has(r.workspaceId));
     },
     async canAdminAgent(agentDid: string) {
       if (isGlobalAdmin) return true;
-      const agentRealms = await prisma.agentRealm.findMany({ where: { agentDid } });
-      const agentRealmIds = new Set(agentRealms.map((r) => r.realmId));
-      const userMemberships = await prisma.userRealm.findMany({ where: { userId: did } });
-      return userMemberships.some((r) => agentRealmIds.has(r.realmId) && r.isRealmAdmin === true);
+      const agentWorkspaces = await prisma.agentWorkspace.findMany({ where: { agentDid } });
+      const agentWorkspaceIds = new Set(agentWorkspaces.map((r) => r.workspaceId));
+      const userMemberships = await prisma.userWorkspace.findMany({ where: { userId: did } });
+      return userMemberships.some((r) => agentWorkspaceIds.has(r.workspaceId) && (r.role === "Admin" || r.role === "Owner"));
     },
   };
 }
@@ -173,9 +179,10 @@ function asMember(did = DID.member) {
     did,
     isOwner: false,
     isGlobalAdmin: false,
-    realmIds: new Set([testRealmId]),
-    canAccessRealm: async (realmId: string) => realmId === testRealmId,
-    canAdminRealm: async () => false,
+    workspaceIds: new Set([testWorkspaceId]),
+    canAccessWorkspace: async (workspaceId: string) => workspaceId === testWorkspaceId,
+    canAdminWorkspace: async () => false,
+    canOwnWorkspace: async () => false,
     canAccessAgent: async (agentDid: string) => agentDid === DID.agent,
     canAdminAgent: async () => false,
   });
@@ -185,24 +192,31 @@ function asStranger(did = DID.stranger) {
     did,
     isOwner: false,
     isGlobalAdmin: false,
-    realmIds: new Set<string>(),
-    canAccessRealm: async () => false,
-    canAdminRealm: async () => false,
+    workspaceIds: new Set<string>(),
+    canAccessWorkspace: async () => false,
+    canAdminWorkspace: async () => false,
+    canOwnWorkspace: async () => false,
     canAccessAgent: async () => false,
     canAdminAgent: async () => false,
   });
 }
-function asRealmAdmin(did = DID.realmAdmin) {
+function asWorkspaceAdmin(did = DID.workspaceAdmin) {
   mockGetAuthContext.mockResolvedValue({
     did,
     isOwner: false,
     isGlobalAdmin: false,
-    realmIds: new Set([testRealmId]),
-    canAccessRealm: async (realmId: string) => realmId === testRealmId,
-    canAdminRealm: async (realmId: string) => realmId === testRealmId,
+    workspaceIds: new Set([testWorkspaceId]),
+    canAccessWorkspace: async (workspaceId: string) => workspaceId === testWorkspaceId,
+    canAdminWorkspace: async (workspaceId: string) => workspaceId === testWorkspaceId,
+    canOwnWorkspace: async () => false,
     canAccessAgent: async (agentDid: string) => agentDid === DID.agent,
     canAdminAgent: async (agentDid: string) => agentDid === DID.agent,
   });
+}
+// A workspace Owner who is NOT a global admin — uses the real DB-backed
+// makeAuthContext so canOwnWorkspace/canAdminWorkspace reflect the membership row.
+function asWorkspaceOwner(did = DID.workspaceOwner) {
+  mockGetAuthContext.mockResolvedValue(makeAuthContext(did));
 }
 
 /** Minimal mock that satisfies NextRequest for route handlers */
@@ -242,13 +256,14 @@ const DID = {
   owner: "did:vaultys:owner-sec-001",
   admin: "did:vaultys:admin-sec-001",
   member: "did:vaultys:member-sec-001",
-  realmAdmin: "did:vaultys:realmadmin-sec-001",
+  workspaceAdmin: "did:vaultys:workspaceadmin-sec-001",
+  workspaceOwner: "did:vaultys:workspaceowner-sec-001",
   stranger: "did:vaultys:stranger-sec-001",
   agent: "did:vaultys:agent-sec-001",
 };
 
 const SENTINEL = "sec-001"; // used to clean up test data
-let testRealmId: string;
+let testWorkspaceId: string;
 let testWorkflowId: string;
 
 // ---------------------------------------------------------------------------
@@ -257,43 +272,47 @@ let testWorkflowId: string;
 
 beforeAll(async () => {
   // Clean up any stale Prisma data
-  await prisma.userRealm.deleteMany({ where: { userId: { contains: SENTINEL } } });
-  await prisma.agentRealm.deleteMany({ where: { agentDid: { contains: SENTINEL } } });
+  await prisma.userWorkspace.deleteMany({ where: { userId: { contains: SENTINEL } } });
+  await prisma.userWorkspace.deleteMany({ where: { workspaceId: { contains: SENTINEL } } });
+  await prisma.agentWorkspace.deleteMany({ where: { agentDid: { contains: SENTINEL } } });
   await prisma.user.deleteMany({ where: { did: { contains: SENTINEL } } });
   await prisma.agent.deleteMany({ where: { did: { contains: SENTINEL } } });
-  await prisma.realm.deleteMany({ where: { slug: { contains: "test-sec-realm" } } });
+  await prisma.workspace.deleteMany({ where: { slug: { contains: "test-sec-workspace" } } });
+  await prisma.workspace.deleteMany({ where: { id: { contains: SENTINEL } } });
 
   // ── Prisma setup (control plane uses Prisma exclusively, no SQLite) ────────
   await prisma.user.createMany({
     data: [
-      { id: DID.owner, did: DID.owner, isOwner: true, isAdmin: true },
-      { id: DID.admin, did: DID.admin, isAdmin: true },
+      { id: DID.owner, did: DID.owner, role: "Owner" },
+      { id: DID.admin, did: DID.admin, role: "Admin" },
       { id: DID.member, did: DID.member },
-      { id: DID.realmAdmin, did: DID.realmAdmin },
+      { id: DID.workspaceAdmin, did: DID.workspaceAdmin },
+      { id: DID.workspaceOwner, did: DID.workspaceOwner },
       { id: DID.stranger, did: DID.stranger },
     ],
     skipDuplicates: true,
   });
 
-  // Create realm via Prisma — use a unique slug to avoid constraint violations
+  // Create workspace via Prisma — use a unique slug to avoid constraint violations
   // when tests run in parallel workers against the same DB.
-  const realmSlug = `test-sec-realm-${SENTINEL}`;
-  testRealmId = `realm-sec-001-${crypto.randomUUID()}`;
-  await prisma.realm.deleteMany({ where: { slug: realmSlug } });
-  await prisma.realm.create({
+  const workspaceSlug = `test-sec-workspace-${SENTINEL}`;
+  testWorkspaceId = `workspace-sec-001-${crypto.randomUUID()}`;
+  await prisma.workspace.deleteMany({ where: { slug: workspaceSlug } });
+  await prisma.workspace.create({
     data: {
-      id: testRealmId,
-      name: "Security Test Realm",
-      slug: realmSlug,
+      id: testWorkspaceId,
+      name: "Security Test Workspace",
+      slug: workspaceSlug,
       color: "#6366f1",
     },
   });
 
-  // Add users to realm via Prisma
-  await prisma.userRealm.createMany({
+  // Add users to workspace via Prisma
+  await prisma.userWorkspace.createMany({
     data: [
-      { userId: DID.member, realmId: testRealmId, isRealmAdmin: false },
-      { userId: DID.realmAdmin, realmId: testRealmId, isRealmAdmin: true },
+      { userId: DID.member, workspaceId: testWorkspaceId, role: "Member" },
+      { userId: DID.workspaceAdmin, workspaceId: testWorkspaceId, role: "Admin" },
+      { userId: DID.workspaceOwner, workspaceId: testWorkspaceId, role: "Owner" },
     ],
     skipDuplicates: true,
   });
@@ -307,11 +326,11 @@ beforeAll(async () => {
     },
   });
 
-  // Add agent to realm via Prisma
-  await prisma.agentRealm.create({
+  // Add agent to workspace via Prisma
+  await prisma.agentWorkspace.create({
     data: {
       agentDid: DID.agent,
-      realmId: testRealmId,
+      workspaceId: testWorkspaceId,
     },
   });
 
@@ -323,7 +342,7 @@ beforeAll(async () => {
       id: testWorkflowId,
       name: "Security Test Workflow",
       definition: def as any,
-      realmId: testRealmId,
+      workspaceId: testWorkspaceId,
     },
   });
 });
@@ -331,12 +350,15 @@ beforeAll(async () => {
 afterAll(async () => {
   // Prisma cleanup (control plane uses Prisma exclusively)
   await prisma.policy.deleteMany({ where: { OR: [{ createdBy: { contains: SENTINEL } }, { agentDid: { contains: SENTINEL } }] } });
-  await prisma.workflow.deleteMany({ where: { realmId: testRealmId } });
-  await prisma.userRealm.deleteMany({ where: { userId: { contains: SENTINEL } } });
-  await prisma.agentRealm.deleteMany({ where: { agentDid: { contains: SENTINEL } } });
+  await prisma.workflow.deleteMany({ where: { workspaceId: testWorkspaceId } });
+  await prisma.userWorkspace.deleteMany({ where: { userId: { contains: SENTINEL } } });
+  await prisma.userWorkspace.deleteMany({ where: { workspaceId: { contains: SENTINEL } } });
+  await prisma.agentWorkspace.deleteMany({ where: { agentDid: { contains: SENTINEL } } });
   await prisma.user.deleteMany({ where: { did: { contains: SENTINEL } } });
   await prisma.agent.deleteMany({ where: { did: { contains: SENTINEL } } });
-  await prisma.realm.deleteMany({ where: { slug: { contains: "test-sec-realm" } } });
+  await prisma.workspace.deleteMany({ where: { slug: { contains: "test-sec-workspace" } } });
+  // Throwaway workspaces created by owner delete/transfer tests.
+  await prisma.workspace.deleteMany({ where: { id: { contains: SENTINEL } } });
 });
 
 // Reset mock before each test so auth context doesn't leak between tests
@@ -348,64 +370,64 @@ beforeEach(() => {
 // 1. DB HELPERS
 // ===========================================================================
 
-describe.skip("DB helper — realm membership", () => {
-  it("isUserInRealm returns true for a member", () => {
-    expect(isUserInRealm(DID.member, testRealmId)).toBe(true);
+describe.skip("DB helper — workspace membership", () => {
+  it("isUserInWorkspace returns true for a member", () => {
+    expect(isUserInWorkspace(DID.member, testWorkspaceId)).toBe(true);
   });
 
-  it("isUserInRealm returns false for a stranger", () => {
-    expect(isUserInRealm(DID.stranger, testRealmId)).toBe(false);
+  it("isUserInWorkspace returns false for a stranger", () => {
+    expect(isUserInWorkspace(DID.stranger, testWorkspaceId)).toBe(false);
   });
 
-  it("isUserRealmAdmin returns true for realm admin", () => {
-    expect(isUserRealmAdmin(DID.realmAdmin, testRealmId)).toBe(true);
+  it("isUserWorkspaceAdmin returns true for workspace admin", () => {
+    expect(isUserWorkspaceAdmin(DID.workspaceAdmin, testWorkspaceId)).toBe(true);
   });
 
-  it("isUserRealmAdmin returns false for a regular member", () => {
-    expect(isUserRealmAdmin(DID.member, testRealmId)).toBe(false);
+  it("isUserWorkspaceAdmin returns false for a regular member", () => {
+    expect(isUserWorkspaceAdmin(DID.member, testWorkspaceId)).toBe(false);
   });
 
-  it("isUserRealmAdmin returns false for a stranger", () => {
-    expect(isUserRealmAdmin(DID.stranger, testRealmId)).toBe(false);
+  it("isUserWorkspaceAdmin returns false for a stranger", () => {
+    expect(isUserWorkspaceAdmin(DID.stranger, testWorkspaceId)).toBe(false);
   });
 
-  it("setUserRealmAdmin promotes a member to realm admin", () => {
+  it("setUserWorkspaceAdmin promotes a member to workspace admin", () => {
     const db = getDb();
     const tmpDid = `did:vaultys:tmp-promote-${SENTINEL}`;
     UserDao.create(tmpDid, null, false);
-    addUserToRealm(tmpDid, testRealmId, false, false);
+    addUserToWorkspace(tmpDid, testWorkspaceId, false, false);
 
-    expect(isUserRealmAdmin(tmpDid, testRealmId)).toBe(false);
-    setUserRealmAdmin(tmpDid, testRealmId, true);
-    expect(isUserRealmAdmin(tmpDid, testRealmId)).toBe(true);
+    expect(isUserWorkspaceAdmin(tmpDid, testWorkspaceId)).toBe(false);
+    setUserWorkspaceAdmin(tmpDid, testWorkspaceId, true);
+    expect(isUserWorkspaceAdmin(tmpDid, testWorkspaceId)).toBe(true);
 
-    db.prepare("DELETE FROM user_realms WHERE user_id = ?").run(tmpDid);
+    db.prepare("DELETE FROM user_workspaces WHERE user_id = ?").run(tmpDid);
     db.prepare("DELETE FROM users WHERE did = ?").run(tmpDid);
   });
 
-  it("setUserRealmAdmin returns false when user is not a member", () => {
-    const changed = setUserRealmAdmin(DID.stranger, testRealmId, true);
+  it("setUserWorkspaceAdmin returns false when user is not a member", () => {
+    const changed = setUserWorkspaceAdmin(DID.stranger, testWorkspaceId, true);
     expect(changed).toBe(false);
-    expect(isUserRealmAdmin(DID.stranger, testRealmId)).toBe(false);
+    expect(isUserWorkspaceAdmin(DID.stranger, testWorkspaceId)).toBe(false);
   });
 
-  it("addUserToRealm with isRealmAdmin=true stores the flag", () => {
+  it("addUserToWorkspace with isWorkspaceAdmin=true stores the flag", () => {
     const db = getDb();
     const tmpDid = `did:vaultys:tmp-adm-flag-${SENTINEL}`;
     UserDao.create(tmpDid, null, false);
-    addUserToRealm(tmpDid, testRealmId, false, true);
+    addUserToWorkspace(tmpDid, testWorkspaceId, false, true);
 
-    expect(isUserRealmAdmin(tmpDid, testRealmId)).toBe(true);
+    expect(isUserWorkspaceAdmin(tmpDid, testWorkspaceId)).toBe(true);
 
-    db.prepare("DELETE FROM user_realms WHERE user_id = ?").run(tmpDid);
+    db.prepare("DELETE FROM user_workspaces WHERE user_id = ?").run(tmpDid);
     db.prepare("DELETE FROM users WHERE did = ?").run(tmpDid);
   });
 
-  it("getUserRealms includes is_realm_admin field", () => {
-    const realms = getUserRealms(DID.realmAdmin);
-    const entry = realms.find((r) => r.realm_id === testRealmId);
+  it("getUserWorkspaces includes is_workspace_admin field", () => {
+    const workspaces = getUserWorkspaces(DID.workspaceAdmin);
+    const entry = workspaces.find((r) => r.workspace_id === testWorkspaceId);
     expect(entry).toBeDefined();
-    expect(entry!.is_realm_admin).toBe(1);
+    expect(entry!.is_workspace_admin).toBe(1);
   });
 });
 
@@ -422,15 +444,15 @@ describe.skip("AuthContext — owner", () => {
     expect(ctx.isOwner).toBe(true);
   });
 
-  it("canAccessRealm any realm", () => {
+  it("canAccessWorkspace any workspace", () => {
     const ctx = makeAuthContext(DID.owner, { isOwner: true, isAdmin: true });
-    expect(ctx.canAccessRealm(testRealmId)).toBe(true);
-    expect(ctx.canAccessRealm("non-existent-realm-id")).toBe(true);
+    expect(ctx.canAccessWorkspace(testWorkspaceId)).toBe(true);
+    expect(ctx.canAccessWorkspace("non-existent-workspace-id")).toBe(true);
   });
 
-  it("canAdminRealm any realm", () => {
+  it("canAdminWorkspace any workspace", () => {
     const ctx = makeAuthContext(DID.owner, { isOwner: true, isAdmin: true });
-    expect(ctx.canAdminRealm(testRealmId)).toBe(true);
+    expect(ctx.canAdminWorkspace(testWorkspaceId)).toBe(true);
   });
 
   it("canAccessAgent any agent", () => {
@@ -451,14 +473,16 @@ describe("AuthContext — global admin", () => {
     expect(ctx.isOwner).toBe(false);
   });
 
-  it("canAccessRealm any realm", async () => {
+  it("canAccessWorkspace any workspace", async () => {
     const ctx = makeAuthContext(DID.admin, { isAdmin: true });
-    expect(await ctx.canAccessRealm(testRealmId)).toBe(true);
+    expect(await ctx.canAccessWorkspace(testWorkspaceId)).toBe(true);
   });
 
-  it("canAdminRealm any realm", async () => {
+  it("cannot admin a workspace it is not a member of", async () => {
+    // Global-admin status grants visibility, not workspace-management power.
     const ctx = makeAuthContext(DID.admin, { isAdmin: true });
-    expect(await ctx.canAdminRealm(testRealmId)).toBe(true);
+    expect(await ctx.canAdminWorkspace(testWorkspaceId)).toBe(false);
+    expect(await ctx.canOwnWorkspace(testWorkspaceId)).toBe(false);
   });
 
   it("canAccessAgent any agent", async () => {
@@ -479,63 +503,63 @@ describe.skip("AuthContext — regular member", () => {
     expect(ctx.isOwner).toBe(false);
   });
 
-  it("canAccessRealm own realm", () => {
+  it("canAccessWorkspace own workspace", () => {
     const ctx = makeAuthContext(DID.member);
-    expect(ctx.canAccessRealm(testRealmId)).toBe(true);
+    expect(ctx.canAccessWorkspace(testWorkspaceId)).toBe(true);
   });
 
-  it("canAccessRealm returns false for a realm they're not in", () => {
+  it("canAccessWorkspace returns false for a workspace they're not in", () => {
     const ctx = makeAuthContext(DID.member);
-    expect(ctx.canAccessRealm("realm-does-not-exist")).toBe(false);
+    expect(ctx.canAccessWorkspace("workspace-does-not-exist")).toBe(false);
   });
 
-  it("canAdminRealm returns false (not a realm admin)", () => {
+  it("canAdminWorkspace returns false (not a workspace admin)", () => {
     const ctx = makeAuthContext(DID.member);
-    expect(ctx.canAdminRealm(testRealmId)).toBe(false);
+    expect(ctx.canAdminWorkspace(testWorkspaceId)).toBe(false);
   });
 
-  it("canAccessAgent for an agent in their realm", () => {
+  it("canAccessAgent for an agent in their workspace", () => {
     const ctx = makeAuthContext(DID.member);
     expect(ctx.canAccessAgent(DID.agent)).toBe(true);
   });
 
-  it("canAccessAgent returns false for an agent not in any shared realm", () => {
+  it("canAccessAgent returns false for an agent not in any shared workspace", () => {
     const ctx = makeAuthContext(DID.member);
     expect(ctx.canAccessAgent("did:vaultys:unknown-agent")).toBe(false);
   });
 
-  it("canAdminAgent returns false (not a realm admin)", () => {
+  it("canAdminAgent returns false (not a workspace admin)", () => {
     const ctx = makeAuthContext(DID.member);
     expect(ctx.canAdminAgent(DID.agent)).toBe(false);
   });
 });
 
-describe.skip("AuthContext — realm admin", () => {
-  it("canAdminRealm returns true for their realm", () => {
-    const ctx = makeAuthContext(DID.realmAdmin);
-    expect(ctx.canAdminRealm(testRealmId)).toBe(true);
+describe.skip("AuthContext — workspace admin", () => {
+  it("canAdminWorkspace returns true for their workspace", () => {
+    const ctx = makeAuthContext(DID.workspaceAdmin);
+    expect(ctx.canAdminWorkspace(testWorkspaceId)).toBe(true);
   });
 
-  it("canAdminAgent returns true for agent in their realm", () => {
-    const ctx = makeAuthContext(DID.realmAdmin);
+  it("canAdminAgent returns true for agent in their workspace", () => {
+    const ctx = makeAuthContext(DID.workspaceAdmin);
     expect(ctx.canAdminAgent(DID.agent)).toBe(true);
   });
 
-  it("canAdminRealm returns false for a realm they don't admin", () => {
-    const ctx = makeAuthContext(DID.realmAdmin);
-    expect(ctx.canAdminRealm("some-other-realm-id")).toBe(false);
+  it("canAdminWorkspace returns false for a workspace they don't admin", () => {
+    const ctx = makeAuthContext(DID.workspaceAdmin);
+    expect(ctx.canAdminWorkspace("some-other-workspace-id")).toBe(false);
   });
 });
 
-describe("AuthContext — stranger (authenticated, no realm membership)", () => {
-  it("canAccessRealm returns false", async () => {
+describe("AuthContext — stranger (authenticated, no workspace membership)", () => {
+  it("canAccessWorkspace returns false", async () => {
     const ctx = makeAuthContext(DID.stranger);
-    expect(await ctx.canAccessRealm(testRealmId)).toBe(false);
+    expect(await ctx.canAccessWorkspace(testWorkspaceId)).toBe(false);
   });
 
-  it("canAdminRealm returns false", async () => {
+  it("canAdminWorkspace returns false", async () => {
     const ctx = makeAuthContext(DID.stranger);
-    expect(await ctx.canAdminRealm(testRealmId)).toBe(false);
+    expect(await ctx.canAdminWorkspace(testWorkspaceId)).toBe(false);
   });
 
   it("canAccessAgent returns false", async () => {
@@ -567,7 +591,7 @@ describe("GET /api/agents", () => {
     expectStatus(res, 200);
   });
 
-  it("succeeds (200) for a member — returns only realm-scoped agents", async () => {
+  it("succeeds (200) for a member — returns only workspace-scoped agents", async () => {
     asMember();
     const res = await agentsGET(req() as never, {});
     expectStatus(res, 200);
@@ -590,7 +614,7 @@ describe("GET /api/agents/[did]", () => {
     expectStatus(res, 401);
   });
 
-  it("returns 200 for a member of the agent's realm", async () => {
+  it("returns 200 for a member of the agent's workspace", async () => {
     asMember();
     const res = await agentDetailGET(
       req() as never,
@@ -599,7 +623,7 @@ describe("GET /api/agents/[did]", () => {
     expectStatus(res, 200);
   });
 
-  it("returns 403 for a stranger (not in any shared realm with the agent)", async () => {
+  it("returns 403 for a stranger (not in any shared workspace with the agent)", async () => {
     asStranger();
     const res = await agentDetailGET(
       req() as never,
@@ -608,7 +632,7 @@ describe("GET /api/agents/[did]", () => {
     expectStatus(res, 403);
   });
 
-  it("returns 200 for a global admin regardless of realm membership", async () => {
+  it("returns 200 for a global admin regardless of workspace membership", async () => {
     asAdmin();
     const res = await agentDetailGET(
       req() as never,
@@ -637,8 +661,8 @@ describe("PATCH /api/agents/[did] — capabilities", () => {
     expectStatus(res, 403);
   });
 
-  it("returns 403 for a realm admin (not a global admin)", async () => {
-    asRealmAdmin();
+  it("returns 403 for a workspace admin (not a global admin)", async () => {
+    asWorkspaceAdmin();
     const res = await agentDetailPATCH(
       req("http://localhost", { capabilities: ["file_access"] }) as never,
       params({ did: encodeURIComponent(DID.agent) })
@@ -657,43 +681,43 @@ describe("PATCH /api/agents/[did] — capabilities", () => {
   });
 });
 
-// --- /api/realms ------------------------------------------------------------
+// --- /api/workspaces ------------------------------------------------------------
 
-describe("GET /api/realms", () => {
+describe("GET /api/workspaces", () => {
   it("returns 401 when unauthenticated", async () => {
     asUnauthenticated();
-    const res = await realmsGET(req("http://localhost/api/realms") as never);
+    const res = await workspacesGET(req("http://localhost/api/workspaces") as never);
     expectStatus(res, 401);
   });
 
   it("succeeds for a global admin", async () => {
     asAdmin();
-    const res = await realmsGET(req("http://localhost/api/realms") as never);
+    const res = await workspacesGET(req("http://localhost/api/workspaces") as never);
     expectStatus(res, 200);
   });
 
-  it("succeeds for a member — returns only their realms", async () => {
+  it("succeeds for a member — returns only their workspaces", async () => {
     asMember();
-    const res = await realmsGET(req("http://localhost/api/realms") as never);
+    const res = await workspacesGET(req("http://localhost/api/workspaces") as never);
     expectStatus(res, 200);
-    const body = (res as { _body: { realms: { id: string }[] } })._body;
-    const ids = body.realms.map((r) => r.id);
-    expect(ids).toContain(testRealmId);
+    const body = (res as { _body: { workspaces: { id: string }[] } })._body;
+    const ids = body.workspaces.map((r) => r.id);
+    expect(ids).toContain(testWorkspaceId);
   });
 
-  it("returns empty list for a stranger (no realms)", async () => {
+  it("returns empty list for a stranger (no workspaces)", async () => {
     asStranger();
-    const res = await realmsGET(req("http://localhost/api/realms") as never);
+    const res = await workspacesGET(req("http://localhost/api/workspaces") as never);
     expectStatus(res, 200);
-    const body = (res as { _body: { realms: unknown[] } })._body;
-    expect(body.realms).toHaveLength(0);
+    const body = (res as { _body: { workspaces: unknown[] } })._body;
+    expect(body.workspaces).toHaveLength(0);
   });
 });
 
-describe("POST /api/realms", () => {
+describe("POST /api/workspaces", () => {
   it("returns 401 when unauthenticated", async () => {
     asUnauthenticated();
-    const res = await realmsPOST(
+    const res = await workspacesPOST(
       req("http://localhost", { name: "X", slug: "x" }) as never
     );
     expectStatus(res, 401);
@@ -701,15 +725,15 @@ describe("POST /api/realms", () => {
 
   it("returns 403 for a regular member", async () => {
     asMember();
-    const res = await realmsPOST(
+    const res = await workspacesPOST(
       req("http://localhost", { name: "X", slug: "x" }) as never
     );
     expectStatus(res, 403);
   });
 
-  it("returns 403 for a realm admin (realm admin ≠ global admin)", async () => {
-    asRealmAdmin();
-    const res = await realmsPOST(
+  it("returns 403 for a workspace admin (workspace admin ≠ global admin)", async () => {
+    asWorkspaceAdmin();
+    const res = await workspacesPOST(
       req("http://localhost", { name: "X", slug: "x" }) as never
     );
     expectStatus(res, 403);
@@ -717,281 +741,436 @@ describe("POST /api/realms", () => {
 
   it("is accessible to a global admin", async () => {
     asAdmin();
-    const res = await realmsPOST(
+    const res = await workspacesPOST(
       req("http://localhost", {
-        name: "Temp Realm",
-        slug: `tmp-realm-${Date.now()}`,
+        name: "Temp Workspace",
+        slug: `tmp-workspace-${Date.now()}`,
       }) as never
     );
     expect(status(res)).not.toBe(401);
     expect(status(res)).not.toBe(403);
-    const body = (res as { _body: { realm?: { id: string } } })._body;
-    if (body.realm?.id) {
-      await prisma.realm.deleteMany({ where: { id: body.realm.id } });
+    const body = (res as { _body: { workspace?: { id: string } } })._body;
+    if (body.workspace?.id) {
+      await prisma.workspace.deleteMany({ where: { id: body.workspace.id } });
     }
   });
 });
 
-// --- /api/realms/[id] -------------------------------------------------------
+// --- /api/workspaces/[id] -------------------------------------------------------
 
-describe("GET /api/realms/[id]", () => {
+describe("GET /api/workspaces/[id]", () => {
   it("returns 401 when unauthenticated", async () => {
     asUnauthenticated();
-    const res = await realmDetailGET(
+    const res = await workspaceDetailGET(
       req() as never,
-      params({ id: testRealmId })
+      params({ id: testWorkspaceId })
     );
     expectStatus(res, 401);
   });
 
-  it("returns 200 for a member of the realm", async () => {
+  it("returns 200 for a member of the workspace", async () => {
     asMember();
-    const res = await realmDetailGET(
+    const res = await workspaceDetailGET(
       req() as never,
-      params({ id: testRealmId })
+      params({ id: testWorkspaceId })
     );
     expectStatus(res, 200);
   });
 
   it("returns 403 for a stranger", async () => {
     asStranger();
-    const res = await realmDetailGET(
+    const res = await workspaceDetailGET(
       req() as never,
-      params({ id: testRealmId })
+      params({ id: testWorkspaceId })
     );
     expectStatus(res, 403);
   });
 });
 
-describe("PATCH /api/realms/[id] — realm metadata", () => {
+describe("PATCH /api/workspaces/[id] — workspace metadata", () => {
   it("returns 401 when unauthenticated", async () => {
     asUnauthenticated();
-    const res = await realmDetailPATCH(
+    const res = await workspaceDetailPATCH(
       req("http://localhost", { name: "New Name" }) as never,
-      params({ id: testRealmId })
+      params({ id: testWorkspaceId })
     );
     expectStatus(res, 401);
   });
 
   it("returns 403 for a regular member", async () => {
     asMember();
-    const res = await realmDetailPATCH(
+    const res = await workspaceDetailPATCH(
       req("http://localhost", { name: "New Name" }) as never,
-      params({ id: testRealmId })
+      params({ id: testWorkspaceId })
     );
     expectStatus(res, 403);
   });
 
-  it("returns 403 for a realm admin (config is global-admin-only)", async () => {
-    asRealmAdmin();
-    const res = await realmDetailPATCH(
+  it("returns 403 for a workspace admin (editing the realm is owner-only)", async () => {
+    asWorkspaceAdmin();
+    const res = await workspaceDetailPATCH(
       req("http://localhost", { name: "New Name" }) as never,
-      params({ id: testRealmId })
+      params({ id: testWorkspaceId })
     );
     expectStatus(res, 403);
   });
 
-  it("is accessible to a global admin", async () => {
+  it("returns 403 for a global admin who is not the workspace owner", async () => {
     asAdmin();
-    const res = await realmDetailPATCH(
-      req("http://localhost", { name: "Security Test Realm" }) as never,
-      params({ id: testRealmId })
+    const res = await workspaceDetailPATCH(
+      req("http://localhost", { name: "New Name" }) as never,
+      params({ id: testWorkspaceId })
+    );
+    expectStatus(res, 403);
+  });
+
+  it("is accessible to the workspace owner", async () => {
+    asWorkspaceOwner();
+    const res = await workspaceDetailPATCH(
+      req("http://localhost", { name: "Security Test Workspace" }) as never,
+      params({ id: testWorkspaceId })
     );
     expect(status(res)).not.toBe(401);
     expect(status(res)).not.toBe(403);
   });
 });
 
-describe("DELETE /api/realms/[id]", () => {
+describe("DELETE /api/workspaces/[id]", () => {
   it("returns 401 when unauthenticated", async () => {
     asUnauthenticated();
-    const res = await realmDetailDELETE(
+    const res = await workspaceDetailDELETE(
       req() as never,
-      params({ id: testRealmId })
+      params({ id: testWorkspaceId })
     );
     expectStatus(res, 401);
   });
 
-  it("returns 403 for a realm admin", async () => {
-    asRealmAdmin();
-    const res = await realmDetailDELETE(
+  it("returns 403 for a workspace admin", async () => {
+    asWorkspaceAdmin();
+    const res = await workspaceDetailDELETE(
       req() as never,
-      params({ id: testRealmId })
+      params({ id: testWorkspaceId })
     );
     expectStatus(res, 403);
   });
 
   it("returns 403 for a regular member", async () => {
     asMember();
-    const res = await realmDetailDELETE(
+    const res = await workspaceDetailDELETE(
       req() as never,
-      params({ id: testRealmId })
+      params({ id: testWorkspaceId })
+    );
+    expectStatus(res, 403);
+  });
+
+  it("is accessible to the workspace owner", async () => {
+    // Use a throwaway workspace so we don't delete the shared fixture.
+    const wsId = `workspace-del-${SENTINEL}-${crypto.randomUUID()}`;
+    await prisma.workspace.create({
+      data: { id: wsId, name: "Del WS", slug: `del-${wsId}`, color: "#6366f1" },
+    });
+    await prisma.userWorkspace.create({
+      data: { userId: DID.workspaceOwner, workspaceId: wsId, role: "Owner" },
+    });
+    asWorkspaceOwner();
+    const res = await workspaceDetailDELETE(req() as never, params({ id: wsId }));
+    expect(status(res)).not.toBe(401);
+    expect(status(res)).not.toBe(403);
+  });
+});
+
+describe("POST /api/workspaces/[id]/owner — transfer ownership", () => {
+  it("returns 401 when unauthenticated", async () => {
+    asUnauthenticated();
+    const res = await workspaceOwnerPOST(
+      req("http://localhost", { userDid: DID.member }) as never,
+      params({ id: testWorkspaceId })
+    );
+    expectStatus(res, 401);
+  });
+
+  it("returns 403 for a regular member", async () => {
+    asMember();
+    const res = await workspaceOwnerPOST(
+      req("http://localhost", { userDid: DID.member }) as never,
+      params({ id: testWorkspaceId })
+    );
+    expectStatus(res, 403);
+  });
+
+  it("returns 403 for a workspace admin (owner-only action)", async () => {
+    asWorkspaceAdmin();
+    const res = await workspaceOwnerPOST(
+      req("http://localhost", { userDid: DID.member }) as never,
+      params({ id: testWorkspaceId })
+    );
+    expectStatus(res, 403);
+  });
+
+  it("is accessible to the workspace owner", async () => {
+    // Throwaway workspace with an owner + a member to receive ownership.
+    const wsId = `workspace-xfer-${SENTINEL}-${crypto.randomUUID()}`;
+    await prisma.workspace.create({
+      data: { id: wsId, name: "Xfer WS", slug: `xfer-${wsId}`, color: "#6366f1" },
+    });
+    await prisma.userWorkspace.createMany({
+      data: [
+        { userId: DID.workspaceOwner, workspaceId: wsId, role: "Owner" },
+        { userId: DID.member, workspaceId: wsId, role: "Member" },
+      ],
+    });
+    asWorkspaceOwner();
+    const res = await workspaceOwnerPOST(
+      req("http://localhost", { userDid: DID.member }) as never,
+      params({ id: wsId })
+    );
+    expect(status(res)).not.toBe(401);
+    expect(status(res)).not.toBe(403);
+    // The member is now Owner and the previous owner was demoted to Admin.
+    const rows = await prisma.userWorkspace.findMany({ where: { workspaceId: wsId } });
+    expect(rows.find((r) => r.userId === DID.member)?.role).toBe("Owner");
+    expect(rows.find((r) => r.userId === DID.workspaceOwner)?.role).toBe("Admin");
+  });
+});
+
+describe("workspace admin can manage users but not the owner", () => {
+  it("a workspace admin cannot remove the owner", async () => {
+    asWorkspaceAdmin();
+    const res = await workspaceUsersDELETE(
+      req("http://localhost", { userDid: DID.workspaceOwner }) as never,
+      params({ id: testWorkspaceId })
+    );
+    // Owner removal is rejected as a malformed request (not the default-workspace path).
+    expect(status(res)).not.toBe(200);
+  });
+
+  it("a workspace admin cannot change the owner's role", async () => {
+    asWorkspaceAdmin();
+    const res = await workspaceUsersPATCH(
+      req("http://localhost", { userDid: DID.workspaceOwner, role: "Member" }) as never,
+      params({ id: testWorkspaceId })
     );
     expectStatus(res, 403);
   });
 });
 
-// --- /api/realms/[id]/agents ------------------------------------------------
+describe("a workspace admin cannot strip their own rights", () => {
+  it("cannot demote themselves via updateUser", async () => {
+    asWorkspaceAdmin();
+    const res = await workspaceUsersPATCH(
+      req("http://localhost", { userDid: DID.workspaceAdmin, role: "Member" }) as never,
+      params({ id: testWorkspaceId })
+    );
+    expectStatus(res, 403);
+    // Role unchanged in the DB.
+    const row = await prisma.userWorkspace.findUnique({
+      where: {
+        userId_workspaceId: {
+          userId: DID.workspaceAdmin,
+          workspaceId: testWorkspaceId,
+        },
+      },
+    });
+    expect(row?.role).toBe("Admin");
+  });
 
-describe("POST /api/realms/[id]/agents", () => {
+  it("cannot remove themselves from the workspace", async () => {
+    asWorkspaceAdmin();
+    const res = await workspaceUsersDELETE(
+      req("http://localhost", { userDid: DID.workspaceAdmin }) as never,
+      params({ id: testWorkspaceId })
+    );
+    expectStatus(res, 403);
+    const stillMember = await prisma.userWorkspace.findUnique({
+      where: {
+        userId_workspaceId: {
+          userId: DID.workspaceAdmin,
+          workspaceId: testWorkspaceId,
+        },
+      },
+    });
+    expect(stillMember).not.toBeNull();
+  });
+
+  it("a global admin who is a workspace admin still cannot demote themselves", async () => {
+    // Global-admin status confers no workspace power, so the self-protection
+    // guard applies to them too when they hold a workspace-admin membership.
+    const wsId = `workspace-self-${SENTINEL}-${crypto.randomUUID()}`;
+    await prisma.workspace.create({
+      data: { id: wsId, name: "Self WS", slug: `self-${wsId}`, color: "#6366f1" },
+    });
+    await prisma.userWorkspace.create({
+      data: { userId: DID.admin, workspaceId: wsId, role: "Admin" },
+    });
+    asAdmin();
+    const res = await workspaceUsersPATCH(
+      req("http://localhost", { userDid: DID.admin, role: "Member" }) as never,
+      params({ id: wsId })
+    );
+    expectStatus(res, 403);
+  });
+});
+
+// --- /api/workspaces/[id]/agents ------------------------------------------------
+
+describe("POST /api/workspaces/[id]/agents", () => {
   it("returns 401 when unauthenticated", async () => {
     asUnauthenticated();
-    const res = await realmAgentsPOST(
+    const res = await workspaceAgentsPOST(
       req("http://localhost", { agentDid: DID.agent }) as never,
-      params({ id: testRealmId })
+      params({ id: testWorkspaceId })
     );
     expectStatus(res, 401);
   });
 
   it("returns 403 for a regular member", async () => {
     asMember();
-    const res = await realmAgentsPOST(
+    const res = await workspaceAgentsPOST(
       req("http://localhost", { agentDid: DID.agent }) as never,
-      params({ id: testRealmId })
+      params({ id: testWorkspaceId })
     );
     expectStatus(res, 403);
   });
 
   it("returns 403 for a stranger", async () => {
     asStranger();
-    const res = await realmAgentsPOST(
+    const res = await workspaceAgentsPOST(
       req("http://localhost", { agentDid: DID.agent }) as never,
-      params({ id: testRealmId })
+      params({ id: testWorkspaceId })
     );
     expectStatus(res, 403);
   });
 
-  it("is accessible to a realm admin", async () => {
-    asRealmAdmin();
-    const res = await realmAgentsPOST(
+  it("is accessible to a workspace admin", async () => {
+    asWorkspaceAdmin();
+    const res = await workspaceAgentsPOST(
       req("http://localhost", { agentDid: DID.agent }) as never,
-      params({ id: testRealmId })
+      params({ id: testWorkspaceId })
     );
     expect(status(res)).not.toBe(401);
     expect(status(res)).not.toBe(403);
   });
 
-  it("is accessible to a global admin", async () => {
+  it("returns 403 for a global admin who is not a workspace admin", async () => {
     asAdmin();
-    const res = await realmAgentsPOST(
+    const res = await workspaceAgentsPOST(
       req("http://localhost", { agentDid: DID.agent }) as never,
-      params({ id: testRealmId })
+      params({ id: testWorkspaceId })
     );
-    expect(status(res)).not.toBe(401);
-    expect(status(res)).not.toBe(403);
+    expectStatus(res, 403);
   });
 });
 
-describe("DELETE /api/realms/[id]/agents", () => {
+describe("DELETE /api/workspaces/[id]/agents", () => {
   it("returns 401 when unauthenticated", async () => {
     asUnauthenticated();
-    const res = await realmAgentsDELETE(
+    const res = await workspaceAgentsDELETE(
       req("http://localhost", { agentDid: DID.agent }) as never,
-      params({ id: testRealmId })
+      params({ id: testWorkspaceId })
     );
     expectStatus(res, 401);
   });
 
   it("returns 403 for a regular member", async () => {
     asMember();
-    const res = await realmAgentsDELETE(
+    const res = await workspaceAgentsDELETE(
       req("http://localhost", { agentDid: DID.agent }) as never,
-      params({ id: testRealmId })
+      params({ id: testWorkspaceId })
     );
     expectStatus(res, 403);
   });
 });
 
-// --- /api/realms/[id]/users -------------------------------------------------
+// --- /api/workspaces/[id]/users -------------------------------------------------
 
-describe("POST /api/realms/[id]/users", () => {
+describe("POST /api/workspaces/[id]/users", () => {
   it("returns 401 when unauthenticated", async () => {
     asUnauthenticated();
-    const res = await realmUsersPOST(
+    const res = await workspaceUsersPOST(
       req("http://localhost", { userDid: DID.stranger }) as never,
-      params({ id: testRealmId })
+      params({ id: testWorkspaceId })
     );
     expectStatus(res, 401);
   });
 
   it("returns 403 for a regular member", async () => {
     asMember();
-    const res = await realmUsersPOST(
+    const res = await workspaceUsersPOST(
       req("http://localhost", { userDid: DID.stranger }) as never,
-      params({ id: testRealmId })
+      params({ id: testWorkspaceId })
     );
     expectStatus(res, 403);
   });
 
-  it("is accessible to a realm admin", async () => {
-    asRealmAdmin();
-    const res = await realmUsersPOST(
+  it("is accessible to a workspace admin", async () => {
+    asWorkspaceAdmin();
+    const res = await workspaceUsersPOST(
       req("http://localhost", { userDid: DID.stranger }) as never,
-      params({ id: testRealmId })
+      params({ id: testWorkspaceId })
     );
     expect(status(res)).not.toBe(401);
     expect(status(res)).not.toBe(403);
     // Clean up so the stranger's membership doesn't leak
-    await prisma.userRealm.deleteMany({
-      where: { userId: DID.stranger, realmId: testRealmId },
+    await prisma.userWorkspace.deleteMany({
+      where: { userId: DID.stranger, workspaceId: testWorkspaceId },
     });
   });
 });
 
-describe("PATCH /api/realms/[id]/users — realm admin toggle", () => {
+describe("PATCH /api/workspaces/[id]/users — workspace admin toggle", () => {
   it("returns 401 when unauthenticated", async () => {
     asUnauthenticated();
-    const res = await realmUsersPATCH(
+    const res = await workspaceUsersPATCH(
       req("http://localhost", {
         userDid: DID.member,
-        isRealmAdmin: true,
+        role: "Admin",
       }) as never,
-      params({ id: testRealmId })
+      params({ id: testWorkspaceId })
     );
     expectStatus(res, 401);
   });
 
   it("returns 403 for a regular member", async () => {
     asMember();
-    const res = await realmUsersPATCH(
+    const res = await workspaceUsersPATCH(
       req("http://localhost", {
         userDid: DID.member,
-        isRealmAdmin: true,
+        role: "Admin",
       }) as never,
-      params({ id: testRealmId })
+      params({ id: testWorkspaceId })
     );
     expectStatus(res, 403);
   });
 
-  it("is accessible to a realm admin", async () => {
-    asRealmAdmin();
-    const res = await realmUsersPATCH(
+  it("is accessible to a workspace admin", async () => {
+    asWorkspaceAdmin();
+    const res = await workspaceUsersPATCH(
       req("http://localhost", {
         userDid: DID.member,
-        isRealmAdmin: false,
+        role: "Member",
       }) as never,
-      params({ id: testRealmId })
+      params({ id: testWorkspaceId })
     );
     expect(status(res)).not.toBe(401);
     expect(status(res)).not.toBe(403);
   });
 });
 
-describe("DELETE /api/realms/[id]/users", () => {
+describe("DELETE /api/workspaces/[id]/users", () => {
   it("returns 401 when unauthenticated", async () => {
     asUnauthenticated();
-    const res = await realmUsersDELETE(
+    const res = await workspaceUsersDELETE(
       req("http://localhost", { userDid: DID.member }) as never,
-      params({ id: testRealmId })
+      params({ id: testWorkspaceId })
     );
     expectStatus(res, 401);
   });
 
   it("returns 403 for a regular member", async () => {
     asMember();
-    const res = await realmUsersDELETE(
+    const res = await workspaceUsersDELETE(
       req("http://localhost", { userDid: DID.member }) as never,
-      params({ id: testRealmId })
+      params({ id: testWorkspaceId })
     );
     expectStatus(res, 403);
   });
@@ -1016,7 +1195,7 @@ describe("GET /api/workflows", () => {
     expectStatus(res, 200);
   });
 
-  it("member receives only their realm's workflows", async () => {
+  it("member receives only their workspace's workflows", async () => {
     asMember();
     const res = await workflowsGET(
       req("http://localhost/api/workflows") as never
@@ -1045,7 +1224,7 @@ describe("POST /api/workflows", () => {
       req("http://localhost", {
         name: "W",
         definition: { nodes: [], edges: [] },
-        realmId: testRealmId,
+        workspaceId: testWorkspaceId,
       }) as never
     );
     expectStatus(res, 401);
@@ -1057,7 +1236,7 @@ describe("POST /api/workflows", () => {
       req("http://localhost", {
         name: "W",
         definition: { nodes: [], edges: [] },
-        realmId: testRealmId,
+        workspaceId: testWorkspaceId,
       }) as never
     );
     expectStatus(res, 403);
@@ -1069,19 +1248,19 @@ describe("POST /api/workflows", () => {
       req("http://localhost", {
         name: "W",
         definition: { nodes: [], edges: [] },
-        realmId: testRealmId,
+        workspaceId: testWorkspaceId,
       }) as never
     );
     expectStatus(res, 403);
   });
 
-  it("is accessible to a realm admin", async () => {
-    asRealmAdmin();
+  it("is accessible to a workspace admin", async () => {
+    asWorkspaceAdmin();
     const res = await workflowsPOST(
       req("http://localhost", {
-        name: "Realm Admin WF",
+        name: "Workspace Admin WF",
         definition: { nodes: [], edges: [] },
-        realmId: testRealmId,
+        workspaceId: testWorkspaceId,
       }) as never
     );
     expect(status(res)).not.toBe(401);
@@ -1090,19 +1269,16 @@ describe("POST /api/workflows", () => {
     if (body.id) await prisma.workflow.deleteMany({ where: { id: body.id } });
   });
 
-  it("is accessible to a global admin", async () => {
+  it("returns 403 for a global admin creating a workflow in a workspace they don't admin", async () => {
     asAdmin();
     const res = await workflowsPOST(
       req("http://localhost", {
         name: "Admin WF",
         definition: { nodes: [], edges: [] },
-        realmId: testRealmId,
+        workspaceId: testWorkspaceId,
       }) as never
     );
-    expect(status(res)).not.toBe(401);
-    expect(status(res)).not.toBe(403);
-    const body = (res as { _body: { id?: string } })._body;
-    if (body.id) await prisma.workflow.deleteMany({ where: { id: body.id } });
+    expectStatus(res, 403);
   });
 });
 
@@ -1118,7 +1294,7 @@ describe("GET /api/workflows/[id]", () => {
     expectStatus(res, 401);
   });
 
-  it("returns 200 for a member of the workflow's realm", async () => {
+  it("returns 200 for a member of the workflow's workspace", async () => {
     asMember();
     const res = await workflowDetailGET(
       req() as never,
@@ -1156,10 +1332,10 @@ describe("PATCH /api/workflows/[id]", () => {
     expectStatus(res, 403);
   });
 
-  it("is accessible to a realm admin", async () => {
-    asRealmAdmin();
+  it("is accessible to a workspace admin", async () => {
+    asWorkspaceAdmin();
     const res = await workflowDetailPATCH(
-      req("http://localhost", { name: "Realm Admin Update" }) as never,
+      req("http://localhost", { name: "Workspace Admin Update" }) as never,
       params({ id: testWorkflowId })
     );
     expect(status(res)).not.toBe(401);
@@ -1215,8 +1391,8 @@ describe("GET /api/registrations", () => {
     expectStatus(res, 403);
   });
 
-  it("returns 403 for a realm admin", async () => {
-    asRealmAdmin();
+  it("returns 403 for a workspace admin", async () => {
+    asWorkspaceAdmin();
     const res = await registrationsGET(
       req("http://localhost/api/registrations") as never
     );
@@ -1252,8 +1428,8 @@ describe("POST /api/registrations/[id]/approve", () => {
     expectStatus(res, 403);
   });
 
-  it("returns 403 for a realm admin", async () => {
-    asRealmAdmin();
+  it("returns 403 for a workspace admin", async () => {
+    asWorkspaceAdmin();
     const res = await approveRegistrationPOST(
       req("http://localhost", { capabilities: ["file_access"] }) as never,
       params({ id: "fake-registration-id" })
@@ -1281,8 +1457,8 @@ describe("GET /api/policies", () => {
     expectStatus(res, 403);
   });
 
-  it("returns 403 for a realm admin", async () => {
-    asRealmAdmin();
+  it("returns 403 for a workspace admin", async () => {
+    asWorkspaceAdmin();
     const res = await policiesGET(
       req("http://localhost/api/policies") as never
     );
@@ -1341,8 +1517,8 @@ describe("POST /api/policies", () => {
     expectStatus(res, 403);
   });
 
-  it("returns 403 for a realm admin", async () => {
-    asRealmAdmin();
+  it("returns 403 for a workspace admin", async () => {
+    asWorkspaceAdmin();
     const res = await policiesPOST(
       req("http://localhost", {
         capabilities: ["file_access"],
@@ -1416,18 +1592,18 @@ describe("POST /api/policies", () => {
     await PolicyDAO.delete(body.policy.id);
   });
 
-  it("creates a realm-scoped policy without agentDid", async () => {
+  it("creates a workspace-scoped policy without agentDid", async () => {
     asAdmin(DID.admin);
     const res = await policiesPOST(
       req("http://localhost", {
         capabilities: ["file_access"],
-        realmId: testRealmId,
+        workspaceId: testWorkspaceId,
       }) as never
     );
     expectStatus(res, 201);
-    const body = (res as { _body: { policy: { id: string; realmId: string } } })
+    const body = (res as { _body: { policy: { id: string; workspaceId: string } } })
       ._body;
-    expect(body.policy?.realmId).toBe(testRealmId);
+    expect(body.policy?.workspaceId).toBe(testWorkspaceId);
     await PolicyDAO.delete(body.policy.id);
   });
 });
@@ -1466,8 +1642,8 @@ describe("GET /api/policies/[id]", () => {
     expectStatus(res, 403);
   });
 
-  it("returns 403 for a realm admin", async () => {
-    asRealmAdmin();
+  it("returns 403 for a workspace admin", async () => {
+    asWorkspaceAdmin();
     const res = await policyDetailGET(
       req() as never,
       params({ id: testPolicyId })
@@ -1523,8 +1699,8 @@ describe("DELETE /api/policies/[id]", () => {
     expectStatus(res, 403);
   });
 
-  it("returns 403 for a realm admin", async () => {
-    asRealmAdmin();
+  it("returns 403 for a workspace admin", async () => {
+    asWorkspaceAdmin();
     const res = await policyDetailDELETE(
       req() as never,
       params({ id: "any-policy-id" })

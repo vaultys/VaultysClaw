@@ -3,7 +3,7 @@ import type { Credential, Prisma } from "@prisma/client";
 
 export class CredentialDAO {
   static async save(
-    realmId: string,
+    workspaceId: string,
     service: string,
     name: string,
     secretEnc: string,
@@ -12,10 +12,10 @@ export class CredentialDAO {
   ): Promise<string> {
     const id = `cred-${crypto.randomUUID()}`;
     const result = await prisma.credential.upsert({
-      where: { realmId_service_name: { realmId, service, name } },
+      where: { workspaceId_service_name: { workspaceId, service, name } },
       create: {
         id,
-        realmId,
+        workspaceId,
         service,
         name,
         secretEnc,
@@ -36,24 +36,24 @@ export class CredentialDAO {
   }
 
   static async findByKey(
-    realmId: string,
+    workspaceId: string,
     service: string,
     name: string
   ): Promise<Credential | null> {
     return prisma.credential.findUnique({
-      where: { realmId_service_name: { realmId, service, name } },
+      where: { workspaceId_service_name: { workspaceId, service, name } },
     });
   }
 
   static async list(
-    realmId: string
+    workspaceId: string
   ): Promise<Array<Omit<Credential, "secretEnc">>> {
     return prisma.credential.findMany({
-      where: { realmId },
+      where: { workspaceId },
       orderBy: [{ service: "asc" }, { name: "asc" }],
       select: {
         id: true,
-        realmId: true,
+        workspaceId: true,
         service: true,
         name: true,
         metadata: true,
@@ -65,15 +65,15 @@ export class CredentialDAO {
   }
 
   static async listByService(
-    realmId: string,
+    workspaceId: string,
     service: string
   ): Promise<Array<Omit<Credential, "secretEnc">>> {
     return prisma.credential.findMany({
-      where: { realmId, service },
+      where: { workspaceId, service },
       orderBy: { name: "asc" },
       select: {
         id: true,
-        realmId: true,
+        workspaceId: true,
         service: true,
         name: true,
         metadata: true,
@@ -90,12 +90,12 @@ export class CredentialDAO {
   }
 
   static async deleteByKey(
-    realmId: string,
+    workspaceId: string,
     service: string,
     name: string
   ): Promise<boolean> {
     const result = await prisma.credential.deleteMany({
-      where: { realmId, service, name },
+      where: { workspaceId, service, name },
     });
     return result.count > 0;
   }

@@ -14,13 +14,13 @@ See [Workflows guide](/docs/guides/workflows) for a conceptual overview. This pa
 GET /api/workflows
 ```
 
-**Auth:** Required. Realm members see their realm's workflows; global admins see all.
+**Auth:** Required. Workspace members see their workspace's workflows; global admins see all.
 
 ### Query parameters
 
 | Parameter   | Type   | Description           |
 | ----------- | ------ | --------------------- |
-| `realmId`   | string | Filter by realm       |
+| `workspaceId`   | string | Filter by workspace       |
 | `createdBy` | string | Filter by creator DID |
 
 ### Response
@@ -33,7 +33,7 @@ GET /api/workflows
       "id": "wf_01HZ...",
       "name": "Daily Research Digest",
       "description": "Scrapes papers and emails a summary",
-      "realmId": "realm_research",
+      "workspaceId": "workspace_research",
       "createdBy": "did:vaultys:z6MkAlice...",
       "createdAt": "2026-03-01T10:00:00Z",
       "updatedAt": "2026-05-10T14:00:00Z",
@@ -80,7 +80,7 @@ Returns the full workflow definition including all steps.
 POST /api/workflows
 ```
 
-**Auth:** Realm admin or global admin.
+**Auth:** Workspace admin or global admin.
 
 ### Request body
 
@@ -88,7 +88,7 @@ POST /api/workflows
 {
   "name": "Daily Research Digest",
   "description": "Scrapes research papers and emails a summary",
-  "realmId": "realm_research",
+  "workspaceId": "workspace_research",
   "definition": {
     "variables": {
       "topic": "large language models",
@@ -138,7 +138,7 @@ POST /api/workflows
   "success": true,
   "id": "wf_01HZABC...",
   "name": "Daily Research Digest",
-  "realmId": "realm_research"
+  "workspaceId": "workspace_research"
 }
 ```
 
@@ -148,7 +148,7 @@ POST /api/workflows
 POST /api/workflows/:id/run
 ```
 
-**Auth:** Realm operator or higher.
+**Auth:** Workspace operator or higher.
 
 Returns `202 Accepted`. The workflow executes asynchronously.
 

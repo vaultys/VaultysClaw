@@ -23,7 +23,7 @@ import {
   getLiteLLMBaseUrl,
   registerModel,
   removeModel,
-  createRealmKey,
+  createWorkspaceKey,
   healthCheck,
   listModels,
 } from "../packages/control-plane/lib/litellm-client";
@@ -192,21 +192,21 @@ describe("removeModel", () => {
 });
 
 // ---------------------------------------------------------------------------
-// createRealmKey
+// createWorkspaceKey
 // ---------------------------------------------------------------------------
 
-describe("createRealmKey", () => {
+describe("createWorkspaceKey", () => {
   it("posts to /key/generate and returns virtualKey", async () => {
-    mockFetch.mockResolvedValueOnce(makeResponse({ key: "sk-realm-abc123" }));
+    mockFetch.mockResolvedValueOnce(makeResponse({ key: "sk-workspace-abc123" }));
 
-    const result = await createRealmKey("realm-1", ["model-a", "model-b"]);
+    const result = await createWorkspaceKey("workspace-1", ["model-a", "model-b"]);
 
-    expect(result.virtualKey).toBe("sk-realm-abc123");
+    expect(result.virtualKey).toBe("sk-workspace-abc123");
 
     const [url, init] = mockFetch.mock.calls[0];
     expect(url).toBe("http://localhost:4000/key/generate");
     const body = JSON.parse(init.body as string);
-    expect(body.team_id).toBe("realm-1");
+    expect(body.team_id).toBe("workspace-1");
     expect(body.models).toEqual(["model-a", "model-b"]);
     expect(body.max_budget).toBeUndefined();
   });
@@ -214,7 +214,7 @@ describe("createRealmKey", () => {
   it("includes max_budget when monthlyBudgetUsd is set", async () => {
     mockFetch.mockResolvedValueOnce(makeResponse({ key: "sk-budgeted" }));
 
-    await createRealmKey("realm-2", ["m"], 50);
+    await createWorkspaceKey("workspace-2", ["m"], 50);
 
     const body = JSON.parse(mockFetch.mock.calls[0][1].body as string);
     expect(body.max_budget).toBe(50);
@@ -223,7 +223,7 @@ describe("createRealmKey", () => {
   it("uses all-team-models sentinel when model list is empty", async () => {
     mockFetch.mockResolvedValueOnce(makeResponse({ key: "sk-all" }));
 
-    await createRealmKey("realm-3", []);
+    await createWorkspaceKey("workspace-3", []);
 
     const body = JSON.parse(mockFetch.mock.calls[0][1].body as string);
     expect(body.models).toEqual(["all-team-models"]);
@@ -233,7 +233,7 @@ describe("createRealmKey", () => {
     mockFetch.mockResolvedValueOnce(
       makeResponse({ error: "bad request" }, 400)
     );
-    await expect(createRealmKey("r", ["m"])).rejects.toThrow("400");
+    await expect(createWorkspaceKey("r", ["m"])).rejects.toThrow("400");
   });
 });
 

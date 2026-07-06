@@ -116,8 +116,8 @@ describe("isPublicRoute", () => {
     expect(isPublicRoute("GET", "/api/api-keys")).toBe(false);
   });
 
-  it("requires auth for /api/realms", () => {
-    expect(isPublicRoute("GET", "/api/realms")).toBe(false);
+  it("requires auth for /api/workspaces", () => {
+    expect(isPublicRoute("GET", "/api/workspaces")).toBe(false);
   });
 
   it("requires auth for /api/workflows", () => {
@@ -139,11 +139,11 @@ describe("matchRoute — exact literal paths", () => {
   });
 
   it("rejects wrong path", () => {
-    expect(matchRoute("GET", "/api/realms", ["GET /api/agents"])).toBe(false);
+    expect(matchRoute("GET", "/api/workspaces", ["GET /api/agents"])).toBe(false);
   });
 
   it("matches from a list of multiple allowed routes", () => {
-    const routes = ["GET /api/agents", "POST /api/workflows", "GET /api/realms"];
+    const routes = ["GET /api/agents", "POST /api/workflows", "GET /api/workspaces"];
     expect(matchRoute("POST", "/api/workflows", routes)).toBe(true);
   });
 
@@ -231,12 +231,12 @@ describe("matchRoute — security boundary: path isolation", () => {
   });
 
   it("does NOT grant access to a deeper path not in allowedRoutes", () => {
-    // A key allowed for GET /api/realms should not read GET /api/realms/[id]/agents
+    // A key allowed for GET /api/workspaces should not read GET /api/workspaces/[id]/agents
     // (because allowedRoutes uses optional trailing (/.*)?$ — it actually does match deeper,
     // which is intentional for sub-resource access; document the behaviour)
-    // The behaviour here is permissive: /api/realms permits /api/realms/anything
+    // The behaviour here is permissive: /api/workspaces permits /api/workspaces/anything
     expect(
-      matchRoute("GET", "/api/realms/realm-123", ["GET /api/realms"])
+      matchRoute("GET", "/api/workspaces/workspace-123", ["GET /api/workspaces"])
     ).toBe(true); // documented: trailing sub-paths are permitted by design
   });
 

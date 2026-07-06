@@ -4,55 +4,55 @@
  * not yet claimed their VaultysId. Requires a valid session but NOT a DID.
  */
 
-import { NextRequest, NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
 import { UserServerChannel } from "@/lib/user-server-channel";
 import { VaultysId } from "@vaultys/id";
 import { SettingsDAO, UserDAO } from "@/db";
-import { malformed, notFound, unauthorized } from "@/lib/api/utils/api-utils";
-import { withError } from "@/lib/api/handlers/with-error";
+import { APIException } from "@/lib/api/utils/api-utils";
+import { createNextRoute } from "@/lib/api/ts-rest/next-route";
+import { usersContract } from "@/lib/contracts";
 
-export const POST = withError(async (request: NextRequest) => {
-  const token = await getToken({ req: request });
-  if (!token?.userId) {
-    return unauthorized();
-  }
+const handlers = createNextRoute(usersContract, {
+  claim: async ({ request }) => {
+    const token = await getToken({ req: request });
+    if (!token?.userId) throw new APIException("UNAUTHORIZED");
 
-  const user = await UserDAO.findById(token.userId);
-  if (!user) {
-    return notFound("User not found");
-  }
-  if (user.did) {
-    return malformed("User already has a VaultysId");
-  }
+    const user = await UserDAO.findById(token.userId as string);
+    if (!user) throw new APIException("NOT_FOUND", "User not found");
+    if (user.did)
+      throw new APIException("MALFORMED", "User already has a VaultysId");
 
-  const cert = await UserServerChannel.createRegistrationCertificate({
-    pendingUserId: user.id,
-  });
-  console.log(`[claim] userId=${user.id} cert.id=${cert.id} cert.connection=${cert.connection}`);
-  const connectionString = await UserServerChannel.startP2PSession(cert);
+    const cert = await UserServerChannel.createRegistrationCertificate({
+      pendingUserId: user.id,
+    });
+    console.log(
+      `[claim] userId=${user.id} cert.id=${cert.id} cert.connection=${cert.connection}`
+    );
+    const connectionString = await UserServerChannel.startP2PSession(cert);
 
-  const serverSecret = await SettingsDAO.get("serverSecret");
-  let serverDid: string | null = null;
-  if (serverSecret) {
-    serverDid = VaultysId.fromSecret(serverSecret, "base64").did;
-  }
+    const serverSecret = await SettingsDAO.get("serverSecret");
+    const serverDid = serverSecret
+      ? VaultysId.fromSecret(serverSecret, "base64").did
+      : null;
 
-  const walletUrl =
-    (await SettingsDAO.get("walletUrl")) || "https://wallet.vaultys.net";
-  const didParam = serverDid ? `&did=${encodeURIComponent(serverDid)}` : "";
-  // service=register tells the wallet to complete the full 2-round exchange for a new contact.
-  // service=auth (used for login) may only trigger 1 round on the wallet side, leaving the
-  // server stuck waiting for round 2 cert — hence status never reaches 2.
-  const qrUrl = `${walletUrl}/#${connectionString}&protocol=p2p&service=register${didParam}`;
+    const walletUrl =
+      (await SettingsDAO.get("walletUrl")) || "https://wallet.vaultys.net";
+    const didParam = serverDid ? `&did=${encodeURIComponent(serverDid)}` : "";
+    // service=register triggers the wallet's full 2-round exchange for a new
+    // contact; service=auth may only do 1 round, leaving the server stuck.
+    const qrUrl = `${walletUrl}/#${connectionString}&protocol=p2p&service=register${didParam}`;
 
-  return NextResponse.json({
-    qrUrl,
-    connectionString,
-    inviteToken: cert.connection,
-    // Raw cert key — enables the dev "connect without app" flow where the browser
-    // performs the SRP itself. Same key the wallet would receive via the QR.
-    key: cert.key,
-    serverDid,
-  });
+    return {
+      status: 200,
+      body: {
+        qrUrl,
+        connectionString,
+        inviteToken: cert.connection!,
+        key: cert.key,
+        serverDid,
+      },
+    };
+  },
 });
+
+export const POST = handlers.POST!;

@@ -82,7 +82,7 @@ model Agent {
   locationLon          Float?
   locationLabel        String?
 
-  agentRealms      AgentRealm[]
+  agentWorkspaces      AgentWorkspace[]
   tokenUsage       AgentTokenUsage?
   tokenHistory     AgentTokenUsageHistory[]
   peerGrantsSource AgentPeerGrant[]         @relation("sourcePeerGrants")
@@ -147,9 +147,7 @@ model User {
   publicKey     String?
   name          String?
   email         String?
-  isOwner       Boolean   @default(false)
-  isAdmin       Boolean   @default(false)
-  role          String    @default("member")
+  role          String    @default("Member")
   reportsTo     String?
   description   String?
   entraId       String?
@@ -164,7 +162,7 @@ model User {
   reports         User[]           @relation("reportsTo")
   entraIdentity   EntraIdentity?   @relation(fields: [entraId], references: [id], onDelete: SetNull)
   oidcIdentity    OidcIdentity?    @relation(fields: [oidcId], references: [sub], onDelete: SetNull)
-  userRealms      UserRealm[]
+  userWorkspaces      UserWorkspace[]
   userGrants      UserGrant[]
   invitations     UserInvitation[]
 
@@ -246,9 +244,9 @@ model AgentTokenUsageHistory {
   @@index([agentDid, granularity, bucket])
 }
 
-// ─── Realms ───────────────────────────────────────────────────────────────────
+// ─── Workspaces ───────────────────────────────────────────────────────────────────
 
-model Realm {
+model Workspace {
   id                  String   @id
   name                String
   slug                String   @unique
@@ -262,53 +260,53 @@ model Realm {
   allowedCapabilities Json?
   createdAt           DateTime @default(now())
 
-  tokenUsage       RealmTokenUsage?
-  agentRealms      AgentRealm[]
-  userRealms       UserRealm[]
-  realmSkills      RealmSkill[]
+  tokenUsage       WorkspaceTokenUsage?
+  agentWorkspaces      AgentWorkspace[]
+  userWorkspaces       UserWorkspace[]
+  workspaceSkills      WorkspaceSkill[]
   knowledgeSources KnowledgeSource[]
   channels         Channel[]
   credentials      Credential[]
-  modelAccess      ModelRealmAccess[]
-  routerKey        RealmRouterKey?
+  modelAccess      ModelWorkspaceAccess[]
+  routerKey        WorkspaceRouterKey?
   policies         Policy[]
   workflows        Workflow[]
 }
 
-model RealmTokenUsage {
-  realmId          String   @id
+model WorkspaceTokenUsage {
+  workspaceId          String   @id
   promptTokens     Int      @default(0)
   completionTokens Int      @default(0)
   updatedAt        DateTime @default(now())
 
-  realm Realm @relation(fields: [realmId], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 }
 
-// ─── Agent & User realm membership ───────────────────────────────────────────
+// ─── Agent & User workspace membership ───────────────────────────────────────────
 
-model AgentRealm {
+model AgentWorkspace {
   agentDid  String
-  realmId   String
+  workspaceId   String
   isPrimary Boolean  @default(false)
   joinedAt  DateTime @default(now())
 
   agent Agent @relation(fields: [agentDid], references: [did], onDelete: Cascade)
-  realm Realm @relation(fields: [realmId], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
-  @@id([agentDid, realmId])
+  @@id([agentDid, workspaceId])
 }
 
-model UserRealm {
+model UserWorkspace {
   userId       String
-  realmId      String
+  workspaceId      String
   isPrimary    Boolean  @default(false)
-  isRealmAdmin Boolean  @default(false)
+  role         String   @default("Member")
   joinedAt     DateTime @default(now())
 
   user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  realm Realm @relation(fields: [realmId], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
-  @@id([userId, realmId])
+  @@id([userId, workspaceId])
 }
 
 // ─── Skills ───────────────────────────────────────────────────────────────────
@@ -325,9 +323,9 @@ model OrgSkill {
   updatedAt    DateTime @default(now()) @updatedAt
 }
 
-model RealmSkill {
+model WorkspaceSkill {
   id          String   @id
-  realmId     String
+  workspaceId     String
   name        String
   description String?
   version     String?
@@ -336,21 +334,21 @@ model RealmSkill {
   content     String?
   createdAt   DateTime @default(now())
 
-  realm          Realm                @relation(fields: [realmId], references: [id], onDelete: Cascade)
+  workspace          Workspace                @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   agentOverrides AgentSkillOverride[]
 
-  @@unique([realmId, name])
+  @@unique([workspaceId, name])
 }
 
 model AgentSkillOverride {
   agentDid     String
-  realmSkillId String
+  workspaceSkillId String
   enabled      Boolean @default(true)
 
   agent      Agent      @relation(fields: [agentDid], references: [did], onDelete: Cascade)
-  realmSkill RealmSkill @relation(fields: [realmSkillId], references: [id], onDelete: Cascade)
+  workspaceSkill WorkspaceSkill @relation(fields: [workspaceSkillId], references: [id], onDelete: Cascade)
 
-  @@id([agentDid, realmSkillId])
+  @@id([agentDid, workspaceSkillId])
 }
 
 // ─── Model registry ───────────────────────────────────────────────────────────
@@ -370,31 +368,31 @@ model ModelRegistry {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @default(now()) @updatedAt
 
-  realmAccess ModelRealmAccess[]
+  workspaceAccess ModelWorkspaceAccess[]
 
   @@index([status])
 }
 
-model ModelRealmAccess {
+model ModelWorkspaceAccess {
   modelId   String
-  realmId   String
+  workspaceId   String
   grantedAt DateTime @default(now())
 
   model ModelRegistry @relation(fields: [modelId], references: [id], onDelete: Cascade)
-  realm Realm         @relation(fields: [realmId], references: [id], onDelete: Cascade)
+  workspace Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
-  @@id([modelId, realmId])
-  @@index([realmId])
+  @@id([modelId, workspaceId])
+  @@index([workspaceId])
 }
 
-model RealmRouterKey {
-  realmId           String   @id
+model WorkspaceRouterKey {
+  workspaceId           String   @id
   litellmVirtualKey String?
   allowedModelIds   Json     @default("[]")
   monthlyBudgetUsd  Float?
   updatedAt         DateTime @default(now())
 
-  realm Realm @relation(fields: [realmId], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 }
 
 // ─── Policies ─────────────────────────────────────────────────────────────────
@@ -402,17 +400,17 @@ model RealmRouterKey {
 model Policy {
   id             String    @id
   agentDid       String?
-  realmId        String?
+  workspaceId        String?
   capabilities   Json      @default("[]")
   resourceLimits Json?
   expiresAt      DateTime?
   createdBy      String?
   createdAt      DateTime  @default(now())
 
-  realm Realm? @relation(fields: [realmId], references: [id], onDelete: SetNull)
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
 
   @@index([agentDid])
-  @@index([realmId])
+  @@index([workspaceId])
 }
 
 // ─── Workflows ────────────────────────────────────────────────────────────────
@@ -422,7 +420,7 @@ model Workflow {
   name            String
   description     String?
   definition      Json
-  realmId         String?
+  workspaceId         String?
   createdBy       String?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @default(now()) @updatedAt
@@ -431,11 +429,11 @@ model Workflow {
   scheduleLastRun DateTime?
   scheduleNextRun DateTime?
 
-  realm Realm?        @relation(fields: [realmId], references: [id], onDelete: SetNull)
+  workspace Workspace?        @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
   runs  WorkflowRun[]
 
   @@index([createdBy, createdAt(sort: Desc)])
-  @@index([realmId])
+  @@index([workspaceId])
 }
 
 model WorkflowRun {
@@ -515,7 +513,7 @@ model UserInvitation {
   token     String    @id
   email     String
   name      String
-  role      String    @default("member")
+  role      String    @default("Member")
   createdAt DateTime  @default(now())
   expiresAt DateTime
   claimedAt DateTime?
@@ -532,7 +530,7 @@ model UserInvitation {
 
 model KnowledgeSource {
   id           String    @id
-  realmId      String
+  workspaceId      String
   agentDid     String
   name         String
   sourceType   String
@@ -544,11 +542,11 @@ model KnowledgeSource {
   error        String?
   createdAt    DateTime  @default(now())
 
-  realm Realm           @relation(fields: [realmId], references: [id], onDelete: Cascade)
+  workspace Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   agent Agent           @relation(fields: [agentDid], references: [did], onDelete: Cascade)
   files KnowledgeFile[]
 
-  @@index([realmId])
+  @@index([workspaceId])
   @@index([agentDid])
 }
 
@@ -571,7 +569,7 @@ model KnowledgeFile {
 
 model Channel {
   id          String   @id
-  realmId     String?
+  workspaceId     String?
   name        String
   slug        String
   description String?
@@ -582,13 +580,13 @@ model Channel {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @default(now()) @updatedAt
 
-  realm    Realm?           @relation(fields: [realmId], references: [id], onDelete: Cascade)
+  workspace    Workspace?           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   members  ChannelMember[]
   messages ChannelMessage[]
   bridges  ChannelBridge[]
 
-  @@unique([realmId, slug])
-  @@index([realmId])
+  @@unique([workspaceId, slug])
+  @@index([workspaceId])
   @@index([slug])
 }
 
@@ -652,7 +650,7 @@ model ChannelBridge {
 
 model Credential {
   id        String   @id
-  realmId   String
+  workspaceId   String
   service   String
   name      String
   secretEnc String
@@ -661,10 +659,10 @@ model Credential {
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
 
-  realm Realm @relation(fields: [realmId], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
-  @@unique([realmId, service, name])
-  @@index([realmId])
+  @@unique([workspaceId, service, name])
+  @@index([workspaceId])
   @@index([service])
 }
 
@@ -676,8 +674,8 @@ model ApiKey {
   keyHash       String    @unique
   keyPrefix     String
   allowedRoutes Json      @default("[]")
-  realmId       String?
-  isRealmAdmin  Boolean   @default(false)
+  workspaceId       String?
+  isWorkspaceAdmin  Boolean   @default(false)
   createdBy     String
   createdAt     DateTime  @default(now())
   lastUsedAt    DateTime?
@@ -685,5 +683,5 @@ model ApiKey {
   isActive      Boolean   @default(true)
 
   @@index([keyHash])
-  @@index([realmId])
+  @@index([workspaceId])
 }

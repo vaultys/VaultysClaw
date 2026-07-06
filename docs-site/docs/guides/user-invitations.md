@@ -116,14 +116,14 @@ Invited users who haven't completed registration appear in the **Users > Unregis
 1. Go to **Users** → **Unregistered** tab
 2. Click on a user to see:
    - Name, email, role
-   - Realms (if assigned)
+   - Workspaces (if assigned)
    - Registration date
    - Options to edit or delete
 
 ### Edit unclaimed user
 
 - Update name, email, or role
-- Reassign to different realms
+- Reassign to different workspaces
 - Add a supervisor
 
 ### Delete unclaimed user
@@ -300,7 +300,7 @@ Admin-only endpoint.
       "email": "alice@company.com",
       "role": "manager",
       "registeredAt": "2026-05-21T10:30:00Z",
-      "realms": []
+      "workspaces": []
     }
   ],
   "total": 5,
@@ -331,13 +331,13 @@ Assign roles based on responsibilities:
 - **Manager**: Can manage agents, assign capabilities
 - **Admin**: Full control plane access
 
-### 3. Assign realms during invitation
+### 3. Assign workspaces during invitation
 
-If using realms, assign users to appropriate realms during or after invitation. Users can:
+If using workspaces, assign users to appropriate workspaces during or after invitation. Users can:
 
 - Be assigned at sync time
 - Be edited after unclaimed creation
-- Be unaware of realms until they claim account
+- Be unaware of workspaces until they claim account
 
 ### 4. Monitor unclaimed users
 

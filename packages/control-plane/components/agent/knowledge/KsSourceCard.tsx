@@ -23,7 +23,7 @@ import { formatBytes, timeAgo } from "@vaultysclaw/shared";
 
 interface KsSourceCardProps {
   source: KnowledgeSource;
-  realmName: string;
+  workspaceName: string;
   isSyncing: boolean;
   isDeleting: boolean;
   isExpanded: boolean;
@@ -35,7 +35,7 @@ interface KsSourceCardProps {
 
 export function KsSourceCard({
   source,
-  realmName,
+  workspaceName,
   isSyncing,
   isDeleting,
   isExpanded,
@@ -98,7 +98,7 @@ export function KsSourceCard({
           </div>
           <div className="flex items-center gap-1.5 mt-0.5 text-xs text-foreground-500 flex-wrap">
             <Globe2 size={11} className="shrink-0" />
-            <span>{realmName}</span>
+            <span>{workspaceName}</span>
             <span className="text-foreground-400">·</span>
             <Layers size={11} className="shrink-0" />
             <span>

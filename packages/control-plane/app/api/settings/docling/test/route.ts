@@ -1,16 +1,12 @@
 import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { setDoclingEndpoints } from "@/db/settings.dao";
-import { settingsContract } from "@/lib/contracts";
+import { OpenApiSpec, settingsContract } from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-interface OpenApiSpec {
-  paths?: Record<string, Record<string, unknown>>;
-}
 
 /**
  * Fetch /openapi.json and return the best-matching POST paths for:

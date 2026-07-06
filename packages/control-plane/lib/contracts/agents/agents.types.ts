@@ -29,9 +29,9 @@ export type AgentWithInfo = Prisma.AgentGetPayload<{
   };
   include: {
     tokenHistory: true;
-    agentRealms: {
+    agentWorkspaces: {
       include: {
-        realm: {
+        workspace: {
           select: {
             id: true;
             name: true;
@@ -66,3 +66,9 @@ export type AgentInfo = AgentWithInfo & {
 export type ListAgentsQuery = z.infer<typeof ListAgentsQuerySchema>;
 
 export type SafeLlmConfig = Omit<LlmConfig, "apiKey"> & { apiKeySet: boolean };
+
+export interface BucketPoint {
+  bucket: string;
+  promptTokens: number;
+  completionTokens: number;
+}

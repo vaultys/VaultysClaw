@@ -256,7 +256,7 @@ export class Agent extends BaseAgentRuntime {
   private toolRegistry: ToolRegistry;
   private skillLoader: SkillLoader | null = null;
   /** Skill filter pushed by the control plane. null = no filter (use all local skills). */
-  private realmSkillFilter: SkillConfig[] | null = null;
+  private workspaceSkillFilter: SkillConfig[] | null = null;
   private pendingApprovals = new Map<
     string,
     {
@@ -413,7 +413,7 @@ export class Agent extends BaseAgentRuntime {
     const tools = this.buildAgentToolSet();
     const queryText = `${action} ${JSON.stringify(params)}`;
     const memoryContext = this.memoryRetriever.retrieve(queryText) || undefined;
-    const skillExtensions = this.realmSkillFilter
+    const skillExtensions = this.workspaceSkillFilter
       ?.filter((s) => s.enabled && s.content)
       .map((s) => s.content as string);
     const agentId = this.id;
@@ -568,7 +568,7 @@ export class Agent extends BaseAgentRuntime {
       }
 
       const skillExtensions =
-        this.realmSkillFilter
+        this.workspaceSkillFilter
           ?.filter((s) => s.enabled && s.content)
           .map((s) => s.content as string) ?? [];
 
@@ -965,22 +965,22 @@ export class Agent extends BaseAgentRuntime {
   protected override async onSkillsConfig(
     payload: WSSkillsConfigPayload
   ): Promise<void> {
-    this.realmSkillFilter = payload.skills.length > 0 ? payload.skills : null;
+    this.workspaceSkillFilter = payload.skills.length > 0 ? payload.skills : null;
 
     // Rebuild tool registry with updated filter
     if (this.skillLoader) {
       this.rebuildToolRegistry(this.skillLoader.lastRegistry);
     }
 
-    const enabled = (this.realmSkillFilter ?? [])
+    const enabled = (this.workspaceSkillFilter ?? [])
       .filter((s) => s.enabled)
       .map((s) => s.name);
-    const disabled = (this.realmSkillFilter ?? [])
+    const disabled = (this.workspaceSkillFilter ?? [])
       .filter((s) => !s.enabled)
       .map((s) => s.name);
     this.log(
       "info",
-      `Realm skills config received: ${enabled.length} enabled, ${disabled.length} disabled`
+      `Workspace skills config received: ${enabled.length} enabled, ${disabled.length} disabled`
     );
   }
 
@@ -1360,7 +1360,7 @@ export class Agent extends BaseAgentRuntime {
     systemPromptExtension?: string;
     enabled: boolean;
     isRequired: boolean;
-    realmManaged: boolean;
+    workspaceManaged: boolean;
     tools: Array<{
       name: string;
       description?: string;
@@ -1369,8 +1369,8 @@ export class Agent extends BaseAgentRuntime {
   }> {
     if (!this.skillLoader) return [];
     try {
-      const filterMap = this.realmSkillFilter
-        ? new Map(this.realmSkillFilter.map((s) => [s.name, s]))
+      const filterMap = this.workspaceSkillFilter
+        ? new Map(this.workspaceSkillFilter.map((s) => [s.name, s]))
         : null;
 
       return this.skillLoader.lastRegistry.skills.map((s) => {
@@ -1383,7 +1383,7 @@ export class Agent extends BaseAgentRuntime {
           systemPromptExtension: s.systemPromptExtension,
           enabled: filterEntry ? filterEntry.enabled : true,
           isRequired: filterEntry?.isRequired ?? false,
-          realmManaged: !!filterEntry,
+          workspaceManaged: !!filterEntry,
           tools: (s.tools ?? []).map((t) => ({
             name: t.name,
             description: (t.tool as any).description as string | undefined,
@@ -1482,7 +1482,7 @@ export class Agent extends BaseAgentRuntime {
 
   /**
    * Toggle a skill on or off from the web dashboard.
-   * Realm-managed skills (pushed by the control plane) cannot be changed locally.
+   * Workspace-managed skills (pushed by the control plane) cannot be changed locally.
    */
   toggleSkillEnabled(skillName: string, enabled: boolean): void {
     if (!this.skillLoader) return;
@@ -1491,20 +1491,20 @@ export class Agent extends BaseAgentRuntime {
     );
     if (!skill) throw new Error(`Unknown skill: ${skillName}`);
 
-    if (this.realmSkillFilter) {
-      const entry = this.realmSkillFilter.find((s) => s.name === skillName);
+    if (this.workspaceSkillFilter) {
+      const entry = this.workspaceSkillFilter.find((s) => s.name === skillName);
       if (entry?.isRequired)
         throw new Error(
-          `Skill "${skillName}" is required by the realm and cannot be disabled`
+          `Skill "${skillName}" is required by the workspace and cannot be disabled`
         );
     }
 
-    if (!this.realmSkillFilter) this.realmSkillFilter = [];
-    const existing = this.realmSkillFilter.find((s) => s.name === skillName);
+    if (!this.workspaceSkillFilter) this.workspaceSkillFilter = [];
+    const existing = this.workspaceSkillFilter.find((s) => s.name === skillName);
     if (existing) {
       existing.enabled = enabled;
     } else {
-      this.realmSkillFilter.push({
+      this.workspaceSkillFilter.push({
         name: skillName,
         enabled,
         isRequired: false,
@@ -1614,9 +1614,9 @@ export class Agent extends BaseAgentRuntime {
     );
   }
 
-  /** Effective skill filter: skill name → enabled. null means no realm filter. */
-  getRealmSkillFilter(): SkillConfig[] | null {
-    return this.realmSkillFilter;
+  /** Effective skill filter: skill name → enabled. null means no workspace filter. */
+  getWorkspaceSkillFilter(): SkillConfig[] | null {
+    return this.workspaceSkillFilter;
   }
 
   // ---- Private helpers ----
@@ -1718,9 +1718,9 @@ export class Agent extends BaseAgentRuntime {
   private rebuildToolRegistry(skillRegistry: SkillRegistry): void {
     let extraTools = skillRegistry.getAllTools();
 
-    if (this.realmSkillFilter !== null) {
+    if (this.workspaceSkillFilter !== null) {
       const filterMap = new Map(
-        this.realmSkillFilter.map((s) => [s.name, s.enabled])
+        this.workspaceSkillFilter.map((s) => [s.name, s.enabled])
       );
       extraTools = skillRegistry.skills
         .filter((skill) => {

@@ -1,12 +1,10 @@
-import {
-  executeWorkflow,
-  type WorkflowDefinition,
-} from "@/lib/workflow-executor";
+import { executeWorkflow } from "@/lib/workflow-executor";
 import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { WorkflowDAO } from "@/db";
 import { workflowsContract } from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
+import { WorkflowDefinition } from "@/lib/workflow-types";
 
 /**
  * Route for POST /api/workflows/:id/execute — starts a new workflow run.
@@ -21,7 +19,7 @@ const handlers = createNextRoute(workflowsContract, {
     const workflow = await WorkflowDAO.findById(id);
     if (!workflow) throw new APIException("NOT_FOUND", "Workflow not found");
 
-    if (workflow.realmId && !(await auth.canAccessRealm(workflow.realmId)))
+    if (workflow.workspaceId && !(await auth.canAccessWorkspace(workflow.workspaceId)))
       throw new APIException("FORBIDDEN");
 
     const definition = workflow.definition;

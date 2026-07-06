@@ -71,7 +71,7 @@ export interface UserSummary {
   updatedAt: string;
 }
 
-export interface RealmSummary {
+export interface WorkspaceSummary {
   id: string;
   name: string;
   slug: string;
@@ -86,7 +86,7 @@ export interface RealmSummary {
 export interface WorkflowSummary {
   id: string;
   name: string;
-  realmId: string;
+  workspaceId: string;
   enabled: boolean;
   triggers: string[];
   createdAt: string;
@@ -97,7 +97,7 @@ export interface WorkflowSummary {
 export interface ChannelSummary {
   id: string;
   name: string;
-  realmId: string;
+  workspaceId: string;
   isPublic: boolean;
   memberCount: number;
   createdAt: string;
@@ -123,9 +123,9 @@ export interface ApiKey {
   /** Displayable prefix, e.g. "vc_key_XXXXXXXX" — never the full key */
   keyPrefix: string;
   allowedRoutes: string[];
-  /** null = global access, string = scoped to this realm */
-  realmId: string | null;
-  isRealmAdmin: boolean;
+  /** null = global access, string = scoped to this workspace */
+  workspaceId: string | null;
+  isWorkspaceAdmin: boolean;
   createdBy: string;
   createdAt: number;
   lastUsedAt: number | null;
@@ -136,16 +136,16 @@ export interface ApiKey {
 export interface ApiKeyCreateRequest {
   name: string;
   allowedRoutes: string[];
-  realmId?: string | null;
-  isRealmAdmin?: boolean;
+  workspaceId?: string | null;
+  isWorkspaceAdmin?: boolean;
   expiresAt?: number | null;
 }
 
 export interface ApiKeyUpdateRequest {
   name?: string;
   allowedRoutes?: string[];
-  realmId?: string | null;
-  isRealmAdmin?: boolean;
+  workspaceId?: string | null;
+  isWorkspaceAdmin?: boolean;
   expiresAt?: number | null;
   isActive?: boolean;
 }

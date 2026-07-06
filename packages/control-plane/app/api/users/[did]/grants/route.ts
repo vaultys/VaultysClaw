@@ -4,232 +4,97 @@
  * Owner-only.
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { isAdminRole } from "@/lib/roles";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
+import { APIException } from "@/lib/api/utils/api-utils";
 import { signDelegation } from "@/lib/delegation";
 import { getWSServer } from "@/lib/ws-server";
 import type { AgentCapability } from "@vaultysclaw/shared";
 import { DelegationCertDAO, GrantDAO, UserDAO } from "@/db";
-import { forbidden, malformed, notFound } from "@/lib/api/utils/api-utils";
-import { withError } from "@/lib/api/handlers/with-error";
+import { createNextRoute } from "@/lib/api/ts-rest/next-route";
+import { usersContract, type UserGrant } from "@/lib/contracts";
 
-/**
- * @openapi
- * /api/users/{did}/grants:
- *   get:
- *     summary: List grants for a user.
- *     tags: [Users]
- *     parameters:
- *       - name: did
- *         in: path
- *         required: true
- *         description: The DID of the user.
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: A list of grants for the user.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 grants:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       id:
- *                         type: string
- *                       agentDid:
- *                         type: string
- *                       capabilities:
- *                         type: array
- *                         items:
- *                           type: string
- *                       grantedBy:
- *                         type: string
- *                       expiresAt:
- *                         type: string
- *                         format: date-time
- *                       createdAt:
- *                         type: string
- *                         format: date-time
- *       403:
- *         $ref: '#/components/responses/Forbidden'
- *       404:
- *         $ref: '#/components/responses/NotFound'
- */
-export const GET = withError(async (
-  _req: NextRequest,
-  { params }: { params: Promise<{ did: string }> }
-) => {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.isAdmin) {
-    return forbidden();
-  }
-
-  const { did } = await params;
-  const user = await UserDAO.findByDid(did);
-  if (!user) return notFound("User not found");
-
-  const grants = (await GrantDAO.listByUser(did)).map((g) => ({
-    id: g.id,
-    agentDid: g.agentDid,
-    capabilities: g.capabilities as string[],
-    grantedBy: g.grantedBy,
-    expiresAt: g.expiresAt,
-    createdAt: g.createdAt,
-  }));
-
-  return NextResponse.json({ grants });
-});
-
-/**
- * @openapi
- * /api/users/{did}/grants:
- *   post:
- *     summary: Create a grant and sign delegation certificate for a user.
- *     tags: [Users]
- *     parameters:
- *       - name: did
- *         in: path
- *         required: true
- *         description: The DID of the user.
- *         schema:
- *           type: string
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               agentDid:
- *                 type: string
- *                 nullable: true
- *                 description: The DID of the agent or null for all agents.
- *               capabilities:
- *                 type: array
- *                 items:
- *                   $ref: '#/components/schemas/AgentCapability'
- *                 description: List of capabilities to grant.
- *               expiresAt:
- *                 type: string
- *                 format: date-time
- *                 description: Expiration date of the grant.
- *     responses:
- *       201:
- *         description: Grant created successfully.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 grant:
- *                   type: object
- *                   properties:
- *                     id:
- *                       type: string
- *                     agentDid:
- *                       type: string
- *                     capabilities:
- *                       type: array
- *                       items:
- *                         type: string
- *                     grantedBy:
- *                       type: string
- *                     expiresAt:
- *                       type: string
- *                       format: date-time
- *                     createdAt:
- *                       type: string
- *                       format: date-time
- *       400:
- *         $ref: '#/components/responses/BadRequest'
- *       403:
- *         $ref: '#/components/responses/Forbidden'
- *       404:
- *         $ref: '#/components/responses/NotFound'
- */
-export const POST = withError(async (
-  req: NextRequest,
-  { params }: { params: Promise<{ did: string }> }
-) => {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.isAdmin) {
-    return forbidden();
-  }
-
-  const { did } = await params;
-  const user = await UserDAO.findByDid(did);
-  if (!user) return notFound("User not found");
-
-  const body = (await req.json()) as {
-    agentDid?: string | null;
-    capabilities: AgentCapability[];
-    expiresAt?: string;
+function toGrant(g: Awaited<ReturnType<typeof GrantDAO.findById>>): UserGrant {
+  return {
+    id: g!.id,
+    agentDid: g!.agentDid,
+    capabilities: g!.capabilities as string[],
+    grantedBy: g!.grantedBy,
+    expiresAt: g!.expiresAt ? new Date(g!.expiresAt).toISOString() : null,
+    createdAt: new Date(g!.createdAt).toISOString(),
   };
+}
 
-  if (!Array.isArray(body.capabilities) || body.capabilities.length === 0) {
-    return malformed("capabilities must be a non-empty array");
-  }
+const handlers = createNextRoute(usersContract, {
+  // ── GET /api/users/:did/grants ────────────────────────────────────────────
+  listGrants: async ({ params }) => {
+    const session = await getServerSession(authOptions);
+    if (!isAdminRole(session?.user?.role)) throw new APIException("FORBIDDEN");
 
-  const expiresAt = body.expiresAt ? new Date(body.expiresAt) : undefined;
-  const agentDid = body.agentDid ?? null; // null = all agents
+    const user = await UserDAO.findByDid(params.did);
+    if (!user) throw new APIException("NOT_FOUND", "User not found");
 
-  // Create the grant row
-  const grant = await GrantDAO.create({
-    id: crypto.randomUUID(),
-    userDid: did,
-    agentDid: agentDid ?? undefined,
-    capabilities: body.capabilities,
-    grantedBy: session.user.did ?? "",
-    expiresAt: expiresAt ? expiresAt.toISOString() : undefined,
-  });
+    const grants = (await GrantDAO.listByUser(params.did)).map((g) =>
+      toGrant(g)
+    );
+    return { status: 200, body: { grants } };
+  },
 
-  // Sign a delegation certificate for each target agent (or wildcard)
-  const effectiveAgentDid = agentDid ?? "*";
-  const certificate = await signDelegation(
-    did,
-    effectiveAgentDid,
-    body.capabilities,
-    expiresAt
-  );
+  // ── POST /api/users/:did/grants ───────────────────────────────────────────
+  createGrant: async ({ params, body }) => {
+    const session = await getServerSession(authOptions);
+    if (!session?.user || !isAdminRole(session.user.role))
+      throw new APIException("FORBIDDEN");
 
-  await DelegationCertDAO.create({
-    id: crypto.randomUUID(),
-    grantId: grant.id,
-    userDid: did,
-    agentDid: effectiveAgentDid,
-    capabilities: body.capabilities,
-    certificate,
-    expiresAt: expiresAt ? expiresAt.toISOString() : undefined,
-  });
+    const user = await UserDAO.findByDid(params.did);
+    if (!user) throw new APIException("NOT_FOUND", "User not found");
 
-  // Push delegation_update to the affected agent(s)
-  const wsServer = getWSServer();
-  if (wsServer) {
-    if (agentDid) {
-      wsServer.pushDelegationUpdate(agentDid);
-    } else {
-      // Wildcard grant — push to all connected agents
-      wsServer.pushDelegationUpdateAll();
+    if (!Array.isArray(body.capabilities) || body.capabilities.length === 0)
+      throw new APIException("MALFORMED", "capabilities must be a non-empty array");
+
+    const capabilities = body.capabilities as AgentCapability[];
+    const expiresAt = body.expiresAt ? new Date(body.expiresAt) : undefined;
+    const agentDid = body.agentDid ?? null; // null = all agents
+
+    const grant = await GrantDAO.create({
+      id: crypto.randomUUID(),
+      userDid: params.did,
+      agentDid: agentDid ?? undefined,
+      capabilities,
+      grantedBy: session.user.did ?? "",
+      expiresAt: expiresAt ? expiresAt.toISOString() : undefined,
+    });
+
+    // Sign a delegation certificate for the target agent (or wildcard)
+    const effectiveAgentDid = agentDid ?? "*";
+    const certificate = await signDelegation(
+      params.did,
+      effectiveAgentDid,
+      capabilities,
+      expiresAt
+    );
+
+    await DelegationCertDAO.create({
+      id: crypto.randomUUID(),
+      grantId: grant.id,
+      userDid: params.did,
+      agentDid: effectiveAgentDid,
+      capabilities,
+      certificate,
+      expiresAt: expiresAt ? expiresAt.toISOString() : undefined,
+    });
+
+    // Push delegation_update to the affected agent(s)
+    const wsServer = getWSServer();
+    if (wsServer) {
+      if (agentDid) wsServer.pushDelegationUpdate(agentDid);
+      else wsServer.pushDelegationUpdateAll();
     }
-  }
 
-  return NextResponse.json(
-    {
-      grant: {
-        id: grant.id,
-        agentDid: grant.agentDid,
-        capabilities: grant.capabilities as string[],
-        grantedBy: grant.grantedBy,
-        expiresAt: grant.expiresAt,
-        createdAt: grant.createdAt,
-      },
-    },
-    { status: 201 }
-  );
+    return { status: 201, body: { grant: toGrant(grant) } };
+  },
 });
+
+export const GET = handlers.GET!;
+export const POST = handlers.POST!;

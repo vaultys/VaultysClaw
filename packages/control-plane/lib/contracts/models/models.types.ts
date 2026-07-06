@@ -4,8 +4,8 @@ import {
   CreateModelBodySchema,
   TestModelBodySchema,
   UpdateModelBodySchema,
-  GrantRealmBodySchema,
-  RevokeRealmQuerySchema,
+  GrantWorkspaceBodySchema,
+  RevokeWorkspaceQuerySchema,
 } from "./models.schemas";
 
 // ─────────────────────────────────────────────
@@ -13,10 +13,10 @@ import {
 // ─────────────────────────────────────────────
 
 /**
- * A model registry entry with its realm-access rows joined in — everything the
+ * A model registry entry with its workspace-access rows joined in — everything the
  * models list UI needs in a single query (the `apiKeyEnc` secret is excluded by
  * the `select`). Mirrors the `AgentWithInfo` pattern; the matching query lives
- * in `ModelDAO.findAll`. Consumers derive the realm count from `realmAccess.length`.
+ * in `ModelDAO.findAll`. Consumers derive the workspace count from `workspaceAccess.length`.
  */
 export type SafeModel = Prisma.ModelRegistryGetPayload<{
   select: {
@@ -32,9 +32,9 @@ export type SafeModel = Prisma.ModelRegistryGetPayload<{
     createdBy: true;
     createdAt: true;
     updatedAt: true;
-    realmAccess: {
+    workspaceAccess: {
       include: {
-        realm: true;
+        workspace: true;
       };
     };
   };
@@ -48,5 +48,6 @@ export type CreatedModel = Omit<ModelRegistry, "apiKeyEnc"> & {
 export type CreateModelBody = z.infer<typeof CreateModelBodySchema>;
 export type TestModelBody = z.infer<typeof TestModelBodySchema>;
 export type UpdateModelBody = z.infer<typeof UpdateModelBodySchema>;
-export type GrantRealmBody = z.infer<typeof GrantRealmBodySchema>;
-export type RevokeRealmQuery = z.infer<typeof RevokeRealmQuerySchema>;
+export type GrantWorkspaceBody = z.infer<typeof GrantWorkspaceBodySchema>;
+export type RevokeWorkspaceQuery = z.infer<typeof RevokeWorkspaceQuerySchema>;
+export type LiteLlmModel = { name: string; params: Record<string, unknown> };

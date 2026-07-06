@@ -59,7 +59,7 @@ vi.mock("@/db", () => ({
   KnowledgeDAO: {},
   PendingRegistrationDAO: {},
   PolicyDAO: {},
-  RealmDAO: {},
+  WorkspaceDAO: {},
   SettingsDAO: {},
   SkillOverrideDAO: {},
 }));

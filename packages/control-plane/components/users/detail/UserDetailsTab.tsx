@@ -5,7 +5,7 @@ import { formatDateTime } from "@vaultysclaw/shared";
 import type { GraphNode } from "@vaultysclaw/shared";
 import type { UserDetail } from "@/lib/contracts";
 
-const RealmGraph = dynamic(() => import("@/components/graph/RealmGraph"), {
+const WorkspaceGraph = dynamic(() => import("@/components/graph/WorkspaceGraph"), {
   ssr: false,
 });
 
@@ -23,7 +23,7 @@ export function UserDetailsTab({
           Relationships
         </h2>
         <div className="rounded-lg overflow-hidden border border-neutral-200">
-          <RealmGraph
+          <WorkspaceGraph
             query={`?user=${encodeURIComponent(user.did ?? "")}`}
             height={380}
             onNodeClick={onNodeClick}

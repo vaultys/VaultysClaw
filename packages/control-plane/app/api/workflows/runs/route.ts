@@ -12,7 +12,7 @@ const handlers = createNextRoute(workflowRunsContract, {
 
     const page = Math.max(1, query.page ?? 1);
     const pageSize = Math.min(100, Math.max(1, query.pageSize ?? 20));
-    const realmIds = auth.isGlobalAdmin ? undefined : auth.realmIds;
+    const workspaceIds = auth.isGlobalAdmin ? undefined : auth.workspaceIds;
 
     const result = await WorkflowDAO.queryRuns({
       workflowId: query.workflowId,
@@ -21,7 +21,7 @@ const handlers = createNextRoute(workflowRunsContract, {
       pageSize,
       sortBy: query.sortBy ?? "startedAt",
       sortDir: query.sortDir ?? "desc",
-      realmIds,
+      workspaceIds,
     });
 
     return {

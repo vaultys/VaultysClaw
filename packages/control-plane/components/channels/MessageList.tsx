@@ -19,11 +19,9 @@ import {
 } from "@vaultysclaw/shared";
 import { channelsClient, unwrap } from "@/lib/api/ts-rest/client";
 
-type Message = ChannelMessage;
-
 interface MessageListProps {
   channelId: string;
-  messages: Message[];
+  messages: ChannelMessage[];
   isLoading: boolean;
   onAddReaction: (messageId: string, emoji: string) => void;
   onDeleteMessage: (messageId: string) => void;
@@ -38,7 +36,7 @@ function MessageBubble({
   onDeleteMessage,
   isThread = false,
 }: {
-  msg: Message;
+  msg: ChannelMessage;
   channelId: string;
   onAddReaction: (id: string, emoji: string) => void;
   onDeleteMessage: (id: string) => void;
@@ -193,7 +191,7 @@ function ThreadView({
   onAddReaction: (id: string, emoji: string) => void;
   onDeleteMessage: (id: string) => void;
 }) {
-  const [replies, setReplies] = useState<Message[]>([]);
+  const [replies, setReplies] = useState<ChannelMessage[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -249,7 +247,7 @@ function MessageWithThread({
   onAddReaction,
   onDeleteMessage,
 }: {
-  msg: Message;
+  msg: ChannelMessage;
   channelId: string;
   threadCount: number;
   onAddReaction: (id: string, emoji: string) => void;

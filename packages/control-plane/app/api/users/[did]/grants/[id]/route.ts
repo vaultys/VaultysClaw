@@ -1,74 +1,41 @@
 /**
  * DELETE /api/users/[did]/grants/[id]
- * Revoke a delegation grant. Deletes the delegation cert and notifies affected agent.
- * Owner-only.
+ * Revoke a delegation grant. Deletes the delegation cert and notifies the
+ * affected agent. Owner-only.
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { isAdminRole } from "@/lib/roles";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
+import { APIException } from "@/lib/api/utils/api-utils";
 import { getWSServer } from "@/lib/ws-server";
 import { GrantDAO } from "@/db";
-import { forbidden, notFound } from "@/lib/api/utils/api-utils";
-import { withError } from "@/lib/api/handlers/with-error";
+import { createNextRoute } from "@/lib/api/ts-rest/next-route";
+import { usersContract } from "@/lib/contracts";
 
-/**
- * @openapi
- * /api/users/{did}/grants/{id}:
- *   delete:
- *     summary: Revoke a delegation grant.
- *     tags: [Users]
- *     parameters:
- *       - name: did
- *         in: path
- *         required: true
- *         description: The DID of the user.
- *         schema:
- *           type: string
- *       - name: id
- *         in: path
- *         required: true
- *         description: The ID of the grant.
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Grant successfully revoked.
- *       403:
- *         $ref: '#/components/responses/Forbidden'
- *       404:
- *         $ref: '#/components/responses/NotFound'
- */
-export const DELETE = withError(async (
-  _req: NextRequest,
-  { params }: { params: Promise<{ did: string; id: string }> }
-) => {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.isAdmin) {
-    return forbidden();
-  }
+const handlers = createNextRoute(usersContract, {
+  revokeGrant: async ({ params }) => {
+    const session = await getServerSession(authOptions);
+    if (!isAdminRole(session?.user?.role)) throw new APIException("FORBIDDEN");
 
-  const { did, id } = await params;
+    const grant = await GrantDAO.findById(params.id);
+    if (!grant || grant.userDid !== params.did)
+      throw new APIException("NOT_FOUND", "Grant not found");
 
-  const grant = await GrantDAO.findById(id);
-  if (!grant || grant.userDid !== did) {
-    return notFound("Grant not found");
-  }
+    const agentDid = grant.agentDid; // null = wildcard
 
-  const agentDid = grant.agentDid; // null = wildcard
+    // Cascade delete handles delegation certs via DB relation
+    await GrantDAO.delete(params.id);
 
-  // Cascade delete handles delegation certs via DB relation
-  await GrantDAO.delete(id);
-
-  // Push updated (empty or reduced) delegation set to affected agent(s)
-  const wsServer = getWSServer();
-  if (wsServer) {
-    if (agentDid) {
-      wsServer.pushDelegationUpdate(agentDid);
-    } else {
-      wsServer.pushDelegationUpdateAll();
+    // Push updated (empty or reduced) delegation set to affected agent(s)
+    const wsServer = getWSServer();
+    if (wsServer) {
+      if (agentDid) wsServer.pushDelegationUpdate(agentDid);
+      else wsServer.pushDelegationUpdateAll();
     }
-  }
 
-  return NextResponse.json({ ok: true });
+    return { status: 200, body: { ok: true } };
+  },
 });
+
+export const DELETE = handlers.DELETE!;

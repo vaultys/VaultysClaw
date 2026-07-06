@@ -55,7 +55,7 @@ A legal team receives contracts and needs to:
 | Feature               | Status      | Notes                                |
 | --------------------- | ----------- | ------------------------------------ |
 | Multi-agent execution | ✅ Complete | Sequential + parallel support        |
-| Token budgets         | ✅ Complete | Daily/monthly limits per agent/realm |
+| Token budgets         | ✅ Complete | Daily/monthly limits per agent/workspace |
 | Governance posture    | ✅ Complete | Policy creation and enforcement      |
 | Approval workflows    | ✅ Complete | Human-in-the-loop with signatures    |
 | Audit logging         | ✅ Complete | Full intent/approval/action history  |

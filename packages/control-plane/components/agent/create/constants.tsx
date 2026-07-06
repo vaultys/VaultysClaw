@@ -44,9 +44,21 @@ export type PkgRunner = "npx" | "pnpm" | "yarn" | "deno";
 
 export const PKG_RUNNERS: { id: PkgRunner; label: string; prefix: string }[] = [
   { id: "npx", label: "npx", prefix: "npx @vaultysclaw/agent-controller" },
-  { id: "pnpm", label: "pnpm", prefix: "pnpm dlx @vaultysclaw/agent-controller" },
-  { id: "yarn", label: "yarn", prefix: "yarn dlx @vaultysclaw/agent-controller" },
-  { id: "deno", label: "deno", prefix: "deno run npm:@vaultysclaw/agent-controller" },
+  {
+    id: "pnpm",
+    label: "pnpm",
+    prefix: "pnpm dlx @vaultysclaw/agent-controller",
+  },
+  {
+    id: "yarn",
+    label: "yarn",
+    prefix: "yarn dlx @vaultysclaw/agent-controller",
+  },
+  {
+    id: "deno",
+    label: "deno",
+    prefix: "deno run npm:@vaultysclaw/agent-controller",
+  },
 ];
 
 // ── Capabilities ────────────────────────────────────────────────────────────
@@ -74,49 +86,10 @@ export const CAPABILITY_ICONS: Record<string, React.ReactNode> = {
   agent_communication: <Bot size={13} />,
   knowledge_search: <BookOpen size={13} />,
 };
-
-// ── Domain types ──────────────────────────────────────────────────────────────
-
-export interface Realm {
-  id: string;
-  name: string;
-  slug: string;
-  color: string;
-  isDefault: number;
-}
-
-export interface Model {
-  id: string;
-  name: string;
-  provider: string;
-  modelId: string;
-  status: string;
-  litellmModelName: string | null;
-}
-
 export interface PendingReg {
   id: string;
   agentName: string;
   requestedCapabilities: unknown;
   createdAt: string;
   status: string;
-}
-
-export interface LiteLlmModel {
-  name: string;
-  params: Record<string, unknown>;
-}
-
-// ── Utilities ───────────────────────────────────────────────────────────────
-
-export function parseJsonArray(raw: unknown): string[] {
-  if (Array.isArray(raw)) return raw as string[];
-  if (typeof raw === "string") {
-    try {
-      return JSON.parse(raw) ?? [];
-    } catch {
-      return [];
-    }
-  }
-  return [];
 }

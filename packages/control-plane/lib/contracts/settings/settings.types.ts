@@ -155,3 +155,7 @@ export interface OtelTestResult {
 export interface OkResult {
   ok: boolean;
 }
+
+export type OpenApiSpec = {
+  paths?: Record<string, Record<string, unknown>>;
+};

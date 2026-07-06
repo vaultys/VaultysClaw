@@ -9,7 +9,7 @@ import {
   modelsClient,
   unwrap,
 } from "@/lib/api/ts-rest/client";
-import type { Model, LiteLlmModel } from "./constants";
+import { LiteLlmModel, SafeModel } from "@/lib/contracts";
 
 interface ModelStepProps {
   /** DID of the just-approved agent, or null if approval was skipped. */
@@ -19,7 +19,7 @@ interface ModelStepProps {
 }
 
 export function ModelStep({ agentDid, onDone }: ModelStepProps) {
-  const [models, setModels] = useState<Model[]>([]);
+  const [models, setModels] = useState<SafeModel[]>([]);
   const [selectedModel, setSelectedModel] = useState<string | null>(null);
   const [savingModel, setSavingModel] = useState(false);
   const [modelError, setModelError] = useState<string | null>(null);

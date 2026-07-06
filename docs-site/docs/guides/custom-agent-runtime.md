@@ -173,7 +173,7 @@ Override these `protected` methods to react to control-plane events without touc
 | `onLlmConfig(payload)` | Control plane pushed an LLM config update |
 | `onDelegationUpdate(payload)` | User delegation grants/revocations received |
 | `onPeerCatalogUpdated(grants)` | Peer agent catalog updated (new agents you can call) |
-| `onSkillsConfig(payload)` | Realm skill configuration changed |
+| `onSkillsConfig(payload)` | Workspace skill configuration changed |
 | `onKnowledgeSources(sources)` | Knowledge source list updated |
 | `getDailyTokenUsageForBudget()` | Return `{promptTokens, completionTokens}` so the base class can enforce `maxTokensPerDay`; default returns `{0, 0}` |
 

@@ -34,16 +34,6 @@ const ROLE_STYLE: Record<string, { bg: string; border: string; text: string }> =
       border: "border-primary-600",
       text: "text-primary-700",
     },
-    manager: {
-      bg: "bg-primary-900/30",
-      border: "border-primary-600",
-      text: "text-primary-700",
-    },
-    operator: {
-      bg: "bg-success-900/30",
-      border: "border-success-600",
-      text: "text-success-700",
-    },
     member: {
       bg: "bg-neutral-900/30",
       border: "border-neutral-600",
@@ -76,7 +66,7 @@ interface UserNodeData {
   label: string;
   role?: string;
   status?: "online" | "offline";
-  realmId?: string;
+  workspaceId?: string;
 }
 
 const UserNode: React.FC<NodeProps<UserNodeData>> = ({ data, selected }) => {
@@ -100,11 +90,7 @@ const UserNode: React.FC<NodeProps<UserNodeData>> = ({ data, selected }) => {
               ? "bg-warning-600"
               : data.role === "admin"
                 ? "bg-primary-600"
-                : data.role === "manager"
-                  ? "bg-primary-600"
-                  : data.role === "operator"
-                    ? "bg-success-600"
-                    : "bg-neutral-600"
+                : "bg-neutral-600"
           }`}
         >
           {initials(data.label)}
@@ -328,8 +314,6 @@ export default function OrgChartFlowView({
             const role = node.data?.role;
             if (role === "owner") return "#ca8a04";
             if (role === "admin") return "#2563eb";
-            if (role === "manager") return "primary-600";
-            if (role === "operator") return "#059669";
             return "#64748b";
           }}
           style={{

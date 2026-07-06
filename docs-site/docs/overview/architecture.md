@@ -40,7 +40,7 @@ graph TD
 
   subgraph LiteLLM["LiteLLM Proxy (optional)  :4000"]
     Router["Model Router"]
-    Keys["Virtual Keys\n(per realm)"]
+    Keys["Virtual Keys\n(per workspace)"]
   end
 
   subgraph Bridges["External Bridges"]
@@ -68,7 +68,7 @@ graph TD
 
   FSA -- "default" --> FSFS
   FSA -. "if configured" .-> S3
-  API -- "register models\ncreate realm keys" --> LiteLLM
+  API -- "register models\ncreate workspace keys" --> LiteLLM
   WS -- "WSS signed messages\n+ channel events" --> A1
   WS -- "WSS signed messages\n+ channel events" --> A2
   WS -- "WSS signed messages\n+ channel events" --> A3
@@ -86,7 +86,7 @@ The control plane runs as a **Next.js 16 application** and serves two concerns s
 
 ### REST API (`/api/**`)
 
-Provides CRUD endpoints for every resource in the system (agents, policies, intents, realms, users, workflows, tool approvals). All endpoints require authentication via NextAuth.js and enforce role-based access control.
+Provides CRUD endpoints for every resource in the system (agents, policies, intents, workspaces, users, workflows, tool approvals). All endpoints require authentication via NextAuth.js and enforce role-based access control.
 
 See the full [API Reference](/docs/api/overview).
 
@@ -220,9 +220,9 @@ Key tables:
 | `settings`              | Key-value store for all server configuration (storage type, S3 credentials encrypted, Docling URL, …) |
 | `agents`                | Registered agent controllers with DID, capabilities, LLM config                                       |
 | `users`                 | Human users with DID, email, admin flag                                                               |
-| `realms`                | Organisational scopes                                                                                 |
-| `agent_realms`          | Agent ↔ realm associations                                                                            |
-| `user_realms`           | User ↔ realm associations                                                                             |
+| `workspaces`                | Organisational scopes                                                                                 |
+| `agent_workspaces`          | Agent ↔ workspace associations                                                                            |
+| `user_workspaces`           | User ↔ workspace associations                                                                             |
 | `user_grants`           | Capability grants from users to agents                                                                |
 | `delegation_certs`      | Control-plane-signed delegation certificates                                                          |
 | `certificates`          | Agent certificates issued by the control plane                                                        |
@@ -236,12 +236,12 @@ Key tables:
 | `knowledge_sources`     | RAG sources per agent (URL, text, file — with sync status)                                            |
 | `knowledge_files`       | Uploaded file metadata + `file_path` key into the FileStorage backend                                 |
 | `model_registry`        | Registered LLMs with provider, model ID, and LiteLLM name                                             |
-| `model_realm_access`    | Which models each realm can access                                                                    |
-| `realm_router_keys`     | Per-realm LiteLLM virtual keys and allowed model lists                                                |
+| `model_workspace_access`    | Which models each workspace can access                                                                    |
+| `workspace_router_keys`     | Per-workspace LiteLLM virtual keys and allowed model lists                                                |
 | `org_skills`            | Organisation-level skill library entries                                                              |
-| `realm_skills`          | Realm-scoped skill overrides                                                                          |
+| `workspace_skills`          | Workspace-scoped skill overrides                                                                          |
 | `agent_skill_overrides` | Per-agent skill configuration                                                                         |
-| `channels`              | Named rooms (realm-scoped or global)                                                                  |
+| `channels`              | Named rooms (workspace-scoped or global)                                                                  |
 | `channel_members`       | User and agent membership with roles                                                                  |
 | `channel_messages`      | Persisted messages with optional threading                                                            |
 | `channel_bridges`       | External service integrations (webhooks, Teams)                                                       |

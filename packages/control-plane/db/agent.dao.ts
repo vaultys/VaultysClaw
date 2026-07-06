@@ -3,7 +3,7 @@ import { prisma } from "./client";
 import { Prisma } from "@prisma/client";
 import type {
   Agent,
-  AgentRealm,
+  AgentWorkspace,
   AgentTokenUsage,
   AgentTokenUsageHistory,
   AgentPeerGrant,
@@ -52,9 +52,9 @@ export class AgentDAO {
             ],
           },
         },
-        agentRealms: {
+        agentWorkspaces: {
           include: {
-            realm: {
+            workspace: {
               select: {
                 id: true,
                 name: true,
@@ -88,14 +88,14 @@ export class AgentDAO {
 
   static async query(opts: {
     search?: string;
-    realm?: string;
+    workspace?: string;
     capabilities?: string[];
     page?: number;
     pageSize?: number;
     sortBy?: "name" | "lastSeen" | "registeredAt";
     sortDir?: "asc" | "desc";
-    /** When set, only return agents that belong to at least one of these realm IDs. */
-    realmIds?: Set<string>;
+    /** When set, only return agents that belong to at least one of these workspace IDs. */
+    workspaceIds?: Set<string>;
     /** When set, filter by online status using connected agent DIDs from the WS server. */
     onlineFilter?: boolean;
     onlineDids?: Set<string>;
@@ -108,13 +108,13 @@ export class AgentDAO {
   }> {
     const {
       search,
-      realm,
+      workspace,
       capabilities,
       page = 1,
       pageSize = 20,
       sortBy = "lastSeen",
       sortDir = "desc",
-      realmIds,
+      workspaceIds,
       onlineFilter,
       onlineDids,
     } = opts;
@@ -125,34 +125,34 @@ export class AgentDAO {
       where.name = { contains: search, mode: "insensitive" };
     }
 
-    // Build realm conditions as an AND list so they can safely compose.
-    const realmConditions: Prisma.AgentWhereInput[] = [];
+    // Build workspace conditions as an AND list so they can safely compose.
+    const workspaceConditions: Prisma.AgentWhereInput[] = [];
 
-    // Explicit realm slug/id filter from the query string
-    if (realm) {
-      realmConditions.push({
-        agentRealms: {
-          some: { realm: { OR: [{ id: realm }, { slug: realm }] } },
+    // Explicit workspace slug/id filter from the query string
+    if (workspace) {
+      workspaceConditions.push({
+        agentWorkspaces: {
+          some: { workspace: { OR: [{ id: workspace }, { slug: workspace }] } },
         },
       });
     }
 
     // Authorization: restrict to agents the current user can see.
-    // realmIds === undefined  → global admin, no restriction.
-    // realmIds.size === 0     → user has no realms, must see nothing.
-    // realmIds.size > 0       → user can only see agents in those realms.
-    if (realmIds !== undefined) {
-      if (realmIds.size === 0) {
+    // workspaceIds === undefined  → global admin, no restriction.
+    // workspaceIds.size === 0     → user has no workspaces, must see nothing.
+    // workspaceIds.size > 0       → user can only see agents in those workspaces.
+    if (workspaceIds !== undefined) {
+      if (workspaceIds.size === 0) {
         where.did = { in: [] }; // short-circuit: no agents visible
       } else {
-        realmConditions.push({
-          agentRealms: { some: { realmId: { in: Array.from(realmIds) } } },
+        workspaceConditions.push({
+          agentWorkspaces: { some: { workspaceId: { in: Array.from(workspaceIds) } } },
         });
       }
     }
 
-    if (realmConditions.length > 0) {
-      where.AND = realmConditions;
+    if (workspaceConditions.length > 0) {
+      where.AND = workspaceConditions;
     }
 
     if (capabilities && capabilities.length > 0) {
@@ -165,9 +165,9 @@ export class AgentDAO {
       where.did = onlineFilter ? { in: dids } : { notIn: dids };
     }
 
-    const realmInclude = {
+    const workspaceInclude = {
       include: {
-        realm: {
+        workspace: {
           select: {
             id: true,
             name: true,
@@ -201,7 +201,7 @@ export class AgentDAO {
               ],
             },
           },
-          agentRealms: realmInclude,
+          agentWorkspaces: workspaceInclude,
           tokenUsage: {
             select: {
               promptTokens: true,
@@ -271,12 +271,12 @@ export class AgentDAO {
     await prisma.agent.delete({ where: { did } });
   }
 
-  // ─── Realm membership ───────────────────────────────────────────────────────
+  // ─── Workspace membership ───────────────────────────────────────────────────────
 
-  static async getRealms(agentDid: string): Promise<
+  static async getWorkspaces(agentDid: string): Promise<
     Array<
-      AgentRealm & {
-        realm: {
+      AgentWorkspace & {
+        workspace: {
           id: string;
           name: string;
           slug: string;
@@ -286,10 +286,10 @@ export class AgentDAO {
       }
     >
   > {
-    return prisma.agentRealm.findMany({
+    return prisma.agentWorkspace.findMany({
       where: { agentDid },
       include: {
-        realm: {
+        workspace: {
           select: {
             id: true,
             name: true,
@@ -299,36 +299,36 @@ export class AgentDAO {
           },
         },
       },
-      orderBy: [{ isPrimary: "desc" }, { realm: { name: "asc" } }],
+      orderBy: [{ isPrimary: "desc" }, { workspace: { name: "asc" } }],
     }) as any;
   }
 
-  static async addToRealm(
+  static async addToWorkspace(
     agentDid: string,
-    realmId: string,
+    workspaceId: string,
     isPrimary = false
   ): Promise<void> {
     if (isPrimary) {
-      await prisma.agentRealm.updateMany({
+      await prisma.agentWorkspace.updateMany({
         where: { agentDid },
         data: { isPrimary: false },
       });
     }
-    await prisma.agentRealm.upsert({
-      where: { agentDid_realmId: { agentDid, realmId } },
-      create: { agentDid, realmId, isPrimary },
+    await prisma.agentWorkspace.upsert({
+      where: { agentDid_workspaceId: { agentDid, workspaceId } },
+      create: { agentDid, workspaceId, isPrimary },
       update: { isPrimary },
     });
   }
 
-  static async removeFromRealm(
+  static async removeFromWorkspace(
     agentDid: string,
-    realmId: string
+    workspaceId: string
   ): Promise<boolean> {
-    const realm = await prisma.realm.findUnique({ where: { id: realmId } });
-    if (realm?.isDefault) return false;
-    const result = await prisma.agentRealm.deleteMany({
-      where: { agentDid, realmId },
+    const workspace = await prisma.workspace.findUnique({ where: { id: workspaceId } });
+    if (workspace?.isDefault) return false;
+    const result = await prisma.agentWorkspace.deleteMany({
+      where: { agentDid, workspaceId },
     });
     return result.count > 0;
   }

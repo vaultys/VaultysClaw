@@ -10,7 +10,7 @@ import type {
 export class ChannelDAO {
   static async create(data: {
     id?: string;
-    realmId?: string;
+    workspaceId?: string;
     name: string;
     slug: string;
     description?: string;
@@ -23,7 +23,7 @@ export class ChannelDAO {
     return prisma.channel.create({
       data: {
         id,
-        realmId: data.realmId ?? null,
+        workspaceId: data.workspaceId ?? null,
         name: data.name,
         slug: data.slug,
         description: data.description ?? null,
@@ -41,33 +41,33 @@ export class ChannelDAO {
 
   static async findBySlug(
     slug: string,
-    realmId?: string
+    workspaceId?: string
   ): Promise<Channel | null> {
-    if (realmId) {
+    if (workspaceId) {
       return prisma.channel.findUnique({
-        where: { realmId_slug: { realmId, slug } },
+        where: { workspaceId_slug: { workspaceId, slug } },
       });
     }
-    return prisma.channel.findFirst({ where: { slug, realmId: null } });
+    return prisma.channel.findFirst({ where: { slug, workspaceId: null } });
   }
 
-  static async listByRealm(realmId: string): Promise<Channel[]> {
+  static async listByWorkspace(workspaceId: string): Promise<Channel[]> {
     return prisma.channel.findMany({
-      where: { realmId, isArchived: false },
+      where: { workspaceId, isArchived: false },
       orderBy: { createdAt: "desc" },
     });
   }
 
   static async listGlobal(): Promise<Channel[]> {
     return prisma.channel.findMany({
-      where: { realmId: null, isArchived: false },
+      where: { workspaceId: null, isArchived: false },
       orderBy: { createdAt: "desc" },
     });
   }
 
-  static async listByRealmWithGlobal(realmId: string): Promise<Channel[]> {
+  static async listByWorkspaceWithGlobal(workspaceId: string): Promise<Channel[]> {
     return prisma.channel.findMany({
-      where: { OR: [{ realmId }, { realmId: null }], isArchived: false },
+      where: { OR: [{ workspaceId }, { workspaceId: null }], isArchived: false },
       orderBy: { createdAt: "desc" },
     });
   }

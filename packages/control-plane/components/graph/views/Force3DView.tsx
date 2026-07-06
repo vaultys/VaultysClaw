@@ -19,13 +19,13 @@ interface Props {
 }
 
 const NODE_COLORS: Record<GraphNodeType, string> = {
-  realm: "primary",
+  workspace: "primary",
   user: "primary",
   agent: "success",
 };
 
 const EDGE_COLORS: Record<GraphEdgeType, string> = {
-  realm_member: "#94a3b8",
+  workspace_member: "#94a3b8",
   grant: "warning",
   reports_to: "#a855f7",
   delegation: "danger",
@@ -33,14 +33,14 @@ const EDGE_COLORS: Record<GraphEdgeType, string> = {
 };
 
 const NODE_SIZES: Record<GraphNodeType, number> = {
-  realm: 16,
+  workspace: 16,
   user: 8,
   agent: 8,
 };
 
 const ICON_PATHS: Record<GraphNodeType, { paths: string[]; viewBox: string }> =
   {
-    realm: {
+    workspace: {
       viewBox: "0 0 24 24",
       paths: [
         "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z",
@@ -78,7 +78,7 @@ function makeIconTexture(
   const key = `${type}:${color}:${isOffline}`;
   if (textureCache.has(key)) return textureCache.get(key);
 
-  const size = type === "realm" ? 128 : 96;
+  const size = type === "workspace" ? 128 : 96;
   const canvas = document.createElement("canvas");
   canvas.width = size;
   canvas.height = size;
@@ -161,14 +161,14 @@ export default function Force3DView({ data, height, onNodeClick }: Props) {
   const fgData = useMemo(
     () => ({
       nodes: data.nodes
-        .filter((n) => n.type !== "realm")
+        .filter((n) => n.type !== "workspace")
         .map((n) => ({
           ...n,
           val: NODE_SIZES[n.type],
           _color: NODE_COLORS[n.type],
         })),
       links: data.edges
-        .filter((e) => e.type !== "realm_member")
+        .filter((e) => e.type !== "workspace_member")
         .map((e, i) => ({
           ...e,
           id: `edge-${i}`,

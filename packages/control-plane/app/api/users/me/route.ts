@@ -8,6 +8,7 @@ import { APIException } from "@/lib/api/utils/api-utils";
 import { UserDAO } from "@/db";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 import { usersContract } from "@/lib/contracts";
+import { normalizeRole } from "@/lib/roles";
 
 const handlers = createNextRoute(usersContract, {
   // ── GET /api/users/me ─────────────────────────────────────────────────────
@@ -25,9 +26,7 @@ const handlers = createNextRoute(usersContract, {
         name: user.name ?? null,
         email: user.email ?? null,
         description: user.description ?? null,
-        role: user.role,
-        isOwner: user.isOwner,
-        isAdmin: user.isAdmin || user.isOwner,
+        role: normalizeRole(user.role),
         entraId: user.entraId ?? null,
         locationLabel: user.locationLabel ?? null,
         registeredAt: user.registeredAt.toISOString(),

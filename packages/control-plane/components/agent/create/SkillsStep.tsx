@@ -15,7 +15,7 @@ export function SkillsStep({ agentDid, onContinue }: SkillsStepProps) {
   const [skills, setSkills] = useState<SkillConfig[]>([]);
   const [savingSkills, setSavingSkills] = useState(false);
 
-  // Load this agent's realm skills on mount
+  // Load this agent's workspace skills on mount
   useEffect(() => {
     if (!agentDid) return;
     agentsClient
@@ -25,7 +25,7 @@ export function SkillsStep({ agentDid, onContinue }: SkillsStepProps) {
       .catch(() => {});
   }, [agentDid]);
 
-  async function toggleSkill(skill: SkillConfig, realmSkillId: string) {
+  async function toggleSkill(skill: SkillConfig, workspaceSkillId: string) {
     if (!agentDid || skill.isRequired) return;
     const newEnabled = !skill.enabled;
     setSkills((prev) =>
@@ -38,7 +38,7 @@ export function SkillsStep({ agentDid, onContinue }: SkillsStepProps) {
       unwrap(
         await agentsClient.updateSkillOverride({
           params: { did: agentDid },
-          body: { realmSkillId, enabled: newEnabled },
+          body: { workspaceSkillId, enabled: newEnabled },
         })
       );
     } finally {
@@ -53,7 +53,7 @@ export function SkillsStep({ agentDid, onContinue }: SkillsStepProps) {
           Configure skills
         </h2>
         <p className="text-sm text-foreground-500">
-          Skills are realm-level capabilities injected into the agent. Required
+          Skills are workspace-level capabilities injected into the agent. Required
           skills cannot be disabled.
         </p>
       </div>
@@ -61,7 +61,7 @@ export function SkillsStep({ agentDid, onContinue }: SkillsStepProps) {
       {skills.length === 0 ? (
         <div className="bg-background-100 border border-neutral-200 rounded-xl p-6 text-center text-sm text-foreground-500">
           <Zap size={20} className="mx-auto mb-2 text-foreground-400" />
-          No skills configured for this realm yet.
+          No skills configured for this workspace yet.
         </div>
       ) : (
         <div className="bg-background-100 border border-neutral-200 rounded-xl divide-y divide-neutral-200 overflow-hidden">

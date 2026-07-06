@@ -16,7 +16,7 @@ const handlers = createNextRoute(serverContract, {
 
     const result = await syncEntraUsers({
       groupIds: body.groupIds ?? [],
-      groupRealmMap: body.groupRealmMap ?? {},
+      groupWorkspaceMap: body.groupWorkspaceMap ?? {},
       groupNames: body.groupNames ?? {},
     });
     return { status: 200, body: result as unknown as Record<string, unknown> };

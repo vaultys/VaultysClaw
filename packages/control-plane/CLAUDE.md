@@ -14,7 +14,7 @@ Next.js App Router dashboard + WebSocket server. HTTP on port 3000, WebSocket on
 
 PostgreSQL via Prisma (`prisma/`). All DAOs are in `db/` and use the Prisma client (`db/client.ts`).
 
-Key tables: `agents`, `intent_log`, `workflows`, `workflow_runs`, `realms`, `users`, `policies`, `model_registry`, `org_skills`, `channels`, `settings`.
+Key tables: `agents`, `intent_log`, `workflows`, `workflow_runs`, `workspaces`, `users`, `policies`, `model_registry`, `org_skills`, `channels`, `settings`.
 
 ## Auth
 
@@ -26,7 +26,7 @@ Use the typed API client classes in `lib/api/`. One class per domain group — i
 
 ```typescript
 import { agentsApi, workflowsApi } from "@/lib/api";
-const { agents } = await agentsApi.list({ realm: realmId });
+const { agents } = await agentsApi.list({ workspace: workspaceId });
 const run = await workflowsApi.execute(workflowId, payload);
 ```
 

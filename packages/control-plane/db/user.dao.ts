@@ -1,5 +1,6 @@
 import { prisma } from "./client";
-import type { User, UserRealm, UserInvitation, Prisma } from "@prisma/client";
+import type { User, UserWorkspace, UserInvitation, Prisma } from "@prisma/client";
+import { normalizeRole, type UserRole } from "@/lib/roles";
 
 export class UserDAO {
   static async findById(id: string): Promise<User | null> {
@@ -18,9 +19,9 @@ export class UserDAO {
     return prisma.user.findFirst({ where: { entraId } });
   }
 
-  static async create(did: string, publicKey: string | null, isOwner: boolean): Promise<User> {
+  static async create(did: string, publicKey: string | null, role: UserRole = "Member"): Promise<User> {
     return prisma.user.create({
-      data: { id: did, did, publicKey, isOwner },
+      data: { id: did, did, publicKey, role },
     });
   }
 
@@ -32,7 +33,7 @@ export class UserDAO {
   }): Promise<User> {
     const id = crypto.randomUUID();
     return prisma.user.create({
-      data: { id, name: opts.name, email: opts.email, role: opts.role ?? "member", reportsTo: opts.reportsTo ?? null },
+      data: { id, name: opts.name, email: opts.email, role: normalizeRole(opts.role), reportsTo: opts.reportsTo ?? null },
     });
   }
 
@@ -122,8 +123,6 @@ export class UserDAO {
       name: string | null;
       email: string | null;
       role: string;
-      isAdmin: boolean;
-      isOwner: boolean;
       reportsTo: string | null;
       description: string | null;
     }>
@@ -141,32 +140,19 @@ export class UserDAO {
   static async list(opts: {
     q?: string;
     role?: string;
-    isAdmin?: boolean;
-    realmId?: string;
+    workspaceId?: string;
     hasAccount?: boolean;
     page?: number;
     pageSize?: number;
     sortBy?: "name" | "email" | "registeredAt";
     sortDir?: "asc" | "desc";
   }): Promise<{ users: User[]; total: number; page: number; pageSize: number; totalPages: number }> {
-    const { q, role, isAdmin, realmId, hasAccount, page = 1, pageSize = 20, sortBy = "name", sortDir = "asc" } = opts;
+    const { q, role, workspaceId, hasAccount, page = 1, pageSize = 20, sortBy = "name", sortDir = "asc" } = opts;
 
     const where: Prisma.UserWhereInput = {};
     if (q) where.OR = [{ name: { contains: q, mode: "insensitive" } }, { email: { contains: q, mode: "insensitive" } }];
-    // Owner/admin are stored as boolean flags, not in the `role` column, and the
-    // displayed role badge is derived from them — so filter to match the badge.
-    if (role === "owner") {
-      where.isOwner = true;
-    } else if (role === "admin") {
-      where.isAdmin = true;
-      where.isOwner = false;
-    } else if (role) {
-      where.role = role;
-      where.isOwner = false;
-      where.isAdmin = false;
-    }
-    if (isAdmin !== undefined) where.isAdmin = isAdmin;
-    if (realmId) where.userRealms = { some: { realmId } };
+    if (role) where.role = normalizeRole(role);
+    if (workspaceId) where.userWorkspaces = { some: { workspaceId } };
     if (hasAccount === true) where.did = { not: null };
     else if (hasAccount === false) where.did = null;
 
@@ -208,9 +194,10 @@ export class UserDAO {
   static async createInvitation(
     email: string,
     name: string,
-    role: string,
+    roleInput: string,
     expiresAt: Date
   ): Promise<{ token: string; userId: string }> {
+    const role = normalizeRole(roleInput);
     // Reuse an existing unclaimed user or create one
     let user = await prisma.user.findFirst({ where: { email, did: null } });
     if (!user) {
@@ -253,7 +240,7 @@ export class UserDAO {
   }
 
   static async hasOwner() {
-    return (await prisma.user.count({ where: { isOwner: true } })) > 0;
+    return (await prisma.user.count({ where: { role: "Owner" } })) > 0;
   }
 
   static async listUnclaimed() {
@@ -262,8 +249,17 @@ export class UserDAO {
     });
   }
 
-  static async setAdmin(did: string, isAdmin: boolean) {
-    await prisma.user.updateMany({ where: { did }, data: { isAdmin } });
+  /** Global admins (Owner or Admin) that have claimed an account. */
+  static async listAdmins(limit = 20) {
+    return prisma.user.findMany({
+      where: { role: { in: ["Owner", "Admin"] }, did: { not: null } },
+      orderBy: { name: "asc" },
+      take: limit,
+    });
+  }
+
+  static async setRole(did: string, role: UserRole) {
+    await prisma.user.updateMany({ where: { did }, data: { role } });
   }
 
   static async removeByDid(did: string) {

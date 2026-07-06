@@ -1,13 +1,13 @@
 /**
  * Demo simulator — agent fleet configuration
- * 30 agents across all 8 realms, spread geographically.
+ * 30 agents across all 8 workspaces, spread geographically.
  */
 
 export type LlmProvider = "openai" | "anthropic" | "google" | "ollama";
 
 export interface AgentConfig {
   name: string;
-  realm: string; // slug
+  workspace: string; // slug
   model: string;
   provider: LlmProvider;
   capabilities: string[];
@@ -22,7 +22,7 @@ export const DEMO_AGENTS: AgentConfig[] = [
   // ── Engineering ──────────────────────────────────────────────────
   {
     name: "code-review-sf",
-    realm: "engineering",
+    workspace: "engineering",
     model: "gpt-4o",
     provider: "openai",
     capabilities: ["code_execution", "file_access", "api_call"],
@@ -32,7 +32,7 @@ export const DEMO_AGENTS: AgentConfig[] = [
   },
   {
     name: "test-runner-berlin",
-    realm: "engineering",
+    workspace: "engineering",
     model: "claude-sonnet-4-5",
     provider: "anthropic",
     capabilities: ["code_execution", "file_access"],
@@ -42,7 +42,7 @@ export const DEMO_AGENTS: AgentConfig[] = [
   },
   {
     name: "docs-writer-bangalore",
-    realm: "engineering",
+    workspace: "engineering",
     model: "gpt-4o-mini",
     provider: "openai",
     capabilities: ["file_access", "api_call"],
@@ -52,7 +52,7 @@ export const DEMO_AGENTS: AgentConfig[] = [
   },
   {
     name: "pr-assistant-london",
-    realm: "engineering",
+    workspace: "engineering",
     model: "claude-sonnet-4-5",
     provider: "anthropic",
     capabilities: ["code_execution", "file_access", "api_call"],
@@ -62,7 +62,7 @@ export const DEMO_AGENTS: AgentConfig[] = [
   },
   {
     name: "lint-enforcer-toronto",
-    realm: "engineering",
+    workspace: "engineering",
     model: "gpt-4o",
     provider: "openai",
     capabilities: ["code_execution", "file_access"],
@@ -74,7 +74,7 @@ export const DEMO_AGENTS: AgentConfig[] = [
   // ── Security Ops ──────────────────────────────────────────────────
   {
     name: "vuln-scanner-tlv",
-    realm: "security-ops",
+    workspace: "security-ops",
     model: "gpt-4o",
     provider: "openai",
     capabilities: ["internet_access", "api_call", "system_command"],
@@ -84,7 +84,7 @@ export const DEMO_AGENTS: AgentConfig[] = [
   },
   {
     name: "threat-analyzer-sg",
-    realm: "security-ops",
+    workspace: "security-ops",
     model: "claude-sonnet-4-5",
     provider: "anthropic",
     capabilities: ["internet_access", "api_call"],
@@ -94,7 +94,7 @@ export const DEMO_AGENTS: AgentConfig[] = [
   },
   {
     name: "audit-trail-nyc",
-    realm: "security-ops",
+    workspace: "security-ops",
     model: "gpt-4o-mini",
     provider: "openai",
     capabilities: ["file_access", "api_call"],
@@ -104,7 +104,7 @@ export const DEMO_AGENTS: AgentConfig[] = [
   },
   {
     name: "siem-correlator-frankfurt",
-    realm: "security-ops",
+    workspace: "security-ops",
     model: "gpt-4o",
     provider: "openai",
     capabilities: ["internet_access", "api_call", "system_command"],
@@ -116,7 +116,7 @@ export const DEMO_AGENTS: AgentConfig[] = [
   // ── DevOps ────────────────────────────────────────────────────────
   {
     name: "deploy-agent-amsterdam",
-    realm: "devops",
+    workspace: "devops",
     model: "gpt-4o",
     provider: "openai",
     capabilities: ["system_command", "api_call", "code_execution"],
@@ -126,7 +126,7 @@ export const DEMO_AGENTS: AgentConfig[] = [
   },
   {
     name: "monitoring-agent-paris",
-    realm: "devops",
+    workspace: "devops",
     model: "claude-sonnet-4-5",
     provider: "anthropic",
     capabilities: ["api_call", "internet_access"],
@@ -136,7 +136,7 @@ export const DEMO_AGENTS: AgentConfig[] = [
   },
   {
     name: "infra-provisioner-tokyo",
-    realm: "devops",
+    workspace: "devops",
     model: "gpt-4o",
     provider: "openai",
     capabilities: ["system_command", "api_call", "code_execution", "file_access"],
@@ -146,7 +146,7 @@ export const DEMO_AGENTS: AgentConfig[] = [
   },
   {
     name: "alert-handler-sydney",
-    realm: "devops",
+    workspace: "devops",
     model: "gpt-4o-mini",
     provider: "openai",
     capabilities: ["api_call", "mail_send"],
@@ -158,7 +158,7 @@ export const DEMO_AGENTS: AgentConfig[] = [
   // ── Finance & Compliance ──────────────────────────────────────────
   {
     name: "report-generator-zurich",
-    realm: "finance",
+    workspace: "finance",
     model: "gpt-4o",
     provider: "openai",
     capabilities: ["file_access", "api_call"],
@@ -168,7 +168,7 @@ export const DEMO_AGENTS: AgentConfig[] = [
   },
   {
     name: "compliance-checker-dubai",
-    realm: "finance",
+    workspace: "finance",
     model: "claude-sonnet-4-5",
     provider: "anthropic",
     capabilities: ["file_access", "api_call"],
@@ -178,7 +178,7 @@ export const DEMO_AGENTS: AgentConfig[] = [
   },
   {
     name: "fraud-detector-chicago",
-    realm: "finance",
+    workspace: "finance",
     model: "gpt-4o",
     provider: "openai",
     capabilities: ["api_call", "internet_access"],
@@ -190,7 +190,7 @@ export const DEMO_AGENTS: AgentConfig[] = [
   // ── Data & Analytics ──────────────────────────────────────────────
   {
     name: "pipeline-agent-seoul",
-    realm: "data",
+    workspace: "data",
     model: "gpt-4o",
     provider: "openai",
     capabilities: ["code_execution", "file_access", "api_call"],
@@ -200,7 +200,7 @@ export const DEMO_AGENTS: AgentConfig[] = [
   },
   {
     name: "ml-trainer-montreal",
-    realm: "data",
+    workspace: "data",
     model: "claude-sonnet-4-5",
     provider: "anthropic",
     capabilities: ["code_execution", "file_access"],
@@ -210,7 +210,7 @@ export const DEMO_AGENTS: AgentConfig[] = [
   },
   {
     name: "etl-runner-stockholm",
-    realm: "data",
+    workspace: "data",
     model: "gpt-4o-mini",
     provider: "openai",
     capabilities: ["code_execution", "api_call"],
@@ -220,7 +220,7 @@ export const DEMO_AGENTS: AgentConfig[] = [
   },
   {
     name: "insight-reporter-paris",
-    realm: "data",
+    workspace: "data",
     model: "gpt-4o",
     provider: "openai",
     capabilities: ["file_access", "api_call", "internet_access"],
@@ -232,7 +232,7 @@ export const DEMO_AGENTS: AgentConfig[] = [
   // ── Customer Success ──────────────────────────────────────────────
   {
     name: "ticket-router-madrid",
-    realm: "customer-success",
+    workspace: "customer-success",
     model: "gpt-4o-mini",
     provider: "openai",
     capabilities: ["api_call", "mail_send"],
@@ -242,7 +242,7 @@ export const DEMO_AGENTS: AgentConfig[] = [
   },
   {
     name: "sentiment-analyzer-sao-paulo",
-    realm: "customer-success",
+    workspace: "customer-success",
     model: "gpt-4o",
     provider: "openai",
     capabilities: ["api_call", "internet_access"],
@@ -252,7 +252,7 @@ export const DEMO_AGENTS: AgentConfig[] = [
   },
   {
     name: "sla-monitor-melbourne",
-    realm: "customer-success",
+    workspace: "customer-success",
     model: "claude-sonnet-4-5",
     provider: "anthropic",
     capabilities: ["api_call"],
@@ -264,7 +264,7 @@ export const DEMO_AGENTS: AgentConfig[] = [
   // ── Legal & Audit ─────────────────────────────────────────────────
   {
     name: "contract-reviewer-brussels",
-    realm: "legal",
+    workspace: "legal",
     model: "gpt-4o",
     provider: "openai",
     capabilities: ["file_access", "api_call"],
@@ -274,7 +274,7 @@ export const DEMO_AGENTS: AgentConfig[] = [
   },
   {
     name: "gdpr-agent-berlin",
-    realm: "legal",
+    workspace: "legal",
     model: "claude-sonnet-4-5",
     provider: "anthropic",
     capabilities: ["file_access", "api_call", "internet_access"],
@@ -284,7 +284,7 @@ export const DEMO_AGENTS: AgentConfig[] = [
   },
   {
     name: "risk-assessor-geneva",
-    realm: "legal",
+    workspace: "legal",
     model: "gpt-4o",
     provider: "openai",
     capabilities: ["file_access", "api_call"],
@@ -294,7 +294,7 @@ export const DEMO_AGENTS: AgentConfig[] = [
   },
   {
     name: "nda-tracker-washington",
-    realm: "legal",
+    workspace: "legal",
     model: "gpt-4o-mini",
     provider: "openai",
     capabilities: ["file_access", "api_call"],
@@ -306,7 +306,7 @@ export const DEMO_AGENTS: AgentConfig[] = [
   // ── Product ───────────────────────────────────────────────────────
   {
     name: "feature-flag-agent-austin",
-    realm: "product",
+    workspace: "product",
     model: "gpt-4o",
     provider: "openai",
     capabilities: ["api_call", "code_execution"],
@@ -316,7 +316,7 @@ export const DEMO_AGENTS: AgentConfig[] = [
   },
   {
     name: "ab-test-runner-stockholm",
-    realm: "product",
+    workspace: "product",
     model: "claude-sonnet-4-5",
     provider: "anthropic",
     capabilities: ["api_call", "code_execution"],
@@ -326,7 +326,7 @@ export const DEMO_AGENTS: AgentConfig[] = [
   },
   {
     name: "metrics-reporter-singapore",
-    realm: "product",
+    workspace: "product",
     model: "gpt-4o-mini",
     provider: "openai",
     capabilities: ["api_call", "internet_access"],

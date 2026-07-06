@@ -15,7 +15,7 @@ export const RejectRegistrationBodySchema = z.object({
 
 export const ApproveRegistrationBodySchema = z.object({
   capabilities: z.array(z.string()).optional(),
-  realmIds: z.array(z.string()).optional(),
+  workspaceIds: z.array(z.string()).optional(),
 });
 
 export const ToolApprovalRespondBodySchema = z.object({

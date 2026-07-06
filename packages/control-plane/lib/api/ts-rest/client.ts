@@ -5,7 +5,6 @@ import {
   apiKeysContract,
   bridgesContract,
   channelsContract,
-  docsContract,
   governanceContract,
   graphContract,
   healthContract,
@@ -18,7 +17,7 @@ import {
   networkContract,
   orgSkillsContract,
   policiesContract,
-  realmsContract,
+  workspacesContract,
   registrationsContract,
   serverContract,
   settingsContract,
@@ -56,7 +55,6 @@ export const agentsClient = initClient(agentsContract, clientOptions);
 export const apiKeysClient = initClient(apiKeysContract, clientOptions);
 export const bridgesClient = initClient(bridgesContract, clientOptions);
 export const channelsClient = initClient(channelsContract, clientOptions);
-export const docsClient = initClient(docsContract, clientOptions);
 export const governanceClient = initClient(governanceContract, clientOptions);
 export const graphClient = initClient(graphContract, clientOptions);
 export const healthClient = initClient(healthContract, clientOptions);
@@ -69,7 +67,7 @@ export const modelsClient = initClient(modelsContract, clientOptions);
 export const networkClient = initClient(networkContract, clientOptions);
 export const orgSkillsClient = initClient(orgSkillsContract, clientOptions);
 export const policiesClient = initClient(policiesContract, clientOptions);
-export const realmsClient = initClient(realmsContract, clientOptions);
+export const workspacesClient = initClient(workspacesContract, clientOptions);
 export const registrationsClient = initClient(
   registrationsContract,
   clientOptions

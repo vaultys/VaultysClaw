@@ -31,10 +31,10 @@ export const UpdateModelBodySchema = z.object({
   status: z.enum(["active", "inactive"]).optional(),
 });
 
-export const GrantRealmBodySchema = z.object({ realmId: z.string() });
+export const GrantWorkspaceBodySchema = z.object({ workspaceId: z.string() });
 
 // ── Queries
-export const RevokeRealmQuerySchema = z.object({ realmId: z.string() });
+export const RevokeWorkspaceQuerySchema = z.object({ workspaceId: z.string() });
 
 // ── Responses
 export const ModelConnectivitySchema = z.object({

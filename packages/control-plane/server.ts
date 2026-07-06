@@ -63,14 +63,14 @@ const peerjsEnabledEnv = process.env.PEERJS_ENABLED === "true";
 const peerjsServerUrlEnv = process.env.PEERJS_SERVER_URL || undefined;
 
 async function seedDefaults(): Promise<void> {
-  const realmCount = await prisma.realm.count();
-  if (realmCount === 0) {
-    await prisma.realm.create({
+  const workspaceCount = await prisma.workspace.count();
+  if (workspaceCount === 0) {
+    await prisma.workspace.create({
       data: {
         id: crypto.randomUUID(),
         name: "Default",
         slug: "default",
-        description: "The default realm",
+        description: "The default workspace",
         color: "#6366f1",
         isDefault: true,
       },
@@ -122,7 +122,7 @@ app.prepare().then(async () => {
   logger.info("Connecting to database");
   await prisma.$connect();
 
-  // Seed defaults (realm, built-in skills)
+  // Seed defaults (workspace, built-in skills)
   await seedDefaults();
   logger.info("Database ready");
 

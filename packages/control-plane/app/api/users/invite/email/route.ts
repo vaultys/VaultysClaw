@@ -11,16 +11,17 @@ import { SettingsDAO, UserDAO } from "@/db";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { usersContract } from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
+import { isAdminRole, isOwnerRole, normalizeRole } from "@/lib/roles";
 
 const handlers = createNextRoute(usersContract, {
   inviteEmail: async ({ body }) => {
     const session = await getServerSession(authOptions);
-    if (!session?.user?.isOwner && !session?.user?.isAdmin) {
+    if (!isOwnerRole(session?.user?.role) && !isAdminRole(session?.user?.role)) {
       throw new APIException("FORBIDDEN");
     }
 
     const { email, name, role, skipEmail } = body;
-    const userRole = role ?? "member";
+    const userRole = normalizeRole(role);
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
     const { token, userId } = await UserDAO.createInvitation(

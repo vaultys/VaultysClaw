@@ -307,7 +307,7 @@ function ManifestoSection() {
                 {
                   Icon: Users,
                   color: "#60a5fa",
-                  text: "Governed by your org chart — realms, roles, and accountability chains",
+                  text: "Governed by your org chart — workspaces, roles, and accountability chains",
                 },
                 {
                   Icon: Fingerprint,
@@ -429,7 +429,7 @@ function AgentProfileCard() {
           }}
         >
           {[
-            { label: "Realm", value: "Research" },
+            { label: "Workspace", value: "Research" },
             { label: "Model", value: "claude-sonnet" },
             { label: "Role", value: "Analyst" },
             { label: "Intents", value: "2,841 today" },
@@ -869,7 +869,7 @@ const FEATURES: {
     Icon: Users,
     iconColor: "blue",
     title: "Your org chart, reflected in AI",
-    desc: "Realms, roles, and capability grants mirror your real team structure. The right people govern the right agents — enforced server-side, always.",
+    desc: "Workspaces, roles, and capability grants mirror your real team structure. The right people govern the right agents — enforced server-side, always.",
   },
   {
     Icon: Zap,
@@ -1021,28 +1021,28 @@ function ArchitectureSection() {
 const MOCK_AGENTS = [
   {
     name: "alice-research",
-    realm: "Research",
+    workspace: "Research",
     caps: ["internet_access", "api_call"],
     status: "online",
     model: "claude-sonnet",
   },
   {
     name: "bob-analyst",
-    realm: "Finance",
+    workspace: "Finance",
     caps: ["api_call", "file_access"],
     status: "online",
     model: "gpt-4o",
   },
   {
     name: "ops-dispatcher",
-    realm: "Operations",
+    workspace: "Operations",
     caps: ["mail_send", "api_call"],
     status: "online",
     model: "gpt-4o-mini",
   },
   {
     name: "dev-coder",
-    realm: "Engineering",
+    workspace: "Engineering",
     caps: ["code_execution", "file_access"],
     status: "offline",
     model: "llama3.2",
@@ -1057,7 +1057,7 @@ const NAV_ITEMS = [
   { Icon: Workflow, label: "Workflows", active: false },
   { Icon: MessageSquare, label: "Chat", active: false },
   { Icon: CheckCircle2, label: "Approvals", active: false },
-  { Icon: Building2, label: "Realms", active: false },
+  { Icon: Building2, label: "Workspaces", active: false },
   { Icon: Users, label: "Users", active: false },
 ];
 
@@ -1167,7 +1167,7 @@ function DashboardMockup() {
                           paddingLeft: "19px",
                         }}
                       >
-                        {agent.realm}
+                        {agent.workspace}
                       </div>
                     </div>
                     <div>

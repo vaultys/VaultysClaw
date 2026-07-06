@@ -17,7 +17,7 @@ const handlers = createNextRoute(policiesContract, {
     const entry: PolicyEntry = {
       id: policy.id,
       agentDid: policy.agentDid,
-      realmId: policy.realmId,
+      workspaceId: policy.workspaceId,
       capabilities: (policy.capabilities ?? []) as string[],
       resourceLimits: (policy.resourceLimits ??
         null) as PolicyEntry["resourceLimits"],

@@ -10,7 +10,7 @@ import {
 } from "@/lib/litellm-client";
 
 const handlers = createNextRoute(modelsContract, {
-  // ── GET /api/models/:id — model detail with realm access ──────────────────
+  // ── GET /api/models/:id — model detail with workspace access ──────────────────
   getOne: async ({ params, request }) => {
     await getAuthContext(request);
 

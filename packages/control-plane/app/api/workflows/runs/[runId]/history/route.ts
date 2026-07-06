@@ -15,7 +15,7 @@ const handlers = createNextRoute(workflowsContract, {
     if (!history) throw new APIException("NOT_FOUND", "Workflow run not found");
 
     const workflow = await WorkflowDAO.findById(history.run.workflowId);
-    if (workflow?.realmId && !(await auth.canAccessRealm(workflow.realmId)))
+    if (workflow?.workspaceId && !(await auth.canAccessWorkspace(workflow.workspaceId)))
       throw new APIException("FORBIDDEN");
 
     return {

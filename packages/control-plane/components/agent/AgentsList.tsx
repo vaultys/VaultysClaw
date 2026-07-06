@@ -31,6 +31,8 @@ interface AgentsListProps {
   /** Whether any filter/search is active (affects the empty state copy). */
   hasFilters: boolean;
   onClearFilters: () => void;
+  /** Base path a row navigates to; the agent DID is appended. Defaults to the admin agents page. */
+  detailBasePath?: string;
 }
 
 /**
@@ -50,6 +52,7 @@ export function AgentsList({
   onPageChange,
   hasFilters,
   onClearFilters,
+  detailBasePath = "/admin/agents",
 }: AgentsListProps) {
   const router = useRouter();
 
@@ -120,7 +123,9 @@ export function AgentsList({
                     key={agent.did}
                     className="hover:bg-background-200/40 transition-colors cursor-pointer"
                     onClick={() =>
-                      router.push(`/agents/${encodeURIComponent(agent.did)}`)
+                      router.push(
+                        `${detailBasePath}/${encodeURIComponent(agent.did)}`
+                      )
                     }
                   >
                     <td className="px-5 py-3.5">
@@ -152,19 +157,19 @@ export function AgentsList({
                     <td className="px-5 py-3.5 font-medium text-foreground">
                       <div className="flex flex-col gap-1">
                         <span>{agent.name}</span>
-                        {agent.agentRealms && agent.agentRealms.length > 0 && (
+                        {agent.agentWorkspaces && agent.agentWorkspaces.length > 0 && (
                           <div className="flex flex-wrap gap-1">
-                            {agent.agentRealms.map((r) => (
+                            {agent.agentWorkspaces.map((r) => (
                               <span
-                                key={r.realmId}
+                                key={r.workspaceId}
                                 className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-md font-normal"
                                 style={{
-                                  backgroundColor: r.realm.color + "22",
-                                  color: r.realm.color,
-                                  border: `1px solid ${r.realm.color}44`,
+                                  backgroundColor: r.workspace.color + "22",
+                                  color: r.workspace.color,
+                                  border: `1px solid ${r.workspace.color}44`,
                                 }}
                               >
-                                {r.realm.name}
+                                {r.workspace.name}
                               </span>
                             ))}
                           </div>

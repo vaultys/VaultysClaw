@@ -4,17 +4,17 @@ import { ChannelService } from "@/lib/channel-service";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 import { channelsContract } from "@/lib/contracts";
 
-/** Channel owner, realm admin, or (for global channels) global admin. */
+/** Channel owner, workspace admin, or (for global channels) global admin. */
 async function assertCanAdminChannel(
   auth: Awaited<ReturnType<typeof getAuthContext>>,
-  channel: { id: string; realmId: string | null }
+  channel: { id: string; workspaceId: string | null }
 ): Promise<void> {
   const role = await ChannelService.getMemberRole(channel.id, auth.did);
   const isChannelOwner = role === "owner";
-  const isRealmAdmin =
-    channel.realmId && (await auth.canAdminRealm(channel.realmId));
-  const isGlobalAdmin = !channel.realmId && auth.isGlobalAdmin;
-  if (!isChannelOwner && !isRealmAdmin && !isGlobalAdmin)
+  const isWorkspaceAdmin =
+    channel.workspaceId && (await auth.canAdminWorkspace(channel.workspaceId));
+  const isGlobalAdmin = !channel.workspaceId && auth.isGlobalAdmin;
+  if (!isChannelOwner && !isWorkspaceAdmin && !isGlobalAdmin)
     throw new APIException("FORBIDDEN");
 }
 
@@ -26,7 +26,7 @@ const handlers = createNextRoute(channelsContract, {
     const channel = await ChannelService.getChannel(params.id);
     if (!channel) throw new APIException("NOT_FOUND", "Channel not found");
 
-    if (channel.realmId && !(await auth.canAccessRealm(channel.realmId)))
+    if (channel.workspaceId && !(await auth.canAccessWorkspace(channel.workspaceId)))
       throw new APIException("FORBIDDEN");
 
     const members = await ChannelService.getChannelMembers(params.id);

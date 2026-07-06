@@ -12,6 +12,7 @@ import type {
   CapabilityOption,
   PendingRegistration,
 } from "./registrations.types";
+import { ToolApproval } from "@/lib/ws-server";
 
 export const registrationsContract = c.router({
   list: {
@@ -77,7 +78,9 @@ export const toolApprovalsContract = c.router({
     path: "/api/tool-approvals",
     summary: "List pending tool approval requests",
     responses: {
-      200: c.type<{ approvals: Array<Record<string, unknown>> }>(),
+      200: c.type<{
+        approvals: ToolApproval[];
+      }>(),
       ...commonErrorResponses,
     },
   },

@@ -2,12 +2,12 @@
 
 import { useState } from "react";
 import {
-  realmsClient,
+  workspacesClient,
   skillsClient,
   unwrap,
   ApiError,
 } from "@/lib/api/ts-rest/client";
-import type { RealmSkillWithMeta } from "@/lib/contracts";
+import type { WorkspaceSkillWithMeta } from "@/lib/contracts";
 import { configToText } from "./types";
 
 export function EditSkillModal({
@@ -15,7 +15,7 @@ export function EditSkillModal({
   onClose,
   onSaved,
 }: {
-  entry: RealmSkillWithMeta;
+  entry: WorkspaceSkillWithMeta;
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -68,8 +68,8 @@ export function EditSkillModal({
     setError("");
     try {
       unwrap(
-        await realmsClient.updateSkill({
-          params: { id: entry.realmId, skillId: entry.id },
+        await workspacesClient.updateSkill({
+          params: { id: entry.workspaceId, skillId: entry.id },
           body: {
             description: description || null,
             version: version || null,
@@ -98,7 +98,7 @@ export function EditSkillModal({
             {entry.name}
           </span>{" "}
           in{" "}
-          <span className="font-medium text-foreground">{entry.realmName}</span>
+          <span className="font-medium text-foreground">{entry.workspaceName}</span>
         </p>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-3">

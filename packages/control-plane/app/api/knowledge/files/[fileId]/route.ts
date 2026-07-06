@@ -13,12 +13,12 @@ const handlers = createNextRoute(knowledgeContract, {
     const file = await KnowledgeDAO.findFile(params.fileId);
     if (!file) throw new APIException("NOT_FOUND", "File not found");
 
-    // Verify access against the parent source's realm.
+    // Verify access against the parent source's workspace.
     const source = await KnowledgeDAO.findSource(file.sourceId);
     if (
       source &&
       !auth.isGlobalAdmin &&
-      !(await auth.canAccessRealm(source.realmId))
+      !(await auth.canAccessWorkspace(source.workspaceId))
     ) {
       throw new APIException("FORBIDDEN");
     }

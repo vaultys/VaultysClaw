@@ -10,7 +10,6 @@ import { intentsContract } from "./intents/intents.contract";
 import { knowledgeContract } from "./knowledge/knowledge.contract";
 import {
   aboutContract,
-  docsContract,
   statsContract,
   userStatusContract,
 } from "./misc/misc.contract";
@@ -22,7 +21,7 @@ import {
   networkContract,
 } from "./network/network.contract";
 import { policiesContract } from "./policies/policies.contract";
-import { realmsContract } from "./realms/realms.contract";
+import { workspacesContract } from "./workspaces/workspaces.contract";
 import {
   registrationsContract,
   toolApprovalsContract,
@@ -85,11 +84,10 @@ export type * from "./policies/policies.contract";
 export * from "./policies/policies.contract";
 export * from "./policies/policies.schemas";
 export * from "./policies/policies.types";
-export type * from "./realms/realms.contract";
-export * from "./realms/realms.contract";
-export * from "./realms/realms.schemas";
-export * from "./realms/realms.types";
-
+export type * from "./workspaces/workspaces.contract";
+export * from "./workspaces/workspaces.contract";
+export * from "./workspaces/workspaces.schemas";
+export * from "./workspaces/workspaces.types";
 export type * from "./registrations/registrations.contract";
 export * from "./registrations/registrations.contract";
 export * from "./registrations/registrations.schemas";
@@ -134,7 +132,6 @@ export const appContract = c.router({
   apiKeys: apiKeysContract,
   bridges: bridgesContract,
   channels: channelsContract,
-  docs: docsContract,
   governance: governanceContract,
   graph: graphContract,
   health: healthContract,
@@ -147,7 +144,7 @@ export const appContract = c.router({
   network: networkContract,
   orgSkills: orgSkillsContract,
   policies: policiesContract,
-  realms: realmsContract,
+  workspaces: workspacesContract,
   registrations: registrationsContract,
   server: serverContract,
   settings: settingsContract,

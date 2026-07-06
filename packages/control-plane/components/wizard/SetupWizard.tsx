@@ -516,7 +516,7 @@ function AgentStep({
         <button
           onClick={() => {
             onDismiss();
-            router.push("/agents/create");
+            router.push("/admin/agents/create");
           }}
           className="flex items-center gap-2 px-5 py-2 bg-primary-600 hover:bg-primary-500 text-white text-sm font-medium rounded-xl transition-colors"
         >

@@ -1,5 +1,4 @@
 import * as z from "zod"
-import * as imports from "../null"
 
 export const ActivityLogModel = z.object({
   id: z.number().int(),

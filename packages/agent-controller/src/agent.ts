@@ -209,7 +209,7 @@ export interface AgentInfo extends _BaseAgentInfo {
  * of normal vs. reasoning content, handling <think>/</think> tags that
  * may span chunk boundaries.
  */
-function splitThinkContent(
+export function splitThinkContent(
   text: string,
   inThinking: boolean
 ): {

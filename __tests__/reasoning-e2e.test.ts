@@ -1,6 +1,12 @@
 /**
  * E2E tests for the reasoning/thinking pipeline against a LIVE dev stack.
  *
+ * For a fast, config-free regression test covering the same reasoning_content
+ * → <think> inlining → splitThinkContent pipeline with a mocked OpenAI-compatible
+ * API (part of the default `pnpm test` run, no live stack needed), see
+ * __tests__/reasoning-pipeline.test.ts instead. Keep this file for manual
+ * verification against a real local model.
+ *
  * Exercises the full application path:
  *   control plane (/api/test/chat) → WS → agent → streamChat (llm.ts)
  *   → LM Studio (Qwen3-4B) → reasoning_content → <think> inlining →

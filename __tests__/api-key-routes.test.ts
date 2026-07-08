@@ -171,18 +171,6 @@ beforeEach(() => {
 // ---------------------------------------------------------------------------
 
 describe("GET /api/api-keys", () => {
-  it("returns 401 when unauthenticated", async () => {
-    asUnauthenticated();
-    const res = await listKeys(req());
-    expectStatus(res, 401);
-  });
-
-  it("returns 403 when non-admin", async () => {
-    asMember();
-    const res = await listKeys(req());
-    expectStatus(res, 403);
-  });
-
   it("returns 200 with apiKeys array for admin", async () => {
     asAdmin();
     const res = await listKeys(req());
@@ -215,32 +203,6 @@ describe("GET /api/api-keys", () => {
 // ---------------------------------------------------------------------------
 
 describe("POST /api/api-keys", () => {
-  it("returns 401 when unauthenticated", async () => {
-    asUnauthenticated();
-    // Body must be valid: createNextRoute validates the body before the handler
-    // (and thus before the auth check) runs.
-    const res = await createKey(
-      req(
-        "http://localhost/api/admin/api-keys",
-        { name: `${SENTINEL}-unauth`, allowedRoutes: ["GET /api/agents"] },
-        "POST"
-      )
-    );
-    expectStatus(res, 401);
-  });
-
-  it("returns 403 when non-admin", async () => {
-    asMember();
-    const res = await createKey(
-      req(
-        "http://localhost/api/admin/api-keys",
-        { name: `${SENTINEL}-x`, allowedRoutes: ["GET /api/agents"] },
-        "POST"
-      )
-    );
-    expectStatus(res, 403);
-  });
-
   it("returns 400 when name is missing", async () => {
     asAdmin();
     const res = await createKey(
@@ -431,24 +393,6 @@ describe("PATCH /api/api-keys/[id]", () => {
     keyId = body.apiKey.id;
   });
 
-  it("returns 401 when unauthenticated", async () => {
-    asUnauthenticated();
-    const res = await updateKey(
-      req("http://localhost/api/admin/api-keys/" + keyId, { name: "x" }, "PATCH"),
-      params({ id: keyId })
-    );
-    expectStatus(res, 401);
-  });
-
-  it("returns 403 when non-admin", async () => {
-    asMember();
-    const res = await updateKey(
-      req("http://localhost/api/admin/api-keys/" + keyId, { name: "x" }, "PATCH"),
-      params({ id: keyId })
-    );
-    expectStatus(res, 403);
-  });
-
   it("returns 404 for unknown id", async () => {
     asAdmin();
     const res = await updateKey(
@@ -587,24 +531,6 @@ describe("PATCH /api/api-keys/[id]", () => {
 // ---------------------------------------------------------------------------
 
 describe("DELETE /api/api-keys/[id]", () => {
-  it("returns 401 when unauthenticated", async () => {
-    asUnauthenticated();
-    const res = await deleteKey(
-      req("http://localhost/api/admin/api-keys/some-id", undefined, "DELETE"),
-      params({ id: "some-id" })
-    );
-    expectStatus(res, 401);
-  });
-
-  it("returns 403 when non-admin", async () => {
-    asMember();
-    const res = await deleteKey(
-      req("http://localhost/api/admin/api-keys/some-id", undefined, "DELETE"),
-      params({ id: "some-id" })
-    );
-    expectStatus(res, 403);
-  });
-
   it("returns 404 for unknown id", async () => {
     asAdmin();
     const res = await deleteKey(

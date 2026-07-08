@@ -12,7 +12,7 @@ Routes are split by **audience**, mirroring the UI split (`app/admin`, `app/app`
 
 | Audience | Route folder | Resulting path | Access |
 |---|---|---|---|
-| **Admin** | `app/api/admin/<domain>/` | `/api/admin/<domain>` | Admin/Owner (gating TODO — see below) |
+| **Admin** | `app/api/admin/<domain>/` | `/api/admin/<domain>` | Admin/Owner — **enforced by the proxy** (see below) |
 | **Public** | `app/api/public/<domain>/` | `/api/public/<domain>` | Anyone, no auth |
 | **User** | `app/api/(user)/<domain>/` | `/api/<domain>` | Any authenticated user |
 
@@ -35,7 +35,12 @@ Every contract folder lives under its audience directory (`lib/contracts/admin|u
 
 **Swagger tags follow the grouping**: `buildOpenApiSpec()` (`lib/api/openapi-spec.ts`) walks the two-level tree and emits one tag per `Audience / Domain` (e.g. `Admin / Agents`), so `/admin/docs` clusters operations by audience. `getApiRouteGroups()` (`lib/api/contract-routes.ts`) does the same for the API-key permission tree.
 
-**Middleware state** (`lib/access-control.ts`): `/api/public` is in `publicPaths` (open to all). `/api/admin/*` is **not yet** gated to admins at the middleware level — it currently falls under the generic `/api/*` "any authenticated user" rule, and handlers keep their own `getAuthContext` / `canAdminAgent` checks. Admin gating will be enabled once the user-scoped API counterparts exist. When adding an admin route, still enforce admin rights inside the handler.
+**Middleware state** (`lib/access-control.ts` + `proxy.ts`): `/api/public` is in `publicPaths` (open to all). **`/api/admin/*` is gated to global Admin/Owner by the proxy** — a non-admin gets a 403 JSON (`{ error, code: "FORBIDDEN" }`), an anonymous user is redirected to `/login`. So admin route handlers must **not** re-check global-admin status (`if (!auth.isGlobalAdmin) …`) — that's redundant. Only call `getAuthContext` in an admin handler when you need token data (`auth.did`, `auth.userId`) or a **finer** restriction than "is an admin":
+
+- **Owner-only** admin routes still check `isOwnerRole` in the handler (e.g. `users/[did]`, `users/[did]/admin`).
+- **Workspace/agent-scoped** endpoints must live under the **user** API (`/api/…`, not `/api/admin/…`) so members reach them past the proxy gate; they self-enforce via `canAccessWorkspace` / `canAdminWorkspace` / `canOwnWorkspace` / `canAccessAgent`. Do not put a scoped route under `/api/admin/*`.
+
+`/api/*` (user) routes are guaranteed-authenticated by the proxy, so a bare `await getAuthContext(request)` used only to force auth is unnecessary — call it only to read token data or run a scoped check. The gate itself is unit-tested in `__tests__/access-control.test.ts`; per-handler admin-rejection tests are therefore obsolete.
 
 ## Contract Structure
 
@@ -86,12 +91,14 @@ Register in `lib/contracts/index.ts`: import the router, add three `export *` li
 
 `app/api/<resource>/[param]/route.ts` — use `createNextRoute(contract, implementation)`. Reference the domain contract through its audience group (`adminContract.<domain>` / `userContract.<domain>` / `publicContract.<domain>`), not the standalone `<domain>Contract` export:
 
-```typescript
-import { adminContract } from "@/lib/contracts";
+A **user** route enforces its own fine-grained (scoped) authorization; the proxy only guarantees the caller is authenticated:
 
-const handlers = createNextRoute(adminContract.agents, {
+```typescript
+import { userContract } from "@/lib/contracts";
+
+const handlers = createNextRoute(userContract.agents, {
   getAgent: async ({ params, request }) => {
-    const auth = await getAuthContext(request); // throws APIException("UNAUTHORIZED")
+    const auth = await getAuthContext(request); // needed here for the scoped check
     const agent = await AgentDAO.findByDid(params.did);
     if (!agent) throw new APIException("NOT_FOUND", "Agent not found");
     if (!(await auth.canAccessAgent(params.did)))
@@ -109,6 +116,8 @@ export const GET = handlers.GET!;
 export const PATCH = handlers.PATCH!;
 export const DELETE = handlers.DELETE!;
 ```
+
+An **admin** route (`createNextRoute(adminContract.<domain>, …)`) needs **no** authorization boilerplate — the proxy already restricts `/api/admin/*` to global Admin/Owner. Only call `getAuthContext` if the handler reads token data (`auth.did`, `auth.userId`) or applies an owner-only check (`isOwnerRole`). Do not re-add an `if (!auth.isGlobalAdmin) throw …` guard.
 
 **Database access goes through DAOs, never `prisma` directly.** Route handlers call DAO methods from `db/` (`AgentDAO`, `PolicyDAO`, `IntentDAO`, `ActivityLogDAO`, …) — the DAOs own all `prisma` queries. If a handler needs a query/filter a DAO doesn't expose yet, add a method (or extend an existing one) on the DAO rather than importing `prisma` into the route. This keeps query logic reusable and testable in one place.
 

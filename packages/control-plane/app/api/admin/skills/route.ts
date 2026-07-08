@@ -1,4 +1,3 @@
-import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { broadcastSkillsConfig } from "@/lib/ws-server";
 import { WorkspaceDAO, WorkspaceSkillDAO } from "@/db";
@@ -7,18 +6,14 @@ import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
 const handlers = createNextRoute(adminContract.skills, {
   // ── GET /api/admin/skills — every workspace skill, enriched with workspace + usage info ─
-  list: async ({ request }) => {
-    const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
+  list: async () => {
 
     const rows = await WorkspaceSkillDAO.findAllWithWorkspaces();
     return { status: 200, body: rows };
   },
 
   // ── POST /api/admin/skills — register a skill in a workspace ────────────────────────
-  create: async ({ body, request }) => {
-    const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
+  create: async ({ body }) => {
 
     const name = body.name.trim();
     if (!name) throw new APIException("MALFORMED", "name must not be empty");

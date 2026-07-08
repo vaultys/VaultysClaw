@@ -13,7 +13,7 @@ import type { KnowledgeFileMeta, KnowledgeSource } from "./knowledge.types";
 export const knowledgeContract = c.router({
   list: {
     method: "GET",
-    path: "/api/admin/knowledge",
+    path: "/api/knowledge",
     summary: "List knowledge sources",
     query: ListKnowledgeQuerySchema,
     responses: {
@@ -24,7 +24,7 @@ export const knowledgeContract = c.router({
 
   create: {
     method: "POST",
-    path: "/api/admin/knowledge",
+    path: "/api/knowledge",
     summary: "Create a new knowledge source",
     body: CreateKnowledgeBodySchema,
     responses: {
@@ -35,7 +35,7 @@ export const knowledgeContract = c.router({
 
   listFiles: {
     method: "GET",
-    path: "/api/admin/knowledge/files",
+    path: "/api/knowledge/files",
     summary: "List file metadata for a knowledge source",
     query: ListFilesQuerySchema,
     responses: {
@@ -46,7 +46,7 @@ export const knowledgeContract = c.router({
 
   uploadFile: {
     method: "POST",
-    path: "/api/admin/knowledge/files",
+    path: "/api/knowledge/files",
     summary: "Upload a file attached to a knowledge source (multipart/form-data)",
     // multipart/form-data — read as FormData in the handler, so the body is
     // declared as an opaque type (not a Zod schema) to keep createNextRoute
@@ -60,7 +60,7 @@ export const knowledgeContract = c.router({
 
   deleteFile: {
     method: "DELETE",
-    path: "/api/admin/knowledge/files/:fileId",
+    path: "/api/knowledge/files/:fileId",
     pathParams: KnowledgeFileIdParamSchema,
     summary: "Delete a knowledge file by ID",
     responses: { 200: c.type<void>(), ...commonErrorResponses },
@@ -68,7 +68,7 @@ export const knowledgeContract = c.router({
 
   getOne: {
     method: "GET",
-    path: "/api/admin/knowledge/:id",
+    path: "/api/knowledge/:id",
     pathParams: KnowledgeIdParamSchema,
     summary: "Retrieve a knowledge source by ID",
     responses: {
@@ -79,7 +79,7 @@ export const knowledgeContract = c.router({
 
   remove: {
     method: "DELETE",
-    path: "/api/admin/knowledge/:id",
+    path: "/api/knowledge/:id",
     pathParams: KnowledgeIdParamSchema,
     summary: "Delete a knowledge source by ID",
     responses: { 200: c.type<void>(), ...commonErrorResponses },
@@ -87,7 +87,7 @@ export const knowledgeContract = c.router({
 
   sync: {
     method: "POST",
-    path: "/api/admin/knowledge/:id/sync",
+    path: "/api/knowledge/:id/sync",
     pathParams: KnowledgeIdParamSchema,
     summary: "Initiate a sync for a knowledge source",
     body: c.noBody(),

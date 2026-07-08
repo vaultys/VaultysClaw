@@ -1,5 +1,3 @@
-import { getAuthContext } from "@/lib/auth-utils";
-import { APIException } from "@/lib/api/utils/api-utils";
 import { prisma } from "@/db/client";
 import { AgentDAO, PolicyDAO } from "@/db";
 import {
@@ -14,9 +12,7 @@ import { createNextRoute } from "@/lib/api/ts-rest/next-route";
  * single source of truth for the response shape.
  */
 const handlers = createNextRoute(adminContract.governance, {
-  summary: async ({ request }) => {
-    const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
+  summary: async () => {
 
     const now = new Date();
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);

@@ -1,7 +1,6 @@
 import { getWSServer } from "@/lib/ws-server";
 import { AgentPeerjsServer, getPeerjsServer } from "@/lib/peerjs-server";
 import { SettingsDAO } from "@/db";
-import { getAuthContext } from "@/lib/auth-utils";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 import { userContract } from "@/lib/contracts";
 
@@ -12,7 +11,6 @@ import { userContract } from "@/lib/contracts";
  */
 const handlers = createNextRoute(userContract.network, {
   get: async ({ query, request }) => {
-    await getAuthContext(request); // throws UNAUTHORIZED when not signed in
 
     const logLimit = query.logLimit ?? 200;
 

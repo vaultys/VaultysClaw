@@ -1,4 +1,3 @@
-import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { setDoclingEndpoints } from "@/db/settings.dao";
 import {
@@ -62,9 +61,7 @@ async function discoverEndpoints(baseUrl: string): Promise<{
 // ---------------------------------------------------------------------------
 
 const handlers = createNextRoute(adminContract.settings, {
-  testDocling: async ({ body, request }) => {
-    const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
+  testDocling: async ({ body }) => {
 
     const rawUrl = (body.url ?? "").trim().replace(/\/$/, "");
     if (!rawUrl) throw new APIException("MALFORMED", "URL is required");

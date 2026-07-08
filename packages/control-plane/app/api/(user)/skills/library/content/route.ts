@@ -1,4 +1,3 @@
-import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { OrgSkillDAO } from "@/db";
 import {
@@ -10,7 +9,6 @@ const handlers = createNextRoute(userContract.skills, {
   // ── GET /api/skills/library/content?skillId=<name> ────────────────────────
   // Returns the markdown instructions for an org skill, keyed by its name.
   libraryContent: async ({ query, request }) => {
-    await getAuthContext(request);
 
     const skill = await OrgSkillDAO.findByName(query.skillId);
     if (!skill || !skill.content) {

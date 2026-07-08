@@ -5,21 +5,16 @@
  * Admin-only.
  */
 
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth-config";
 import { WorkspaceDAO, UserDAO } from "@/db";
 import { APIException } from "@/lib/api/utils/api-utils";
 import {
   adminContract,
 } from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
-import { USER_ROLES, isAdminRole, normalizeRole } from "@/lib/roles";
+import { USER_ROLES, normalizeRole } from "@/lib/roles";
 
 const handlers = createNextRoute(adminContract.users, {
   getUnclaimed: async ({ params }) => {
-    const session = await getServerSession(authOptions);
-    if (!isAdminRole(session?.user?.role)) throw new APIException("FORBIDDEN");
-
     const user = await UserDAO.findById(params.id);
     if (!user || user.did) {
       throw new APIException("NOT_FOUND", "User not found or already claimed");
@@ -46,9 +41,6 @@ const handlers = createNextRoute(adminContract.users, {
   },
 
   updateUnclaimed: async ({ params, body }) => {
-    const session = await getServerSession(authOptions);
-    if (!isAdminRole(session?.user?.role)) throw new APIException("FORBIDDEN");
-
     const user = await UserDAO.findById(params.id);
     if (!user || user.did) {
       throw new APIException("NOT_FOUND", "User not found or already claimed");
@@ -76,9 +68,6 @@ const handlers = createNextRoute(adminContract.users, {
   },
 
   removeUnclaimed: async ({ params }) => {
-    const session = await getServerSession(authOptions);
-    if (!isAdminRole(session?.user?.role)) throw new APIException("FORBIDDEN");
-
     const user = await UserDAO.findById(params.id);
     if (!user || user.did) {
       throw new APIException("NOT_FOUND", "User not found or already claimed");

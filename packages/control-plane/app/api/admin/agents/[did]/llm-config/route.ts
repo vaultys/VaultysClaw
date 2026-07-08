@@ -1,4 +1,3 @@
-import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { getWSServer } from "@/lib/ws-server";
 import { getLiteLLMBaseUrl } from "@/lib/litellm-client";
@@ -66,9 +65,7 @@ function safeConfig(
 }
 
 const handlers = createNextRoute(adminContract.agents, {
-  getLlmConfig: async ({ params, request }) => {
-    const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
+  getLlmConfig: async ({ params }) => {
 
     const { did } = params;
     const agent = await AgentDAO.findByDid(did);
@@ -84,9 +81,7 @@ const handlers = createNextRoute(adminContract.agents, {
     }
   },
 
-  setLlmConfig: async ({ params, body, request }) => {
-    const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
+  setLlmConfig: async ({ params, body }) => {
 
     const { did } = params;
     const agent = await AgentDAO.findByDid(did);
@@ -170,9 +165,7 @@ const handlers = createNextRoute(adminContract.agents, {
     return { status: 200, body: { pushed, config: safeConfig(config) } };
   },
 
-  deleteLlmConfig: async ({ params, request }) => {
-    const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
+  deleteLlmConfig: async ({ params }) => {
 
     const { did } = params;
     const agent = await AgentDAO.findByDid(did);

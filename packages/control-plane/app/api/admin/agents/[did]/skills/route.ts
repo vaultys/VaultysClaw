@@ -1,4 +1,3 @@
-import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { sendSkillsConfig } from "@/lib/ws-server";
 import { AgentDAO, WorkspaceSkillDAO, SkillOverrideDAO } from "@/db";
@@ -8,11 +7,9 @@ import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 // Reading effective skills (GET) moved to /api/agents/:did/skills (user level).
 // Overriding a skill stays admin-only.
 const handlers = createNextRoute(adminContract.agents, {
-  updateSkillOverride: async ({ params, body, request }) => {
-    const auth = await getAuthContext(request);
+  updateSkillOverride: async ({ params, body }) => {
     const { did } = params;
 
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
 
     const agent = await AgentDAO.findByDid(did);
     if (!agent) throw new APIException("NOT_FOUND", "Agent not found");

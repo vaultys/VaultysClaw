@@ -1,5 +1,4 @@
 import { getWSServer } from "@/lib/ws-server";
-import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { PendingRegistrationDAO } from "@/db";
 import {
@@ -9,9 +8,7 @@ import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
 const handlers = createNextRoute(adminContract.registrations, {
   // ── POST /api/admin/registrations/:id/reject ────────────────────────────────────
-  reject: async ({ params, body, request }) => {
-    const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
+  reject: async ({ params, body }) => {
 
     const reason = body.reason ?? "Registration rejected by admin";
 

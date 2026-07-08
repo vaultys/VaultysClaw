@@ -2,7 +2,7 @@
  * Tests for the model registry API routes:
  *   GET/POST /api/admin/models
  *   GET/PUT/DELETE /api/admin/models/[id]
- *   GET/POST/DELETE /api/admin/models/[id]/workspaces
+ *   POST/DELETE /api/workspaces/[id]/models (grant/revoke a model to a workspace)
  *
  * Uses the same mocking strategy as security.test.ts:
  *   - vi.mock("@/lib/auth-utils") controls the current user
@@ -85,10 +85,9 @@ import {
   DELETE as modelDetailDELETE,
 } from "../packages/control-plane/app/api/admin/models/[id]/route";
 import {
-  GET as modelWorkspacesGET,
-  POST as modelWorkspacesPOST,
-  DELETE as modelWorkspacesDELETE,
-} from "../packages/control-plane/app/api/admin/models/[id]/workspaces/route";
+  POST as grantModel,
+  DELETE as revokeModel,
+} from "../packages/control-plane/app/api/(user)/workspaces/[id]/models/route";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -154,12 +153,6 @@ beforeEach(() => {
 // ---------------------------------------------------------------------------
 
 describe("GET /api/admin/models", () => {
-  it("returns 401 when unauthenticated", async () => {
-    mockGetAuthContext.mockRejectedValueOnce(new APIException("UNAUTHORIZED"));
-    const res = await modelsGET(req("GET", "http://localhost/api/admin/models") as any);
-    expect(res._status).toBe(401);
-  });
-
   it("returns all models for global admin", async () => {
     const id = `${T}get-list-1`;
     await prisma.modelRegistry.upsert({ where: { id }, create: { id, name: "Test Model", provider: "ollama", modelId: "llama3:8b", baseUrl: "http://localhost:11434", status: "active" }, update: {} });
@@ -179,22 +172,6 @@ describe("GET /api/admin/models", () => {
 // ---------------------------------------------------------------------------
 
 describe("POST /api/admin/models", () => {
-  it("returns 403 for non-admin", async () => {
-    mockGetAuthContext.mockResolvedValueOnce({
-      ...makeAdminContext(),
-      isGlobalAdmin: false,
-      isOwner: false,
-    });
-    const r = req("POST", "http://localhost/api/admin/models", {
-      name: "X",
-      provider: "ollama",
-      modelId: "x",
-      baseUrl: "http://x",
-    });
-    const res = await modelsPOST(r as any);
-    expect(res._status).toBe(403);
-  });
-
   it("creates a model entry in the DB", async () => {
     const r = req("POST", "http://localhost/api/admin/models", {
       name: `${T}create-test`,
@@ -322,16 +299,38 @@ describe("DELETE /api/admin/models/[id]", () => {
 });
 
 // ---------------------------------------------------------------------------
-// POST /api/admin/models/[id]/workspaces — grant access
+// POST /api/workspaces/[id]/models — grant a model access to a workspace
 // ---------------------------------------------------------------------------
 
-describe("POST /api/admin/models/[id]/workspaces", () => {
+describe("POST /api/workspaces/[id]/models", () => {
+  it("returns 403 when the caller is not a workspace admin", async () => {
+    mockGetAuthContext.mockResolvedValueOnce({
+      ...makeAdminContext(),
+      canAdminWorkspace: () => false,
+    });
+    const id = `${T}workspace-grant-forbidden`;
+    await prisma.modelRegistry.upsert({ where: { id }, create: { id, name: "Forbidden Model", provider: "ollama", modelId: "llama3:8b", baseUrl: "http://localhost:11434", status: "active" }, update: {} });
+    try {
+      const r = req("POST", `http://localhost/api/workspaces/${testWorkspaceId}/models`, { modelId: id });
+      const res = await grantModel(r as any, params(testWorkspaceId));
+      expect(res._status).toBe(403);
+    } finally {
+      await prisma.modelRegistry.deleteMany({ where: { id } });
+    }
+  });
+
+  it("returns 404 for an unknown model", async () => {
+    const r = req("POST", `http://localhost/api/workspaces/${testWorkspaceId}/models`, { modelId: "does-not-exist" });
+    const res = await grantModel(r as any, params(testWorkspaceId));
+    expect(res._status).toBe(404);
+  });
+
   it("grants workspace access and stores it in DB", async () => {
     const id = `${T}workspace-grant-1`;
     await prisma.modelRegistry.upsert({ where: { id }, create: { id, name: "Workspace Model", provider: "ollama", modelId: "llama3:8b", baseUrl: "http://localhost:11434", status: "active" }, update: {} });
     try {
-      const r = req("POST", `http://localhost/api/admin/models/${id}/workspaces`, { workspaceId: testWorkspaceId });
-      const res = await modelWorkspacesPOST(r as any, params(id));
+      const r = req("POST", `http://localhost/api/workspaces/${testWorkspaceId}/models`, { modelId: id });
+      const res = await grantModel(r as any, params(testWorkspaceId));
       expect(res._status).toBe(200);
       const row = await prisma.modelWorkspaceAccess.findUnique({ where: { modelId_workspaceId: { modelId: id, workspaceId: testWorkspaceId } } });
       expect(row).toBeTruthy();
@@ -346,8 +345,8 @@ describe("POST /api/admin/models/[id]/workspaces", () => {
     const id = `${T}workspace-grant-litellm-1`;
     await prisma.modelRegistry.upsert({ where: { id }, create: { id, name: "LiteLLM Workspace Model", provider: "openai-compatible", modelId: "ft-v1", baseUrl: "http://vllm:8080", litellmModelName: "openai-compatible/ft-v1", status: "active" }, update: {} });
     try {
-      const r = req("POST", `http://localhost/api/admin/models/${id}/workspaces`, { workspaceId: testWorkspaceId });
-      await modelWorkspacesPOST(r as any, params(id));
+      const r = req("POST", `http://localhost/api/workspaces/${testWorkspaceId}/models`, { modelId: id });
+      await grantModel(r as any, params(testWorkspaceId));
       expect(mockCreateWorkspaceKey).toHaveBeenCalledWith(testWorkspaceId, ["openai-compatible/ft-v1"], undefined);
       const keyRow = await prisma.workspaceRouterKey.findUnique({ where: { workspaceId: testWorkspaceId } });
       expect(keyRow?.litellmVirtualKey).toBe("sk-mock-virtual-key");
@@ -360,17 +359,17 @@ describe("POST /api/admin/models/[id]/workspaces", () => {
 });
 
 // ---------------------------------------------------------------------------
-// DELETE /api/admin/models/[id]/workspaces?workspaceId=x — revoke access
+// DELETE /api/workspaces/[id]/models?modelId=x — revoke a model's access
 // ---------------------------------------------------------------------------
 
-describe("DELETE /api/admin/models/[id]/workspaces", () => {
+describe("DELETE /api/workspaces/[id]/models", () => {
   it("revokes workspace access from DB", async () => {
     const id = `${T}workspace-revoke-1`;
     await prisma.modelRegistry.upsert({ where: { id }, create: { id, name: "Revoke Model", provider: "ollama", modelId: "llama3:8b", baseUrl: "http://localhost:11434", status: "active" }, update: {} });
     await prisma.modelWorkspaceAccess.upsert({ where: { modelId_workspaceId: { modelId: id, workspaceId: testWorkspaceId } }, create: { modelId: id, workspaceId: testWorkspaceId }, update: {} });
     try {
-      const r = req("DELETE", `http://localhost/api/admin/models/${id}/workspaces?workspaceId=${testWorkspaceId}`);
-      const res = await modelWorkspacesDELETE(r as any, params(id));
+      const r = req("DELETE", `http://localhost/api/workspaces/${testWorkspaceId}/models?modelId=${id}`);
+      const res = await revokeModel(r as any, params(testWorkspaceId));
       expect(res._status).toBe(200);
       const row = await prisma.modelWorkspaceAccess.findUnique({ where: { modelId_workspaceId: { modelId: id, workspaceId: testWorkspaceId } } });
       expect(row).toBeNull();

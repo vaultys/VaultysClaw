@@ -4,8 +4,6 @@ import {
   CreateModelBodySchema,
   TestModelBodySchema,
   UpdateModelBodySchema,
-  GrantWorkspaceBodySchema,
-  RevokeWorkspaceQuerySchema,
 } from "./models.schemas";
 
 // ─────────────────────────────────────────────
@@ -48,6 +46,4 @@ export type CreatedModel = Omit<ModelRegistry, "apiKeyEnc"> & {
 export type CreateModelBody = z.infer<typeof CreateModelBodySchema>;
 export type TestModelBody = z.infer<typeof TestModelBodySchema>;
 export type UpdateModelBody = z.infer<typeof UpdateModelBodySchema>;
-export type GrantWorkspaceBody = z.infer<typeof GrantWorkspaceBodySchema>;
-export type RevokeWorkspaceQuery = z.infer<typeof RevokeWorkspaceQuerySchema>;
 export type LiteLlmModel = { name: string; params: Record<string, unknown> };

@@ -6,7 +6,7 @@ import type { GraphData } from "./graph.types";
 export const graphContract = c.router({
   get: {
     method: "GET",
-    path: "/api/admin/graph",
+    path: "/api/graph",
     summary: "Retrieve the relationship graph of nodes and edges",
     query: GraphQuerySchema,
     responses: {

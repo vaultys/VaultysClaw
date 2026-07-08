@@ -6,6 +6,7 @@ import { Save, AlertCircle, MapPin } from "lucide-react";
 import { shortDid } from "@vaultysclaw/shared";
 import {
   adminApi,
+  userApi,
   unwrap,
   ApiError,
 } from "@/lib/api/ts-rest/client";
@@ -59,7 +60,7 @@ export function UserOverviewTab({
           ? { lat: null }
           : { lat: loc.lat, lon: loc.lon, label: loc.label };
       unwrap(
-        await adminApi.users.setLocation({ params: { did: user.did! }, body })
+        await userApi.users.setLocation({ params: { did: user.did! }, body })
       );
       setLocation(loc);
     },

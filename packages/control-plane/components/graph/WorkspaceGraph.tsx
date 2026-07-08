@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import type { GraphData, GraphNode } from "@vaultysclaw/shared";
 import {
-  adminApi,
+  userApi,
   unwrap,
   ApiError,
 } from "@/lib/api/ts-rest/client";
@@ -155,7 +155,7 @@ export default function WorkspaceGraph({
     setError(null);
     // Parse the legacy query-string prop (e.g. "?workspace=abc") into typed params.
     const sp = new URLSearchParams(query.replace(/^\?/, ""));
-    adminApi.graph
+    userApi.graph
       .get({
         query: {
           agent: sp.get("agent") ?? undefined,

@@ -157,9 +157,6 @@ export const adminApi = {
   registrations: registrationsClient,
   channels: channelsClient,
   network: networkControlClient,
-  map: mapClient,
-  graph: graphClient,
-  knowledge: knowledgeClient,
   stats: statsClient,
   orgSkills: orgSkillsAdminClient,
   skills: skillsAdminClient,
@@ -168,6 +165,9 @@ export const adminApi = {
 
 export const userApi = {
   agents: userAgentsClient,
+  graph: graphClient,
+  knowledge: knowledgeClient,
+  map: mapClient,
   intents: intentsClient,
   toolApprovals: toolApprovalsClient,
   network: networkClient,

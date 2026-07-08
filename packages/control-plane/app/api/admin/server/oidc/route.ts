@@ -5,7 +5,6 @@
  * DELETE /api/admin/server/oidc  — remove OIDC config
  */
 
-import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import {
   deleteOidcConfig,
@@ -20,9 +19,7 @@ import {
 
 const handlers = createNextRoute(adminContract.server, {
   // ── GET /api/admin/server/oidc ──────────────────────────────────────────────────
-  getOidc: async ({ request }) => {
-    const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
+  getOidc: async () => {
 
     // Config from env vars is read-only; flag it so the UI can reflect that.
     const fromEnv = !!(process.env.OIDC_ISSUER && process.env.OIDC_CLIENT_ID);
@@ -44,9 +41,7 @@ const handlers = createNextRoute(adminContract.server, {
   },
 
   // ── PUT /api/admin/server/oidc ──────────────────────────────────────────────────
-  saveOidc: async ({ body, request }) => {
-    const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
+  saveOidc: async ({ body }) => {
 
     if (process.env.OIDC_ISSUER)
       throw new APIException(
@@ -81,9 +76,7 @@ const handlers = createNextRoute(adminContract.server, {
   },
 
   // ── POST /api/admin/server/oidc ─────────────────────────────────────────────────
-  testOidc: async ({ body, request }) => {
-    const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
+  testOidc: async ({ body }) => {
 
     if (!body.issuer?.trim())
       throw new APIException("MALFORMED", "Issuer URL is required");
@@ -93,9 +86,7 @@ const handlers = createNextRoute(adminContract.server, {
   },
 
   // ── DELETE /api/admin/server/oidc ───────────────────────────────────────────────
-  removeOidc: async ({ request }) => {
-    const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
+  removeOidc: async () => {
 
     if (process.env.OIDC_ISSUER)
       throw new APIException(

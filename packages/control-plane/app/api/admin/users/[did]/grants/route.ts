@@ -32,9 +32,6 @@ function toGrant(g: Awaited<ReturnType<typeof GrantDAO.findById>>): UserGrant {
 const handlers = createNextRoute(adminContract.users, {
   // ── GET /api/admin/users/:did/grants ────────────────────────────────────────────
   listGrants: async ({ params }) => {
-    const session = await getServerSession(authOptions);
-    if (!isAdminRole(session?.user?.role)) throw new APIException("FORBIDDEN");
-
     const user = await UserDAO.findByDid(params.did);
     if (!user) throw new APIException("NOT_FOUND", "User not found");
 

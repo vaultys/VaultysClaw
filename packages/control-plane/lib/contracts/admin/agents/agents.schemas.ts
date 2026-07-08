@@ -63,12 +63,6 @@ export const CreatePeerBodySchema = z.object({
   expiresAt: z.string().optional(),
 });
 
-export const SetLocationBodySchema = z.object({
-  lat: z.number().nullable().optional(),
-  lon: z.number().optional(),
-  label: z.string().optional(),
-});
-
 export const SetLlmConfigBodySchema = z.record(z.string(), z.unknown());
 
 export const PutLiteLlmKeyBodySchema = z.object({

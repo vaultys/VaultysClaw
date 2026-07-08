@@ -1,4 +1,3 @@
-import { getAuthContext } from "@/lib/auth-utils";
 import { SettingsDAO } from "@/db";
 import { userContract } from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
@@ -6,7 +5,6 @@ import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 const handlers = createNextRoute(userContract.settings, {
   // ── GET /api/settings/otel — read OTel status (any authenticated user) ────
   getOtel: async ({ request }) => {
-    await getAuthContext(request);
 
     const settings = await SettingsDAO.getMany([
       "otel_enabled",

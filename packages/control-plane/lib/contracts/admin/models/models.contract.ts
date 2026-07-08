@@ -5,8 +5,6 @@ import {
   CreateModelBodySchema,
   TestModelBodySchema,
   UpdateModelBodySchema,
-  GrantWorkspaceBodySchema,
-  RevokeWorkspaceQuerySchema,
   ModelConnectivitySchema,
 } from "./models.schemas";
 import type { SafeModel, CreatedModel, LiteLlmModel } from "./models.types";
@@ -89,24 +87,6 @@ export const modelsContract = c.router({
       200: ModelConnectivitySchema,
       ...commonErrorResponses,
     },
-  },
-
-  grantWorkspace: {
-    method: "POST",
-    path: "/api/admin/models/:id/workspaces",
-    pathParams: ModelIdParamSchema,
-    summary: "Grant workspace access to a model",
-    body: GrantWorkspaceBodySchema,
-    responses: { 200: c.type<void>(), ...commonErrorResponses },
-  },
-
-  revokeWorkspace: {
-    method: "DELETE",
-    path: "/api/admin/models/:id/workspaces",
-    pathParams: ModelIdParamSchema,
-    summary: "Revoke workspace access for a model",
-    query: RevokeWorkspaceQuerySchema,
-    responses: { 200: c.type<void>(), ...commonErrorResponses },
   },
 });
 

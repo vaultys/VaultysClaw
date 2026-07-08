@@ -1,4 +1,3 @@
-import { getAuthContext } from "@/lib/auth-utils";
 import { getWSServer } from "@/lib/ws-server";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { userContract } from "@/lib/contracts";
@@ -11,7 +10,6 @@ import { createNextRoute } from "@/lib/api/ts-rest/next-route";
  */
 const handlers = createNextRoute(userContract.toolApprovals, {
   list: async ({ request }) => {
-    await getAuthContext(request); // throws APIException("UNAUTHORIZED")
 
     const wsServer = getWSServer();
     if (!wsServer)
@@ -22,7 +20,6 @@ const handlers = createNextRoute(userContract.toolApprovals, {
   },
 
   respond: async ({ body, request }) => {
-    await getAuthContext(request);
 
     const wsServer = getWSServer();
     if (!wsServer)

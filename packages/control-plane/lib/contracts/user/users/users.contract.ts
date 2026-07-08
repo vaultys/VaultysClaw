@@ -7,6 +7,13 @@ import {
 } from "../../admin/users/users.schemas";
 import type { MeProfile, UpdateMeResponse } from "../../admin/users/users.types";
 
+/** Set or clear the geographic location of a user. */
+export const SetUserLocationBodySchema = z.object({
+  lat: z.number().nullable().optional(),
+  lon: z.number().optional(),
+  label: z.string().optional(),
+});
+
 /**
  * Self-service user endpoints — any authenticated user (own profile, user
  * search, admin directory, claiming a VaultysId). Admin user management lives
@@ -74,5 +81,14 @@ export const usersUserContract = c.router({
       }),
       ...commonErrorResponses,
     },
+  },
+
+  setLocation: {
+    method: "PATCH",
+    path: "/api/users/:did/location",
+    pathParams: z.object({ did: z.string() }),
+    summary: "Set or clear the geographic location of a user",
+    body: SetUserLocationBodySchema,
+    responses: { 200: c.type<void>(), ...commonErrorResponses },
   },
 });

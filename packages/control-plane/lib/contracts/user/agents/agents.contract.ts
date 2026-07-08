@@ -5,6 +5,7 @@ import {
   ListUserAgentsQuerySchema,
   SendChatMessageBodySchema,
   SendTaskBodySchema,
+  SetLocationBodySchema,
 } from "./agents.schemas";
 import { UserAgentDetail } from "./agents.types";
 // tokenUsage is served at both audiences; its query schema and response type
@@ -72,6 +73,19 @@ export const userAgentsContract = c.router({
         to: string;
         data: BucketPoint[];
       }>(),
+      ...commonErrorResponses,
+    },
+  },
+
+  // ─── Location ────────────────────────────────────────────────────────────────
+
+  setLocation: {
+    method: "PATCH",
+    path: "/api/agents/:did/location",
+    pathParams: z.object({ did: z.string() }),
+    body: SetLocationBodySchema,
+    responses: {
+      204: c.noBody(),
       ...commonErrorResponses,
     },
   },

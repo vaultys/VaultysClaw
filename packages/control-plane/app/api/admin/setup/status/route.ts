@@ -1,15 +1,11 @@
 import { getSmtpConfig } from "@/lib/smtp";
-import { getAuthContext } from "@/lib/auth-utils";
-import { APIException } from "@/lib/api/utils/api-utils";
 import { AgentDAO, ModelDAO, WorkspaceDAO } from "@/db";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 import { adminContract } from "@/lib/contracts";
 
 /** GET /api/admin/setup/status — check which setup steps are completed. Admin only. */
 const handlers = createNextRoute(adminContract.setup, {
-  status: async ({ request }) => {
-    const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
+  status: async () => {
 
     const allAgents = await AgentDAO.findAll();
     const defaultWorkspace = await WorkspaceDAO.findDefault();

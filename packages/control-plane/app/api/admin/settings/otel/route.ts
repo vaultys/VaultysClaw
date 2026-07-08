@@ -1,4 +1,3 @@
-import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { SettingsDAO } from "@/db";
 import { adminContract } from "@/lib/contracts";
@@ -6,9 +5,7 @@ import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
 const handlers = createNextRoute(adminContract.settings, {
   // ── PUT /api/admin/settings/otel — save OTel config (admin) ───────────────
-  saveOtel: async ({ body, request }) => {
-    const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
+  saveOtel: async ({ body }) => {
 
     await SettingsDAO.set("otel_enabled", body.enabled ? "true" : "false");
     if (body.baseUrl) await SettingsDAO.set("otel_base_url", body.baseUrl);
@@ -19,9 +16,7 @@ const handlers = createNextRoute(adminContract.settings, {
   },
 
   // ── POST /api/admin/settings/otel — test connectivity (admin) ─────────────
-  testOtel: async ({ body, request }) => {
-    const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
+  testOtel: async ({ body }) => {
 
     const testUrl = body.baseUrl;
     if (!testUrl) throw new APIException("MALFORMED", "baseUrl is required");

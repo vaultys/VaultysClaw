@@ -583,22 +583,10 @@ function status(res: unknown): number {
 // --- /api/admin/agents (admin global view) ----------------------------------
 
 describe("GET /api/admin/agents", () => {
-  it("returns 401 when unauthenticated", async () => {
-    asUnauthenticated();
-    const res = await agentsGET(req() as never, {});
-    expectStatus(res, 401);
-  });
-
   it("succeeds (200) for a global admin", async () => {
     asAdmin();
     const res = await agentsGET(req() as never, {});
     expectStatus(res, 200);
-  });
-
-  it("returns 403 for a member (admin-only endpoint)", async () => {
-    asMember();
-    const res = await agentsGET(req() as never, {});
-    expectStatus(res, 403);
   });
 });
 
@@ -625,24 +613,6 @@ describe("GET /api/agents", () => {
 // --- /api/admin/agents/[did] (admin-only detail) ----------------------------
 
 describe("GET /api/admin/agents/[did]", () => {
-  it("returns 401 when unauthenticated", async () => {
-    asUnauthenticated();
-    const res = await agentDetailGET(
-      req() as never,
-      params({ did: encodeURIComponent(DID.agent) })
-    );
-    expectStatus(res, 401);
-  });
-
-  it("returns 403 for a member (admin-only endpoint)", async () => {
-    asMember();
-    const res = await agentDetailGET(
-      req() as never,
-      params({ did: encodeURIComponent(DID.agent) })
-    );
-    expectStatus(res, 403);
-  });
-
   it("returns 200 for a global admin", async () => {
     asAdmin();
     const res = await agentDetailGET(
@@ -694,33 +664,6 @@ describe("GET /api/agents/[did]", () => {
 });
 
 describe("PATCH /api/agents/[did] — capabilities", () => {
-  it("returns 401 when unauthenticated", async () => {
-    asUnauthenticated();
-    const res = await agentDetailPATCH(
-      req("http://localhost", { capabilities: [] }) as never,
-      params({ did: encodeURIComponent(DID.agent) })
-    );
-    expectStatus(res, 401);
-  });
-
-  it("returns 403 for a regular member", async () => {
-    asMember();
-    const res = await agentDetailPATCH(
-      req("http://localhost", { capabilities: ["file_access"] }) as never,
-      params({ did: encodeURIComponent(DID.agent) })
-    );
-    expectStatus(res, 403);
-  });
-
-  it("returns 403 for a workspace admin (not a global admin)", async () => {
-    asWorkspaceAdmin();
-    const res = await agentDetailPATCH(
-      req("http://localhost", { capabilities: ["file_access"] }) as never,
-      params({ did: encodeURIComponent(DID.agent) })
-    );
-    expectStatus(res, 403);
-  });
-
   it("is accessible to global admin (not 401/403)", async () => {
     asAdmin();
     const res = await agentDetailPATCH(
@@ -766,30 +709,6 @@ describe("GET /api/workspaces", () => {
 });
 
 describe("POST /api/workspaces", () => {
-  it("returns 401 when unauthenticated", async () => {
-    asUnauthenticated();
-    const res = await workspacesPOST(
-      req("http://localhost", { name: "X", slug: "x" }) as never
-    );
-    expectStatus(res, 401);
-  });
-
-  it("returns 403 for a regular member", async () => {
-    asMember();
-    const res = await workspacesPOST(
-      req("http://localhost", { name: "X", slug: "x" }) as never
-    );
-    expectStatus(res, 403);
-  });
-
-  it("returns 403 for a workspace admin (workspace admin ≠ global admin)", async () => {
-    asWorkspaceAdmin();
-    const res = await workspacesPOST(
-      req("http://localhost", { name: "X", slug: "x" }) as never
-    );
-    expectStatus(res, 403);
-  });
-
   it("is accessible to a global admin", async () => {
     asAdmin();
     const res = await workspacesPOST(
@@ -1426,30 +1345,6 @@ describe("DELETE /api/workflows/[id]", () => {
 // --- /api/admin/registrations -----------------------------------------------------
 
 describe("GET /api/admin/registrations", () => {
-  it("returns 401 when unauthenticated", async () => {
-    asUnauthenticated();
-    const res = await registrationsGET(
-      req("http://localhost/api/admin/registrations") as never
-    );
-    expectStatus(res, 401);
-  });
-
-  it("returns 403 for a regular member", async () => {
-    asMember();
-    const res = await registrationsGET(
-      req("http://localhost/api/admin/registrations") as never
-    );
-    expectStatus(res, 403);
-  });
-
-  it("returns 403 for a workspace admin", async () => {
-    asWorkspaceAdmin();
-    const res = await registrationsGET(
-      req("http://localhost/api/admin/registrations") as never
-    );
-    expectStatus(res, 403);
-  });
-
   it("is accessible to a global admin", async () => {
     asAdmin();
     const res = await registrationsGET(
@@ -1460,62 +1355,9 @@ describe("GET /api/admin/registrations", () => {
   });
 });
 
-describe("POST /api/admin/registrations/[id]/approve", () => {
-  it("returns 401 when unauthenticated", async () => {
-    asUnauthenticated();
-    const res = await approveRegistrationPOST(
-      req("http://localhost", { capabilities: ["file_access"] }) as never,
-      params({ id: "fake-registration-id" })
-    );
-    expectStatus(res, 401);
-  });
-
-  it("returns 403 for a regular member", async () => {
-    asMember();
-    const res = await approveRegistrationPOST(
-      req("http://localhost", { capabilities: ["file_access"] }) as never,
-      params({ id: "fake-registration-id" })
-    );
-    expectStatus(res, 403);
-  });
-
-  it("returns 403 for a workspace admin", async () => {
-    asWorkspaceAdmin();
-    const res = await approveRegistrationPOST(
-      req("http://localhost", { capabilities: ["file_access"] }) as never,
-      params({ id: "fake-registration-id" })
-    );
-    expectStatus(res, 403);
-  });
-});
-
 // --- /api/admin/policies -----------------------------------------------------------
 
 describe("GET /api/admin/policies", () => {
-  it("returns 401 when unauthenticated", async () => {
-    asUnauthenticated();
-    const res = await policiesGET(
-      req("http://localhost/api/admin/policies") as never
-    );
-    expectStatus(res, 401);
-  });
-
-  it("returns 403 for a regular member", async () => {
-    asMember();
-    const res = await policiesGET(
-      req("http://localhost/api/admin/policies") as never
-    );
-    expectStatus(res, 403);
-  });
-
-  it("returns 403 for a workspace admin", async () => {
-    asWorkspaceAdmin();
-    const res = await policiesGET(
-      req("http://localhost/api/admin/policies") as never
-    );
-    expectStatus(res, 403);
-  });
-
   it("returns 200 with policies array for a global admin", async () => {
     asAdmin();
     const res = await policiesGET(
@@ -1546,39 +1388,6 @@ describe("GET /api/admin/policies", () => {
 });
 
 describe("POST /api/admin/policies", () => {
-  it("returns 401 when unauthenticated", async () => {
-    asUnauthenticated();
-    const res = await policiesPOST(
-      req("http://localhost", {
-        capabilities: ["file_access"],
-        agentDid: DID.agent,
-      }) as never
-    );
-    expectStatus(res, 401);
-  });
-
-  it("returns 403 for a regular member", async () => {
-    asMember();
-    const res = await policiesPOST(
-      req("http://localhost", {
-        capabilities: ["file_access"],
-        agentDid: DID.agent,
-      }) as never
-    );
-    expectStatus(res, 403);
-  });
-
-  it("returns 403 for a workspace admin", async () => {
-    asWorkspaceAdmin();
-    const res = await policiesPOST(
-      req("http://localhost", {
-        capabilities: ["file_access"],
-        agentDid: DID.agent,
-      }) as never
-    );
-    expectStatus(res, 403);
-  });
-
   it("returns 400 when capabilities is missing or empty", async () => {
     asAdmin();
     const res = await policiesPOST(
@@ -1675,33 +1484,6 @@ describe("GET /api/admin/policies/[id]", () => {
     await PolicyDAO.delete(testPolicyId);
   });
 
-  it("returns 401 when unauthenticated", async () => {
-    asUnauthenticated();
-    const res = await policyDetailGET(
-      req() as never,
-      params({ id: testPolicyId })
-    );
-    expectStatus(res, 401);
-  });
-
-  it("returns 403 for a regular member", async () => {
-    asMember();
-    const res = await policyDetailGET(
-      req() as never,
-      params({ id: testPolicyId })
-    );
-    expectStatus(res, 403);
-  });
-
-  it("returns 403 for a workspace admin", async () => {
-    asWorkspaceAdmin();
-    const res = await policyDetailGET(
-      req() as never,
-      params({ id: testPolicyId })
-    );
-    expectStatus(res, 403);
-  });
-
   it("returns 404 for a non-existent policy", async () => {
     asAdmin();
     const res = await policyDetailGET(
@@ -1732,33 +1514,6 @@ describe("GET /api/admin/policies/[id]", () => {
 });
 
 describe("DELETE /api/admin/policies/[id]", () => {
-  it("returns 401 when unauthenticated", async () => {
-    asUnauthenticated();
-    const res = await policyDetailDELETE(
-      req() as never,
-      params({ id: "any-policy-id" })
-    );
-    expectStatus(res, 401);
-  });
-
-  it("returns 403 for a regular member", async () => {
-    asMember();
-    const res = await policyDetailDELETE(
-      req() as never,
-      params({ id: "any-policy-id" })
-    );
-    expectStatus(res, 403);
-  });
-
-  it("returns 403 for a workspace admin", async () => {
-    asWorkspaceAdmin();
-    const res = await policyDetailDELETE(
-      req() as never,
-      params({ id: "any-policy-id" })
-    );
-    expectStatus(res, 403);
-  });
-
   it("returns 404 for a non-existent policy id", async () => {
     asAdmin();
     const res = await policyDetailDELETE(

@@ -8,10 +8,7 @@ import { adminContract } from "@/lib/contracts";
 
 const handlers = createNextRoute(adminContract.apiKeys, {
   // ── GET /api/admin/api-keys ───────────────────────────────────────────────
-  list: async ({ request }) => {
-    const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
-
+  list: async () => {
     const rows = await ApiKeyDAO.findAll();
     return { status: 200, body: { apiKeys: rows.map(toApiKey) } };
   },
@@ -19,7 +16,6 @@ const handlers = createNextRoute(adminContract.apiKeys, {
   // ── POST /api/admin/api-keys ──────────────────────────────────────────────
   create: async ({ body, request }) => {
     const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
 
     const { name, allowedRoutes, workspaceId = null, isWorkspaceAdmin = false, expiresAt = null } = body;
 

@@ -4,7 +4,6 @@ import {
   getPeerjsServer,
   initializePeerjsServer,
 } from "@/lib/peerjs-server";
-import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 import { adminContract } from "@/lib/contracts";
@@ -15,9 +14,7 @@ import { adminContract } from "@/lib/contracts";
  * app/api/(user)/network/route.ts.
  */
 const handlers = createNextRoute(adminContract.network, {
-  control: async ({ body, request }) => {
-    const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
+  control: async ({ body }) => {
 
     const { action, serverUrl } = body;
 

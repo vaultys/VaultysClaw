@@ -1,5 +1,3 @@
-import { getAuthContext } from "@/lib/auth-utils";
-import { APIException } from "@/lib/api/utils/api-utils";
 import { AgentDAO } from "@/db";
 import {
   adminContract,
@@ -8,12 +6,8 @@ import {
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
 const handlers = createNextRoute(adminContract.agents, {
-  tokenUsage: async ({ params, query, request }) => {
-    const auth = await getAuthContext(request);
+  tokenUsage: async ({ params, query }) => {
     const agentDid = params.did;
-
-    if (!auth.isGlobalAdmin && !(await auth.canAccessAgent(agentDid)))
-      throw new APIException("FORBIDDEN");
 
     const granularity = (query.granularity ?? "day") as "day" | "month";
     const today = new Date();

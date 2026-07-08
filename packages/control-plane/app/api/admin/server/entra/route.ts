@@ -4,7 +4,6 @@
  * POST /api/admin/server/entra  — test connectivity (list groups)
  */
 
-import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import {
   getEntraConfig,
@@ -19,9 +18,7 @@ import {
 
 const handlers = createNextRoute(adminContract.server, {
   // ── GET /api/admin/server/entra ─────────────────────────────────────────────────
-  getEntra: async ({ request }) => {
-    const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
+  getEntra: async () => {
 
     const config = await getEntraConfig();
     if (!config) return { status: 200, body: { configured: false } };
@@ -38,9 +35,7 @@ const handlers = createNextRoute(adminContract.server, {
   },
 
   // ── PUT /api/admin/server/entra ─────────────────────────────────────────────────
-  saveEntra: async ({ body, request }) => {
-    const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
+  saveEntra: async ({ body }) => {
 
     // If secret is the redacted placeholder, keep the existing one
     const existing = await getEntraConfig();
@@ -58,9 +53,7 @@ const handlers = createNextRoute(adminContract.server, {
   },
 
   // ── POST /api/admin/server/entra ────────────────────────────────────────────────
-  testEntra: async ({ body, request }) => {
-    const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
+  testEntra: async ({ body }) => {
 
     // Accept an inline (unsaved) config so the UI can test before saving
     const saved = await getEntraConfig();

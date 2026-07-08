@@ -1,4 +1,3 @@
-import { getAuthContext } from "@/lib/auth-utils";
 import { UserDAO } from "@/db";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 import { userContract } from "@/lib/contracts";
@@ -10,7 +9,6 @@ import { userContract } from "@/lib/contracts";
  */
 const handlers = createNextRoute(userContract.users, {
   admins: async ({ request }) => {
-    await getAuthContext(request); // throws UNAUTHORIZED if not logged in
 
     const users = await UserDAO.listAdmins(20);
 

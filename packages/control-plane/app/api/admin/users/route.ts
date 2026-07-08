@@ -4,21 +4,15 @@
  * Admin only.
  */
 
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth-config";
 import { WorkspaceDAO, UserDAO } from "@/db";
-import { APIException } from "@/lib/api/utils/api-utils";
 import {
   adminContract,
 } from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
-import { isAdminRole, normalizeRole } from "@/lib/roles";
+import { normalizeRole } from "@/lib/roles";
 
 const handlers = createNextRoute(adminContract.users, {
   list: async ({ query }) => {
-    const session = await getServerSession(authOptions);
-    if (!isAdminRole(session?.user?.role)) throw new APIException("FORBIDDEN");
-
     const page = Math.max(1, query.page ?? 1);
     const pageSize = Math.min(100, Math.max(1, query.pageSize ?? 20));
     const hasAccount =

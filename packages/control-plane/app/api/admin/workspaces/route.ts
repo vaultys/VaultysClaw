@@ -11,7 +11,6 @@ import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 const handlers = createNextRoute(adminContract.workspaces, {
   create: async ({ body, request }) => {
     const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
 
     if (!body.name.trim())
       throw new APIException("MALFORMED", "name is required");

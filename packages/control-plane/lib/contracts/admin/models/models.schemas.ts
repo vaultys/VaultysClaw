@@ -31,11 +31,6 @@ export const UpdateModelBodySchema = z.object({
   status: z.enum(["active", "inactive"]).optional(),
 });
 
-export const GrantWorkspaceBodySchema = z.object({ workspaceId: z.string() });
-
-// ── Queries
-export const RevokeWorkspaceQuerySchema = z.object({ workspaceId: z.string() });
-
 // ── Responses
 export const ModelConnectivitySchema = z.object({
   ok: z.boolean(),

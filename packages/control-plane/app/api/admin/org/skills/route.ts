@@ -2,16 +2,13 @@
  * POST /api/admin/org/skills — add a new skill to the catalog (global admin only).
  */
 
-import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { OrgSkillDAO } from "@/db";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 import { adminContract } from "@/lib/contracts";
 
 const handlers = createNextRoute(adminContract.orgSkills, {
-  create: async ({ body, request }) => {
-    const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
+  create: async ({ body }) => {
 
     if (!body.name?.trim()) throw new APIException("MALFORMED", "Name is required");
 

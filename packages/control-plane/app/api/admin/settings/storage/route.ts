@@ -1,4 +1,3 @@
-import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { SettingsDAO } from "@/db";
 import { getStorageConfig, setStorageConfig } from "@/db/settings.dao";
@@ -9,9 +8,7 @@ import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
 const handlers = createNextRoute(adminContract.settings, {
   // ── GET /api/admin/settings/storage ─────────────────────────────────────────────
-  getStorage: async ({ request }) => {
-    const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
+  getStorage: async () => {
 
     const cfg = await getStorageConfig();
 
@@ -37,9 +34,7 @@ const handlers = createNextRoute(adminContract.settings, {
   },
 
   // ── PUT /api/admin/settings/storage ─────────────────────────────────────────────
-  updateStorage: async ({ body, request }) => {
-    const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
+  updateStorage: async ({ body }) => {
 
     if (body.s3?.enabled) {
       const { region, bucket, accessKeyId, secretAccessKey } = body.s3;

@@ -1,5 +1,4 @@
 import { getTemplates } from "@/lib/workflow-templates";
-import { getAuthContext } from "@/lib/auth-utils";
 import {
   userContract,
 } from "@/lib/contracts";
@@ -10,7 +9,6 @@ import { createNextRoute } from "@/lib/api/ts-rest/next-route";
  */
 const handlers = createNextRoute(userContract.workflows, {
   listTemplates: async ({ query, request }) => {
-    await getAuthContext(request);
 
     const templates = getTemplates(query.category);
 

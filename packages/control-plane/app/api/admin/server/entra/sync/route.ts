@@ -3,8 +3,6 @@
  * Admin-only.
  */
 
-import { getAuthContext } from "@/lib/auth-utils";
-import { APIException } from "@/lib/api/utils/api-utils";
 import { syncEntraUsers } from "@/lib/entra-sync";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 import {
@@ -12,9 +10,7 @@ import {
 } from "@/lib/contracts";
 
 const handlers = createNextRoute(adminContract.server, {
-  entraSync: async ({ body, request }) => {
-    const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
+  entraSync: async ({ body }) => {
 
     const result = await syncEntraUsers({
       groupIds: body.groupIds ?? [],

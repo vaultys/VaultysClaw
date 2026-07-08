@@ -1,11 +1,11 @@
 import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { AgentDAO, KnowledgeDAO, WorkspaceDAO } from "@/db";
-import { adminContract } from "@/lib/contracts";
+import { userContract } from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
-const handlers = createNextRoute(adminContract.knowledge, {
-  // ── GET /api/admin/knowledge?workspaceId=&agentDid= ─────────────────────────────────
+const handlers = createNextRoute(userContract.knowledge, {
+  // ── GET /api/knowledge?workspaceId=&agentDid= ─────────────────────────────────
   list: async ({ query, request }) => {
     const auth = await getAuthContext(request);
     const { workspaceId, agentDid } = query;
@@ -23,7 +23,7 @@ const handlers = createNextRoute(adminContract.knowledge, {
     return { status: 200, body: { sources } };
   },
 
-  // ── POST /api/admin/knowledge ───────────────────────────────────────────────────
+  // ── POST /api/knowledge ───────────────────────────────────────────────────
   create: async ({ body, request }) => {
     const auth = await getAuthContext(request);
     if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");

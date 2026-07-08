@@ -1,4 +1,3 @@
-import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { ModelDAO } from "@/db";
 import {
@@ -8,9 +7,7 @@ import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
 const handlers = createNextRoute(adminContract.models, {
   // ── POST /api/admin/models/:id/validate — probe the stored endpoint ─────────────
-  validate: async ({ params, request }) => {
-    await getAuthContext(request);
-
+  validate: async ({ params }) => {
     const entry = await ModelDAO.findByIdUnsafe(params.id);
     if (!entry) throw new APIException("NOT_FOUND", "Model not found");
 

@@ -15,6 +15,7 @@ import {
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import {
   adminApi,
+  userApi,
   unwrap,
 } from "@/lib/api/ts-rest/client";
 import { KsSourceCard } from "./knowledge/KsSourceCard";
@@ -55,7 +56,7 @@ export function KnowledgeTab({
     setLoading(true);
     try {
       const [ksRes, rlRes] = await Promise.all([
-        adminApi.knowledge.list({ query: { agentDid: did } }),
+        userApi.knowledge.list({ query: { agentDid: did } }),
         fetch("/api/workspaces"),
       ]);
       const rlData = (await rlRes.json()) as { workspaces?: KsWorkspaceOption[] };
@@ -93,7 +94,7 @@ export function KnowledgeTab({
     }
     setSyncingIds((s) => new Set(s).add(source.id));
     try {
-      unwrap(await adminApi.knowledge.sync({ params: { id: source.id } }));
+      unwrap(await userApi.knowledge.sync({ params: { id: source.id } }));
       showToast(`Sync started for "${source.name}"`);
       await load();
     } catch (err) {
@@ -110,7 +111,7 @@ export function KnowledgeTab({
   async function executeDelete(source: KnowledgeSource) {
     setDeletingIds((s) => new Set(s).add(source.id));
     try {
-      unwrap(await adminApi.knowledge.remove({ params: { id: source.id } }));
+      unwrap(await userApi.knowledge.remove({ params: { id: source.id } }));
       showToast(`"${source.name}" deleted`);
       await load();
     } catch (err) {

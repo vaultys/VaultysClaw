@@ -1,6 +1,5 @@
 import { getWSServer } from "@/lib/ws-server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { APIException } from "@/lib/api/utils/api-utils";
 import type { AgentCapability } from "@vaultysclaw/shared";
 import { PolicyDAO } from "@/db";
 import type { Policy } from "@prisma/client";
@@ -32,10 +31,7 @@ function toPolicyEntry(p: Policy): PolicyEntry {
  */
 const handlers = createNextRoute(adminContract.policies, {
   // ── GET /api/admin/policies ─────────────────────────────────────────────────────
-  list: async ({ query, request }) => {
-    const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
-
+  list: async ({ query }) => {
     const policies = await PolicyDAO.list({
       agentDid: query.agentDid,
       workspaceId: query.workspaceId,
@@ -49,7 +45,6 @@ const handlers = createNextRoute(adminContract.policies, {
   // ── POST /api/admin/policies ────────────────────────────────────────────────────
   create: async ({ body, request }) => {
     const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
 
     const { agentDid, workspaceId, capabilities, resourceLimits, expiresAt } = body;
 

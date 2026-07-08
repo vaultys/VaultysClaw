@@ -1,5 +1,3 @@
-import { getAuthContext } from "@/lib/auth-utils";
-import { APIException } from "@/lib/api/utils/api-utils";
 import { ActivityLogDAO, IntentDAO } from "@/db";
 import {
   adminContract,
@@ -15,9 +13,7 @@ import { createNextRoute } from "@/lib/api/ts-rest/next-route";
  * the request/response shapes.
  */
 const handlers = createNextRoute(adminContract.governance, {
-  audit: async ({ query, request }) => {
-    const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
+  audit: async ({ query }) => {
 
     const limit = Math.min(500, Math.max(1, query.limit ?? 200));
     const source = query.source ?? "";

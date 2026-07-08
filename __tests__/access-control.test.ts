@@ -3,6 +3,7 @@
  *
  * Verifies page/API access by role:
  *   - /admin*  → Admin or Owner (Member → /app, anonymous → /login)
+ *   - /api/admin* → Admin or Owner (Member → forbidden/403, anonymous → /login)
  *   - /owner*  → Owner only (Admin/Member → /app, anonymous → /login)
  *   - /workspaces* → any authenticated user (workspace roles enforced by the API)
  *   - /app*    → any authenticated user (anonymous → /login)
@@ -47,6 +48,20 @@ describe("resolveAccess — /admin (Admin or Owner)", () => {
     expect((d as { location: string }).location).toBe(
       "/login?callbackUrl=%2Fadmin%2Fusers"
     );
+  });
+});
+
+describe("resolveAccess — /api/admin (Admin or Owner, 403 for non-admins)", () => {
+  it.each([owner, admin])("allows role %o", (token) => {
+    expect(decide("/api/admin/users", token)).toEqual({ type: "next" });
+  });
+
+  it("returns forbidden (403 JSON) for an authenticated Member", () => {
+    expect(decide("/api/admin/users", member)).toEqual({ type: "forbidden" });
+  });
+
+  it("redirects an anonymous user to /login (not forbidden)", () => {
+    expect(decide("/api/admin/users", null).type).toBe("redirect");
   });
 });
 

@@ -47,7 +47,7 @@ export default function EmbeddedAgentChart({
   useMemo(() => {
     setLoading(true);
     setError(null);
-    fetch(`/api/admin/graph${query}`)
+    fetch(`/api/graph${query}`)
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json();

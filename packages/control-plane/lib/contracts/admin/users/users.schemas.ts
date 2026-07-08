@@ -72,12 +72,6 @@ export const SendUnclaimedQrBodySchema = z.object({
   sendByEmail: z.boolean().optional(),
 });
 
-export const SetUserLocationBodySchema = z.object({
-  lat: z.number().nullable().optional(),
-  lon: z.number().optional(),
-  label: z.string().optional(),
-});
-
 export const CreateGrantBodySchema = z.object({
   agentDid: z.string().nullable().optional(),
   capabilities: z.array(z.string()),

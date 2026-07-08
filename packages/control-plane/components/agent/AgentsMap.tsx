@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { Globe } from "lucide-react";
 import {
-  adminApi,
+  userApi,
   unwrap,
 } from "@/lib/api/ts-rest/client";
 import { MapMarker } from "@/lib/contracts";
@@ -17,7 +17,7 @@ const WorldMap = dynamic(
 
 /**
  * Map view of the agents page. Self-contained: fetches its own location
- * markers from `/api/admin/map` (independent of the list filters) and navigates to
+ * markers from `/api/map` (independent of the list filters) and navigates to
  * an agent's detail page on marker click.
  */
 export function AgentsMap() {
@@ -28,7 +28,7 @@ export function AgentsMap() {
   const fetchMarkers = useCallback(async () => {
     setLoading(true);
     try {
-      const { markers } = unwrap(await adminApi.map.get({ query: {} }));
+      const { markers } = unwrap(await userApi.map.get({ query: {} }));
       setMarkers(markers.filter((m) => m.type === "agent"));
     } catch {
       /* ignore */

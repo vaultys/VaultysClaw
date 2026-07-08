@@ -1,4 +1,3 @@
-import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { getDoclingConfig, setDoclingConfig } from "@/db/settings.dao";
 import {
@@ -8,9 +7,7 @@ import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
 const handlers = createNextRoute(adminContract.settings, {
   // ── GET /api/admin/settings/docling ─────────────────────────────────────────────
-  getDocling: async ({ request }) => {
-    const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
+  getDocling: async () => {
 
     const cfg = await getDoclingConfig();
     return {
@@ -29,9 +26,7 @@ const handlers = createNextRoute(adminContract.settings, {
   },
 
   // ── PUT /api/admin/settings/docling ─────────────────────────────────────────────
-  updateDocling: async ({ body, request }) => {
-    const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
+  updateDocling: async ({ body }) => {
 
     const url = (body.url ?? "").trim().replace(/\/$/, "");
     const enabled = body.enabled ?? false;

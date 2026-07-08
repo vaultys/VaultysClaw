@@ -1,5 +1,3 @@
-import { getAuthContext } from "@/lib/auth-utils";
-import { APIException } from "@/lib/api/utils/api-utils";
 import { getLiteLLMServiceState } from "@/lib/litellm-service";
 import {
   adminContract,
@@ -13,9 +11,7 @@ import { createNextRoute } from "@/lib/api/ts-rest/next-route";
  * No external calls, no DB round-trips. Safe to poll from the sidebar.
  */
 const handlers = createNextRoute(adminContract.settings, {
-  litellmStatus: async ({ request }) => {
-    const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
+  litellmStatus: async () => {
 
     const state = getLiteLLMServiceState();
     return {

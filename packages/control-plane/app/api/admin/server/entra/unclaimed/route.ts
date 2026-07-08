@@ -4,8 +4,6 @@
  * Admin-only.
  */
 
-import { getAuthContext } from "@/lib/auth-utils";
-import { APIException } from "@/lib/api/utils/api-utils";
 import { UserDAO } from "@/db";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 import {
@@ -13,9 +11,7 @@ import {
 } from "@/lib/contracts";
 
 const handlers = createNextRoute(adminContract.server, {
-  entraUnclaimed: async ({ request }) => {
-    const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
+  entraUnclaimed: async () => {
 
     const users = (await UserDAO.listUnclaimed()).map((u) => ({
       id: u.id,

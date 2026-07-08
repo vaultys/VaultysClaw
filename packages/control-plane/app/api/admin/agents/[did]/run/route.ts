@@ -13,8 +13,6 @@ const handlers = createNextRoute(adminContract.agents, {
     const auth = await getAuthContext(request);
     const agentDid = params.did;
 
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
-
     const wsServer = getWSServer();
     if (!wsServer)
       throw new APIException("UNAVAILABLE", "WebSocket server not available");

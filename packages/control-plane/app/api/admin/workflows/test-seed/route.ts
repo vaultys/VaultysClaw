@@ -1,5 +1,4 @@
 import { getWSServer } from "@/lib/ws-server";
-import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { AgentDAO, WorkspaceDAO, WorkflowDAO } from "@/db";
 
@@ -14,9 +13,7 @@ import { WorkflowDefinition } from "@/lib/workflow-types";
  * only. Requires 4 agents to be online and registered.
  */
 const handlers = createNextRoute(adminContract.workflows, {
-  testSeed: async ({ request }) => {
-    const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
+  testSeed: async () => {
 
     const wsServer = getWSServer();
     if (!wsServer)

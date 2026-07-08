@@ -4,7 +4,6 @@
  * POST /api/admin/server/smtp  — verify SMTP connection
  */
 
-import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { getSmtpConfig, saveSmtpConfig, testSmtpConnection } from "@/lib/smtp";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
@@ -14,9 +13,7 @@ import {
 
 const handlers = createNextRoute(adminContract.server, {
   // ── GET /api/admin/server/smtp ──────────────────────────────────────────────────
-  getSmtp: async ({ request }) => {
-    const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
+  getSmtp: async () => {
 
     const config = await getSmtpConfig();
     if (!config) return { status: 200, body: { configured: false } };
@@ -36,9 +33,7 @@ const handlers = createNextRoute(adminContract.server, {
   },
 
   // ── PUT /api/admin/server/smtp ──────────────────────────────────────────────────
-  saveSmtp: async ({ body, request }) => {
-    const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
+  saveSmtp: async ({ body }) => {
 
     const existing = await getSmtpConfig();
     const password =
@@ -59,9 +54,7 @@ const handlers = createNextRoute(adminContract.server, {
   },
 
   // ── POST /api/admin/server/smtp ─────────────────────────────────────────────────
-  verifySmtp: async ({ body, request }) => {
-    const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
+  verifySmtp: async ({ body }) => {
 
     const existing = await getSmtpConfig();
     const config = {

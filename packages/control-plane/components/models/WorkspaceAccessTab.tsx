@@ -1,11 +1,7 @@
 import { useState, useEffect } from "react";
 import { AlertCircle, Link2 } from "lucide-react";
 import { ComingSoonOverlay } from "@/components/shared";
-import {
-  adminApi,
-  userApi,
-  unwrap,
-} from "@/lib/api/ts-rest/client";
+import { userApi, unwrap } from "@/lib/api/ts-rest/client";
 import type { SafeModel, WorkspaceWithCounts } from "@/lib/contracts";
 
 export function WorkspaceAccessTab({
@@ -30,16 +26,16 @@ export function WorkspaceAccessTab({
     setToggling(workspaceId);
     if (hasAccess) {
       unwrap(
-        await adminApi.models.revokeWorkspace({
-          params: { id: model.id },
-          query: { workspaceId },
+        await userApi.workspaces.revokeModel({
+          params: { id: workspaceId },
+          query: { modelId: model.id },
         })
       );
     } else {
       unwrap(
-        await adminApi.models.grantWorkspace({
-          params: { id: model.id },
-          body: { workspaceId },
+        await userApi.workspaces.grantModel({
+          params: { id: workspaceId },
+          body: { modelId: model.id },
         })
       );
     }

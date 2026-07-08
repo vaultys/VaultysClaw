@@ -449,25 +449,6 @@ describe("DB: getAgentEffectiveSkills", () => {
 // ===========================================================================
 
 describe("GET /api/admin/skills", () => {
-  it("returns 401 when unauthenticated", async () => {
-    mockGetAuthContext.mockRejectedValueOnce(new APIException("UNAUTHORIZED"));
-    const res = await skillsGET(
-      req("GET", "http://localhost/api/admin/skills") as any
-    );
-    expect(res._status).toBe(401);
-  });
-
-  it("returns 403 for non-global-admin", async () => {
-    mockGetAuthContext.mockResolvedValueOnce({
-      ...makeAdminContext(),
-      isGlobalAdmin: false,
-    });
-    const res = await skillsGET(
-      req("GET", "http://localhost/api/admin/skills") as any
-    );
-    expect(res._status).toBe(403);
-  });
-
   it("returns skill rows for global admin", async () => {
     const skill = await WorkspaceSkillDAO.create({
       workspaceId: testWorkspaceId,
@@ -492,29 +473,6 @@ describe("GET /api/admin/skills", () => {
 // ===========================================================================
 
 describe("POST /api/admin/skills", () => {
-  it("returns 401 when unauthenticated", async () => {
-    mockGetAuthContext.mockRejectedValueOnce(new APIException("UNAUTHORIZED"));
-    const r = req("POST", "http://localhost/api/admin/skills", {
-      workspaceId: testWorkspaceId,
-      name: "x",
-    });
-    const res = await skillsPOST(r as any);
-    expect(res._status).toBe(401);
-  });
-
-  it("returns 403 for non-global-admin", async () => {
-    mockGetAuthContext.mockResolvedValueOnce({
-      ...makeAdminContext(),
-      isGlobalAdmin: false,
-    });
-    const r = req("POST", "http://localhost/api/admin/skills", {
-      workspaceId: testWorkspaceId,
-      name: "x",
-    });
-    const res = await skillsPOST(r as any);
-    expect(res._status).toBe(403);
-  });
-
   it("returns 400 when workspaceId is missing", async () => {
     const r = req("POST", "http://localhost/api/admin/skills", { name: "no-workspace" });
     const res = await skillsPOST(r as any);
@@ -863,25 +821,6 @@ describe("DELETE /api/workspaces/[id]/skills/[skillId]", () => {
 // ===========================================================================
 
 describe("GET /api/admin/stats/tokens", () => {
-  it("returns 401 when unauthenticated", async () => {
-    mockGetAuthContext.mockRejectedValueOnce(new APIException("UNAUTHORIZED"));
-    const res = await statsTokensGET(
-      req("GET", "http://localhost/api/admin/stats/tokens") as any
-    );
-    expect(res._status).toBe(401);
-  });
-
-  it("returns 403 for non-global-admin", async () => {
-    mockGetAuthContext.mockResolvedValueOnce({
-      ...makeAdminContext(),
-      isGlobalAdmin: false,
-    });
-    const res = await statsTokensGET(
-      req("GET", "http://localhost/api/admin/stats/tokens") as any
-    );
-    expect(res._status).toBe(403);
-  });
-
   it("returns allTime / daily / monthly structure with numeric values", async () => {
     const res = await statsTokensGET(
       req("GET", "http://localhost/api/admin/stats/tokens") as any

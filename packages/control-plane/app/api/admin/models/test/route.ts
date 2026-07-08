@@ -1,4 +1,3 @@
-import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import {
   adminContract,
@@ -7,9 +6,7 @@ import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
 const handlers = createNextRoute(adminContract.models, {
   // ── POST /api/admin/models/test — probe an endpoint and list its models ─────────
-  test: async ({ body, request }) => {
-    await getAuthContext(request);
-
+  test: async ({ body }) => {
     if (!body.baseUrl.trim())
       throw new APIException("MALFORMED", "Base URL is required");
 

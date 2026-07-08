@@ -46,7 +46,7 @@ export default function KnowledgeDashboardPage() {
     setLoading(true);
     try {
       const [ksRes, agRes, rlRes] = await Promise.all([
-        adminApi.knowledge.list(),
+        userApi.knowledge.list(),
         adminApi.agents.search(),
         userApi.workspaces.list(),
       ]);

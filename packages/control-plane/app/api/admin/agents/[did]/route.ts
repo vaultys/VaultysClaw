@@ -1,6 +1,5 @@
 import { Challenger, crypto } from "@vaultys/id";
 import { getWSServer } from "@/lib/ws-server";
-import { getAuthContext } from "@/lib/auth-utils";
 import { AgentDAO } from "@/db";
 import {
   VaultysIDInfo,
@@ -27,12 +26,7 @@ const Buffer = crypto.Buffer;
  */
 const handlers = createNextRoute(adminContract.agents, {
   // ── GET /api/admin/agents/:did ──────────────────────────────────────────
-  getAgent: async ({ params, request }) => {
-    const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) {
-      throw new APIException("FORBIDDEN");
-    }
-
+  getAgent: async ({ params }) => {
     const { did } = params;
 
     const agent = await AgentDAO.findByDid(did);
@@ -93,12 +87,7 @@ const handlers = createNextRoute(adminContract.agents, {
   },
 
   // ── PATCH /api/agents/:did ──────────────────────────────────────────────
-  updateAgent: async ({ params, body, request }) => {
-    const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) {
-      throw new APIException("FORBIDDEN");
-    }
-
+  updateAgent: async ({ params, body }) => {
     const { did } = params;
     const { capabilities, tokenBudgetDaily, tokenBudgetMonthly } = body;
 
@@ -142,12 +131,7 @@ const handlers = createNextRoute(adminContract.agents, {
   },
 
   // ── DELETE /api/agents/:did ─────────────────────────────────────────────
-  deleteAgent: async ({ params, request }) => {
-    const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) {
-      throw new APIException("FORBIDDEN");
-    }
-
+  deleteAgent: async ({ params }) => {
     const { did } = params;
 
     const agent = await AgentDAO.findByDid(did);

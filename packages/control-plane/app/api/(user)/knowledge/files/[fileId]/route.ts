@@ -1,11 +1,11 @@
 import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { KnowledgeDAO } from "@/db";
-import { adminContract } from "@/lib/contracts";
+import { userContract } from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
-const handlers = createNextRoute(adminContract.knowledge, {
-  // ── DELETE /api/admin/knowledge/files/:fileId ───────────────────────────────────
+const handlers = createNextRoute(userContract.knowledge, {
+  // ── DELETE /api/knowledge/files/:fileId ───────────────────────────────────
   deleteFile: async ({ params, request }) => {
     const auth = await getAuthContext(request);
     if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");

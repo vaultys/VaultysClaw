@@ -1,5 +1,4 @@
 import { getWSServer } from "@/lib/ws-server";
-import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import {
   adminContract,
@@ -8,9 +7,7 @@ import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
 const handlers = createNextRoute(adminContract.registrations, {
   // ── POST /api/admin/registrations/batch — reject many at once ───────────────────
-  batchReject: async ({ body, request }) => {
-    const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
+  batchReject: async ({ body }) => {
 
     const ids = body.ids;
     const reason = body.reason ?? "Rejected by admin";

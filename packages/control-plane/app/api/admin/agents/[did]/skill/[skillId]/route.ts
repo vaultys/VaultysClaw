@@ -1,4 +1,3 @@
-import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { sendSkillsConfig } from "@/lib/ws-server";
 import { AgentDAO, WorkspaceSkillDAO, SkillOverrideDAO } from "@/db";
@@ -8,11 +7,9 @@ import {
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
 const handlers = createNextRoute(adminContract.agents, {
-  updateSkill: async ({ params, body, request }) => {
-    const auth = await getAuthContext(request);
+  updateSkill: async ({ params, body }) => {
     const { did, skillId } = params;
 
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
 
     const agent = await AgentDAO.findByDid(did);
     if (!agent) throw new APIException("NOT_FOUND", "Agent not found");

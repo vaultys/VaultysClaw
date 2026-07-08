@@ -1,4 +1,3 @@
-import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { ApiKeyDAO } from "@/db";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
@@ -7,9 +6,7 @@ import { toApiKey } from "@/lib/api/utils/api-key-utils";
 
 const handlers = createNextRoute(adminContract.apiKeys, {
   // ── PATCH /api/admin/api-keys/:id ─────────────────────────────────────────
-  update: async ({ params, body, request }) => {
-    const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
+  update: async ({ params, body }) => {
 
     const existing = await ApiKeyDAO.findById(params.id);
     if (!existing) throw new APIException("NOT_FOUND", "API key not found");
@@ -46,9 +43,7 @@ const handlers = createNextRoute(adminContract.apiKeys, {
   },
 
   // ── DELETE /api/admin/api-keys/:id ────────────────────────────────────────
-  remove: async ({ params, request }) => {
-    const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
+  remove: async ({ params }) => {
 
     const deleted = await ApiKeyDAO.delete(params.id);
     if (!deleted) throw new APIException("NOT_FOUND", "API key not found");

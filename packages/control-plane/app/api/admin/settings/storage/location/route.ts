@@ -1,4 +1,3 @@
-import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { setStorageConfig } from "@/db/settings.dao";
 import {
@@ -12,9 +11,7 @@ import { createNextRoute } from "@/lib/api/ts-rest/next-route";
  * Body: { lat: number, lon: number, label?: string } or { lat: null } to clear.
  */
 const handlers = createNextRoute(adminContract.settings, {
-  storageLocation: async ({ body, request }) => {
-    const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
+  storageLocation: async ({ body }) => {
 
     if (body.lat === null || body.lat === undefined) {
       await setStorageConfig({

@@ -8,8 +8,10 @@ import {
   CreateWorkspaceBodySchema,
   CreateWorkspaceSkillBodySchema,
   DeleteCredentialQuerySchema,
+  GrantWorkspaceModelBodySchema,
   ListCredentialsQuerySchema,
   ListWorkspacesQuerySchema,
+  RevokeWorkspaceModelQuerySchema,
   PutWorkspaceLitellmKeyBodySchema,
   RemoveWorkspaceAgentBodySchema,
   RemoveWorkspaceUserBodySchema,
@@ -208,6 +210,24 @@ export const workspacesContract = c.router({
       200: c.type<WorkspaceModelsResponse>(),
       ...commonErrorResponses,
     },
+  },
+
+  grantModel: {
+    method: "POST",
+    path: "/api/workspaces/:id/models",
+    pathParams: IdParam,
+    summary: "Grant a model access to this workspace",
+    body: GrantWorkspaceModelBodySchema,
+    responses: { 200: c.type<void>(), ...commonErrorResponses },
+  },
+
+  revokeModel: {
+    method: "DELETE",
+    path: "/api/workspaces/:id/models",
+    pathParams: IdParam,
+    summary: "Revoke a model's access to this workspace",
+    query: RevokeWorkspaceModelQuerySchema,
+    responses: { 200: c.type<void>(), ...commonErrorResponses },
   },
 
   putLitellmKey: {

@@ -5,13 +5,8 @@ import { adminAgentsContract } from "./admin/agents/agents.contract";
 import { apiKeysContract } from "./admin/api-keys/api-keys.contract";
 import { channelsContract } from "./admin/channels/channels.contract";
 import { governanceContract } from "./admin/governance/governance.contract";
-import { graphContract } from "./admin/graph/graph.contract";
-import { knowledgeContract } from "./admin/knowledge/knowledge.contract";
 import { litellmContract, modelsContract } from "./admin/models/models.contract";
-import {
-  mapContract,
-  networkControlContract,
-} from "./admin/network/network.contract";
+import { networkControlContract } from "./admin/network/network.contract";
 import { orgSkillsAdminContract } from "./admin/org-skills/org-skills.contract";
 import { skillsAdminContract } from "./admin/skills/skills.contract";
 import { policiesContract } from "./admin/policies/policies.contract";
@@ -27,6 +22,9 @@ import {
 
 // ── User domain contracts (lib/contracts/user/*)
 import { userAgentsContract } from "./user/agents/agents.contract";
+import { graphContract } from "./user/graph/graph.contract";
+import { knowledgeContract } from "./user/knowledge/knowledge.contract";
+import { mapContract } from "./user/map/map.contract";
 import { intentsContract } from "./user/intents/intents.contract";
 import { networkContract } from "./user/network/network.contract";
 import { orgSkillsContract } from "./user/org-skills/org-skills.contract";
@@ -73,14 +71,6 @@ export type * from "./admin/governance/governance.contract";
 export * from "./admin/governance/governance.contract";
 export * from "./admin/governance/governance.schemas";
 export * from "./admin/governance/governance.types";
-export type * from "./admin/graph/graph.contract";
-export * from "./admin/graph/graph.contract";
-export * from "./admin/graph/graph.schemas";
-export * from "./admin/graph/graph.types";
-export type * from "./admin/knowledge/knowledge.contract";
-export * from "./admin/knowledge/knowledge.contract";
-export * from "./admin/knowledge/knowledge.schemas";
-export * from "./admin/knowledge/knowledge.types";
 export type * from "./admin/models/models.contract";
 export * from "./admin/models/models.contract";
 export * from "./admin/models/models.schemas";
@@ -130,6 +120,18 @@ export type * from "./user/agents/agents.contract";
 export * from "./user/agents/agents.contract";
 export * from "./user/agents/agents.schemas";
 export * from "./user/agents/agents.types";
+export type * from "./user/graph/graph.contract";
+export * from "./user/graph/graph.contract";
+export * from "./user/graph/graph.schemas";
+export * from "./user/graph/graph.types";
+export type * from "./user/knowledge/knowledge.contract";
+export * from "./user/knowledge/knowledge.contract";
+export * from "./user/knowledge/knowledge.schemas";
+export * from "./user/knowledge/knowledge.types";
+export type * from "./user/map/map.contract";
+export * from "./user/map/map.contract";
+export * from "./user/map/map.schemas";
+export * from "./user/map/map.types";
 export type * from "./user/intents/intents.contract";
 export * from "./user/intents/intents.contract";
 export * from "./user/intents/intents.schemas";
@@ -217,9 +219,6 @@ export const adminContract = c.router({
   registrations: registrationsContract,
   channels: channelsContract,
   network: networkControlContract,
-  map: mapContract,
-  graph: graphContract,
-  knowledge: knowledgeContract,
   stats: statsContract,
   orgSkills: orgSkillsAdminContract,
   skills: skillsAdminContract,
@@ -227,6 +226,9 @@ export const adminContract = c.router({
 
 export const userContract = c.router({
   agents: userAgentsContract,
+  graph: graphContract,
+  knowledge: knowledgeContract,
+  map: mapContract,
   intents: intentsContract,
   toolApprovals: toolApprovalsContract,
   network: networkContract,

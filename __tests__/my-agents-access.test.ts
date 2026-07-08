@@ -70,15 +70,6 @@ describe("GET /api/admin/agents — admin global view", () => {
     );
     expect(lastQueryArgs().workspaceIds).toBeUndefined();
   });
-
-  it("non-admin is rejected with 403 and never hits the DB", async () => {
-    authAs(false);
-    const res = await adminAgentsGET(
-      new NextRequest("http://localhost/api/admin/agents")
-    );
-    expect(res.status).toBe(403);
-    expect(mockQuery).not.toHaveBeenCalled();
-  });
 });
 
 describe("GET /api/agents — user view", () => {

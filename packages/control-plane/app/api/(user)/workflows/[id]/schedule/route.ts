@@ -1,4 +1,3 @@
-import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { nextCronRun } from "@/lib/workflow-scheduler";
 import { WorkflowDAO } from "@/db";
@@ -13,7 +12,6 @@ import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 const handlers = createNextRoute(userContract.workflows, {
   // ── GET ─────────────────────────────────────────────────────────────────
   getSchedule: async ({ params, request }) => {
-    await getAuthContext(request);
 
     const wf = await WorkflowDAO.findById(params.id);
     if (!wf) throw new APIException("NOT_FOUND", "Workflow not found");
@@ -32,7 +30,6 @@ const handlers = createNextRoute(userContract.workflows, {
 
   // ── POST ────────────────────────────────────────────────────────────────
   setSchedule: async ({ params, body, request }) => {
-    await getAuthContext(request);
 
     const wf = await WorkflowDAO.findById(params.id);
     if (!wf) throw new APIException("NOT_FOUND", "Workflow not found");
@@ -63,7 +60,6 @@ const handlers = createNextRoute(userContract.workflows, {
 
   // ── DELETE ──────────────────────────────────────────────────────────────
   clearSchedule: async ({ params, request }) => {
-    await getAuthContext(request);
 
     const wf = await WorkflowDAO.findById(params.id);
     if (!wf) throw new APIException("NOT_FOUND", "Workflow not found");

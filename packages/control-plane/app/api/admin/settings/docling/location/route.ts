@@ -1,4 +1,3 @@
-import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { getDoclingConfig, setDoclingConfig } from "@/db/settings.dao";
 import {
@@ -12,9 +11,7 @@ import { createNextRoute } from "@/lib/api/ts-rest/next-route";
  * Body: { lat: number, lon: number, label?: string } or { lat: null } to clear.
  */
 const handlers = createNextRoute(adminContract.settings, {
-  doclingLocation: async ({ body, request }) => {
-    const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
+  doclingLocation: async ({ body }) => {
 
     const cfg = await getDoclingConfig();
     if (!cfg) throw new APIException("NOT_FOUND", "Docling configuration not found");

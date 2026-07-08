@@ -19,6 +19,15 @@ export default withAuth(
     if (decision.type === "redirect") {
       return NextResponse.redirect(new URL(decision.location, request.url));
     }
+    if (decision.type === "forbidden") {
+      // API caller lacking the required role → 403 JSON matching the
+      // APIException error body shape ({ error, code }) so ts-rest clients
+      // surface it as an error instead of following an HTML redirect.
+      return NextResponse.json(
+        { error: "Forbidden", code: "FORBIDDEN" },
+        { status: 403 }
+      );
+    }
     return NextResponse.next();
   },
   {

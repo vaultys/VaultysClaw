@@ -1,5 +1,4 @@
 import { getTemplate } from "@/lib/workflow-templates";
-import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import {
   userContract,
@@ -11,7 +10,6 @@ import { createNextRoute } from "@/lib/api/ts-rest/next-route";
  */
 const handlers = createNextRoute(userContract.workflows, {
   getTemplate: async ({ params, request }) => {
-    await getAuthContext(request);
 
     const template = getTemplate(params.templateId);
     if (!template) throw new APIException("NOT_FOUND", "Template not found");

@@ -121,7 +121,7 @@ export function useMissionControlData(
   useEffect(() => {
     const fetch_ = async () => {
       try {
-        setMarkers(unwrap(await adminApi.map.get({ query: {} })).markers);
+        setMarkers(unwrap(await userApi.map.get({ query: {} })).markers);
       } catch {}
     };
     fetch_();

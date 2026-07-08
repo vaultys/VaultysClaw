@@ -11,7 +11,6 @@ import {
   InviteEmailBodySchema,
   UpdateUserBodySchema,
   SendUnclaimedQrBodySchema,
-  SetUserLocationBodySchema,
   CreateGrantBodySchema,
   SetAdminBodySchema,
 } from "./users.schemas";
@@ -131,15 +130,6 @@ export const usersContract = c.router({
     path: "/api/admin/users/:did",
     pathParams: DidParamSchema,
     summary: "Remove a user and all their grants (owner-only)",
-    responses: { 200: c.type<void>(), ...commonErrorResponses },
-  },
-
-  setLocation: {
-    method: "PATCH",
-    path: "/api/admin/users/:did/location",
-    pathParams: DidParamSchema,
-    summary: "Set or clear the geographic location of a user",
-    body: SetUserLocationBodySchema,
     responses: { 200: c.type<void>(), ...commonErrorResponses },
   },
 

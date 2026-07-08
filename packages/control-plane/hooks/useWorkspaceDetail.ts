@@ -65,7 +65,7 @@ export function useWorkspaceDetail(id: string) {
 
   const refreshMapMarkers = useCallback(() => {
     setMapLoading(true);
-    adminApi.map
+    userApi.map
       .get({ query: { workspace: id } })
       .then((r) => setMapMarkers(r.status === 200 ? r.body.markers : []))
       .catch(() => {})
@@ -83,11 +83,11 @@ export function useWorkspaceDetail(id: string) {
           : { lat: loc.lat, lon: loc.lon, label: loc.label };
       if (marker.type === "agent")
         unwrap(
-          await adminApi.agents.setLocation({ params: { did: marker.id }, body })
+          await userApi.agents.setLocation({ params: { did: marker.id }, body })
         );
       else if (marker.type === "user")
         unwrap(
-          await adminApi.users.setLocation({ params: { did: marker.id }, body })
+          await userApi.users.setLocation({ params: { did: marker.id }, body })
         );
       else return;
       refreshMapMarkers();

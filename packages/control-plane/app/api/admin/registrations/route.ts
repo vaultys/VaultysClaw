@@ -1,5 +1,3 @@
-import { getAuthContext } from "@/lib/auth-utils";
-import { APIException } from "@/lib/api/utils/api-utils";
 import { PendingRegistrationDAO } from "@/db";
 import {
   adminContract,
@@ -40,9 +38,7 @@ const AVAILABLE_CAPABILITIES: CapabilityOption[] = [
 
 const handlers = createNextRoute(adminContract.registrations, {
   // ── GET /api/admin/registrations — pending registrations + assignable caps ───────
-  list: async ({ request }) => {
-    const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
+  list: async () => {
 
     const registrations = await PendingRegistrationDAO.findAll();
     return {

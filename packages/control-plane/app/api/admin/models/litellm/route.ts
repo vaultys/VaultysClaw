@@ -1,5 +1,3 @@
-import { getAuthContext } from "@/lib/auth-utils";
-import { APIException } from "@/lib/api/utils/api-utils";
 import { isLiteLLMConfigured, listModels } from "@/lib/litellm-client";
 import {
   adminContract,
@@ -8,9 +6,7 @@ import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
 const handlers = createNextRoute(adminContract.litellm, {
   // ── GET /api/litellm/models — list available LiteLLM models (admin only) ──
-  models: async ({ request }) => {
-    const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
+  models: async () => {
 
     if (!isLiteLLMConfigured()) {
       return { status: 200, body: { models: [], configured: false } };

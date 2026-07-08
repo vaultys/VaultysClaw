@@ -12,13 +12,10 @@ import {
   adminContract,
 } from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
-import { USER_ROLES, isAdminRole, isOwnerRole, normalizeRole } from "@/lib/roles";
+import { USER_ROLES, isOwnerRole, normalizeRole } from "@/lib/roles";
 
 const handlers = createNextRoute(adminContract.users, {
   getOne: async ({ params }) => {
-    const session = await getServerSession(authOptions);
-    if (!isAdminRole(session?.user?.role)) throw new APIException("FORBIDDEN");
-
     const user =
       (await UserDAO.findByDid(params.did)) ??
       (await UserDAO.findById(params.did));

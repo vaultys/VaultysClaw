@@ -3,16 +3,13 @@
  * DELETE /api/admin/org/skills/[id]   — remove from catalog (global admin only)
  */
 
-import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { OrgSkillDAO } from "@/db";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 import { adminContract } from "@/lib/contracts";
 
 const handlers = createNextRoute(adminContract.orgSkills, {
-  update: async ({ params, body, request }) => {
-    const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
+  update: async ({ params, body }) => {
 
     if (!(await OrgSkillDAO.findById(params.id)))
       throw new APIException("NOT_FOUND", "Skill not found");
@@ -29,9 +26,7 @@ const handlers = createNextRoute(adminContract.orgSkills, {
     return { status: 200, body: { skill: skill! } };
   },
 
-  remove: async ({ params, request }) => {
-    const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
+  remove: async ({ params }) => {
 
     if (!(await OrgSkillDAO.findById(params.id)))
       throw new APIException("NOT_FOUND", "Skill not found");

@@ -1,4 +1,3 @@
-import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { prisma } from "@/db/client";
 import { AgentDAO } from "@/db";
@@ -20,9 +19,7 @@ const Buffer = crypto.Buffer;
  *             int-{intentId} → intent_log
  */
 const handlers = createNextRoute(adminContract.governance, {
-  auditEntry: async ({ params, request }) => {
-    const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
+  auditEntry: async ({ params }) => {
 
     const { id } = params;
 

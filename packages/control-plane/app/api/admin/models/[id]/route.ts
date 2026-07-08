@@ -1,4 +1,3 @@
-import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { ModelDAO } from "@/db";
 import {
@@ -13,9 +12,7 @@ import {
 
 const handlers = createNextRoute(adminContract.models, {
   // ── GET /api/admin/models/:id — model detail with workspace access ──────────────────
-  getOne: async ({ params, request }) => {
-    await getAuthContext(request);
-
+  getOne: async ({ params }) => {
     const entry = await ModelDAO.findById(params.id);
     if (!entry) throw new APIException("NOT_FOUND", "Model not found");
     return {
@@ -25,10 +22,7 @@ const handlers = createNextRoute(adminContract.models, {
   },
 
   // ── PUT /api/admin/models/:id — update an entry (admin only) ────────────────────
-  update: async ({ params, body, request }) => {
-    const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
-
+  update: async ({ params, body }) => {
     const entry = await ModelDAO.findById(params.id);
     if (!entry) throw new APIException("NOT_FOUND", "Model not found");
 
@@ -67,10 +61,7 @@ const handlers = createNextRoute(adminContract.models, {
   },
 
   // ── DELETE /api/admin/models/:id — remove an entry (admin only) ─────────────────
-  remove: async ({ params, request }) => {
-    const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
-
+  remove: async ({ params }) => {
     const entry = await ModelDAO.findById(params.id);
     if (!entry) throw new APIException("NOT_FOUND", "Model not found");
 

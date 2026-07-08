@@ -4,7 +4,7 @@ import { Zap, Cpu, BookOpen, MapPin, Loader2 } from "lucide-react";
 import { parseUTC, timeAgo } from "@vaultysclaw/shared";
 import { CAPABILITY_ICONS } from "./capability-icons";
 import {
-  adminApi,
+  userApi,
   unwrap,
 } from "@/lib/api/ts-rest/client";
 import { UserAgentDetail } from "@/lib/contracts";
@@ -30,7 +30,7 @@ export function MyAgentOverview({ agent }: { agent: UserAgentDetail }) {
       try {
         // Knowledge sources for this agent across the workspaces the caller can
         // access (the endpoint scopes by the caller's own memberships).
-        const r = await adminApi.knowledge
+        const r = await userApi.knowledge
           .list({ query: { agentDid: agent.did } })
           .then(unwrap)
           .catch(() => null);

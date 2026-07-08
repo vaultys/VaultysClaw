@@ -1,4 +1,3 @@
-import { getAuthContext } from "@/lib/auth-utils";
 import { OrgSkillDAO } from "@/db";
 import {
   userContract,
@@ -8,7 +7,6 @@ import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 const handlers = createNextRoute(userContract.skills, {
   // ── GET /api/skills/library — the org catalog, mapped to LibrarySkill DTOs ─
   library: async ({ request }) => {
-    await getAuthContext(request);
 
     const skills = await OrgSkillDAO.findAll();
     const payload = skills.map((s) => ({

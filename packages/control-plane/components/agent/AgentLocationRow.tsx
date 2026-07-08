@@ -4,7 +4,7 @@ import { useCallback, useState } from "react";
 import dynamic from "next/dynamic";
 import { MapPin } from "lucide-react";
 import {
-  adminApi,
+  userApi,
   unwrap,
 } from "@/lib/api/ts-rest/client";
 
@@ -39,7 +39,7 @@ export function AgentLocationRow({
         loc === null
           ? { lat: null }
           : { lat: loc.lat, lon: loc.lon, label: loc.label };
-      unwrap(await adminApi.agents.setLocation({ params: { did }, body }));
+      unwrap(await userApi.agents.setLocation({ params: { did }, body }));
       setCurrent(loc);
     },
     [did]

@@ -1,5 +1,4 @@
 import { getWSServer } from "@/lib/ws-server";
-import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import {
   adminContract,
@@ -7,11 +6,9 @@ import {
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
 const handlers = createNextRoute(adminContract.agents, {
-  deleteSchedule: async ({ params, request }) => {
-    const auth = await getAuthContext(request);
+  deleteSchedule: async ({ params }) => {
     const { did, id } = params;
 
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
 
     const wsServer = getWSServer();
     if (!wsServer)

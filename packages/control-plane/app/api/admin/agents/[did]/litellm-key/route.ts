@@ -1,4 +1,3 @@
-import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { AgentDAO, WorkspaceDAO } from "@/db";
 import {
@@ -14,11 +13,8 @@ import {
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
 const handlers = createNextRoute(adminContract.agents, {
-  putLitellmKey: async ({ params, body, request }) => {
-    const auth = await getAuthContext(request);
+  putLitellmKey: async ({ params, body }) => {
     const { did } = params;
-
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
 
     if (!isLiteLLMConfigured())
       throw new APIException(
@@ -75,11 +71,8 @@ const handlers = createNextRoute(adminContract.agents, {
     };
   },
 
-  deleteLitellmKey: async ({ params, request }) => {
-    const auth = await getAuthContext(request);
+  deleteLitellmKey: async ({ params }) => {
     const { did } = params;
-
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
 
     const agent = await AgentDAO.findByDid(did);
     if (!agent) throw new APIException("NOT_FOUND");

@@ -2,11 +2,11 @@ import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { getWSServer } from "@/lib/ws-server";
 import { KnowledgeDAO, SettingsDAO } from "@/db";
-import { adminContract } from "@/lib/contracts";
+import { userContract } from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
-const handlers = createNextRoute(adminContract.knowledge, {
-  // ── POST /api/admin/knowledge/:id/sync ──────────────────────────────────────────
+const handlers = createNextRoute(userContract.knowledge, {
+  // ── POST /api/knowledge/:id/sync ──────────────────────────────────────────
   sync: async ({ params, request }) => {
     const auth = await getAuthContext(request);
     if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");

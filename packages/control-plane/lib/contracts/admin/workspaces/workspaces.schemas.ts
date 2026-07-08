@@ -18,6 +18,15 @@ export const ListWorkspacesQuerySchema = z.object({
   userId: z.string().optional(),
 });
 
+// Grant/revoke a model's access to a workspace (workspace-admin scoped).
+export const GrantWorkspaceModelBodySchema = z.object({
+  modelId: z.string().min(1),
+});
+
+export const RevokeWorkspaceModelQuerySchema = z.object({
+  modelId: z.string().min(1),
+});
+
 // ─────────────────────────────────────────────
 // Bodies
 // ─────────────────────────────────────────────

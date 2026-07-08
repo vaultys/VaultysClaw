@@ -1,4 +1,3 @@
-import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { getLiteLLMSettings, setLiteLLMSettings } from "@/db/settings.dao";
 import {
@@ -39,9 +38,7 @@ async function litellmFetch<T>(path: string): Promise<T | null> {
 
 const handlers = createNextRoute(adminContract.settings, {
   // ── GET /api/admin/settings/litellm ─────────────────────────────────────────────
-  getLitellm: async ({ request }) => {
-    const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
+  getLitellm: async () => {
 
     const { baseUrl, masterKey } = await getLiteLLMSettings().catch(() => ({
       baseUrl: null,
@@ -87,9 +84,7 @@ const handlers = createNextRoute(adminContract.settings, {
   },
 
   // ── PUT /api/admin/settings/litellm ─────────────────────────────────────────────
-  saveLitellm: async ({ body, request }) => {
-    const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
+  saveLitellm: async ({ body }) => {
 
     await setLiteLLMSettings({
       baseUrl: body.baseUrl,
@@ -101,18 +96,14 @@ const handlers = createNextRoute(adminContract.settings, {
   },
 
   // ── POST /api/admin/settings/litellm — reconnect without changing config ────────
-  reconnectLitellm: async ({ request }) => {
-    const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
+  reconnectLitellm: async () => {
 
     const { ok, status, baseUrl } = await reconnectLiteLLMService();
     return { status: 200, body: { ok, status, baseUrl } };
   },
 
   // ── DELETE /api/admin/settings/litellm ──────────────────────────────────────────
-  disconnectLitellm: async ({ request }) => {
-    const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
+  disconnectLitellm: async () => {
 
     await setLiteLLMSettings({ baseUrl: null, masterKey: null });
     disconnectLiteLLMService();

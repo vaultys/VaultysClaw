@@ -1,4 +1,3 @@
-import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { getWSServer } from "@/lib/ws-server";
 import { PolicyDAO } from "@/db";
@@ -10,9 +9,7 @@ import {
 
 const handlers = createNextRoute(adminContract.policies, {
   // ── GET /api/admin/policies/:id ─────────────────────────────────────────────────
-  getOne: async ({ params, request }) => {
-    const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
+  getOne: async ({ params }) => {
 
     const policy = await PolicyDAO.findById(params.id);
     if (!policy) throw new APIException("NOT_FOUND", "Policy not found");
@@ -37,9 +34,7 @@ const handlers = createNextRoute(adminContract.policies, {
   // ── DELETE /api/admin/policies/:id ──────────────────────────────────────────────
   // Revoke a policy. If it was bound to a connected agent, reissue its cert
   // with an empty capability set so the removed limits take effect immediately.
-  remove: async ({ params, request }) => {
-    const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
+  remove: async ({ params }) => {
 
     const policy = await PolicyDAO.findById(params.id);
     if (!policy) throw new APIException("NOT_FOUND", "Policy not found");

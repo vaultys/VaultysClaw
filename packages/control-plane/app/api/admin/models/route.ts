@@ -9,10 +9,7 @@ import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
 const handlers = createNextRoute(adminContract.models, {
   // ── GET /api/admin/models — list registry entries (admin only) ──────────────────
-  list: async ({ request }) => {
-    const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
-
+  list: async () => {
     const models = await ModelDAO.findAll();
     return { status: 200, body: { models } };
   },
@@ -20,7 +17,6 @@ const handlers = createNextRoute(adminContract.models, {
   // ── POST /api/admin/models — register a new model (admin only) ──────────────────
   create: async ({ body, request }) => {
     const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
 
     if (!body.name.trim())
       throw new APIException("MALFORMED", "Name is required");

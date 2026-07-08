@@ -1,6 +1,5 @@
 import { getWSServer } from "@/lib/ws-server";
 import type { AgentCapability } from "@vaultysclaw/shared";
-import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { AgentDAO, PendingRegistrationDAO, WorkspaceDAO } from "@/db";
 import {
@@ -10,9 +9,7 @@ import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
 const handlers = createNextRoute(adminContract.registrations, {
   // ── POST /api/admin/registrations/:id/approve ───────────────────────────────────
-  approve: async ({ params, body, request }) => {
-    const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
+  approve: async ({ params, body }) => {
 
     const capabilities = (body.capabilities ?? []) as AgentCapability[];
     const workspaceIds = body.workspaceIds ?? [];

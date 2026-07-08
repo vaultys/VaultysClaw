@@ -3,7 +3,6 @@
  * Send a QR code to an unclaimed user via email. Admin-only.
  */
 
-import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { UserServerChannel } from "@/lib/user-server-channel";
 import { VaultysId } from "@vaultys/id";
@@ -23,9 +22,7 @@ function escapeHtml(str: string): string {
 }
 
 const handlers = createNextRoute(adminContract.users, {
-  sendUnclaimedQr: async ({ params, body, request }) => {
-    const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
+  sendUnclaimedQr: async ({ params, body }) => {
 
     const user = await UserDAO.findById(params.id);
     if (!user) throw new APIException("NOT_FOUND", "User not found");

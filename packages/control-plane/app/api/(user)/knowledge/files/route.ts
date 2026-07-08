@@ -2,15 +2,15 @@ import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { KnowledgeDAO } from "@/db";
 import {
-  adminContract,
+  userContract,
   type KnowledgeFileMeta,
 } from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20 MB
 
-const handlers = createNextRoute(adminContract.knowledge, {
-  // ── GET /api/admin/knowledge/files?sourceId= — list file metadata (no content) ──
+const handlers = createNextRoute(userContract.knowledge, {
+  // ── GET /api/knowledge/files?sourceId= — list file metadata (no content) ──
   listFiles: async ({ query, request }) => {
     const auth = await getAuthContext(request);
 
@@ -24,7 +24,7 @@ const handlers = createNextRoute(adminContract.knowledge, {
     return { status: 200, body: { files } };
   },
 
-  // ── POST /api/admin/knowledge/files — upload a file (multipart/form-data) ────────
+  // ── POST /api/knowledge/files — upload a file (multipart/form-data) ────────
   // The contract body is opaque so createNextRoute leaves the request stream
   // intact — we read the multipart FormData directly here.
   uploadFile: async ({ request }) => {

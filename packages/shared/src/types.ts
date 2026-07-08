@@ -165,13 +165,23 @@ export type WSMessageType =
  * - google              → Google Generative AI (Gemini 2.x)
  * - ollama              → Local Ollama (any pulled model)
  * - openai-compatible   → Any OpenAI-compatible server (LM Studio, llama.cpp, Groq, etc.)
+ * - claude-agent-sdk    → Claude Agent SDK harness via Mastra SDK Agents (@mastra/claude).
+ *                         Runs the vendor's own coding-agent loop (tools, permissions,
+ *                         MCP servers) instead of a plain chat model. Experimental.
+ * - cursor-agent-sdk    → Cursor Agent SDK harness via Mastra SDK Agents (@mastra/cursor).
+ *                         Experimental.
+ * - openai-agent-sdk    → OpenAI Agents SDK harness via Mastra SDK Agents (@mastra/openai).
+ *                         Experimental.
  */
 export type LlmProviderType =
   | "openai"
   | "anthropic"
   | "google"
   | "ollama"
-  | "openai-compatible";
+  | "openai-compatible"
+  | "claude-agent-sdk"
+  | "cursor-agent-sdk"
+  | "openai-agent-sdk";
 
 /**
  * LLM configuration shared between agent controller and control plane.
@@ -198,6 +208,10 @@ export interface LlmConfig {
   /** Skip the text-buffer workaround for tool-call parsing. Set to true for
    *  openai-compatible endpoints that support native function calling (e.g. LiteLLM). */
   disableStreamingBuffer?: boolean;
+  /** claude-agent-sdk only: working directory for the harness's file/shell tools. Defaults to process.cwd(). */
+  cwd?: string;
+  /** claude-agent-sdk only: restrict the harness to these tool names (e.g. ["Read", "Bash"]). */
+  allowedTools?: string[];
 }
 
 /**

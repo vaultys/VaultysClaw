@@ -23,6 +23,10 @@ export interface LlmForm {
   baseUrl: string;
   systemPrompt: string;
   maxTokens: string;
+  /** claude-agent-sdk only. */
+  cwd: string;
+  /** claude-agent-sdk only, comma-separated in the UI. */
+  allowedTools: string;
 }
 
 export interface LiteLlmModelOption {
@@ -69,6 +73,8 @@ export function useAgentLlmConfig(
     baseUrl: "",
     systemPrompt: "",
     maxTokens: "",
+    cwd: "",
+    allowedTools: "",
   });
 
   // Agent LiteLLM key form state (the key itself is derived from `agent`)
@@ -128,6 +134,8 @@ export function useAgentLlmConfig(
           baseUrl: cfg.baseUrl ?? "",
           systemPrompt: cfg.systemPrompt ?? "",
           maxTokens: cfg.maxTokens?.toString() ?? "",
+          cwd: cfg.cwd ?? "",
+          allowedTools: cfg.allowedTools?.join(", ") ?? "",
         });
       }
     } catch {
@@ -423,6 +431,13 @@ export function useAgentLlmConfig(
       if (llmForm.baseUrl) body.baseUrl = llmForm.baseUrl;
       if (llmForm.systemPrompt) body.systemPrompt = llmForm.systemPrompt;
       if (llmForm.maxTokens) body.maxTokens = parseInt(llmForm.maxTokens, 10);
+      if (llmForm.cwd) body.cwd = llmForm.cwd;
+      if (llmForm.allowedTools) {
+        body.allowedTools = llmForm.allowedTools
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean);
+      }
       const { config } = unwrap(
         await agentsClient.setLlmConfig({ params: { did }, body })
       );

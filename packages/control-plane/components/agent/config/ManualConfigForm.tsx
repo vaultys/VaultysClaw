@@ -104,6 +104,44 @@ export function ManualConfigForm({ cfg }: { cfg: AgentLlmConfigController }) {
             className={INPUT_CLASS}
           />
         </div>
+        {llmForm.provider === "claude-agent-sdk" && (
+          <>
+            <div>
+              <label className={LABEL_CLASS}>
+                Working Directory{" "}
+                <span className="normal-case text-foreground-400">
+                  (optional — defaults to the agent's cwd)
+                </span>
+              </label>
+              <input
+                type="text"
+                value={llmForm.cwd}
+                onChange={(e) =>
+                  setLlmForm((f) => ({ ...f, cwd: e.target.value }))
+                }
+                placeholder="/home/agent/workspace"
+                className={INPUT_CLASS}
+              />
+            </div>
+            <div>
+              <label className={LABEL_CLASS}>
+                Allowed Tools{" "}
+                <span className="normal-case text-foreground-400">
+                  (optional, comma-separated)
+                </span>
+              </label>
+              <input
+                type="text"
+                value={llmForm.allowedTools}
+                onChange={(e) =>
+                  setLlmForm((f) => ({ ...f, allowedTools: e.target.value }))
+                }
+                placeholder="Read, Grep, Glob, Bash"
+                className={INPUT_CLASS}
+              />
+            </div>
+          </>
+        )}
       </div>
       <div>
         <label className={LABEL_CLASS}>

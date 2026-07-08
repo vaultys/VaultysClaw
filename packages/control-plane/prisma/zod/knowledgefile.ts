@@ -1,5 +1,4 @@
 import * as z from "zod"
-import * as imports from "../null"
 import { CompleteKnowledgeSource, RelatedKnowledgeSourceModel } from "./index"
 
 export const KnowledgeFileModel = z.object({

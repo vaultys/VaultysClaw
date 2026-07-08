@@ -79,3 +79,10 @@ export const CreateGrantBodySchema = z.object({
 });
 
 export const SetAdminBodySchema = z.object({ isAdmin: z.boolean() });
+
+/** Set or clear the geographic location of a user (global-admin only). */
+export const SetUserLocationBodySchema = z.object({
+  lat: z.number().nullable().optional(),
+  lon: z.number().optional(),
+  label: z.string().optional(),
+});

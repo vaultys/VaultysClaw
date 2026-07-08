@@ -12,6 +12,7 @@ import {
   intentsContract,
   invitationsContract,
   knowledgeContract,
+  knowledgeAdminContract,
   litellmContract,
   mapContract,
   modelsContract,
@@ -73,6 +74,10 @@ export const healthClient = initClient(healthContract, clientOptions);
 export const intentsClient = initClient(intentsContract, clientOptions);
 export const invitationsClient = initClient(invitationsContract, clientOptions);
 export const knowledgeClient = initClient(knowledgeContract, clientOptions);
+export const knowledgeAdminClient = initClient(
+  knowledgeAdminContract,
+  clientOptions
+);
 export const litellmClient = initClient(litellmContract, clientOptions);
 export const mapClient = initClient(mapContract, clientOptions);
 export const modelsClient = initClient(modelsContract, clientOptions);
@@ -161,6 +166,7 @@ export const adminApi = {
   orgSkills: orgSkillsAdminClient,
   skills: skillsAdminClient,
   setup: setupClient,
+  knowledge: knowledgeAdminClient,
 } as const;
 
 export const userApi = {

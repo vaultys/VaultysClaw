@@ -145,14 +145,24 @@ const ROUTE_GROUPS: RouteGroup[] = [
         methods: ["GET", "PATCH", "DELETE"],
       },
       {
-        label: "Knowledge bases",
+        label: "Knowledge bases (read)",
         path: "/api/knowledge",
-        methods: ["GET", "POST"],
+        methods: ["GET"],
       },
       {
-        label: "Knowledge detail",
+        label: "Knowledge detail (read)",
         path: "/api/knowledge/[id]",
-        methods: ["GET", "PATCH", "DELETE"],
+        methods: ["GET"],
+      },
+      {
+        label: "Knowledge — create",
+        path: "/api/admin/knowledge",
+        methods: ["POST"],
+      },
+      {
+        label: "Knowledge — delete",
+        path: "/api/admin/knowledge/[id]",
+        methods: ["DELETE"],
       },
     ],
   },

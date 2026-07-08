@@ -1,21 +1,15 @@
 /**
- * PATCH /api/users/[did]/location — set or clear a user's geographic location.
- * Global admin only.
+ * PATCH /api/admin/users/[did]/location — set or clear a user's geographic location.
+ * Global admin only (enforced by the /api/admin proxy gate).
  */
 
-import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { UserDAO } from "@/db";
-import {
-  userContract,
-} from "@/lib/contracts";
+import { adminContract } from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
-const handlers = createNextRoute(userContract.users, {
-  setLocation: async ({ params, body, request }) => {
-    const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
-
+const handlers = createNextRoute(adminContract.users, {
+  setLocation: async ({ params, body }) => {
     const user =
       (await UserDAO.findByDid(params.did)) ??
       (await UserDAO.findById(params.did));

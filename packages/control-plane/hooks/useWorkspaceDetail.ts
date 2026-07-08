@@ -83,11 +83,11 @@ export function useWorkspaceDetail(id: string) {
           : { lat: loc.lat, lon: loc.lon, label: loc.label };
       if (marker.type === "agent")
         unwrap(
-          await userApi.agents.setLocation({ params: { did: marker.id }, body })
+          await adminApi.agents.setLocation({ params: { did: marker.id }, body })
         );
       else if (marker.type === "user")
         unwrap(
-          await userApi.users.setLocation({ params: { did: marker.id }, body })
+          await adminApi.users.setLocation({ params: { did: marker.id }, body })
         );
       else return;
       refreshMapMarkers();

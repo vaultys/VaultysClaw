@@ -29,13 +29,6 @@ export const SendTaskBodySchema = z.object({
   params: z.record(z.string(), z.unknown()).optional(),
 });
 
-/** Set or clear an agent's geographic location. */
-export const SetLocationBodySchema = z.object({
-  lat: z.number().nullable().optional(),
-  lon: z.number().optional(),
-  label: z.string().optional(),
-});
-
 /** Chat message stream request — a user chats with an agent they can access. */
 export const SendChatMessageBodySchema = z.object({
   messages: z

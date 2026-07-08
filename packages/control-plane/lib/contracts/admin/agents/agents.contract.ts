@@ -8,6 +8,7 @@ import {
   PutLiteLlmKeyBodySchema,
   RunIntentBodySchema,
   SetLlmConfigBodySchema,
+  SetLocationBodySchema,
   TokenUsageQuerySchema,
   UpdateAgentBodySchema,
   UpdateSkillBodySchema,
@@ -272,4 +273,16 @@ export const adminAgentsContract = c.router({
     },
   },
 
+  // ─── Location ────────────────────────────────────────────────────────────────
+
+  setLocation: {
+    method: "PATCH",
+    path: "/api/admin/agents/:did/location",
+    pathParams: z.object({ did: z.string() }),
+    body: SetLocationBodySchema,
+    responses: {
+      204: c.noBody(),
+      ...commonErrorResponses,
+    },
+  },
 });

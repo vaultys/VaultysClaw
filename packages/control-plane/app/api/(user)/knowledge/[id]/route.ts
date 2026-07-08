@@ -18,19 +18,6 @@ const handlers = createNextRoute(userContract.knowledge, {
 
     return { status: 200, body: { source } };
   },
-
-  // ── DELETE /api/knowledge/:id ─────────────────────────────────────────────
-  remove: async ({ params, request }) => {
-    const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
-
-    const source = await KnowledgeDAO.findSource(params.id);
-    if (!source) throw new APIException("NOT_FOUND", "Knowledge source not found");
-
-    await KnowledgeDAO.deleteSource(params.id);
-    return { status: 200, body: undefined };
-  },
 });
 
 export const GET = handlers.GET!;
-export const DELETE = handlers.DELETE!;

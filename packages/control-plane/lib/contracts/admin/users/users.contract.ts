@@ -13,6 +13,7 @@ import {
   SendUnclaimedQrBodySchema,
   CreateGrantBodySchema,
   SetAdminBodySchema,
+  SetUserLocationBodySchema,
 } from "./users.schemas";
 import type {
   UnclaimedUserDetail,
@@ -173,6 +174,15 @@ export const usersContract = c.router({
     pathParams: DidParamSchema,
     summary: "Promote or demote a user to/from admin",
     body: SetAdminBodySchema,
+    responses: { 200: c.type<void>(), ...commonErrorResponses },
+  },
+
+  setLocation: {
+    method: "PATCH",
+    path: "/api/admin/users/:did/location",
+    pathParams: DidParamSchema,
+    summary: "Set or clear the geographic location of a user",
+    body: SetUserLocationBodySchema,
     responses: { 200: c.type<void>(), ...commonErrorResponses },
   },
 });

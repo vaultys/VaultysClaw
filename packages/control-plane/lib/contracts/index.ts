@@ -24,6 +24,7 @@ import {
 import { userAgentsContract } from "./user/agents/agents.contract";
 import { graphContract } from "./user/graph/graph.contract";
 import { knowledgeContract } from "./user/knowledge/knowledge.contract";
+import { knowledgeAdminContract } from "./admin/knowledge/knowledge.contract";
 import { mapContract } from "./user/map/map.contract";
 import { intentsContract } from "./user/intents/intents.contract";
 import { networkContract } from "./user/network/network.contract";
@@ -128,6 +129,7 @@ export type * from "./user/knowledge/knowledge.contract";
 export * from "./user/knowledge/knowledge.contract";
 export * from "./user/knowledge/knowledge.schemas";
 export * from "./user/knowledge/knowledge.types";
+export * from "./admin/knowledge/knowledge.contract";
 export type * from "./user/map/map.contract";
 export * from "./user/map/map.contract";
 export * from "./user/map/map.schemas";
@@ -222,6 +224,7 @@ export const adminContract = c.router({
   stats: statsContract,
   orgSkills: orgSkillsAdminContract,
   skills: skillsAdminContract,
+  knowledge: knowledgeAdminContract,
 });
 
 export const userContract = c.router({

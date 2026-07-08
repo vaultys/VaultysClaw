@@ -10,10 +10,7 @@ import {
   ChevronDown,
   X,
 } from "lucide-react";
-import {
-  userApi,
-  unwrap,
-} from "@/lib/api/ts-rest/client";
+import { adminApi, unwrap } from "@/lib/api/ts-rest/client";
 import { FileDropzone } from "./FileDropzone";
 import type { KsWorkspaceOption, KsSourceType } from "./types";
 
@@ -90,7 +87,7 @@ export function KsAddSourceModal({
           return;
         }
         unwrap(
-          await userApi.knowledge.create({
+          await adminApi.knowledge.create({
             body: {
               workspaceId,
               agentDid: did,
@@ -107,7 +104,7 @@ export function KsAddSourceModal({
           return;
         }
         unwrap(
-          await userApi.knowledge.create({
+          await adminApi.knowledge.create({
             body: {
               workspaceId,
               agentDid: did,
@@ -129,7 +126,7 @@ export function KsAddSourceModal({
           return;
         }
         const { source } = unwrap(
-          await userApi.knowledge.create({
+          await adminApi.knowledge.create({
             body: {
               workspaceId,
               agentDid: did,
@@ -148,7 +145,7 @@ export function KsAddSourceModal({
           const fd = new FormData();
           fd.append("sourceId", source.id);
           fd.append("file", file);
-          const uploadRes = await fetch("/api/knowledge/files", {
+          const uploadRes = await fetch("/api/admin/knowledge/files", {
             method: "POST",
             body: fd,
           });

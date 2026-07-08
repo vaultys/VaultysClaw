@@ -273,13 +273,13 @@ Deleting removes all stored chunks and vectors for that source from the agent's 
 
 ### Knowledge sources
 
-| Method   | Path                       | Auth  | Description                                                             |
-| -------- | -------------------------- | ----- | ----------------------------------------------------------------------- |
-| `GET`    | `/api/knowledge`           | Admin | List all knowledge sources (filter by `agentDid`)                       |
-| `POST`   | `/api/knowledge`           | Admin | Create a new knowledge source                                           |
-| `GET`    | `/api/knowledge/{id}`      | Admin | Get a single source with metadata                                       |
-| `DELETE` | `/api/knowledge/{id}`      | Admin | Delete a source and its indexed chunks                                  |
-| `POST`   | `/api/knowledge/{id}/sync` | Admin | Trigger a sync (dispatches `knowledge_sync` to the agent via WebSocket) |
+| Method   | Path                             | Auth         | Description                                                             |
+| -------- | -------------------------------- | ------------ | ----------------------------------------------------------------------- |
+| `GET`    | `/api/knowledge`                 | Member       | List knowledge sources (filter by `agentDid`); scoped to accessible workspaces |
+| `GET`    | `/api/knowledge/{id}`            | Member       | Get a single source with metadata                                       |
+| `POST`   | `/api/admin/knowledge`           | Global admin | Create a new knowledge source                                           |
+| `DELETE` | `/api/admin/knowledge/{id}`      | Global admin | Delete a source and its indexed chunks                                  |
+| `POST`   | `/api/admin/knowledge/{id}/sync` | Global admin | Trigger a sync (dispatches `knowledge_sync` to the agent via WebSocket) |
 
 The sync endpoint dispatches a WebSocket `knowledge_sync` message to the agent and returns immediately; poll the source's `status` field to track progress.
 

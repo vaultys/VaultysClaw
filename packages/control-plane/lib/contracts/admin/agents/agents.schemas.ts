@@ -76,5 +76,12 @@ export const RunIntentBodySchema = z.object({
   timeoutMs: z.number().min(1000).max(120_000).optional(),
 });
 
+/** Set or clear an agent's geographic location (global-admin only). */
+export const SetLocationBodySchema = z.object({
+  lat: z.number().nullable().optional(),
+  lon: z.number().optional(),
+  label: z.string().optional(),
+});
+
 // SendChatMessageBodySchema moved to the user agents contract — chat is a
 // user-facing action served under /api/agents/:did/chat-sessions.

@@ -94,7 +94,7 @@ export function KnowledgeTab({
     }
     setSyncingIds((s) => new Set(s).add(source.id));
     try {
-      unwrap(await userApi.knowledge.sync({ params: { id: source.id } }));
+      unwrap(await adminApi.knowledge.sync({ params: { id: source.id } }));
       showToast(`Sync started for "${source.name}"`);
       await load();
     } catch (err) {
@@ -111,7 +111,7 @@ export function KnowledgeTab({
   async function executeDelete(source: KnowledgeSource) {
     setDeletingIds((s) => new Set(s).add(source.id));
     try {
-      unwrap(await userApi.knowledge.remove({ params: { id: source.id } }));
+      unwrap(await adminApi.knowledge.remove({ params: { id: source.id } }));
       showToast(`"${source.name}" deleted`);
       await load();
     } catch (err) {

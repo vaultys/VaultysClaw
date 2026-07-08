@@ -60,7 +60,7 @@ export function UserOverviewTab({
           ? { lat: null }
           : { lat: loc.lat, lon: loc.lon, label: loc.label };
       unwrap(
-        await userApi.users.setLocation({ params: { did: user.did! }, body })
+        await adminApi.users.setLocation({ params: { did: user.did! }, body })
       );
       setLocation(loc);
     },

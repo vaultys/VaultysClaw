@@ -221,7 +221,7 @@ export default function UserEditPage() {
                     `/admin/agents/${encodeURIComponent(node.id.replace("agent:", ""))}`
                   );
                 else if (node.type === "workspace")
-                  router.push(`/app/workspaces/${node.id.replace("workspace:", "")}`);
+                  router.push(`/workspaces/${node.id.replace("workspace:", "")}`);
                 else if (node.type === "user") {
                   const uid = node.id.replace("user:", "");
                   if (uid !== user.did)

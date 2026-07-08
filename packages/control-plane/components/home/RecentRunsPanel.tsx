@@ -19,7 +19,7 @@ const EXPLORE_LINKS = [
   { icon: GitBranch, label: "Workflows", path: "/app/workflows" },
   { icon: Cpu, label: "Models", path: "/admin/models" },
   { icon: Layers, label: "Skills", path: "/admin/skills" },
-  { icon: Globe, label: "Workspaces", path: "/app/workspaces" },
+  { icon: Globe, label: "Workspaces", path: "/workspaces" },
   { icon: Network, label: "Graph", path: "/admin/graph" },
 ];
 

@@ -202,14 +202,14 @@ export default function WorkflowEditPage() {
   const handleDelete = async () => {
     if (!storeId) {
       // Unsaved workflow: just go back.
-      router.push(workspaceFromUrl ? `/app/workspaces/${workspaceFromUrl}` : "/admin/workflows");
+      router.push(workspaceFromUrl ? `/workspaces/${workspaceFromUrl}` : "/admin/workflows");
       return;
     }
     if (!confirm(`Delete workflow "${workflowName}"? This cannot be undone.`))
       return;
     try {
       unwrap(await userApi.workflows.remove({ params: { id: storeId } }));
-      router.push(workspaceFromUrl ? `/app/workspaces/${workspaceFromUrl}` : "/admin/workflows");
+      router.push(workspaceFromUrl ? `/workspaces/${workspaceFromUrl}` : "/admin/workflows");
     } catch (err) {
       console.error("Failed to delete workflow:", err);
       alert("Failed to delete workflow");

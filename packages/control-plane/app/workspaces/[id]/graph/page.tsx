@@ -32,7 +32,7 @@ export default function WorkspaceGraphPage() {
       router.push(`/admin/users/${encodeURIComponent(did)}`);
     } else if (node.type === "workspace") {
       const rid = node.id.replace("workspace:", "");
-      router.push(`/app/workspaces/${rid}`);
+      router.push(`/workspaces/${rid}`);
     }
   }
 
@@ -44,7 +44,7 @@ export default function WorkspaceGraphPage() {
       <div className="flex items-center justify-between mb-4 px-4 pt-4">
         <div className="flex items-center gap-3">
           <Link
-            href={`/app/workspaces/${id}`}
+            href={`/workspaces/${id}`}
             className="p-2 rounded-lg hover:bg-[var(--background-200)] transition-colors"
           >
             <ArrowLeft size={18} />

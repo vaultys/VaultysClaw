@@ -38,7 +38,7 @@ export function useWorkspaceDetail(id: string) {
       adminApi.channels.list({ query: { workspace: id } }),
     ]);
     if (workspaceRes.status === 404) {
-      router.replace("/app/workspaces");
+      router.replace("/workspaces");
       return;
     }
     setWorkspace(unwrap(workspaceRes));
@@ -151,7 +151,7 @@ export function useWorkspaceDetail(id: string) {
   const remove = useCallback(async () => {
     if (!confirm("Delete this workspace? This cannot be undone.")) return;
     await userApi.workspaces.remove({ params: { id } });
-    router.push("/app/workspaces");
+    router.push("/workspaces");
   }, [id, router]);
 
   return {

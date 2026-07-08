@@ -423,7 +423,7 @@ export default function WorkflowDetailPage() {
                     Workspace
                   </p>
                   <Link
-                    href={`/app/workspaces/${workflow.workspaceId}`}
+                    href={`/workspaces/${workflow.workspaceId}`}
                     className="text-primary-500 hover:text-primary-400 text-xs font-medium"
                   >
                     {workspaceName ?? workflow.workspaceId.slice(0, 16) + "…"}

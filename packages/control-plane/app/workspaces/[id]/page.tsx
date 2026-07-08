@@ -72,7 +72,7 @@ export default function WorkspaceDetailPage() {
 
   useBreadcrumbs(
     [
-      { label: "Workspaces", href: "/app/workspaces" },
+      { label: "Workspaces", href: "/workspaces" },
       { label: workspace?.name ?? "Workspace" },
     ],
     [workspace?.name]
@@ -109,7 +109,7 @@ export default function WorkspaceDetailPage() {
               id: "graph",
               label: "Graph",
               icon: <Network className="w-3.5 h-3.5" />,
-              onClick: () => router.push(`/app/workspaces/${id}/graph`),
+              onClick: () => router.push(`/workspaces/${id}/graph`),
             },
             // Editing workspace metadata/config is owner-only.
             ...(canOwn

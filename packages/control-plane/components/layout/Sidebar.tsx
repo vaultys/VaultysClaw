@@ -74,8 +74,16 @@ const SECTIONS: NavSection[] = [
       { href: "/", icon: LayoutDashboard, label: "Dashboard", exact: true },
       { href: "/app/my-agents", icon: Bot, label: "My Agents", exact: false },
       { href: "/app/workflows", icon: Workflow, label: "My Workflows", exact: false },
-      { href: "/app/workspaces", icon: Globe2, label: "Workspaces", exact: false },
       { href: "/app/inbox", icon: Inbox, label: "Inbox", exact: false },
+    ],
+  },
+  {
+    id: "workspaces",
+    icon: Globe2,
+    label: "Workspaces",
+    adminOnly: false,
+    items: [
+      { href: "/workspaces", icon: Globe2, label: "All workspaces", exact: false },
     ],
   },
   {

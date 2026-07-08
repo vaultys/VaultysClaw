@@ -4,6 +4,7 @@
  * Verifies page/API access by role:
  *   - /admin*  → Admin or Owner (Member → /app, anonymous → /login)
  *   - /owner*  → Owner only (Admin/Member → /app, anonymous → /login)
+ *   - /workspaces* → any authenticated user (workspace roles enforced by the API)
  *   - /app*    → any authenticated user (anonymous → /login)
  *   - /api*    → any authenticated user (public API paths excepted)
  *   - public paths → everyone
@@ -78,13 +79,30 @@ describe("resolveAccess — /owner (Owner only)", () => {
 
 describe("resolveAccess — /app (any authenticated user)", () => {
   it.each([owner, admin, member])("allows role %o", (token) => {
-    expect(decide("/app/workspaces", token)).toEqual({ type: "next" });
+    expect(decide("/app/my-agents", token)).toEqual({ type: "next" });
   });
 
   it("redirects an anonymous user to /login preserving the query string", () => {
     expect(decide("/app/workflows", null, "?tab=runs")).toEqual({
       type: "redirect",
       location: "/login?callbackUrl=%2Fapp%2Fworkflows%3Ftab%3Druns",
+    });
+  });
+});
+
+describe("resolveAccess — /workspaces (any authenticated user)", () => {
+  it.each([owner, admin, member])(
+    "allows role %o (no global-role restriction)",
+    (token) => {
+      expect(decide("/workspaces", token)).toEqual({ type: "next" });
+      expect(decide("/workspaces/ws-1", token)).toEqual({ type: "next" });
+    }
+  );
+
+  it("redirects an anonymous user to /login with callbackUrl", () => {
+    expect(decide("/workspaces/ws-1", null)).toEqual({
+      type: "redirect",
+      location: "/login?callbackUrl=%2Fworkspaces%2Fws-1",
     });
   });
 });
@@ -132,7 +150,7 @@ describe("resolveAccess — public paths", () => {
 
 describe("resolveAccess — OIDC user without a claimed DID", () => {
   it("forces a page navigation to /claim", () => {
-    expect(decide("/app/workspaces", noDidUser)).toEqual({
+    expect(decide("/app/my-agents", noDidUser)).toEqual({
       type: "redirect",
       location: "/claim",
     });
@@ -163,6 +181,6 @@ describe("isPublicPath", () => {
 
   it("treats admin/app paths as non-public", () => {
     expect(isPublicPath("/admin/users")).toBe(false);
-    expect(isPublicPath("/app/workspaces")).toBe(false);
+    expect(isPublicPath("/app/my-agents")).toBe(false);
   });
 });

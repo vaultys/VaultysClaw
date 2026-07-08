@@ -11,6 +11,8 @@ import { isAdminRole, isOwnerRole } from "./roles";
  *   - authenticated OIDC user without a DID         → forced to /claim
  *   - /owner*                                       → Owner only
  *   - /admin*                                       → Admin or Owner
+ *   - /workspaces*                                  → any authenticated user
+ *                                                     (workspace roles enforced by the API)
  *   - /app* and /api*                               → any authenticated user
  *                                                     (API routes enforce fine-grained perms)
  *   - anything else                                 → any authenticated user
@@ -93,6 +95,12 @@ export function resolveAccess(
   if (pathname.startsWith("/admin")) {
     if (!token) return loginRedirect();
     if (!isAdminRole(role)) return { type: "redirect", location: "/app" };
+    return { type: "next" };
+  }
+
+  // /workspaces* — any authenticated user (workspace roles enforced by the API)
+  if (pathname.startsWith("/workspaces")) {
+    if (!token) return loginRedirect();
     return { type: "next" };
   }
 

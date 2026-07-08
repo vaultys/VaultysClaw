@@ -250,7 +250,7 @@ export default function WorkspacesPage() {
           {workspaces.map((workspace) => (
             <div
               key={workspace.id}
-              onClick={() => router.push(`/app/workspaces/${workspace.id}`)}
+              onClick={() => router.push(`/workspaces/${workspace.id}`)}
               className="bg-background-100 border border-neutral-200 rounded-2xl overflow-clip p-5 cursor-pointer hover:border-primary-500/50 transition-all group relative"
             >
               {/* Color accent strip */}

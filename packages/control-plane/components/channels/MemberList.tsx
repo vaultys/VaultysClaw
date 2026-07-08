@@ -5,6 +5,7 @@ import { Loader2, UserMinus, Plus, Bot, User, Search, X } from "lucide-react";
 import { shortDid, getInitials, type ChannelMember } from "@vaultysclaw/shared";
 import {
   adminApi,
+  userApi,
   unwrap,
 } from "@/lib/api/ts-rest/client";
 import { AgentInfo, UserListItem } from "@/lib/contracts";
@@ -46,7 +47,7 @@ export default function MemberList({ channelId }: MemberListProps) {
     try {
       setIsLoading(true);
       const { members } = unwrap(
-        await adminApi.channels.getOne({ params: { id: channelId } })
+        await userApi.channels.getOne({ params: { id: channelId } })
       );
       setMembers(members);
       setError(null);
@@ -150,7 +151,7 @@ export default function MemberList({ channelId }: MemberListProps) {
 
     try {
       const { member } = unwrap(
-        await adminApi.channels.addMember({
+        await userApi.channels.addMember({
           params: { id: channelId },
           body: { memberDid: selectedDid, memberType: addType },
         })
@@ -184,7 +185,7 @@ export default function MemberList({ channelId }: MemberListProps) {
     try {
       setRemoveError(null);
       unwrap(
-        await adminApi.channels.removeMember({
+        await userApi.channels.removeMember({
           params: { id: channelId, memberDid: member.memberDid },
         })
       );

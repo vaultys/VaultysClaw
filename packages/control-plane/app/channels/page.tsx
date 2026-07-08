@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useAdminWS } from "@/hooks/useAdminWS";
 import type { Channel } from "@vaultysclaw/shared";
 import {
-  adminApi,
+  userApi,
   unwrap,
 } from "@/lib/api/ts-rest/client";
 import ChannelList from "@/components/channels/ChannelList";
@@ -35,7 +35,7 @@ export default function ChannelsPage() {
     try {
       setIsLoading(true);
       const { channels } = unwrap(
-        await adminApi.channels.list({
+        await userApi.channels.list({
           query: { workspace: workspaceId, includeGlobal: true },
         })
       );

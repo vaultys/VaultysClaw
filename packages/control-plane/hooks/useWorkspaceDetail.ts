@@ -35,7 +35,7 @@ export function useWorkspaceDetail(id: string) {
       userApi.workspaces.getOne({ params: { id } }),
       userApi.workspaces.listSkills({ params: { id } }),
       userApi.workspaces.listModels({ params: { id } }),
-      adminApi.channels.list({ query: { workspace: id } }),
+      userApi.channels.list({ query: { workspace: id } }),
     ]);
     if (workspaceRes.status === 404) {
       router.replace("/workspaces");

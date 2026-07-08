@@ -11,7 +11,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import {
-  adminApi,
+  userApi,
   unwrap,
 } from "@/lib/api/ts-rest/client";
 import type { ChannelBridgePublic } from "@/lib/contracts";
@@ -79,7 +79,7 @@ export default function BridgeSettings({
     try {
       setLoading(true);
       const { bridges } = unwrap(
-        await adminApi.channels.listBridges({ params: { id: channelId } })
+        await userApi.channels.listBridges({ params: { id: channelId } })
       );
       setBridges(bridges);
     } catch (err) {
@@ -119,7 +119,7 @@ export default function BridgeSettings({
 
     try {
       unwrap(
-        await adminApi.channels.createBridge({
+        await userApi.channels.createBridge({
           params: { id: channelId },
           body: {
             externalService: service,
@@ -145,7 +145,7 @@ export default function BridgeSettings({
   const handleToggle = async (bridge: BridgeRecord) => {
     try {
       unwrap(
-        await adminApi.channels.updateBridge({
+        await userApi.channels.updateBridge({
           params: { id: channelId, bridgeId: bridge.id },
           body: { isSyncEnabled: !bridge.isSyncEnabled },
         })
@@ -160,7 +160,7 @@ export default function BridgeSettings({
     if (!confirm("Delete this bridge? External messages will no longer sync."))
       return;
     try {
-      await adminApi.channels.deleteBridge({
+      await userApi.channels.deleteBridge({
         params: { id: channelId, bridgeId },
       });
       await fetchBridges();

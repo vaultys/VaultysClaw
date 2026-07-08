@@ -3,7 +3,7 @@ import { APIException } from "@/lib/api/utils/api-utils";
 import { ChannelService } from "@/lib/channel-service";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 import {
-  adminContract,
+  userContract,
 } from "@/lib/contracts";
 
 /** Channel owner, workspace admin, or (for global channels) global admin. */
@@ -20,7 +20,7 @@ async function assertCanAdminChannel(
     throw new APIException("FORBIDDEN");
 }
 
-const handlers = createNextRoute(adminContract.channels, {
+const handlers = createNextRoute(userContract.channels, {
   // ── GET /api/channels/:id ─────────────────────────────────────────────────
   getOne: async ({ params, request }) => {
     const auth = await getAuthContext(request);

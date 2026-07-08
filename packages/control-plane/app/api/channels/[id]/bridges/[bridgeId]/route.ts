@@ -3,7 +3,7 @@ import { APIException } from "@/lib/api/utils/api-utils";
 import { ChannelBridgeService } from "@/lib/channel-bridge-service";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 import {
-  adminContract,
+  userContract,
 } from "@/lib/contracts";
 import type { ChannelBridge } from "@vaultysclaw/shared";
 
@@ -13,7 +13,7 @@ function stripConfig(bridge: ChannelBridge): Omit<ChannelBridge, "configJson"> {
   return rest;
 }
 
-const handlers = createNextRoute(adminContract.channels, {
+const handlers = createNextRoute(userContract.channels, {
   // ── PATCH /api/channels/:id/bridges/:bridgeId ─────────────────────────────
   updateBridge: async ({ params, body, request }) => {
     await getAuthContext(request);

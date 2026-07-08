@@ -4,10 +4,10 @@ import { ChannelService } from "@/lib/channel-service";
 import { WorkspaceDAO } from "@/db";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 import {
-  adminContract,
+  userContract,
 } from "@/lib/contracts";
 
-const handlers = createNextRoute(adminContract.channels, {
+const handlers = createNextRoute(userContract.channels, {
   // ── GET /api/channels?workspace=<id>&includeGlobal=true ───────────────────────
   list: async ({ query, request }) => {
     const auth = await getAuthContext(request);

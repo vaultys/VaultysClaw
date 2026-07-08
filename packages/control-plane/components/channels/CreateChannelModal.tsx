@@ -71,7 +71,7 @@ export default function CreateChannelModal({
         .replace(/^-|-$/g, "");
 
       const { channel } = unwrap(
-        await adminApi.channels.create({
+        await userApi.channels.create({
           body: {
             name: name.trim(),
             slug,

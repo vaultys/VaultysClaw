@@ -4,7 +4,7 @@ import { ChannelBridgeService } from "@/lib/channel-bridge-service";
 import { ChannelService } from "@/lib/channel-service";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 import {
-  adminContract,
+  userContract,
 } from "@/lib/contracts";
 import type {
   ChannelBridge,
@@ -18,7 +18,7 @@ function stripConfig(bridge: ChannelBridge): Omit<ChannelBridge, "configJson"> {
   return rest;
 }
 
-const handlers = createNextRoute(adminContract.channels, {
+const handlers = createNextRoute(userContract.channels, {
   // ── GET /api/channels/:id/bridges ─────────────────────────────────────────
   listBridges: async ({ params, request }) => {
     await getAuthContext(request);

@@ -3,11 +3,11 @@ import { APIException } from "@/lib/api/utils/api-utils";
 import { ChannelService } from "@/lib/channel-service";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 import {
-  adminContract,
+  userContract,
 } from "@/lib/contracts";
 import type { MessageMetadata } from "@vaultysclaw/shared";
 
-const handlers = createNextRoute(adminContract.channels, {
+const handlers = createNextRoute(userContract.channels, {
   // ── GET /api/channels/:id/threads?parentMessageId=<id> ────────────────────
   listThread: async ({ params, query, request }) => {
     const auth = await getAuthContext(request);

@@ -3,7 +3,7 @@ import { c } from "./contract";
 // ── Admin domain contracts (lib/contracts/admin/*)
 import { adminAgentsContract } from "./admin/agents/agents.contract";
 import { apiKeysContract } from "./admin/api-keys/api-keys.contract";
-import { channelsContract } from "./admin/channels/channels.contract";
+import { channelsContract } from "./user/channels/channels.contract";
 import { governanceContract } from "./admin/governance/governance.contract";
 import { litellmContract, modelsContract } from "./admin/models/models.contract";
 import { networkControlContract } from "./admin/network/network.contract";
@@ -64,10 +64,10 @@ export type * from "./admin/api-keys/api-keys.contract";
 export * from "./admin/api-keys/api-keys.contract";
 export * from "./admin/api-keys/api-keys.schemas";
 export * from "./admin/api-keys/api-keys.types";
-export type * from "./admin/channels/channels.contract";
-export * from "./admin/channels/channels.contract";
-export * from "./admin/channels/channels.schemas";
-export * from "./admin/channels/channels.types";
+export type * from "./user/channels/channels.contract";
+export * from "./user/channels/channels.contract";
+export * from "./user/channels/channels.schemas";
+export * from "./user/channels/channels.types";
 export type * from "./admin/governance/governance.contract";
 export * from "./admin/governance/governance.contract";
 export * from "./admin/governance/governance.schemas";
@@ -219,7 +219,6 @@ export const adminContract = c.router({
   setup: setupContract,
   apiKeys: apiKeysContract,
   registrations: registrationsContract,
-  channels: channelsContract,
   network: networkControlContract,
   stats: statsContract,
   orgSkills: orgSkillsAdminContract,
@@ -229,6 +228,7 @@ export const adminContract = c.router({
 
 export const userContract = c.router({
   agents: userAgentsContract,
+  channels: channelsContract,
   graph: graphContract,
   knowledge: knowledgeContract,
   map: mapContract,

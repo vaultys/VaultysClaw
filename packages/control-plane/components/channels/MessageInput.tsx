@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { Send, Loader2 } from "lucide-react";
 import { shortDid } from "@vaultysclaw/shared";
 import {
-  adminApi,
+  userApi,
   unwrap,
 } from "@/lib/api/ts-rest/client";
 
@@ -163,7 +163,7 @@ export default function MessageInput({
       setSuggestions([]);
 
       unwrap(
-        await adminApi.channels.postMessage({
+        await userApi.channels.postMessage({
           params: { id: channelId },
           body: { content: content.trim() },
         })

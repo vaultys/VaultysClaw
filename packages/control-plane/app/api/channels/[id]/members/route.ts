@@ -3,10 +3,10 @@ import { APIException } from "@/lib/api/utils/api-utils";
 import { ChannelService } from "@/lib/channel-service";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 import {
-  adminContract,
+  userContract,
 } from "@/lib/contracts";
 
-const handlers = createNextRoute(adminContract.channels, {
+const handlers = createNextRoute(userContract.channels, {
   // ── POST /api/channels/:id/members ────────────────────────────────────────
   addMember: async ({ params, body, request }) => {
     const auth = await getAuthContext(request);

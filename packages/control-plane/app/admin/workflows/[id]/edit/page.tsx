@@ -110,7 +110,7 @@ export default function WorkflowEditPage() {
           data.workflow.workspaceId ?? workflowWorkspaceId
         );
         const qs = workspaceFromUrl ? `?workspace=${workspaceFromUrl}` : "";
-        router.replace(`/app/workflows/${data.workflow.id}/edit${qs}`);
+        router.replace(`/admin/workflows/${data.workflow.id}/edit${qs}`);
       }
       setSaveStatus("success");
       setTimeout(() => setSaveStatus("idle"), 2000);
@@ -202,14 +202,14 @@ export default function WorkflowEditPage() {
   const handleDelete = async () => {
     if (!storeId) {
       // Unsaved workflow: just go back.
-      router.push(workspaceFromUrl ? `/app/workspaces/${workspaceFromUrl}` : "/app/workflows");
+      router.push(workspaceFromUrl ? `/app/workspaces/${workspaceFromUrl}` : "/admin/workflows");
       return;
     }
     if (!confirm(`Delete workflow "${workflowName}"? This cannot be undone.`))
       return;
     try {
       unwrap(await userApi.workflows.remove({ params: { id: storeId } }));
-      router.push(workspaceFromUrl ? `/app/workspaces/${workspaceFromUrl}` : "/app/workflows");
+      router.push(workspaceFromUrl ? `/app/workspaces/${workspaceFromUrl}` : "/admin/workflows");
     } catch (err) {
       console.error("Failed to delete workflow:", err);
       alert("Failed to delete workflow");
@@ -218,7 +218,7 @@ export default function WorkflowEditPage() {
 
   useBreadcrumbs(
     [
-      { label: "Workflows", href: "/app/workflows" },
+      { label: "Workflows", href: "/admin/workflows" },
       { label: workflowName || "New workflow" },
     ],
     [workflowName]

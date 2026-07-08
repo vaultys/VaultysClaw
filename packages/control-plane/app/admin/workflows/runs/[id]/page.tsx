@@ -196,12 +196,12 @@ export default function WorkflowRunDetailPage() {
 
   useBreadcrumbs(
     [
-      { label: "Workflows", href: "/app/workflows" },
+      { label: "Workflows", href: "/admin/workflows" },
       ...(runWorkflowId
         ? [
             {
               label: runWorkflowName ?? "Workflow",
-              href: `/app/workflows/${runWorkflowId}`,
+              href: `/admin/workflows/${runWorkflowId}`,
             },
           ]
         : []),
@@ -233,7 +233,7 @@ export default function WorkflowRunDetailPage() {
                 label: "View workflow",
                 variant: "primary" as const,
                 icon: <GitBranch className="w-3.5 h-3.5" />,
-                onClick: () => router.push(`/app/workflows/${runWorkflowId}`),
+                onClick: () => router.push(`/admin/workflows/${runWorkflowId}`),
               },
             ]
           : []),
@@ -255,7 +255,7 @@ export default function WorkflowRunDetailPage() {
       <div className="min-h-screen bg-background p-6">
         <div className="max-w-4xl mx-auto">
           <Link
-            href="/app/workflows"
+            href="/admin/workflows"
             className="inline-flex items-center gap-2 text-primary-500 hover:text-primary-400 mb-6"
           >
             <ChevronLeft size={18} /> Back to Workflows
@@ -266,7 +266,7 @@ export default function WorkflowRunDetailPage() {
               {error || "Workflow run not found"}
             </p>
             <Link
-              href="/app/workflows"
+              href="/admin/workflows"
               className="text-primary-500 hover:text-primary-400"
             >
               Return to workflows

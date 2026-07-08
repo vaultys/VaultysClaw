@@ -275,7 +275,7 @@ function WorkflowDetail({
         <button
           onClick={() => {
             onClose();
-            router.push(`/app/workflows/${run.workflowId}`);
+            router.push(`/admin/workflows/${run.workflowId}`);
           }}
           className="flex items-center gap-1.5 text-[11px] text-primary-600 hover:text-primary-700 font-medium transition-colors"
         >

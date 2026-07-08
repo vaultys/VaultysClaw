@@ -134,7 +134,7 @@ export default function WorkflowDetailPage() {
 
   useEffect(() => {
     if (workflowId === "new") {
-      router.replace("/app/workflows/new/edit");
+      router.replace("/admin/workflows/new/edit");
       return;
     }
     if (workflowId) {
@@ -292,7 +292,7 @@ export default function WorkflowDetailPage() {
 
   useBreadcrumbs(
     [
-      { label: "Workflows", href: "/app/workflows" },
+      { label: "Workflows", href: "/admin/workflows" },
       { label: workflow?.name ?? "Workflow" },
     ],
     [workflow?.name]
@@ -320,7 +320,7 @@ export default function WorkflowDetailPage() {
           icon: <Edit2 className="w-3.5 h-3.5" />,
           disabled: !workflow,
           onClick: () =>
-            workflow && router.push(`/app/workflows/${workflow.id}/edit`),
+            workflow && router.push(`/admin/workflows/${workflow.id}/edit`),
         },
       ],
     },
@@ -340,7 +340,7 @@ export default function WorkflowDetailPage() {
       <div className="min-h-screen bg-background p-6">
         <div className="max-w-5xl mx-auto">
           <Link
-            href="/app/workflows"
+            href="/admin/workflows"
             className="inline-flex items-center gap-2 text-primary-500 hover:text-primary-400 mb-6"
           >
             <ChevronLeft size={18} /> Back to Workflows
@@ -351,7 +351,7 @@ export default function WorkflowDetailPage() {
               {error ?? "Workflow not found"}
             </p>
             <Link
-              href="/app/workflows"
+              href="/admin/workflows"
               className="text-primary-500 hover:text-primary-400"
             >
               Return to workflows
@@ -464,7 +464,7 @@ export default function WorkflowDetailPage() {
               </div>
               <div className="flex items-center gap-2">
                 <Link
-                  href={`/app/workflows/runs/${selectedRunId}`}
+                  href={`/admin/workflows/runs/${selectedRunId}`}
                   className="text-xs text-primary-500 hover:text-primary-400 font-medium"
                 >
                   Open full page

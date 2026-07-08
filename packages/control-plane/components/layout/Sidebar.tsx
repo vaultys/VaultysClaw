@@ -73,7 +73,7 @@ const SECTIONS: NavSection[] = [
     items: [
       { href: "/", icon: LayoutDashboard, label: "Dashboard", exact: true },
       { href: "/app/my-agents", icon: Bot, label: "My Agents", exact: false },
-      { href: "/app/workflows", icon: Workflow, label: "Workflows", exact: false },
+      { href: "/app/workflows", icon: Workflow, label: "My Workflows", exact: false },
       { href: "/app/workspaces", icon: Globe2, label: "Workspaces", exact: false },
       { href: "/app/inbox", icon: Inbox, label: "Inbox", exact: false },
     ],
@@ -86,6 +86,7 @@ const SECTIONS: NavSection[] = [
     items: [
       { href: "/admin/mission-control", icon: SatelliteDish, label: "Mission Control", exact: true },
       { href: "/admin/agents", icon: Bot, label: "Agents", exact: false },
+      { href: "/admin/workflows", icon: Workflow, label: "Workflows", exact: false },
       { href: "/admin/models", icon: Cpu, label: "Models", exact: false },
       { href: "/admin/knowledge", icon: BookOpen, label: "Knowledge", exact: false },
       { href: "/admin/skills", icon: Puzzle, label: "Skills", exact: false },

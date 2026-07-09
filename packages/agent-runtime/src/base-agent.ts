@@ -56,6 +56,7 @@ type ChatErrorCode = "llm_unavailable" | "llm_error" | "agent_offline";
 import { type AgentRuntimeConfig } from "./config.js";
 import { PeerManager } from "./peer-manager.js";
 import { verifyIntentMessage } from "./intent-verify.js";
+import { PolicyEnforcer, resolveEffectiveAction } from "@vaultysclaw/policy";
 
 const Buffer = crypto.Buffer;
 
@@ -165,8 +166,13 @@ export abstract class BaseAgentRuntime extends EventEmitter {
   protected policyId: string | null = null;
   protected policyExpiresAt: string | null = null;
 
-  /** Rolling hourly request counter for maxRequestsPerHour enforcement. */
-  protected _requestsThisHour = { count: 0, hourStart: 0 };
+  /**
+   * Runtime policy gates (capability, expiry, daily token budget, hourly rate).
+   * Owns the rolling hourly counter; reads today's token usage from this agent.
+   */
+  protected policyEnforcer = new PolicyEnforcer({
+    getDailyTokenUsage: () => this.getDailyTokenUsageForBudget(),
+  });
 
   constructor(config: AgentRuntimeConfig) {
     super();
@@ -1070,60 +1076,18 @@ export abstract class BaseAgentRuntime extends EventEmitter {
       try {
         this.log("info", `Intent received: ${action} (${messageId})`);
 
-        // "agent" is the legacy name for "agent_communication"
-        const effectiveAction =
-          action === "agent" ? "agent_communication" : action;
-        if (!this.capabilities.includes(effectiveAction as AgentCapability)) {
-          throw new Error(`Capability '${action}' not granted`);
-        }
-
         // ---- Policy enforcement ----
-
-        // 1. Reject if the governing policy has expired
-        if (this.policyExpiresAt) {
-          const expiry = new Date(this.policyExpiresAt).getTime();
-          if (!isNaN(expiry) && Date.now() > expiry) {
-            throw new Error(
-              `Policy '${this.policyId ?? "unknown"}' has expired — action blocked`
-            );
-          }
-        }
-
-        // 2. Reject if the daily token budget is exhausted
-        if (this.resourceLimits?.maxTokensPerDay != null) {
-          const daily = this.getDailyTokenUsageForBudget();
-          const usedToday =
-            (daily?.promptTokens ?? 0) + (daily?.completionTokens ?? 0);
-          if (usedToday >= this.resourceLimits.maxTokensPerDay) {
-            throw new Error(
-              `Daily token budget exhausted (used ${usedToday} / limit ${this.resourceLimits.maxTokensPerDay})`
-            );
-          }
-        }
-
-        // 3. Reject if the hourly request rate is exceeded
-        if (this.resourceLimits?.maxRequestsPerHour != null) {
-          const now = Date.now();
-          const hourMs = 60 * 60 * 1000;
-          if (now - this._requestsThisHour.hourStart > hourMs) {
-            // Roll over to a fresh window
-            this._requestsThisHour = { count: 0, hourStart: now };
-          }
-          if (
-            this._requestsThisHour.count >=
-            this.resourceLimits.maxRequestsPerHour
-          ) {
-            const resetIn = Math.ceil(
-              (this._requestsThisHour.hourStart + hourMs - now) / 1000
-            );
-            throw new Error(
-              `Hourly request limit reached (${this.resourceLimits.maxRequestsPerHour} req/h) — resets in ${resetIn}s`
-            );
-          }
-          this._requestsThisHour.count++;
-        }
+        // Capability, policy expiry, daily token budget, and hourly request
+        // rate are all gated by the policy engine.
+        this.policyEnforcer.enforce(action, {
+          capabilities: this.capabilities,
+          resourceLimits: this.resourceLimits,
+          policyId: this.policyId,
+          policyExpiresAt: this.policyExpiresAt,
+        });
 
         if (userDid) {
+          const effectiveAction = resolveEffectiveAction(action);
           const ok = await this.verifyUserDelegation(
             userDid,
             effectiveAction

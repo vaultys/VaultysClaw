@@ -9,28 +9,16 @@ export interface VaultysIdentity {
 }
 
 /**
- * Agent capability/permission grant
+ * Agent capability/permission grant and cert-embedded resource limits.
+ *
+ * These types are owned by `@vaultysclaw/policy` (the policy engine). They are
+ * re-exported here so existing `@vaultysclaw/shared` imports keep working.
  */
-export type AgentCapability =
-  | "file_access"
-  | "internet_access"
-  | "browser_control"
-  | "api_call"
-  | "mail_send"
-  | "code_execution"
-  | "system_command"
-  | "agent_communication"
-  | "knowledge_search";
+export type { AgentCapability, ResourceLimits } from "@vaultysclaw/policy";
 
-/**
- * Runtime constraints embedded in the agent certificate alongside capabilities.
- * All fields are optional — omitting a field means no limit for that dimension.
- */
-export interface ResourceLimits {
-  maxTokensPerDay?: number;
-  maxRequestsPerHour?: number;
-  allowedDomains?: string[];
-}
+// Local alias so the interfaces defined below in this module can reference the
+// re-exported type without a self-referential `import type` at each use site.
+import type { AgentCapability, ResourceLimits } from "@vaultysclaw/policy";
 
 /**
  * Policy that defines what an agent controller can do.

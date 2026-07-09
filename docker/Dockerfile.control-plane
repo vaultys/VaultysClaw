@@ -11,23 +11,28 @@ RUN npm install -g pnpm@10 node-pre-gyp --quiet
 # Copy only the manifests we need (shared + control-plane) to keep layer cache tight.
 # The workspace root manifest is needed for pnpm to recognise the monorepo layout.
 COPY package.json pnpm-workspace.yaml ./
+COPY packages/policy/package.json         packages/policy/
 COPY packages/shared/package.json         packages/shared/
 COPY packages/control-plane/package.json  packages/control-plane/
 # Stub the other workspace packages so pnpm workspace resolution doesn't fail
-RUN mkdir -p packages/agent-controller && echo '{"name":"@vaultysclaw/agent-controller","version":"0.0.1"}' > packages/agent-controller/package.json
+RUN mkdir -p packages/agent-controller && echo '{"name":"@vaultysclaw/agent-controller","version":"0.0.1"}' > packages/agent-controller/package.json \
+ && mkdir -p packages/agent-runtime    && echo '{"name":"@vaultysclaw/agent-runtime","version":"0.0.1"}'    > packages/agent-runtime/package.json
 
 # Copy Prisma schema before install so postinstall (prisma generate) can find it
 COPY packages/control-plane/prisma/ packages/control-plane/prisma/
 
-# Install only the packages needed for shared + control-plane
-RUN pnpm install --filter @vaultysclaw/shared --filter @vaultysclaw/control-plane
+# Install only the packages needed for policy + shared + control-plane
+RUN pnpm install --filter @vaultysclaw/policy --filter @vaultysclaw/shared --filter @vaultysclaw/control-plane
 
 # Copy source
+COPY scripts/                scripts/
+COPY packages/policy/        packages/policy/
 COPY packages/shared/        packages/shared/
 COPY packages/control-plane/ packages/control-plane/
 
-# Build the shared package so control-plane can import its types
-RUN pnpm --filter @vaultysclaw/shared build
+# Build workspace deps (policy before shared) so control-plane can import their dist
+RUN pnpm --filter @vaultysclaw/policy build \
+ && pnpm --filter @vaultysclaw/shared build
 
 WORKDIR /app/packages/control-plane
 

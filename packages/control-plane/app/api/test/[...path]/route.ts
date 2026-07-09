@@ -280,8 +280,27 @@ export const POST = withError(async (req: NextRequest, ctx: RouteContext) => {
         config: { ...rest_, apiKeySet: true },
       });
     }
+    // Direct config: { provider, model, baseUrl?, apiKey? } — bypasses the
+    // realm/LiteLLM routing shortcut above.
+    if (typeof body.provider === "string" && typeof body.model === "string") {
+      const config: LlmConfig = {
+        provider: body.provider as LlmConfig["provider"],
+        model: body.model as string,
+        ...(typeof body.baseUrl === "string" ? { baseUrl: body.baseUrl } : {}),
+        ...(typeof body.apiKey === "string" ? { apiKey: body.apiKey } : {}),
+      };
+      await AgentDAO.setLlmConfig(agentDid, config);
+      const wsServer = getWSServer();
+      const pushed = wsServer?.sendLlmConfig(agentDid, config) ?? false;
+      const { apiKey: _k2, ...rest2 } = config;
+      return NextResponse.json({
+        ok: true,
+        pushed,
+        config: { ...rest2, apiKeySet: Boolean(_k2) },
+      });
+    }
     return NextResponse.json(
-      { error: "workspaceId and workspaceModelId required" },
+      { error: "workspaceId and workspaceModelId (or provider and model) required" },
       { status: 400 }
     );
   }
@@ -412,9 +431,11 @@ export const POST = withError(async (req: NextRequest, ctx: RouteContext) => {
 
   if (resource === "chat") {
     const body = await req.json().catch(() => ({}));
-    const { agentId, messages } = body as {
+    const { agentId, messages, stream, thinking } = body as {
       agentId?: string;
       messages?: Array<{ role: string; content: string }>;
+      stream?: boolean;
+      thinking?: boolean;
     };
 
     if (!agentId || !Array.isArray(messages) || messages.length === 0) {
@@ -456,7 +477,7 @@ export const POST = withError(async (req: NextRequest, ctx: RouteContext) => {
         if (payload.chunk) {
           writer.write(
             encoder.encode(
-              `data: ${JSON.stringify({ text: payload.chunk })}\n\n`
+              `data: ${JSON.stringify({ text: payload.chunk, thinking: payload.thinking ?? false })}\n\n`
             )
           );
         }
@@ -464,7 +485,9 @@ export const POST = withError(async (req: NextRequest, ctx: RouteContext) => {
           writer.write(encoder.encode("data: [DONE]\n\n"));
           writer.close().catch(() => {});
         }
-      }
+      },
+      undefined,
+      { stream: stream === true, thinking: thinking === true }
     );
 
     if (!sent) {
@@ -474,14 +497,14 @@ export const POST = withError(async (req: NextRequest, ctx: RouteContext) => {
       );
     }
 
-    // Timeout safety
+    // Timeout safety — generous enough for local reasoning models
     const timeout = setTimeout(() => {
       writer.write(
         encoder.encode(`data: ${JSON.stringify({ error: "timeout" })}\n\n`)
       );
       writer.write(encoder.encode("data: [DONE]\n\n"));
       writer.close().catch(() => {});
-    }, 30_000);
+    }, 120_000);
     writer.closed
       .then(() => clearTimeout(timeout))
       .catch(() => clearTimeout(timeout));

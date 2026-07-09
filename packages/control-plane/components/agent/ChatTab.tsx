@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import ReactMarkdown from "react-markdown";
-import { Bot, Send, Trash2, Loader2 } from "lucide-react";
+import { Bot, Send, Trash2, Loader2, Zap, Brain } from "lucide-react";
 import type { ChatMessageEntry, ChatSession } from "@vaultysclaw/shared";
 import {
   userApi,
@@ -32,14 +32,57 @@ export function ChatTab({
   const [pendingApprovals, setPendingApprovals] = useState<PendingApproval[]>(
     []
   );
+  // Token-by-token streaming toggle, persisted across sessions.
+  const [streamingEnabled, setStreamingEnabled] = useState(true);
+  // Show/hide the model's reasoning blocks, persisted across sessions.
+  const [showThinking, setShowThinking] = useState(true);
   const abortRef = useRef<AbortController | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  // Whether the view is pinned to the bottom. When the user scrolls up during
+  // a stream we stop auto-scrolling so they can read earlier messages.
+  const pinnedToBottomRef = useRef(true);
+
+  const handleScroll = useCallback(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const distanceFromBottom =
+      el.scrollHeight - el.scrollTop - el.clientHeight;
+    pinnedToBottomRef.current = distanceFromBottom < 80;
+  }, []);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const stored = localStorage.getItem("vc.chat.streaming");
+    if (stored !== null) setStreamingEnabled(stored === "true");
+    const storedThinking = localStorage.getItem("vc.chat.showThinking");
+    if (storedThinking !== null) setShowThinking(storedThinking === "true");
+  }, []);
+
+  const toggleStreaming = useCallback(() => {
+    setStreamingEnabled((prev) => {
+      const next = !prev;
+      localStorage.setItem("vc.chat.streaming", String(next));
+      return next;
+    });
+  }, []);
+
+  const toggleThinking = useCallback(() => {
+    setShowThinking((prev) => {
+      const next = !prev;
+      localStorage.setItem("vc.chat.showThinking", String(next));
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!pinnedToBottomRef.current) return;
+    // Instant (not smooth) so rapid streaming updates keep us reliably at the
+    // bottom without the scroll animation racing the next token.
+    messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
   }, [messages]);
 
   useEffect(() => {
+    pinnedToBottomRef.current = true;
     setMessages([]);
     setActiveSessionId(null);
     setSessions([]);
@@ -59,6 +102,7 @@ export function ChatTab({
 
   const loadSession = useCallback(
     async (sessionId: string) => {
+      pinnedToBottomRef.current = true;
       try {
         const { messages } = unwrap(
           await userApi.agents.getSessionMessages({
@@ -71,6 +115,7 @@ export function ChatTab({
             .map((m) => ({
               role: m.role as "user" | "assistant",
               content: m.content,
+              ...(m.thinking ? { thinkingContent: m.thinking } : {}),
             }))
         );
         setActiveSessionId(sessionId);
@@ -88,6 +133,8 @@ export function ChatTab({
 
       const userMsg: ChatMessageEntry = { role: "user", content: text.trim() };
       const updatedMessages = [...messages, userMsg];
+      // Sending always re-pins to the bottom so the user's own message shows.
+      pinnedToBottomRef.current = true;
       setMessages(updatedMessages);
       setInput("");
       setError(null);
@@ -106,6 +153,8 @@ export function ChatTab({
             body: JSON.stringify({
               messages: updatedMessages,
               sessionId: activeSessionId ?? undefined,
+              stream: streamingEnabled,
+              thinking: showThinking,
             }),
             signal: controller.signal,
           }
@@ -215,11 +264,21 @@ export function ChatTab({
         fetchSessions().catch(() => {});
       }
     },
-    [messages, agentId, activeSessionId, isStreaming, online, fetchSessions]
+    [
+      messages,
+      agentId,
+      activeSessionId,
+      isStreaming,
+      online,
+      fetchSessions,
+      streamingEnabled,
+      showThinking,
+    ]
   );
 
   const startNew = () => {
     abortRef.current?.abort();
+    pinnedToBottomRef.current = true;
     setMessages([]);
     setError(null);
     setErrorCode(null);
@@ -298,19 +357,60 @@ export function ChatTab({
               </span>
             )}
           </p>
-          {messages.length > 0 && (
+          <div className="flex items-center gap-3">
             <button
-              onClick={startNew}
-              className="flex items-center gap-1.5 text-xs text-foreground-500 hover:text-danger-400 transition-colors"
+              onClick={toggleStreaming}
+              title={
+                streamingEnabled
+                  ? "Token-by-token streaming on — click to disable"
+                  : "Token-by-token streaming off — click to enable"
+              }
+              className={`flex items-center gap-1.5 text-xs transition-colors ${
+                streamingEnabled
+                  ? "text-primary-400 hover:text-primary-300"
+                  : "text-foreground-500 hover:text-foreground"
+              }`}
             >
-              <Trash2 size={13} />
-              Clear
+              <Zap
+                size={13}
+                fill={streamingEnabled ? "currentColor" : "none"}
+              />
+              Streaming
             </button>
-          )}
+            <button
+              onClick={toggleThinking}
+              title={
+                showThinking
+                  ? "Reasoning shown — click to hide"
+                  : "Reasoning hidden — click to show"
+              }
+              className={`flex items-center gap-1.5 text-xs transition-colors ${
+                showThinking
+                  ? "text-primary-400 hover:text-primary-300"
+                  : "text-foreground-500 hover:text-foreground"
+              }`}
+            >
+              <Brain size={13} fill={showThinking ? "currentColor" : "none"} />
+              Thinking
+            </button>
+            {messages.length > 0 && (
+              <button
+                onClick={startNew}
+                className="flex items-center gap-1.5 text-xs text-foreground-500 hover:text-danger-400 transition-colors"
+              >
+                <Trash2 size={13} />
+                Clear
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto space-y-3 p-3">
+        <div
+          ref={scrollContainerRef}
+          onScroll={handleScroll}
+          className="flex-1 overflow-y-auto space-y-3 p-3"
+        >
           {messages.length === 0 && !isStreaming && (
             <div className="flex flex-col items-center justify-center h-full gap-2 text-foreground-500">
               <Bot size={36} strokeWidth={1} />
@@ -332,7 +432,7 @@ export function ChatTab({
                     : "bg-background-200 border border-neutral-200 text-foreground rounded-bl-sm prose-headings:text-foreground prose-p:m-0 prose-ul:m-0 prose-ol:m-0 prose-li:m-0 prose-code:text-foreground prose-code:bg-background prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-background prose-pre:border prose-pre:border-neutral-200 prose-pre:text-foreground"
                 }`}
               >
-                {msg.role === "assistant" && msg.thinkingContent && (
+                {msg.role === "assistant" && msg.thinkingContent && showThinking && (
                   <ThinkingBlock
                     content={msg.thinkingContent}
                     isStreaming={isStreaming && i === messages.length - 1}

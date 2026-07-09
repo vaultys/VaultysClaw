@@ -1,31 +1,28 @@
 /**
- * Intent signing utilities.
+ * Intent signing utilities (control-plane side).
  *
  * The control plane signs every intent it dispatches so the receiving agent
  * can verify it originated from the legitimate server (not a spoofed WS peer).
  *
- * Wire format (identical to delegation certs):
- *   base64( 4-byte-LE-bodyLen | msgpack(body) | raw-signature )
- *
- * Body:
- *   { type: "intent", id: string, action: string, agentId: string, timestamp: number }
+ * This module is a thin, DB-aware wrapper around the shared cert primitives in
+ * `@vaultysclaw/policy`: it resolves the server identity from the stored
+ * `serverSecret` and delegates the actual signing/verification to the engine.
  */
 
-import { VaultysId, crypto } from "@vaultys/id";
-import { encode as msgpackEncode } from "@msgpack/msgpack";
+import { VaultysId } from "@vaultys/id";
 import { SettingsDAO } from "@/db";
 import pino from "pino";
+import {
+  signIntentCert,
+  verifyIntentCert,
+  type IntentCertBody,
+  type IntentCertExpectation,
+} from "@vaultysclaw/policy";
 
 const logger = pino();
-const Buf = crypto.Buffer;
 
-export interface IntentSigningBody {
-  type: "intent";
-  id: string;
-  action: string;
-  agentId: string;
-  timestamp: number;
-}
+/** @deprecated Prefer importing `IntentCertBody` from `@vaultysclaw/policy`. */
+export type IntentSigningBody = IntentCertBody;
 
 /**
  * Sign an intent dispatch with the server's VaultysId.
@@ -42,24 +39,37 @@ export async function signIntent(
     if (!serverSecret) return null;
 
     const vid = VaultysId.fromSecret(serverSecret, "base64");
-
-    const body: IntentSigningBody = {
-      type: "intent",
-      id: intentId,
-      action,
-      agentId,
-      timestamp: Date.now(),
-    };
-
-    const bodyBuf = Buf.from(msgpackEncode(body));
-    const signature = await vid.signChallenge(bodyBuf);
-
-    const lenBuf = Buf.allocUnsafe(4);
-    lenBuf.writeUInt32LE(bodyBuf.length, 0);
-    const combined = Buf.concat([lenBuf, bodyBuf, Buf.from(signature)]);
-    return combined.toString("base64");
+    return await signIntentCert(vid, { id: intentId, action, agentId });
   } catch (err) {
     logger.warn({ err }, "Failed to sign intent (non-fatal)");
     return null;
+  }
+}
+
+/**
+ * Verify a base64 audit signature produced by {@link signIntent} against the
+ * server's own VaultysId (re-derived from the stored `serverSecret`).
+ *
+ * Used by `GET /api/intents` to prove each audit record is non-repudiable.
+ * Optionally cross-checks the signed body against the expected intent id /
+ * action / agent so a signature lifted from another record can't be replayed.
+ *
+ * Returns `true` only if the signature is valid and (when provided) the body
+ * matches; `false` on any decode/verify failure or missing server identity.
+ */
+export async function verifyIntentSignature(
+  signature: string | null | undefined,
+  expected?: IntentCertExpectation
+): Promise<boolean> {
+  if (!signature) return false;
+  try {
+    const serverSecret = await SettingsDAO.get("serverSecret");
+    if (!serverSecret) return false;
+    const vid = VaultysId.fromSecret(serverSecret, "base64");
+
+    return verifyIntentCert(vid, signature, expected) !== null;
+  } catch (err) {
+    logger.warn({ err }, "Failed to verify intent signature");
+    return false;
   }
 }

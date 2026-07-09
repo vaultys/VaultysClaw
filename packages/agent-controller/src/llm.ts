@@ -5,6 +5,7 @@
 import { Agent } from "@mastra/core/agent";
 import { createOllama } from "ollama-ai-provider-v2";
 import { createOpenAI } from "@ai-sdk/openai";
+import { createAnthropic } from "@ai-sdk/anthropic";
 import type { LlmConfig } from "@vaultysclaw/shared";
 import type { MastraTool } from "./tools/types";
 import pino from "pino";
@@ -32,6 +33,108 @@ export class LlmProviderError extends Error {
 }
 
 /**
+ * Some OpenAI-compatible servers (LM Studio, DeepSeek, vLLM with a reasoning
+ * parser) return the model's reasoning in a separate `reasoning_content`
+ * field on stream deltas instead of inline <think> tags. The AI SDK's OpenAI
+ * provider doesn't know that field and silently drops it. Rewrite the SSE
+ * stream to re-inline it as <think>…</think> inside `content`, so the
+ * downstream think-tag splitter tags it as reasoning like any other local
+ * model. Non-SSE (JSON) responses are passed through untouched — intents and
+ * summarization read `message.content`, which already excludes reasoning.
+ */
+export function inlineReasoningContent(res: Response): Response {
+  const contentType = res.headers.get("content-type") ?? "";
+  if (!res.ok || !res.body || !contentType.includes("text/event-stream")) {
+    return res;
+  }
+
+  const decoder = new TextDecoder();
+  const encoder = new TextEncoder();
+  let buffer = "";
+  let inReasoning = false;
+  // Kept from the last data chunk so a synthetic closing chunk can be emitted
+  // if the stream ends while still inside a reasoning block.
+  let chunkSkeleton: Record<string, unknown> | null = null;
+
+  const processLine = (line: string): string[] => {
+    if (!line.startsWith("data: ")) return [line];
+    const data = line.slice(6).trim();
+    if (data === "[DONE]") {
+      if (inReasoning && chunkSkeleton) {
+        inReasoning = false;
+        const closing = {
+          ...chunkSkeleton,
+          choices: [
+            { index: 0, delta: { content: "</think>" }, finish_reason: null },
+          ],
+        };
+        return [`data: ${JSON.stringify(closing)}`, "", line];
+      }
+      return [line];
+    }
+    try {
+      const parsed = JSON.parse(data);
+      const choice = parsed?.choices?.[0];
+      if (!choice?.delta) return [line];
+      const { choices: _c, ...skeleton } = parsed;
+      chunkSkeleton = skeleton;
+      const delta = choice.delta as Record<string, unknown>;
+      const reasoning =
+        typeof delta.reasoning_content === "string" && delta.reasoning_content
+          ? delta.reasoning_content
+          : undefined;
+      const content =
+        typeof delta.content === "string" && delta.content
+          ? delta.content
+          : undefined;
+      if (reasoning !== undefined) {
+        delta.content = (inReasoning ? "" : "<think>") + reasoning;
+        delete delta.reasoning_content;
+        inReasoning = true;
+        return [`data: ${JSON.stringify(parsed)}`];
+      }
+      if (inReasoning && (content !== undefined || choice.finish_reason)) {
+        delta.content = "</think>" + (content ?? "");
+        inReasoning = false;
+        return [`data: ${JSON.stringify(parsed)}`];
+      }
+      return [line];
+    } catch {
+      return [line];
+    }
+  };
+
+  const transform = new TransformStream<Uint8Array, Uint8Array>({
+    transform(chunk, controller) {
+      buffer += decoder.decode(chunk, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+      for (const line of lines) {
+        for (const out of processLine(line)) {
+          controller.enqueue(encoder.encode(out + "\n"));
+        }
+      }
+    },
+    flush(controller) {
+      if (buffer) {
+        for (const out of processLine(buffer)) {
+          controller.enqueue(encoder.encode(out + "\n"));
+        }
+      }
+    },
+  });
+
+  const headers = new Headers(res.headers);
+  headers.delete("content-length");
+  headers.delete("content-encoding");
+  return new Response(res.body.pipeThrough(transform), {
+    status: res.status,
+    statusText: res.statusText,
+    headers,
+  });
+}
+
+/**
  * Build a Mastra-compatible model specifier from an LlmConfig.
  * Returns a string "provider/model" for cloud providers, or an AI SDK model
  * instance for Ollama and OpenAI-compatible endpoints.
@@ -45,7 +148,12 @@ export function buildModel(config: LlmConfig): any {
         : `openai/${config.model}`;
 
     case "anthropic":
-      return `anthropic/${config.model}`;
+      return config.apiKey
+        ? createAnthropic({
+            apiKey: config.apiKey,
+            ...(config.baseUrl ? { baseURL: config.baseUrl } : {}),
+          }).chat(config.model)
+        : `anthropic/${config.model}`;
 
     case "google":
       return `google/${config.model}`;
@@ -78,21 +186,57 @@ export function buildModel(config: LlmConfig): any {
         // Some servers (e.g. Ollama) reject messages with null content.
         // Patch outgoing requests to replace null content with "".
         fetch: async (url, init) => {
+          let request = init as RequestInit;
           if (init?.body && typeof init.body === "string") {
             try {
               const body = JSON.parse(init.body);
+              let changed = false;
               if (Array.isArray(body.messages)) {
                 body.messages = body.messages.map(
                   (msg: Record<string, unknown>) =>
                     msg.content == null ? { ...msg, content: "" } : msg
                 );
-                return fetch(url, { ...init, body: JSON.stringify(body) });
+                changed = true;
+              }
+              // Some LiteLLM model registrations don't carry the metadata
+              // needed to auto-translate `reasoning_effort` into the
+              // backend's native thinking param (and drop_params silently
+              // strips it if unrecognized). Send the Anthropic-shaped
+              // `thinking` field directly as a documented passthrough — it
+              // is a no-op for non-Anthropic backends.
+              if (body.reasoning_effort && !body.thinking) {
+                body.thinking = { type: "enabled", budget_tokens: 2048 };
+                changed = true;
+              }
+              // Qwen3 hybrid models reason by default. When reasoning was
+              // NOT requested, turn it off with the model's documented soft
+              // switch (a "/no_think" directive in the latest user message).
+              // Skip -instruct/-thinking variants, which are not hybrid.
+              if (
+                !body.reasoning_effort &&
+                /qwen3(?!.*(instruct|thinking))/i.test(String(body.model)) &&
+                Array.isArray(body.messages)
+              ) {
+                for (let i = body.messages.length - 1; i >= 0; i--) {
+                  const msg = body.messages[i] as Record<string, unknown>;
+                  if (msg.role === "user" && typeof msg.content === "string") {
+                    body.messages[i] = {
+                      ...msg,
+                      content: `${msg.content} /no_think`,
+                    };
+                    changed = true;
+                    break;
+                  }
+                }
+              }
+              if (changed) {
+                request = { ...init, body: JSON.stringify(body) };
               }
             } catch {
               /* fall through */
             }
           }
-          return fetch(url, init as RequestInit);
+          return inlineReasoningContent(await fetch(url, request));
         },
       });
       return client.chat(config.model);
@@ -101,6 +245,33 @@ export function buildModel(config: LlmConfig): any {
     default: {
       throw new Error(`Unknown LLM provider: ${(config as any).provider}`);
     }
+  }
+}
+
+/**
+ * Build provider-specific reasoning/thinking options for a model that supports
+ * it. The AI SDK forwards `providerOptions[provider]` as extra request fields,
+ * so models without reasoning support simply ignore these.
+ */
+function buildReasoningProviderOptions(
+  config: LlmConfig
+): Record<string, Record<string, unknown>> | undefined {
+  switch (config.provider) {
+    case "anthropic":
+      return {
+        anthropic: { thinking: { type: "adaptive" } },
+      };
+    case "google":
+      return {
+        google: { thinkingConfig: { includeThoughts: true } },
+      };
+    case "openai":
+      return { openai: { reasoningEffort: "medium" } };
+    case "openai-compatible":
+      // LiteLLM-style passthrough: many gateways accept `reasoning_effort`.
+      return { openai: { reasoningEffort: "medium" } };
+    default:
+      return undefined;
   }
 }
 
@@ -273,9 +444,11 @@ export function streamChat(
   tools?: Record<string, MastraTool>,
   onStepFinish?: (event: StepFinishEvent) => void | Promise<void>,
   memoryContext?: string,
-  skillExtensions?: string[]
+  skillExtensions?: string[],
+  opts?: { thinking?: boolean }
 ): {
   textStream: AsyncIterable<string>;
+  chunkStream: AsyncIterable<{ text: string; thinking: boolean }>;
   usage: Promise<{ promptTokens: number; completionTokens: number }>;
 } {
   const model = buildModel(config);
@@ -304,8 +477,23 @@ export function streamChat(
     ...(hasTools ? { tools: tools as Record<string, MastraTool> } : {}),
   });
 
-  // Accumulate token usage from all steps
-  let totalPromptTokens = 0;
+  // When reasoning is requested, forward a provider-appropriate "thinking"
+  // setting. Only models that support reasoning will act on it; others ignore it.
+  const reasoningProviderOptions = opts?.thinking
+    ? buildReasoningProviderOptions(config)
+    : undefined;
+  if (opts?.thinking) {
+    logger.info(
+      { provider: config.provider, model: config.model },
+      "Reasoning requested for chat stream"
+    );
+  }
+
+  // Track token usage across all steps.
+  // Prompt tokens are NOT additive: each step re-sends the full context, so
+  // we take the max (= largest context window used). Completion tokens ARE
+  // additive since each step generates new output.
+  let maxPromptTokens = 0;
   let totalCompletionTokens = 0;
 
   // Track when stream is fully consumed so we know tokens are accumulated
@@ -317,9 +505,15 @@ export function streamChat(
 
   const streamPromise = agent.stream(messages as any, {
     maxSteps: 10,
-    modelSettings: config.maxTokens
-      ? { maxOutputTokens: config.maxTokens }
-      : undefined,
+    modelSettings:
+      config.maxTokens || reasoningProviderOptions
+        ? {
+            ...(config.maxTokens ? { maxOutputTokens: config.maxTokens } : {}),
+            ...(reasoningProviderOptions
+              ? { providerOptions: reasoningProviderOptions }
+              : {}),
+          }
+        : undefined,
     ...(onStepFinish
       ? {
           onStepFinish: async (step: any) => {
@@ -334,7 +528,7 @@ export function streamChat(
                 "Step tokens captured"
               );
             }
-            totalPromptTokens += promptTokens;
+            if (promptTokens > maxPromptTokens) maxPromptTokens = promptTokens;
             totalCompletionTokens += completionTokens;
 
             const event: StepFinishEvent = {
@@ -387,13 +581,65 @@ export function streamChat(
         };
       },
     },
+    // Yields both text and reasoning content, tagged, sourced from Mastra's
+    // fullStream ('text-delta' / 'reasoning-delta' chunks) — this is how
+    // Anthropic's structured `thinking` blocks actually surface, as opposed
+    // to inline <think> tags (which some local models emit in plain text).
+    chunkStream: {
+      [Symbol.asyncIterator]() {
+        let innerIter: AsyncIterator<any> | null = null;
+        return {
+          async next(): Promise<
+            IteratorResult<{ text: string; thinking: boolean }>
+          > {
+            for (;;) {
+              if (!innerIter) {
+                const streamResult = await streamPromise;
+                innerIter = (
+                  streamResult.fullStream as AsyncIterable<any>
+                )[Symbol.asyncIterator]();
+              }
+              const result = await innerIter!.next();
+              if (result.done) {
+                if (!streamConsumed) {
+                  streamConsumed = true;
+                  resolveStreamDone();
+                }
+                return { done: true as const, value: undefined };
+              }
+              const chunk = result.value;
+              if (chunk?.type === "text-delta" && chunk.payload?.text) {
+                return {
+                  done: false,
+                  value: { text: chunk.payload.text, thinking: false },
+                };
+              }
+              if (chunk?.type === "reasoning-delta" && chunk.payload?.text) {
+                return {
+                  done: false,
+                  value: { text: chunk.payload.text, thinking: true },
+                };
+              }
+              // Skip other chunk types (tool calls, metadata, etc.) and keep pulling.
+            }
+          },
+          async return() {
+            if (!streamConsumed) {
+              streamConsumed = true;
+              resolveStreamDone();
+            }
+            return { done: true as const, value: undefined };
+          },
+        };
+      },
+    },
     usage: streamDonePromise.then(() => {
       logger.info(
-        { totalPromptTokens, totalCompletionTokens },
+        { maxPromptTokens, totalCompletionTokens },
         "Final token usage from stream"
       );
       return {
-        promptTokens: totalPromptTokens,
+        promptTokens: maxPromptTokens,
         completionTokens: totalCompletionTokens,
       };
     }),

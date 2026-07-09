@@ -6,7 +6,7 @@ Agent runtime: WebSocket client, LLM execution, tools, skills, memory. Connects 
 
 - **`src/agent.ts`** — `AgentController` (EventEmitter): WebSocket client, auth challenge/response, task queue, scheduler, peer manager, memory store
 - **`src/cli.ts`** — CLI entry point; modes: `headless` | `tui` (Ink terminal) | `web` (Vite SPA on port 3002)
-- **`src/llm.ts`** — LLM invocation via Mastra (@mastra/core) + @ai-sdk/openai + ollama-ai-provider-v2; supports OpenAI, Anthropic, Google, Ollama
+- **`src/llm.ts`** — LLM invocation via Mastra (@mastra/core) + @ai-sdk/openai + ollama-ai-provider-v2; supports OpenAI, Anthropic, Google, Ollama. `streamChat` accepts `{ thinking }`: when set it forwards a provider-appropriate reasoning request via `buildReasoningProviderOptions` (Anthropic `thinking`, Google `thinkingConfig`, OpenAI/openai-compatible `reasoningEffort`). Models without reasoning support ignore it.
 - **`src/tools/`** — Built-in tools: file ops, shell, code runner, HTTP requests, remote-agent calls
 - **`src/skills/`** — Plugin-based skill loading; skills auto-discovered by `src/skills/loader.ts`
 - **`src/memory/`** — Semantic memory: SQLite persistence, vector-based retrieval, LLM summarization

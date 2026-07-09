@@ -8,18 +8,26 @@ RUN npm install -g pnpm@10 --quiet
 
 # Copy only the manifests needed (shared + agent-controller).
 COPY package.json pnpm-workspace.yaml ./
+COPY packages/policy/package.json           packages/policy/
 COPY packages/shared/package.json           packages/shared/
+COPY packages/agent-runtime/package.json    packages/agent-runtime/
 COPY packages/agent-controller/package.json packages/agent-controller/
 # Stub control-plane so pnpm workspace resolution doesn't fail
 RUN mkdir -p packages/control-plane && echo '{"name":"@vaultysclaw/control-plane","version":"0.0.1"}' > packages/control-plane/package.json
 
-# Install only the packages needed for shared + agent-controller
-RUN pnpm install --filter @vaultysclaw/shared --filter @vaultysclaw/agent-controller
+# Install only the packages needed for policy + shared + agent-runtime + agent-controller
+RUN pnpm install --filter @vaultysclaw/policy --filter @vaultysclaw/shared --filter @vaultysclaw/agent-runtime --filter @vaultysclaw/agent-controller
 
+COPY scripts/                   scripts/
+COPY packages/policy/           packages/policy/
 COPY packages/shared/           packages/shared/
+COPY packages/agent-runtime/    packages/agent-runtime/
 COPY packages/agent-controller/ packages/agent-controller/
 
-RUN pnpm --filter @vaultysclaw/shared build
+# Build workspace deps (policy before shared/agent-runtime) so agent-controller can import their dist
+RUN pnpm --filter @vaultysclaw/policy build \
+ && pnpm --filter @vaultysclaw/shared build \
+ && pnpm --filter @vaultysclaw/agent-runtime build
 
 WORKDIR /app/packages/agent-controller
 

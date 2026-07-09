@@ -43,6 +43,12 @@ function validateConfig(
   ) {
     return { error: "maxTokens must be a positive number" };
   }
+  if (
+    body.disableStreamingBuffer !== undefined &&
+    typeof body.disableStreamingBuffer !== "boolean"
+  ) {
+    return { error: "disableStreamingBuffer must be a boolean" };
+  }
   return {
     config: {
       provider: body.provider as LlmProviderType,
@@ -53,6 +59,7 @@ function validateConfig(
         ? (body.systemPrompt as string).trim()
         : undefined,
       maxTokens: body.maxTokens as number | undefined,
+      disableStreamingBuffer: body.disableStreamingBuffer as boolean | undefined,
     },
   };
 }

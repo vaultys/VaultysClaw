@@ -16,6 +16,7 @@ export default defineConfig({
       // condition only applies under the tsx dev runner, not vitest. Alias them
       // to their TS source so tests run from source (CI parity with local).
       "@vaultysclaw/shared": resolve(__dirname, "packages/shared/src/index.ts"),
+      "@vaultysclaw/policy": resolve(__dirname, "packages/policy/src/index.ts"),
       "@vaultysclaw/agent-runtime": resolve(
         __dirname,
         "packages/agent-runtime/src/index.ts"
@@ -80,6 +81,8 @@ export default defineConfig({
       // Docker E2E tests require the docker stack — run with: pnpm test:docker / test:litellm
       "__tests__/docker.test.ts",
       "__tests__/litellm-docker.test.ts",
+      // Live-stack E2E tests require LM Studio + agent — run with: pnpm vitest run --config vitest.config.reasoning.mjs
+      "__tests__/reasoning-e2e.test.ts",
       // UI component tests need jsdom + React — run with: pnpm test:components
       "__tests__/ui/**",
       // Exclude worktrees (temporary development directories)

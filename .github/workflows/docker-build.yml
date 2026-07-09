@@ -1,0 +1,36 @@
+name: Docker Build
+
+# Builds the Docker images the deploy relies on, without starting or deploying
+# anything. Guards against merging PRs that would break `docker compose up --build`
+# on the deploy server (e.g. a new workspace package the Dockerfiles don't copy).
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Cancel superseded runs on the same ref to save CI minutes.
+concurrency:
+  group: docker-build-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build images
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Builds every service with a `build:` section in the deploy compose file
+      # (control-plane, prisma-studio, litellm) exactly as the deploy does,
+      # but stops at build — nothing is started.
+      - name: Build compose images
+        working-directory: docker
+        run: docker compose build
+
+      # agent-controller ships its own image but is not part of the deploy
+      # compose file, so build it explicitly to catch workspace/Dockerfile drift.
+      - name: Build agent-controller image
+        run: docker build -f docker/Dockerfile.agent-controller -t vaultysclaw-agent-controller:ci .

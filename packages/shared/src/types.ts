@@ -9,28 +9,16 @@ export interface VaultysIdentity {
 }
 
 /**
- * Agent capability/permission grant
+ * Agent capability/permission grant and cert-embedded resource limits.
+ *
+ * These types are owned by `@vaultysclaw/policy` (the policy engine). They are
+ * re-exported here so existing `@vaultysclaw/shared` imports keep working.
  */
-export type AgentCapability =
-  | "file_access"
-  | "internet_access"
-  | "browser_control"
-  | "api_call"
-  | "mail_send"
-  | "code_execution"
-  | "system_command"
-  | "agent_communication"
-  | "knowledge_search";
+export type { AgentCapability, ResourceLimits } from "@vaultysclaw/policy";
 
-/**
- * Runtime constraints embedded in the agent certificate alongside capabilities.
- * All fields are optional — omitting a field means no limit for that dimension.
- */
-export interface ResourceLimits {
-  maxTokensPerDay?: number;
-  maxRequestsPerHour?: number;
-  allowedDomains?: string[];
-}
+// Local alias so the interfaces defined below in this module can reference the
+// re-exported type without a self-referential `import type` at each use site.
+import type { AgentCapability, ResourceLimits } from "@vaultysclaw/policy";
 
 /**
  * Policy that defines what an agent controller can do.
@@ -195,6 +183,9 @@ export interface LlmConfig {
   pricePerMillionOutputTokens?: number;
   /** Embedding model override for RAG knowledge base indexing. */
   embeddingModel?: string;
+  /** Skip the text-buffer workaround for tool-call parsing. Set to true for
+   *  openai-compatible endpoints that support native function calling (e.g. LiteLLM). */
+  disableStreamingBuffer?: boolean;
 }
 
 /**
@@ -374,6 +365,18 @@ export interface ChatMessageEntry {
 export interface WSChatMessagePayload {
   conversationId: string;
   messages: ChatMessageEntry[];
+  /**
+   * When true, the agent streams the response token-by-token, bypassing the
+   * text-buffer tool-call workaround. Toggled per-conversation from the chat UI.
+   * Requires a provider with native function calling (e.g. LiteLLM / cloud).
+   */
+  stream?: boolean;
+  /**
+   * When true, ask the model to expose its reasoning. Forwarded to the provider
+   * as a reasoning/thinking request (only effective on models that support it).
+   * Toggled per-conversation from the chat UI.
+   */
+  thinking?: boolean;
 }
 
 /**
@@ -619,6 +622,8 @@ export interface ChatHistoryMessage {
   id: number;
   role: string;
   content: string;
+  /** The model's reasoning for an assistant message, when it was captured. */
+  thinking?: string;
   toolCalls?: unknown;
   createdAt: string;
 }

@@ -209,7 +209,7 @@ export interface AgentInfo extends _BaseAgentInfo {
  * of normal vs. reasoning content, handling <think>/</think> tags that
  * may span chunk boundaries.
  */
-function splitThinkContent(
+export function splitThinkContent(
   text: string,
   inThinking: boolean
 ): {
@@ -484,7 +484,8 @@ export class Agent extends BaseAgentRuntime {
       done?: boolean,
       isError?: boolean,
       errorCode?: "llm_unavailable" | "llm_error" | "agent_offline"
-    ) => void
+    ) => void,
+    opts?: { stream?: boolean; thinking?: boolean }
   ): Promise<void> {
     // Persist session + only new incoming messages (avoid duplicating history on each turn)
     const title =
@@ -599,16 +600,24 @@ export class Agent extends BaseAgentRuntime {
           }
         },
         memoryContext,
-        [...skillExtensions, ...peerHints]
+        [...skillExtensions, ...peerHints],
+        { thinking: opts?.thinking === true }
       );
 
       const chunks: string[] = [];
+      const thinkingChunks: string[] = [];
 
       const provider = this.activeLlmConfig?.provider ?? "unknown";
       const model = this.activeLlmConfig?.model ?? "unknown";
       const toolNames = new Set(Object.keys(tools));
+      // Streaming is opt-in per-conversation (toggle in the chat UI) or via the
+      // agent's LLM config flag. When on, skip the text-buffer tool-call workaround.
+      const streamingRequested =
+        opts?.stream === true ||
+        this.activeLlmConfig?.disableStreamingBuffer === true;
       const useBufferedPath =
-        provider === "ollama" || provider === "openai-compatible";
+        (provider === "ollama" || provider === "openai-compatible") &&
+        !streamingRequested;
 
       this.log(
         "info",
@@ -694,33 +703,44 @@ export class Agent extends BaseAgentRuntime {
             } satisfies WSChatResponsePayload,
             timestamp: new Date().toISOString(),
           });
-          if (!seg.thinking) chunks.push(seg.text);
+          if (seg.thinking) thinkingChunks.push(seg.text);
+          else chunks.push(seg.text);
         }
       } else {
-        // Cloud-provider path: stream chunks as they arrive.
+        // Streaming path: chunkStream already tags structured reasoning
+        // content (Mastra's text-delta/reasoning-delta events — how
+        // Anthropic and other providers with a real reasoning channel
+        // surface thinking). But some openai-compatible/ollama models
+        // (e.g. local Qwen3 reasoning models) emit <think>...</think> tags
+        // inline inside plain text-delta content instead, so run those
+        // "text" segments through splitThinkContent as well.
         let thinkBuf = "";
         let inThinking = false;
-        for await (const rawChunk of result.textStream) {
-          const {
-            segments,
-            remaining,
-            inThinking: newInThinking,
-          } = splitThinkContent(thinkBuf + rawChunk, inThinking);
-          thinkBuf = remaining;
-          inThinking = newInThinking;
-          for (const seg of segments) {
+        for await (const seg of result.chunkStream) {
+          let segments: Array<{ text: string; thinking: boolean }>;
+          if (seg.thinking) {
+            // Already-structured reasoning content — pass through as-is.
+            segments = [seg];
+          } else {
+            const split = splitThinkContent(thinkBuf + seg.text, inThinking);
+            thinkBuf = split.remaining;
+            inThinking = split.inThinking;
+            segments = split.segments;
+          }
+          for (const s of segments) {
             this.send({
               messageId: `chat-resp-${Date.now()}`,
               type: "chat_response",
               agentId: this.id,
               payload: {
                 conversationId,
-                chunk: seg.text,
-                ...(seg.thinking ? { thinking: true } : {}),
+                chunk: s.text,
+                ...(s.thinking ? { thinking: true } : {}),
               } satisfies WSChatResponsePayload,
               timestamp: new Date().toISOString(),
             });
-            if (!seg.thinking) chunks.push(seg.text);
+            if (s.thinking) thinkingChunks.push(s.text);
+            else chunks.push(s.text);
           }
         }
         // Flush any remaining buffered tag-prefix as a final chunk
@@ -736,7 +756,8 @@ export class Agent extends BaseAgentRuntime {
             } satisfies WSChatResponsePayload,
             timestamp: new Date().toISOString(),
           });
-          if (!inThinking) chunks.push(thinkBuf);
+          if (inThinking) thinkingChunks.push(thinkBuf);
+          else chunks.push(thinkBuf);
         }
       }
 
@@ -782,10 +803,15 @@ export class Agent extends BaseAgentRuntime {
         });
       }
 
-      // Persist assistant response
+      // Persist assistant response (with reasoning, when captured)
       try {
+        const thinking = thinkingChunks.join("");
         appendChatMessages(conversationId, [
-          { role: "assistant", content: chunks.join("") },
+          {
+            role: "assistant",
+            content: chunks.join(""),
+            ...(thinking ? { thinking } : {}),
+          },
         ]);
       } catch {
         /* non-fatal */
@@ -999,6 +1025,7 @@ export class Agent extends BaseAgentRuntime {
           id: r.id,
           role: r.role,
           content: r.content,
+          ...(r.thinking ? { thinking: r.thinking } : {}),
           toolCalls: r.tool_calls ? JSON.parse(r.tool_calls) : undefined,
           createdAt: r.created_at,
         })

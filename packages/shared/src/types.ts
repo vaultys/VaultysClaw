@@ -183,6 +183,23 @@ export type LlmProviderType =
   | "cursor-agent-sdk"
   | "openai-agent-sdk";
 
+/** Providers that wrap a vendor agent harness (Mastra SDK Agents) instead of a plain chat model. */
+export const SDK_AGENT_PROVIDERS = new Set<LlmProviderType>([
+  "claude-agent-sdk",
+  "cursor-agent-sdk",
+  "openai-agent-sdk",
+]);
+
+/**
+ * True for providers that run a vendor's own agent harness (own tool loop,
+ * permissions, sessions) rather than a plain chat model behind the AI SDK —
+ * these are not OpenAI-compatible network endpoints and cannot be routed
+ * through LiteLLM.
+ */
+export function isSdkAgentProvider(provider: LlmProviderType): boolean {
+  return SDK_AGENT_PROVIDERS.has(provider);
+}
+
 /**
  * LLM configuration shared between agent controller and control plane.
  * Stored in the agent's local DB (remote config) or loaded from env vars (local config).

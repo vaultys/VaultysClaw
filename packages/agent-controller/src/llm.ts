@@ -10,28 +10,14 @@ import { ClaudeSDKAgent } from "@mastra/claude";
 import { CursorSDKAgent } from "@mastra/cursor";
 import { OpenAISDKAgent } from "@mastra/openai";
 import { setDefaultOpenAIKey } from "@openai/agents";
-import type { LlmConfig, LlmProviderType } from "@vaultysclaw/shared";
+import { isSdkAgentProvider, type LlmConfig } from "@vaultysclaw/shared";
 import type { MastraTool } from "./tools/types";
 import pino from "pino";
 import { trace, context, propagation, SpanStatusCode } from "@opentelemetry/api";
 
 const logger = pino({ name: "llm" });
 
-// ---------------------------------------------------------------------------
-// Mastra SDK Agents (experimental) — wrap a vendor's own agent harness
-// (own tool loop, permissions, sessions) behind Mastra's Agent interface,
-// as opposed to a plain chat model behind the AI SDK. See buildSdkAgent().
-// ---------------------------------------------------------------------------
-
-const SDK_AGENT_PROVIDERS = new Set<LlmProviderType>([
-  "claude-agent-sdk",
-  "cursor-agent-sdk",
-  "openai-agent-sdk",
-]);
-
-export function isSdkAgentProvider(provider: LlmProviderType): boolean {
-  return SDK_AGENT_PROVIDERS.has(provider);
-}
+export { isSdkAgentProvider };
 
 export class LlmNotConfiguredError extends Error {
   constructor() {

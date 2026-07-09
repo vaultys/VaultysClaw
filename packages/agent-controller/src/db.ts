@@ -127,6 +127,7 @@ export function initDb(dbDir: string, dbFileName = "agent.db"): Database {
       session_id TEXT NOT NULL REFERENCES chat_sessions(id) ON DELETE CASCADE,
       role TEXT NOT NULL,
       content TEXT NOT NULL,
+      thinking TEXT,
       tool_calls TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
@@ -187,7 +188,26 @@ export function initDb(dbDir: string, dbFileName = "agent.db"): Database {
     CREATE INDEX IF NOT EXISTS idx_knowledge_chunks_source ON knowledge_chunks(source_id);
   `);
 
+  // Migrations for DBs created before a column was added. SQLite has no
+  // "ADD COLUMN IF NOT EXISTS", so check PRAGMA table_info first.
+  ensureColumn(db, "chat_messages", "thinking", "TEXT");
+
   return db;
+}
+
+/** Idempotently add a column to a table if it doesn't already exist. */
+function ensureColumn(
+  database: Database,
+  table: string,
+  column: string,
+  type: string
+): void {
+  const cols = database
+    .query<{ name: string }>(`PRAGMA table_info(${table})`)
+    .all();
+  if (!cols.some((c) => c.name === column)) {
+    database.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
+  }
 }
 
 export function getDb(): Database {
@@ -770,6 +790,7 @@ export interface ChatMessageRow {
   session_id: string;
   role: string;
   content: string;
+  thinking: string | null;
   tool_calls: string | null;
   created_at: string;
 }
@@ -802,18 +823,24 @@ export function touchChatSession(id: string): void {
 
 export function appendChatMessages(
   sessionId: string,
-  msgs: Array<{ role: string; content: string; toolCalls?: unknown }>
+  msgs: Array<{
+    role: string;
+    content: string;
+    thinking?: string;
+    toolCalls?: unknown;
+  }>
 ): void {
   const db = getDb();
   const stmt = db.query(`
-    INSERT INTO chat_messages (session_id, role, content, tool_calls)
-    VALUES ($session_id, $role, $content, $tool_calls)
+    INSERT INTO chat_messages (session_id, role, content, thinking, tool_calls)
+    VALUES ($session_id, $role, $content, $thinking, $tool_calls)
   `);
   for (const m of msgs) {
     stmt.run({
       $session_id: sessionId,
       $role: m.role,
       $content: m.content,
+      $thinking: m.thinking ?? null,
       $tool_calls: m.toolCalls != null ? JSON.stringify(m.toolCalls) : null,
     });
   }

@@ -16,3 +16,5 @@ Add new message types to `src/channel-types.ts`, then handle them in:
 - `packages/agent-controller/src/agent.ts` (agent side)
 
 Both sides must be updated together — the types file is the single source of truth.
+
+`WSChatMessagePayload` carries two per-conversation chat toggles set from the UI: `stream` (token-by-token) and `thinking` (request the model's reasoning). The chat flow threads them UI → `POST /api/agents/:did/chat-sessions` → `sendChatToAgent` → `chat_message` payload → agent `executeChat` → `streamChat`.

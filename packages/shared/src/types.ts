@@ -183,6 +183,9 @@ export interface LlmConfig {
   pricePerMillionOutputTokens?: number;
   /** Embedding model override for RAG knowledge base indexing. */
   embeddingModel?: string;
+  /** Skip the text-buffer workaround for tool-call parsing. Set to true for
+   *  openai-compatible endpoints that support native function calling (e.g. LiteLLM). */
+  disableStreamingBuffer?: boolean;
 }
 
 /**
@@ -362,6 +365,18 @@ export interface ChatMessageEntry {
 export interface WSChatMessagePayload {
   conversationId: string;
   messages: ChatMessageEntry[];
+  /**
+   * When true, the agent streams the response token-by-token, bypassing the
+   * text-buffer tool-call workaround. Toggled per-conversation from the chat UI.
+   * Requires a provider with native function calling (e.g. LiteLLM / cloud).
+   */
+  stream?: boolean;
+  /**
+   * When true, ask the model to expose its reasoning. Forwarded to the provider
+   * as a reasoning/thinking request (only effective on models that support it).
+   * Toggled per-conversation from the chat UI.
+   */
+  thinking?: boolean;
 }
 
 /**
@@ -607,6 +622,8 @@ export interface ChatHistoryMessage {
   id: number;
   role: string;
   content: string;
+  /** The model's reasoning for an assistant message, when it was captured. */
+  thinking?: string;
   toolCalls?: unknown;
   createdAt: string;
 }

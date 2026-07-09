@@ -18,7 +18,7 @@ import { PendingApproval } from "@/components/agent/chat-types";
 
 export default function ChatPage() {
   const { agents: agentsState, connected: wsConnected } = useAdminWS();
-  const onlineAgents = agentsState.agents.filter((a) => a.online);
+  const onlineAgents = agentsState.agents.filter((a) => a.online && a.did);
 
   const [selectedAgent, setSelectedAgent] = useState<string>("");
   const [messages, setMessages] = useState<ChatMessageEntry[]>([]);

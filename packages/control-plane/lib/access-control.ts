@@ -32,6 +32,7 @@ export const publicPaths = [
   "/invite/",
   "/claim",
   "/",
+  ".well-known/vaultys.json",
 ];
 
 export function isPublicPath(pathname: string): boolean {

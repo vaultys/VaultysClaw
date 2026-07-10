@@ -43,8 +43,10 @@ services:
   # ── Redis (BullMQ queue + notification pub/sub) ─────────────────────────────
   redis:
     image: redis:7-alpine
+    # Host port defaults to 6380 to avoid clashing with a local Redis on 6379.
+    # Internal services always reach it via the compose network on redis:6379.
     ports:
-      - "${REDIS_PORT:-6379}:6379"
+      - "${REDIS_PORT:-6380}:6379"
     volumes:
       - redisdata:/data
     healthcheck:

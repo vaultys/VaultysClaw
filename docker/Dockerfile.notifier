@@ -22,17 +22,19 @@ RUN mkdir -p packages/agent-controller && echo '{"name":"@vaultysclaw/agent-cont
 # Install only the packages needed for policy + shared + notifier
 RUN pnpm install --filter @vaultysclaw/policy --filter @vaultysclaw/shared --filter @vaultysclaw/notifier
 
-# Copy source
+# Copy source (scripts/ is needed by the policy + shared builds for fix-esm-extensions)
+COPY scripts/            scripts/
 COPY packages/policy/    packages/policy/
 COPY packages/shared/    packages/shared/
 COPY packages/notifier/  packages/notifier/
 
-# The notifier shares the control plane's Prisma schema. Copy it and generate the
-# client (only the `client` generator — skip the zod generator which needs the
-# control-plane devDeps).
-COPY packages/control-plane/prisma/ packages/control-plane/prisma/
-RUN pnpm exec prisma generate \
-      --schema=/app/packages/control-plane/prisma/schema.prisma \
+# The notifier shares the control plane's Prisma schema. Copy it INTO the notifier
+# package so Prisma resolves @prisma/client from packages/notifier/node_modules,
+# then generate only the `client` generator (skip the zod generator, which needs
+# the control-plane devDeps).
+COPY packages/control-plane/prisma/schema.prisma packages/notifier/prisma/schema.prisma
+RUN pnpm --filter @vaultysclaw/notifier exec prisma generate \
+      --schema=/app/packages/notifier/prisma/schema.prisma \
       --generator client
 
 # Build workspace deps (policy before shared) so notifier can import their dist

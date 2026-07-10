@@ -14,7 +14,17 @@ Next.js App Router dashboard + WebSocket server. HTTP on port 3000, WebSocket on
 
 PostgreSQL via Prisma (`prisma/`). All DAOs are in `db/` and use the Prisma client (`db/client.ts`).
 
-Key tables: `agents`, `intent_log`, `workflows`, `workflow_runs`, `workspaces`, `users`, `policies`, `model_registry`, `org_skills`, `channels`, `settings`.
+Key tables: `agents`, `intent_log`, `workflows`, `workflow_runs`, `workspaces`, `users`, `policies`, `model_registry`, `org_skills`, `channels`, `settings`, `notifications`, `notification_preferences`.
+
+## Notifications
+
+The control plane is the **producer** side of the notification system (the worker that delivers is `packages/notifier`). See the repo-root [CLAUDE.md](../../CLAUDE.md#notifications) for the end-to-end picture.
+
+- **Emit an event**: `void enqueueNotification({ eventType, data })` from `lib/notification-queue.ts` at the domain site (e.g. workspace membership changes in `app/api/(user)/workspaces/[id]/users/route.ts`, onboarding in `lib/user-server-channel.ts`). It's fire-and-forget — never `await` it in a way that can fail the request, and it no-ops when `REDIS_URL` is unset. `eventType` must exist in the shared catalog (`@vaultysclaw/shared` → `notifications.ts`).
+- **Catalog / levels** live in `@vaultysclaw/shared`, not here — a single source of truth shared with the notifier and the settings UI.
+- **In-app data**: `db/notification.dao.ts` (`NotificationDAO`, `NotificationPreferenceDAO`).
+- **Live delivery**: `GET /api/notifications/stream` (`app/api/(user)/notifications/stream/route.ts`) is a raw SSE route (`withError`, not `createNextRoute`) that subscribes to Redis `notif:user:<id>`. The REST slice (list / read / delete / preferences) is `userContract.notifications`, consumed by `hooks/useNotifications.ts` and rendered by `components/notifications/NotificationBell.tsx`.
+- **Settings pages are split by audience** (the proxy gates `/admin/*` to Admin/Owner): user settings live under `app/app/settings/*` (Profile, Security, Notifications, Appearance); admin-only settings (API Keys, Integrations) under `app/admin/settings/*`. Shared profile fetch via `components/settings/SettingsContext.tsx`. Do not place a user-facing settings page under `/admin/*`.
 
 ## Auth
 

@@ -16,6 +16,7 @@ VaultysClaw is a decentralized AI agent orchestration platform. A central **cont
 | `packages/control-plane/app/api` | REST API routes (ts-rest pattern) | [→](packages/control-plane/app/api/CLAUDE.md) |
 | `packages/agent-controller` | Agent runtime CLI, tools, skills, memory | [→](packages/agent-controller/CLAUDE.md) |
 | `packages/mcp-gateway` | MCP server exposing VaultysClaw agents as tools | [→](packages/mcp-gateway/CLAUDE.md) |
+| `packages/notifier` | Standalone worker: consumes notification events from BullMQ and delivers email / in-app / push (SSE) | [→](packages/notifier/CLAUDE.md) |
 
 ## Commands
 
@@ -28,6 +29,7 @@ pnpm agent:dev               # Agent controller only (headless)
 pnpm agent:web               # Agent controller with web UI (port 3002)
 pnpm agent:tui               # Agent controller with Ink TUI
 pnpm mcp:dev                 # MCP gateway (stdio, reads VC_CONTROL_PLANE_URL + VC_API_KEY)
+pnpm notifier:dev            # Notifier worker (reads DATABASE_URL + REDIS_URL; needs Redis running)
 pnpm mcp:build               # Build MCP gateway to dist/
 
 # Demo / Simulator
@@ -66,11 +68,35 @@ Agents connect to the control plane via WebSocket on port 8080. All messages fol
 4. Agent executes via LLM + tools → sends `result` back
 5. Policies distributed as `policy_update` messages; agents verify signatures before storing
 
+## Notifications
+
+Users choose, per event, how they are notified — **in-app** (bell + DB-backed), **email** (SMTP), and **push** (system notification via SSE while the app is open). Events carry a **level** (`user` / `admin` / `owner`) that both scopes recipients and controls which events a user may configure (a Member sees only `user` events, an Admin `user`+`admin`, an Owner all).
+
+Pipeline (decoupled through a queue):
+
+```
+domain event → enqueueNotification()  → BullMQ queue "notifications" (Redis)
+ (control-plane)                         → notifier service:
+                                            resolve recipients (by level) → read prefs
+                                            → email (SMTP) / in-app (DB row) / push
+                                            → Redis pub/sub  notif:user:<id>
+                                                                   │
+browser ── SSE /api/notifications/stream (subscribes Redis) ◄──────┘
+   bell (in-app) + Notification API (push)
+```
+
+- **Event catalog is the single source of truth**: `packages/shared/src/notifications.ts` (`NOTIFICATION_EVENTS`, `NotificationLevel`, `LEVELS_FOR_ROLE`, `eventsForRole`, `userNotificationChannel`). Add an event there, then emit it with `enqueueNotification({ eventType, data })` (`packages/control-plane/lib/notification-queue.ts`) at the domain site, and (if needed) add a template in `packages/notifier/src/render.ts`.
+- **Producer** is best-effort/fire-and-forget: if `REDIS_URL` is unset it silently no-ops and never breaks the request.
+- **Notifier** is a separate worker package — see [packages/notifier/CLAUDE.md](packages/notifier/CLAUDE.md).
+- **Settings UI is split by audience**: user settings live under `app/app/settings/*` (Profile, Security, Notifications, Appearance — reachable by any authenticated user); admin-only settings (API Keys, Integrations) stay under `app/admin/settings/*` (proxy-gated). Never put a user-facing page under `/admin/*`.
+- Requires **Redis** (added to `docker/docker-compose.yml`).
+
 ## Environment Variables
 
 | Variable | Package | Purpose |
 |---|---|---|
-| `DATABASE_URL` | control-plane | PostgreSQL connection string (Prisma) |
+| `DATABASE_URL` | control-plane, notifier | PostgreSQL connection string (Prisma) |
+| `REDIS_URL` | control-plane, notifier | Redis URL for the BullMQ notification queue + pub/sub |
 | `PORT` / `WS_PORT` | control-plane | HTTP + WebSocket ports (default 3000/8080) |
 | `NEXTAUTH_SECRET` | control-plane | NextAuth session secret |
 | `LITELLM_BASE_URL` | control-plane | LiteLLM proxy URL |

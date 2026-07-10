@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { c } from "../../contract";
 import { commonErrorResponses } from "../../common";
 import {
@@ -32,6 +33,23 @@ export const notificationsContract = c.router({
     path: "/api/notifications/read",
     body: MarkReadBodySchema,
     summary: "Mark a notification (or all) as read",
+    responses: { 200: c.type<{ ok: true }>(), ...commonErrorResponses },
+  },
+
+  clearAll: {
+    method: "DELETE",
+    path: "/api/notifications",
+    body: c.noBody(),
+    summary: "Delete all of the current user's notifications",
+    responses: { 200: c.type<{ ok: true }>(), ...commonErrorResponses },
+  },
+
+  remove: {
+    method: "DELETE",
+    path: "/api/notifications/:id",
+    pathParams: z.object({ id: z.string() }),
+    body: c.noBody(),
+    summary: "Delete a single notification",
     responses: { 200: c.type<{ ok: true }>(), ...commonErrorResponses },
   },
 

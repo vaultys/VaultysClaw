@@ -76,4 +76,12 @@ export class NotificationDAO {
       data: { readAt: new Date() },
     });
   }
+
+  static async delete(id: string, userId: string) {
+    return prisma.notification.deleteMany({ where: { id, userId } });
+  }
+
+  static async deleteAll(userId: string) {
+    return prisma.notification.deleteMany({ where: { userId } });
+  }
 }

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, Check } from "lucide-react";
+import { Bell, Check, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNotifications } from "@/hooks/useNotifications";
 
@@ -25,7 +25,7 @@ function notificationHref(data: Record<string, unknown> | null): string | null {
 
 export function NotificationBell() {
   const router = useRouter();
-  const { notifications, unreadCount, markRead, markAllRead } =
+  const { notifications, unreadCount, markRead, markAllRead, remove, clearAll } =
     useNotifications();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -66,15 +66,26 @@ export function NotificationBell() {
             <span className="text-sm font-semibold text-foreground">
               Notifications
             </span>
-            {unreadCount > 0 && (
-              <button
-                onClick={() => markAllRead()}
-                className="text-xs text-primary-600 hover:text-primary-700 flex items-center gap-1"
-              >
-                <Check className="w-3 h-3" />
-                Mark all read
-              </button>
-            )}
+            <div className="flex items-center gap-3">
+              {unreadCount > 0 && (
+                <button
+                  onClick={() => markAllRead()}
+                  className="text-xs text-primary-600 hover:text-primary-700 flex items-center gap-1"
+                >
+                  <Check className="w-3 h-3" />
+                  Mark all read
+                </button>
+              )}
+              {notifications.length > 0 && (
+                <button
+                  onClick={() => clearAll()}
+                  className="text-xs text-foreground-500 hover:text-danger-600 flex items-center gap-1"
+                >
+                  <Trash2 className="w-3 h-3" />
+                  Clear all
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="max-h-96 overflow-y-auto">
@@ -86,17 +97,10 @@ export function NotificationBell() {
               notifications.map((n) => {
                 const href = notificationHref(n.data);
                 return (
-                  <button
+                  <div
                     key={n.id}
-                    onClick={() => {
-                      if (!n.readAt) markRead(n.id);
-                      if (href) {
-                        router.push(href);
-                        setOpen(false);
-                      }
-                    }}
                     className={cn(
-                      "w-full text-left px-3 py-2.5 border-b border-neutral-200/60 last:border-0 hover:bg-background-200/60 transition-colors flex gap-2.5",
+                      "group relative flex gap-2.5 px-3 py-2.5 border-b border-neutral-200/60 last:border-0 hover:bg-background-200/60 transition-colors",
                       !n.readAt && "bg-primary-50/50"
                     )}
                   >
@@ -106,16 +110,32 @@ export function NotificationBell() {
                         n.readAt ? "bg-transparent" : "bg-primary-500"
                       )}
                     />
-                    <div className="min-w-0 flex-1">
-                      <div className="text-sm font-medium text-foreground truncate">
+                    <button
+                      onClick={() => {
+                        if (!n.readAt) markRead(n.id);
+                        if (href) {
+                          router.push(href);
+                          setOpen(false);
+                        }
+                      }}
+                      className="min-w-0 flex-1 text-left"
+                    >
+                      <div className="text-sm font-medium text-foreground truncate pr-5">
                         {n.title}
                       </div>
                       <div className="text-xs text-foreground-600">{n.body}</div>
                       <div className="text-[10px] text-foreground-400 mt-0.5">
                         {timeAgo(n.createdAt)}
                       </div>
-                    </div>
-                  </button>
+                    </button>
+                    <button
+                      onClick={() => remove(n.id)}
+                      aria-label="Delete notification"
+                      className="absolute top-2 right-2 p-1 rounded text-foreground-400 opacity-0 group-hover:opacity-100 hover:text-danger-600 hover:bg-background-200 transition"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 );
               })
             )}

@@ -9,12 +9,11 @@ import {
 } from "react";
 import { useSession } from "next-auth/react";
 import { userApi, unwrap } from "@/lib/api/ts-rest/client";
-import type { MeProfile, UserWorkspaceWithWorkspace } from "@/lib/contracts";
+import type { MeProfile } from "@/lib/contracts";
 import { isAdminRole } from "@/lib/roles";
 
 interface SettingsData {
   profile: MeProfile | null;
-  workspaces: UserWorkspaceWithWorkspace[];
   loading: boolean;
   isAdmin: boolean;
   patchProfile: (fields: {
@@ -29,16 +28,13 @@ const SettingsContext = createContext<SettingsData | null>(null);
 export function SettingsDataProvider({ children }: { children: ReactNode }) {
   const { data: session } = useSession();
   const [profile, setProfile] = useState<MeProfile | null>(null);
-  const [workspaces, setWorkspaces] = useState<UserWorkspaceWithWorkspace[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!session?.user) return;
-    Promise.all([userApi.users.me(), userApi.workspaces.listMyWorkspaces()])
-      .then(([meRes, workspacesRes]) => {
-        setProfile(unwrap(meRes));
-        setWorkspaces(unwrap(workspacesRes).userWorkspaces);
-      })
+    userApi.users
+      .me()
+      .then((res) => setProfile(unwrap(res)))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [session?.user]);
@@ -63,7 +59,6 @@ export function SettingsDataProvider({ children }: { children: ReactNode }) {
 
   const value: SettingsData = {
     profile,
-    workspaces,
     loading,
     isAdmin: isAdminRole(profile?.role),
     patchProfile,

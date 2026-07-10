@@ -111,5 +111,28 @@ export function useNotifications() {
     }
   }, []);
 
-  return { notifications, unreadCount, markRead, markAllRead };
+  const remove = useCallback(async (id: string) => {
+    setNotifications((prev) => {
+      const target = prev.find((n) => n.id === id);
+      if (target && !target.readAt) setUnreadCount((c) => Math.max(0, c - 1));
+      return prev.filter((n) => n.id !== id);
+    });
+    try {
+      unwrap(await userApi.notifications.remove({ params: { id } }));
+    } catch {
+      /* best-effort */
+    }
+  }, []);
+
+  const clearAll = useCallback(async () => {
+    setNotifications([]);
+    setUnreadCount(0);
+    try {
+      unwrap(await userApi.notifications.clearAll({}));
+    } catch {
+      /* best-effort */
+    }
+  }, []);
+
+  return { notifications, unreadCount, markRead, markAllRead, remove, clearAll };
 }

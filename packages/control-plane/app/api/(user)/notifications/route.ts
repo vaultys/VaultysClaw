@@ -34,6 +34,13 @@ const handlers = createNextRoute(userContract.notifications, {
     }));
     return { status: 200, body: { notifications, unreadCount } };
   },
+
+  clearAll: async () => {
+    const userId = await currentUserId();
+    await NotificationDAO.deleteAll(userId);
+    return { status: 200, body: { ok: true } };
+  },
 });
 
 export const GET = handlers.GET!;
+export const DELETE = handlers.DELETE!;

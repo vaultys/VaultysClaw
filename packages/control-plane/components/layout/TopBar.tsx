@@ -194,7 +194,7 @@ export default function TopBar() {
             {/* Settings link */}
             <button
               onClick={() => {
-                router.push("/admin/settings/profile");
+                router.push("/app/settings/profile");
                 setOpen(false);
               }}
               className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-foreground-700 hover:text-foreground hover:bg-background-200/60 transition-colors"

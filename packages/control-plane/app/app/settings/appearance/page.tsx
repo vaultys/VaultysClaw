@@ -7,7 +7,7 @@ import { useBreadcrumbs } from "@/components/layout/BreadcrumbContext";
 export default function AppearanceSettingsPage() {
   useBreadcrumbs(
     [
-      { label: "Settings", href: "/admin/settings/profile" },
+      { label: "Settings", href: "/app/settings/profile" },
       { label: "Appearance" },
     ],
     []

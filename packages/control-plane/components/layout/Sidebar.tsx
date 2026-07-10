@@ -110,6 +110,7 @@ const SECTIONS: NavSection[] = [
       { href: "/admin/governance", icon: ShieldCheck, label: "Governance", exact: false },
       { href: "/admin/network", icon: Activity, label: "Network", exact: false },
       { href: "/admin/settings/integrations", icon: Plug, label: "Integrations", exact: false },
+      { href: "/admin/settings/api-keys", icon: Key, label: "API Keys", exact: false },
     ],
   },
   {
@@ -118,12 +119,10 @@ const SECTIONS: NavSection[] = [
     label: "Settings",
     adminOnly: false,
     items: [
-      { href: "/admin/settings/profile", icon: User, label: "Profile", exact: false },
-      { href: "/admin/settings/security", icon: Shield, label: "Security", exact: false },
-      { href: "/admin/settings/notifications", icon: Bell, label: "Notifications", exact: false },
-      { href: "/admin/settings/api-keys", icon: Key, label: "API Keys", exact: false, adminOnly: true },
-      { href: "/admin/settings/workspaces", icon: Globe2, label: "Workspaces", exact: false },
-      { href: "/admin/settings/appearance", icon: Sun, label: "Appearance", exact: false },
+      { href: "/app/settings/profile", icon: User, label: "Profile", exact: false },
+      { href: "/app/settings/security", icon: Shield, label: "Security", exact: false },
+      { href: "/app/settings/notifications", icon: Bell, label: "Notifications", exact: false },
+      { href: "/app/settings/appearance", icon: Sun, label: "Appearance", exact: false },
     ],
   },
 ];

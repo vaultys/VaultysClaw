@@ -17,6 +17,7 @@ import { WorkflowDAO } from "../db";
 import { trace, SpanStatusCode } from "@opentelemetry/api";
 import { workflowRunsTotal } from "./metrics";
 import { WorkflowDefinition } from "./workflow-types";
+import { enqueueNotification } from "./notification-queue";
 
 const logger = pino({ name: "workflow-executor" });
 
@@ -496,6 +497,9 @@ export async function executeWorkflow(
     },
   });
 
+  // Hoisted so the outer catch block can reference it in notifications.
+  let workflowName = "Workflow";
+
   try {
     const { nodes, edges } = parseWorkflow(definition);
 
@@ -513,7 +517,7 @@ export async function executeWorkflow(
     const workflowRow = workflowId
       ? await WorkflowDAO.findById(workflowId)
       : undefined;
-    const workflowName = workflowRow?.name ?? "Workflow";
+    workflowName = workflowRow?.name ?? "Workflow";
 
     // Initialize execution context
     const context: ExecutionContext = {
@@ -609,6 +613,21 @@ export async function executeWorkflow(
           assignedUserId,
           mode,
         });
+
+        if (assignedUserId) {
+          void enqueueNotification({
+            eventType: "inbox.message",
+            data: {
+              targetUserId: assignedUserId,
+              message:
+                nodeMessage ||
+                `${workflowName}: ${mode === "approval" ? "approval requested" : "notification"}`,
+              runId,
+              workflowId,
+              approvalId,
+            },
+          });
+        }
 
         if (mode === "notification") {
           // Fire-and-forget: mark step as success and continue
@@ -727,6 +746,10 @@ export async function executeWorkflow(
           failedNode: nodeId,
           error: result.error,
         });
+        void enqueueNotification({
+          eventType: "workflow.failed",
+          data: { workflowName, workflowId, runId, error: result.error },
+        });
         return;
       }
 
@@ -740,6 +763,10 @@ export async function executeWorkflow(
       completedNodes: sorted.length,
       outputs: Object.fromEntries(context.stepOutputs),
     });
+    void enqueueNotification({
+      eventType: "workflow.succeeded",
+      data: { workflowName, workflowId, runId },
+    });
 
     logger.info({ runId }, "Workflow completed successfully");
   } catch (err) {
@@ -751,5 +778,9 @@ export async function executeWorkflow(
     workflowRunsTotal.add(1, { status: "failed" });
     logger.error({ runId, error: String(err) }, "Workflow execution failed");
     await WorkflowDAO.updateRunStatus(runId, "failed", { error: String(err) });
+    void enqueueNotification({
+      eventType: "workflow.failed",
+      data: { workflowName, workflowId, runId, error: String(err) },
+    });
   }
 }

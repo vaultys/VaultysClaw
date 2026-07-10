@@ -5,9 +5,24 @@
  * can be imported anywhere.
  */
 
-/** Audience level of an event. Controls both recipient resolution and which
- * events a user is allowed to configure in the settings UI. */
+/** Audience level of an event. Controls which events a user is allowed to
+ * configure in the settings UI (a Member sees `user`, an Admin `user`+`admin`,
+ * an Owner all). It does NOT by itself decide recipients — see {@link
+ * NotificationAudience}. */
 export type NotificationLevel = "user" | "admin" | "owner";
+
+/** How recipients are resolved for an event (decoupled from `level`, which is
+ * about who may *configure* it):
+ *   - `target`           → the single user named in the payload (`targetUserId` ?? `userId`)
+ *   - `workspaceMembers` → every member of `data.workspaceId`
+ *   - `admins`           → every Admin/Owner
+ *   - `owners`           → every Owner
+ */
+export type NotificationAudience =
+  | "target"
+  | "workspaceMembers"
+  | "admins"
+  | "owners";
 
 /** Delivery channels a user can toggle per event. */
 export type NotificationChannel = "inApp" | "email" | "push";
@@ -21,7 +36,10 @@ export const NOTIFICATION_CHANNELS: NotificationChannel[] = [
 export interface NotificationEventDef {
   /** Stable catalog key, e.g. "workspace.member_added". */
   type: string;
+  /** Who may configure this event in the settings UI. */
   level: NotificationLevel;
+  /** How recipients are resolved when the event fires. */
+  audience: NotificationAudience;
   /** Short UI label. */
   label: string;
   /** UI description. */
@@ -35,9 +53,11 @@ export interface NotificationEventDef {
  * UI, preference storage and notifier all derive from it.
  */
 export const NOTIFICATION_EVENTS: NotificationEventDef[] = [
+  // ── User-level ──────────────────────────────────────────────────────────────
   {
     type: "workspace.member_added",
     level: "user",
+    audience: "target",
     label: "Added to a workspace",
     description: "Someone added you to a workspace.",
     defaultChannels: ["inApp"],
@@ -45,15 +65,163 @@ export const NOTIFICATION_EVENTS: NotificationEventDef[] = [
   {
     type: "workspace.member_removed",
     level: "user",
+    audience: "target",
     label: "Removed from a workspace",
     description: "Someone removed you from a workspace.",
     defaultChannels: ["inApp"],
   },
   {
+    type: "workspace.agent_added",
+    level: "user",
+    audience: "workspaceMembers",
+    label: "Agent added to a workspace",
+    description: "A new agent was added to a workspace you belong to.",
+    defaultChannels: ["inApp"],
+  },
+  {
+    type: "workspace.agent_removed",
+    level: "user",
+    audience: "workspaceMembers",
+    label: "Agent removed from a workspace",
+    description: "An agent was removed from a workspace you belong to.",
+    defaultChannels: ["inApp"],
+  },
+  {
+    type: "workspace.workflow_added",
+    level: "user",
+    audience: "workspaceMembers",
+    label: "Workflow added to a workspace",
+    description: "A new workflow was added to a workspace you belong to.",
+    defaultChannels: ["inApp"],
+  },
+  {
+    type: "workspace.workflow_removed",
+    level: "user",
+    audience: "workspaceMembers",
+    label: "Workflow removed from a workspace",
+    description: "A workflow was removed from a workspace you belong to.",
+    defaultChannels: ["inApp"],
+  },
+  {
+    type: "inbox.message",
+    level: "user",
+    audience: "target",
+    label: "New inbox item",
+    description: "You have a new item in your inbox.",
+    defaultChannels: ["inApp"],
+  },
+  {
+    type: "profile.updated",
+    level: "user",
+    audience: "target",
+    label: "Profile updated",
+    description: "Your profile (name, email, …) was updated.",
+    defaultChannels: ["inApp"],
+  },
+
+  // ── Admin-level ─────────────────────────────────────────────────────────────
+  {
     type: "user.joined",
     level: "admin",
+    audience: "admins",
     label: "New user joined",
     description: "A user completed onboarding and joined VaultysClaw.",
+    defaultChannels: ["inApp"],
+  },
+  {
+    type: "workspace.created",
+    level: "admin",
+    audience: "admins",
+    label: "Workspace created",
+    description: "A new workspace was created.",
+    defaultChannels: ["inApp"],
+  },
+  {
+    type: "workspace.deleted",
+    level: "admin",
+    audience: "admins",
+    label: "Workspace deleted",
+    description: "A workspace was deleted.",
+    defaultChannels: ["inApp"],
+  },
+  {
+    type: "agent.created",
+    level: "admin",
+    audience: "admins",
+    label: "Agent created",
+    description: "A new agent was created.",
+    defaultChannels: ["inApp"],
+  },
+  {
+    type: "agent.deleted",
+    level: "admin",
+    audience: "admins",
+    label: "Agent deleted",
+    description: "An agent was deleted.",
+    defaultChannels: ["inApp"],
+  },
+  {
+    type: "model.added",
+    level: "admin",
+    audience: "admins",
+    label: "Model added",
+    description: "A new model was added to the registry.",
+    defaultChannels: ["inApp"],
+  },
+  {
+    type: "model.removed",
+    level: "admin",
+    audience: "admins",
+    label: "Model removed",
+    description: "A model was removed from the registry.",
+    defaultChannels: ["inApp"],
+  },
+  {
+    type: "knowledge.added",
+    level: "admin",
+    audience: "admins",
+    label: "Knowledge source added",
+    description: "A new knowledge source was added.",
+    defaultChannels: ["inApp"],
+  },
+  {
+    type: "knowledge.removed",
+    level: "admin",
+    audience: "admins",
+    label: "Knowledge source removed",
+    description: "A knowledge source was removed.",
+    defaultChannels: ["inApp"],
+  },
+  {
+    type: "skill.added",
+    level: "admin",
+    audience: "admins",
+    label: "Skill added",
+    description: "A new skill was added.",
+    defaultChannels: ["inApp"],
+  },
+  {
+    type: "skill.removed",
+    level: "admin",
+    audience: "admins",
+    label: "Skill removed",
+    description: "A skill was removed.",
+    defaultChannels: ["inApp"],
+  },
+  {
+    type: "workflow.failed",
+    level: "admin",
+    audience: "admins",
+    label: "Workflow run failed",
+    description: "A workflow run failed.",
+    defaultChannels: ["inApp"],
+  },
+  {
+    type: "workflow.succeeded",
+    level: "admin",
+    audience: "admins",
+    label: "Workflow run succeeded",
+    description: "A workflow run completed successfully.",
     defaultChannels: ["inApp"],
   },
 ];
@@ -82,7 +250,7 @@ export function eventsForRole(
 
 /**
  * Payload placed on the BullMQ "notifications" queue. The notifier resolves the
- * recipients from the event's level plus the fields in `data`.
+ * recipients from the event's audience plus the fields in `data`.
  */
 export interface NotificationJob {
   eventType: string;

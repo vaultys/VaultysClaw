@@ -1,6 +1,7 @@
 import { Challenger, crypto } from "@vaultys/id";
 import { getWSServer } from "@/lib/ws-server";
 import { AgentDAO } from "@/db";
+import { enqueueNotification } from "@/lib/notification-queue";
 import {
   VaultysIDInfo,
   vaultysIdInfo,
@@ -144,6 +145,11 @@ const handlers = createNextRoute(adminContract.agents, {
 
     await AgentDAO.delete(did);
     console.log("Successfully deleted agent:", did);
+
+    void enqueueNotification({
+      eventType: "agent.deleted",
+      data: { agentDid: did, agentName: agent.name },
+    });
 
     return { status: 204, body: undefined };
   },

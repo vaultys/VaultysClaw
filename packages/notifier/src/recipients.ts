@@ -1,5 +1,6 @@
 import {
   getNotificationEvent,
+  type NotificationAudience,
   type NotificationChannel,
   type NotificationJob,
 } from "@vaultysclaw/shared";
@@ -32,6 +33,12 @@ export interface NotifierDb {
       select: { id: true; email: true; role: true };
     }): Promise<{ id: string; email: string | null; role: string | null }[]>;
   };
+  userWorkspace: {
+    findMany(args: {
+      where: { workspaceId: string };
+      select: { userId: true };
+    }): Promise<{ userId: string }[]>;
+  };
   notificationPreference: {
     findUnique(args: {
       where: { userId_eventType: { userId: string; eventType: string } };
@@ -59,10 +66,12 @@ export const isOwner = (r: string | null | undefined): boolean =>
   normalizeRole(r) === "Owner";
 
 /**
- * Resolve who should receive an event, based on its catalog level:
- *   - `user`  → the single target user (`data.targetUserId` ?? `data.userId`)
- *   - `admin` → every Admin/Owner
- *   - `owner` → every Owner
+ * Resolve who should receive an event, based on its catalog {@link
+ * NotificationAudience}:
+ *   - `target`           → the single user named in the payload
+ *   - `workspaceMembers` → every member of `data.workspaceId`
+ *   - `admins`           → every Admin/Owner
+ *   - `owners`           → every Owner
  */
 export async function resolveRecipients(
   db: NotifierDb,
@@ -71,7 +80,9 @@ export async function resolveRecipients(
   const def = getNotificationEvent(job.eventType);
   if (!def) return [];
 
-  if (def.level === "user") {
+  const audience: NotificationAudience = def.audience;
+
+  if (audience === "target") {
     const targetId = (job.data.targetUserId ?? job.data.userId) as
       | string
       | undefined;
@@ -83,10 +94,28 @@ export async function resolveRecipients(
     return user ? [{ id: user.id, email: user.email }] : [];
   }
 
+  if (audience === "workspaceMembers") {
+    const workspaceId = job.data.workspaceId as string | undefined;
+    if (!workspaceId) return [];
+    const memberships = await db.userWorkspace.findMany({
+      where: { workspaceId },
+      select: { userId: true },
+    });
+    const memberIds = new Set(memberships.map((m) => m.userId));
+    if (memberIds.size === 0) return [];
+    const users = await db.user.findMany({
+      select: { id: true, email: true, role: true },
+    });
+    return users
+      .filter((u) => memberIds.has(u.id))
+      .map((u) => ({ id: u.id, email: u.email }));
+  }
+
+  // admins / owners
   const users = await db.user.findMany({
     select: { id: true, email: true, role: true },
   });
-  const pass = def.level === "owner" ? isOwner : isAdmin;
+  const pass = audience === "owners" ? isOwner : isAdmin;
   return users
     .filter((u) => pass(u.role))
     .map((u) => ({ id: u.id, email: u.email }));

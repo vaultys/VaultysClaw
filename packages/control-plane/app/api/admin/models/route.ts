@@ -6,6 +6,7 @@ import {
   adminContract,
 } from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
+import { enqueueNotification } from "@/lib/notification-queue";
 
 const handlers = createNextRoute(adminContract.models, {
   // ── GET /api/admin/models — list registry entries (admin only) ──────────────────
@@ -52,6 +53,11 @@ const handlers = createNextRoute(adminContract.models, {
         console.warn("LiteLLM registration failed (non-fatal):", litellmErr);
       }
     }
+
+    void enqueueNotification({
+      eventType: "model.added",
+      data: { modelId: entry.id, modelName: entry.name, actorDid: auth.did },
+    });
 
     // Never expose the stored (encrypted) API key.
     const { apiKeyEnc: _apiKeyEnc, ...safe } = entry;

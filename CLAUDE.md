@@ -70,14 +70,14 @@ Agents connect to the control plane via WebSocket on port 8080. All messages fol
 
 ## Notifications
 
-Users choose, per event, how they are notified — **in-app** (bell + DB-backed), **email** (SMTP), and **push** (system notification via SSE while the app is open). Events carry a **level** (`user` / `admin` / `owner`) that both scopes recipients and controls which events a user may configure (a Member sees only `user` events, an Admin `user`+`admin`, an Owner all).
+Users choose, per event, how they are notified — **in-app** (bell + DB-backed), **email** (SMTP), and **push** (system notification via SSE while the app is open). Each event carries a **level** (`user` / `admin` / `owner`) — which controls who may *configure* it (a Member sees only `user` events, an Admin `user`+`admin`, an Owner all) — and an **audience** (`target` / `workspaceMembers` / `admins` / `owners`) — which controls who *receives* it. The two are decoupled: a workspace-scoped event is configurable by any user but delivered only to members of the affected workspace.
 
 Pipeline (decoupled through a queue):
 
 ```
 domain event → enqueueNotification()  → BullMQ queue "notifications" (Redis)
  (control-plane)                         → notifier service:
-                                            resolve recipients (by level) → read prefs
+                                            resolve recipients (by audience) → read prefs
                                             → email (SMTP) / in-app (DB row) / push
                                             → Redis pub/sub  notif:user:<id>
                                                                    │

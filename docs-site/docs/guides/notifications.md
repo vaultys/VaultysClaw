@@ -93,13 +93,40 @@ sequenceDiagram
 
 ## Available events
 
-The current catalog is intentionally small and easy to extend:
+### User level
 
-| Event | Level | Description |
-|-------|-------|-------------|
-| `workspace.member_added`   | user  | You were added to a workspace |
-| `workspace.member_removed` | user  | You were removed from a workspace |
-| `user.joined`              | admin | A user completed onboarding and joined |
+| Event | Who receives it | Description |
+|-------|-----------------|-------------|
+| `workspace.member_added`    | you            | You were added to a workspace |
+| `workspace.member_removed`  | you            | You were removed from a workspace |
+| `workspace.agent_added`     | workspace members | An agent was added to a workspace you belong to |
+| `workspace.agent_removed`   | workspace members | An agent was removed from a workspace you belong to |
+| `workspace.workflow_added`  | workspace members | A workflow was added to a workspace you belong to |
+| `workspace.workflow_removed`| workspace members | A workflow was removed from a workspace you belong to |
+| `inbox.message`             | you            | A new item was assigned to your inbox |
+| `profile.updated`           | you            | Your profile was updated |
+
+### Admin level
+
+| Event | Who receives it | Description |
+|-------|-----------------|-------------|
+| `user.joined`         | admins/owners | A user completed onboarding and joined |
+| `workspace.created`   | admins/owners | A workspace was created |
+| `workspace.deleted`   | admins/owners | A workspace was deleted |
+| `agent.created`       | admins/owners | An agent was created |
+| `agent.deleted`       | admins/owners | An agent was deleted |
+| `model.added`         | admins/owners | A model was added to the registry |
+| `model.removed`       | admins/owners | A model was removed |
+| `knowledge.added`     | admins/owners | A knowledge source was added |
+| `knowledge.removed`   | admins/owners | A knowledge source was removed |
+| `skill.added`         | admins/owners | A skill was added |
+| `skill.removed`       | admins/owners | A skill was removed |
+| `workflow.failed`     | admins/owners | A workflow run failed |
+| `workflow.succeeded`  | admins/owners | A workflow run completed successfully |
+
+Each event carries a **level** (who may configure it) and an **audience** (who
+receives it) — for most events these align, but workspace-scoped events are
+configured by any user yet delivered only to members of the affected workspace.
 
 New events are added to the shared catalog (`packages/shared/src/notifications.ts`);
 see the notifier package documentation for the developer workflow.

@@ -8,6 +8,7 @@ import { APIException } from "@/lib/api/utils/api-utils";
 import { UserDAO } from "@/db";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 import { userContract } from "@/lib/contracts";
+import { enqueueNotification } from "@/lib/notification-queue";
 import { normalizeRole } from "@/lib/roles";
 
 const handlers = createNextRoute(userContract.users, {
@@ -50,6 +51,11 @@ const handlers = createNextRoute(userContract.users, {
       throw new APIException("MALFORMED", "No updatable fields provided");
 
     await UserDAO.update(auth.did, update);
+
+    void enqueueNotification({
+      eventType: "profile.updated",
+      data: { targetUserId: auth.did, fields: Object.keys(update) },
+    });
 
     const user = await UserDAO.findByDid(auth.did);
     return {

@@ -11,7 +11,6 @@ import {
   Settings,
   Bell,
   Shield,
-  Key,
   Sun,
   ChevronLeft,
   ChevronRight,
@@ -110,7 +109,6 @@ const SECTIONS: NavSection[] = [
       { href: "/admin/governance", icon: ShieldCheck, label: "Governance", exact: false },
       { href: "/admin/network", icon: Activity, label: "Network", exact: false },
       { href: "/admin/settings/integrations", icon: Plug, label: "Integrations", exact: false },
-      { href: "/admin/settings/api-keys", icon: Key, label: "API Keys", exact: false },
     ],
   },
   {

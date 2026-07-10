@@ -3,6 +3,7 @@ import { APIException } from "@/lib/api/utils/api-utils";
 import { WorkspaceDAO, UserDAO } from "@/db";
 import { adminContract } from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
+import { enqueueNotification } from "@/lib/notification-queue";
 
 /**
  * POST /api/admin/workspaces — create a new workspace (global admin only).
@@ -39,6 +40,15 @@ const handlers = createNextRoute(adminContract.workspaces, {
     const creator = await UserDAO.findByDid(auth.did);
     if (creator)
       await WorkspaceDAO.addUserToWorkspace(creator.id, workspace.id, false, "Owner");
+
+    void enqueueNotification({
+      eventType: "workspace.created",
+      data: {
+        workspaceId: workspace.id,
+        workspaceName: workspace.name,
+        actorDid: auth.did,
+      },
+    });
 
     return { status: 201, body: { workspace } };
   },

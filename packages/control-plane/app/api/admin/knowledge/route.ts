@@ -2,6 +2,7 @@ import { APIException } from "@/lib/api/utils/api-utils";
 import { AgentDAO, KnowledgeDAO, WorkspaceDAO } from "@/db";
 import { adminContract } from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
+import { enqueueNotification } from "@/lib/notification-queue";
 
 const handlers = createNextRoute(adminContract.knowledge, {
   // ── POST /api/admin/knowledge ─────────────────────────────────────────────
@@ -20,6 +21,16 @@ const handlers = createNextRoute(adminContract.knowledge, {
       name,
       sourceType,
       config: config ?? {},
+    });
+
+    void enqueueNotification({
+      eventType: "knowledge.added",
+      data: {
+        knowledgeId: source.id,
+        knowledgeName: name,
+        workspaceId,
+        workspaceName: workspace.name,
+      },
     });
 
     return { status: 201, body: { source } };

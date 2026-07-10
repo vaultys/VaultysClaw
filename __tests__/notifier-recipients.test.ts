@@ -20,13 +20,18 @@ type UserRow = { id: string; email: string | null; role: string | null };
 
 function makeDb(
   users: UserRow[],
-  prefs: Record<string, { inApp: boolean; email: boolean; push: boolean }> = {}
+  prefs: Record<string, { inApp: boolean; email: boolean; push: boolean }> = {},
+  memberships: Record<string, string[]> = {} // workspaceId -> userIds
 ): NotifierDb {
   return {
     user: {
       findUnique: async ({ where }) =>
         users.find((u) => u.id === where.id) ?? null,
       findMany: async () => users,
+    },
+    userWorkspace: {
+      findMany: async ({ where }) =>
+        (memberships[where.workspaceId] ?? []).map((userId) => ({ userId })),
     },
     notificationPreference: {
       findUnique: async ({ where }) =>
@@ -90,13 +95,32 @@ describe("resolveRecipients", () => {
     ).toEqual([]);
   });
 
-  it("admin-level → all Admins and Owners", async () => {
+  it("admin-audience → all Admins and Owners", async () => {
     const db = makeDb(USERS);
     const r = await resolveRecipients(db, {
       eventType: "user.joined",
       data: { userId: "member-1" },
     });
     expect(r.map((x) => x.id).sort()).toEqual(["admin-1", "owner-1"]);
+  });
+
+  it("workspaceMembers audience → every member of the workspace", async () => {
+    const db = makeDb(USERS, {}, { "ws-1": ["member-1", "admin-1"] });
+    const r = await resolveRecipients(db, {
+      eventType: "workspace.agent_added",
+      data: { workspaceId: "ws-1", agentName: "Bot" },
+    });
+    expect(r.map((x) => x.id).sort()).toEqual(["admin-1", "member-1"]);
+  });
+
+  it("workspaceMembers audience → empty when workspace missing/empty", async () => {
+    const db = makeDb(USERS, {}, {});
+    expect(
+      await resolveRecipients(db, {
+        eventType: "workspace.workflow_added",
+        data: { workspaceId: "ws-unknown" },
+      })
+    ).toEqual([]);
   });
 
   it("unknown event → no recipients", async () => {
@@ -150,5 +174,30 @@ describe("renderNotification", () => {
     expect(renderNotification("user.joined", {}).body).toBe(
       "A new user joined VaultysClaw."
     );
+  });
+
+  it("renders workspace-scoped entity events", () => {
+    expect(
+      renderNotification("workspace.agent_added", {
+        agentName: "Bot",
+        workspaceName: "Ops",
+      }).body
+    ).toBe('Bot was added to "Ops".');
+    expect(
+      renderNotification("workspace.workflow_removed", {
+        workflowName: "Nightly",
+        workspaceName: "Ops",
+      }).body
+    ).toBe('Nightly was removed from "Ops".');
+  });
+
+  it("renders admin lifecycle events", () => {
+    expect(renderNotification("workflow.failed", { workflowName: "Sync" }).body).toBe(
+      "Sync run failed."
+    );
+    expect(renderNotification("model.added", { modelName: "gpt" }).title).toBe(
+      "Model added"
+    );
+    expect(renderNotification("profile.updated", {}).title).toBe("Profile updated");
   });
 });

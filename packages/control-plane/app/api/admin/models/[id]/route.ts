@@ -4,6 +4,7 @@ import {
   adminContract,
 } from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
+import { enqueueNotification } from "@/lib/notification-queue";
 import {
   registerModel,
   removeModel,
@@ -74,6 +75,12 @@ const handlers = createNextRoute(adminContract.models, {
     }
 
     const deleted = await ModelDAO.delete(params.id);
+
+    void enqueueNotification({
+      eventType: "model.removed",
+      data: { modelId: entry.id, modelName: entry.name },
+    });
+
     return { status: 200, body: { model: deleted } };
   },
 });

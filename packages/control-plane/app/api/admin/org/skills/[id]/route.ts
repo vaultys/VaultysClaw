@@ -7,6 +7,7 @@ import { APIException } from "@/lib/api/utils/api-utils";
 import { OrgSkillDAO } from "@/db";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 import { adminContract } from "@/lib/contracts";
+import { enqueueNotification } from "@/lib/notification-queue";
 
 const handlers = createNextRoute(adminContract.orgSkills, {
   update: async ({ params, body }) => {
@@ -28,10 +29,16 @@ const handlers = createNextRoute(adminContract.orgSkills, {
 
   remove: async ({ params }) => {
 
-    if (!(await OrgSkillDAO.findById(params.id)))
-      throw new APIException("NOT_FOUND", "Skill not found");
+    const skill = await OrgSkillDAO.findById(params.id);
+    if (!skill) throw new APIException("NOT_FOUND", "Skill not found");
 
     await OrgSkillDAO.delete(params.id);
+
+    void enqueueNotification({
+      eventType: "skill.removed",
+      data: { skillId: params.id, skillName: skill.name },
+    });
+
     return { status: 200, body: { success: true } };
   },
 });

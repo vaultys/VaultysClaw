@@ -61,6 +61,7 @@ import {
 } from "@opentelemetry/api";
 import { agentsConnected, llmTokens, intentsTotal } from "./metrics";
 import { ChannelService } from "./channel-service";
+import { enqueueNotification } from "./notification-queue";
 import { crypto } from "@vaultys/id";
 import { signIntent } from "./intent-signing";
 import {
@@ -1483,6 +1484,11 @@ export class AgentWSServer {
       name: target.agentName ?? "unknown",
       capabilities,
       certificateData: target.certificateData,
+    });
+
+    void enqueueNotification({
+      eventType: "agent.created",
+      data: { agentDid, agentName: target.agentName ?? "unknown" },
     });
 
     // Promote to authenticated agent

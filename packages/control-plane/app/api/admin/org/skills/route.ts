@@ -6,6 +6,7 @@ import { APIException } from "@/lib/api/utils/api-utils";
 import { OrgSkillDAO } from "@/db";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 import { adminContract } from "@/lib/contracts";
+import { enqueueNotification } from "@/lib/notification-queue";
 
 const handlers = createNextRoute(adminContract.orgSkills, {
   create: async ({ body }) => {
@@ -20,6 +21,10 @@ const handlers = createNextRoute(adminContract.orgSkills, {
         icon: body.icon?.trim(),
         content: body.content ?? undefined,
         configSchema: body.configSchema,
+      });
+      void enqueueNotification({
+        eventType: "skill.added",
+        data: { skillId: skill.id, skillName: skill.name },
       });
       return { status: 201, body: { skill } };
     } catch (err) {

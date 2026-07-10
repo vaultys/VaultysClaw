@@ -35,8 +35,10 @@ service (`docker/Dockerfile.notifier` + `docker/docker-compose.yml`).
   a duplicate-instance type clash).
 - **`src/recipients.ts`** — pure-ish resolution logic, **dependency-injected DB**
   (`NotifierDb`) so it's unit-testable without Prisma:
-  - `resolveRecipients(db, job)` — routes by the event's catalog `level`
-    (`user` → the target user; `admin` → all Admins/Owners; `owner` → Owners).
+  - `resolveRecipients(db, job)` — routes by the event's catalog `audience`
+    (`target` → the payload's user; `workspaceMembers` → members of
+    `data.workspaceId`; `admins` → all Admins/Owners; `owners` → Owners). Note
+    `audience` (who receives) is decoupled from `level` (who may configure it).
   - `resolvePrefs(db, userId, eventType, defaults)` — explicit stored prefs, else
     the event's catalog `defaultChannels`.
   - `normalizeRole` / `isAdmin` / `isOwner` — mirror `control-plane/lib/roles.ts`.

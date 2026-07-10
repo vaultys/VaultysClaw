@@ -1,6 +1,6 @@
 # VaultysClaw — all-in-one stack
 #
-# Starts: PostgreSQL · Prisma Studio · MinIO · Docling · LiteLLM · Control Plane
+# Starts: PostgreSQL · Redis · Prisma Studio · MinIO · Docling · LiteLLM · Control Plane · Notifier
 #
 # Quick start (from repo root):
 #   cp .env.compose.example .env.compose   # then fill NEXTAUTH_SECRET + LITELLM_MASTER_KEY
@@ -39,6 +39,19 @@ services:
       timeout: 5s
       retries: 15
       start_period: 15s
+
+  # ── Redis (BullMQ queue + notification pub/sub) ─────────────────────────────
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   # ── Prisma Studio ─────────────────────────────────────────────────────────
   prisma-studio:
@@ -151,8 +164,11 @@ services:
         condition: service_started
       minio:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       DATABASE_URL: postgresql://vaultys:${PG_PASSWORD:-vaultys_dev_secret}@postgres:5432/vaultysclaw
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-insecure-dev-secret-change-me}
       NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
       NODE_ENV: production
@@ -170,6 +186,25 @@ services:
       start_period: 60s
     restart: unless-stopped
 
+  # ── Notifier ────────────────────────────────────────────────────────────────
+  notifier:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.notifier
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      control-plane:
+        condition: service_started
+    environment:
+      DATABASE_URL: postgresql://vaultys:${PG_PASSWORD:-vaultys_dev_secret}@postgres:5432/vaultysclaw
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      NODE_ENV: production
+    restart: unless-stopped
+
 volumes:
   pgdata:
   miniodata:
+  redisdata:

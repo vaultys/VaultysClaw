@@ -165,10 +165,44 @@ model User {
   userWorkspaces      UserWorkspace[]
   userGrants      UserGrant[]
   invitations     UserInvitation[]
+  notificationPreferences NotificationPreference[]
+  notifications           Notification[]
 
   @@index([did])
   @@index([entraId])
   @@index([oidcId])
+}
+
+// ─── Notifications ───────────────────────────────────────────────────────────
+
+model NotificationPreference {
+  id        String  @id @default(cuid())
+  userId    String
+  eventType String
+  inApp     Boolean @default(true)
+  email     Boolean @default(false)
+  push      Boolean @default(false)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, eventType])
+  @@map("notification_preferences")
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  eventType String
+  title     String
+  body      String
+  data      Json?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+  @@map("notifications")
 }
 
 // ─── User grants & delegation certs ──────────────────────────────────────────

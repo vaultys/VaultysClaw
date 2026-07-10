@@ -3,6 +3,7 @@ import { APIException } from "@/lib/api/utils/api-utils";
 import { WorkspaceDAO, UserDAO } from "@/db";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 import { userContract } from "@/lib/contracts";
+import { enqueueNotification } from "@/lib/notification-queue";
 
 /** Resolve a user by DID or internal id. */
 async function findUser(didOrId: string) {
@@ -30,6 +31,15 @@ const handlers = createNextRoute(userContract.workspaces, {
       body.isPrimary ?? false,
       body.role ?? "Member"
     );
+    void enqueueNotification({
+      eventType: "workspace.member_added",
+      data: {
+        targetUserId: user.id,
+        workspaceId: params.id,
+        workspaceName: workspace.name,
+        actorDid: auth.did,
+      },
+    });
     return { status: 200, body: { ok: true } };
   },
 
@@ -92,6 +102,17 @@ const handlers = createNextRoute(userContract.workspaces, {
         "MALFORMED",
         "Cannot remove user from the default workspace"
       );
+
+    const workspace = await WorkspaceDAO.findById(params.id);
+    void enqueueNotification({
+      eventType: "workspace.member_removed",
+      data: {
+        targetUserId: user.id,
+        workspaceId: params.id,
+        workspaceName: workspace?.name,
+        actorDid: auth.did,
+      },
+    });
 
     return { status: 200, body: { ok: true } };
   },

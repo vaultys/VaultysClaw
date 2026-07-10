@@ -1,0 +1,48 @@
+FROM node:22-slim
+
+WORKDIR /app
+
+# System deps for native modules (pg) + curl for healthchecks/waits
+RUN apt-get update && apt-get install -y python3 make g++ curl && rm -rf /var/lib/apt/lists/*
+
+RUN npm install -g pnpm@10 --quiet
+
+# Copy only the manifests we need (policy + shared + notifier) to keep layer cache tight.
+# The workspace root manifest is needed for pnpm to recognise the monorepo layout.
+COPY package.json pnpm-workspace.yaml ./
+COPY packages/policy/package.json    packages/policy/
+COPY packages/shared/package.json    packages/shared/
+COPY packages/notifier/package.json  packages/notifier/
+# Stub the other workspace packages so pnpm workspace resolution doesn't fail
+RUN mkdir -p packages/agent-controller && echo '{"name":"@vaultysclaw/agent-controller","version":"0.0.1"}' > packages/agent-controller/package.json \
+ && mkdir -p packages/agent-runtime    && echo '{"name":"@vaultysclaw/agent-runtime","version":"0.0.1"}'    > packages/agent-runtime/package.json \
+ && mkdir -p packages/control-plane    && echo '{"name":"@vaultysclaw/control-plane","version":"0.0.1"}'    > packages/control-plane/package.json \
+ && mkdir -p packages/mcp-gateway      && echo '{"name":"@vaultysclaw/mcp-gateway","version":"0.0.1"}'      > packages/mcp-gateway/package.json
+
+# Install only the packages needed for policy + shared + notifier
+RUN pnpm install --filter @vaultysclaw/policy --filter @vaultysclaw/shared --filter @vaultysclaw/notifier
+
+# Copy source
+COPY packages/policy/    packages/policy/
+COPY packages/shared/    packages/shared/
+COPY packages/notifier/  packages/notifier/
+
+# The notifier shares the control plane's Prisma schema. Copy it and generate the
+# client (only the `client` generator — skip the zod generator which needs the
+# control-plane devDeps).
+COPY packages/control-plane/prisma/ packages/control-plane/prisma/
+RUN pnpm exec prisma generate \
+      --schema=/app/packages/control-plane/prisma/schema.prisma \
+      --generator client
+
+# Build workspace deps (policy before shared) so notifier can import their dist
+RUN pnpm --filter @vaultysclaw/policy build \
+ && pnpm --filter @vaultysclaw/shared build
+
+WORKDIR /app/packages/notifier
+
+# TCP probe: wait for postgres to be reachable before starting.
+COPY docker/wait-for-db.sh /usr/local/bin/wait-for-db
+RUN chmod +x /usr/local/bin/wait-for-db
+
+CMD ["wait-for-db", "sh", "-c", "node --import tsx src/index.ts"]

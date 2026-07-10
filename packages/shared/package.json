@@ -2,6 +2,7 @@
   "name": "@vaultysclaw/shared",
   "version": "0.0.1",
   "description": "Shared types and utilities for VaultysClaw",
+  "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
@@ -13,7 +14,7 @@
     }
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && node ../../scripts/fix-esm-extensions.mjs dist",
     "type-check": "tsc --noEmit",
     "lint": "eslint src --ext .ts"
   },

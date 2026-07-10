@@ -28,6 +28,7 @@ import {
   serverPublicContract,
   settingsContract,
   otelSettingsContract,
+  notificationsContract,
   setupContract,
   skillsContract,
   skillsAdminContract,
@@ -107,6 +108,10 @@ export const serverPublicClient = initClient(
   clientOptions
 );
 export const settingsClient = initClient(settingsContract, clientOptions);
+export const notificationsClient = initClient(
+  notificationsContract,
+  clientOptions
+);
 export const otelSettingsClient = initClient(
   otelSettingsContract,
   clientOptions
@@ -179,6 +184,7 @@ export const userApi = {
   network: networkClient,
   orgSkills: orgSkillsClient,
   settings: otelSettingsClient,
+  notifications: notificationsClient,
   skills: skillsClient,
   workflows: workflowsClient,
   workflowRuns: workflowRunsClient,

@@ -83,3 +83,36 @@ export function modelPlaceholder(provider: LlmProviderType): string {
       return "model-name";
   }
 }
+
+/**
+ * Curated static model choices per provider, shown in the Model combobox.
+ * There is no dynamic-discovery API for these providers/CLIs (checked: the
+ * `codex` and `gemini` CLIs only expose a free-text `-m/--model` flag, and
+ * neither `cursor-agent` nor `@mastra/cursor` expose a list-models call), so
+ * this list is curated by hand and kept modest — a handful of well-known,
+ * current model ids per provider. The combobox always allows freeform entry
+ * too, so an unlisted or brand-new model id can still be typed in directly.
+ *
+ * `claude-agent-sdk` is deliberately absent here: its options are fetched
+ * live via `/api/agents/:did/claude-models` (backed by the Claude Agent
+ * SDK's `supportedModels()`), with this list only used as a fallback if
+ * that fetch fails.
+ */
+export const STATIC_MODEL_OPTIONS: Partial<Record<LlmProviderType, string[]>> = {
+  openai: ["gpt-4o", "gpt-4o-mini", "gpt-5.4", "gpt-5.4-mini"],
+  anthropic: [
+    "claude-sonnet-4-5",
+    "claude-opus-4-5",
+    "claude-haiku-4-5",
+  ],
+  google: ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.0-flash"],
+  "cursor-agent-sdk": ["auto", "gpt-5.4", "claude-sonnet-4-5", "sonnet-4-5-thinking"],
+  "openai-agent-sdk": ["gpt-5.4-mini", "gpt-5.4", "gpt-4o"],
+  // Fetched dynamically at runtime — see doc above; this is only the fallback.
+  "claude-agent-sdk": ["claude-sonnet-4-5", "claude-opus-4-5", "claude-haiku-4-5"],
+};
+
+/** Static fallback model list for a provider (used when dynamic fetch fails or isn't applicable). */
+export function staticModelOptions(provider: LlmProviderType): string[] {
+  return STATIC_MODEL_OPTIONS[provider] ?? [];
+}

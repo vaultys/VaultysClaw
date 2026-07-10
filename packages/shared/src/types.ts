@@ -144,7 +144,9 @@ export type WSMessageType =
   | "knowledge_sync_result"
   | "knowledge_status_sync"
   | "channel_event"
-  | "channel_message_send";
+  | "channel_message_send"
+  | "get_claude_models"
+  | "claude_models_response";
 
 /**
  * LLM provider type — controls which AI SDK provider is instantiated.
@@ -678,6 +680,26 @@ export interface WSGetChatHistoryPayload {
 export interface WSChatHistoryResponsePayload {
   sessionId: string;
   messages: ChatHistoryMessage[];
+}
+
+/** Sent by control plane to ask a connected agent for its available Claude models. */
+export interface WSGetClaudeModelsPayload {
+  /** Optional API key to query with, if the caller wants to check a not-yet-saved key. */
+  apiKey?: string;
+}
+
+/** A single model choice returned to the control plane. */
+export interface ClaudeModelOption {
+  /** Identifier to use in API calls. */
+  value: string;
+  /** Canonical wire model id this value resolves to, if it's an alias. */
+  resolvedModel?: string;
+}
+
+/** Sent by agent in response with the Claude models it discovered (or an error). */
+export interface WSClaudeModelsResponsePayload {
+  models: ClaudeModelOption[];
+  error?: string;
 }
 
 // ---------------------------------------------------------------------------

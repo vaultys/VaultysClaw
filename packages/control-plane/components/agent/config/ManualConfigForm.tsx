@@ -2,7 +2,7 @@
 
 import { type LlmProviderType } from "@vaultysclaw/shared";
 import type { AgentLlmConfigController } from "@/hooks/useAgentLlmConfig";
-import { PROVIDER_OPTIONS, modelPlaceholder } from "./constants";
+import { PROVIDER_OPTIONS, modelPlaceholder, staticModelOptions } from "./constants";
 
 const INPUT_CLASS =
   "w-full bg-background-200 border border-neutral-300 rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:ring-2 focus:ring-primary-500/50";
@@ -10,9 +10,27 @@ const LABEL_CLASS =
   "text-xs text-foreground-500 uppercase tracking-wider font-medium block mb-1.5";
 
 export function ManualConfigForm({ cfg }: { cfg: AgentLlmConfigController }) {
-  const { llmForm, setLlmForm, llmConfig, llmSaving, cancelEdit, saveManualConfig } =
-    cfg;
+  const {
+    llmForm,
+    setLlmForm,
+    llmConfig,
+    llmSaving,
+    cancelEdit,
+    saveManualConfig,
+    claudeModels,
+    claudeModelsLoading,
+  } = cfg;
   const provider = PROVIDER_OPTIONS.find((p) => p.value === llmForm.provider)!;
+
+  // Dynamic list (Claude, when the live fetch succeeded) takes priority;
+  // otherwise fall back to the curated static list for the provider. The
+  // <input list=…> combobox below still allows freeform typing regardless,
+  // so a failed fetch or an unlisted model id is never a dead end.
+  const modelOptions =
+    llmForm.provider === "claude-agent-sdk" && claudeModels.length > 0
+      ? claudeModels
+      : staticModelOptions(llmForm.provider);
+  const modelListId = `model-options-${llmForm.provider}`;
 
   return (
     <form onSubmit={saveManualConfig} className="space-y-4">
@@ -37,10 +55,18 @@ export function ManualConfigForm({ cfg }: { cfg: AgentLlmConfigController }) {
           </select>
         </div>
         <div>
-          <label className={LABEL_CLASS}>Model</label>
+          <label className={LABEL_CLASS}>
+            Model{" "}
+            {llmForm.provider === "claude-agent-sdk" && claudeModelsLoading && (
+              <span className="normal-case text-foreground-400">
+                (loading live models…)
+              </span>
+            )}
+          </label>
           <input
             type="text"
             required
+            list={modelListId}
             value={llmForm.model}
             onChange={(e) =>
               setLlmForm((f) => ({ ...f, model: e.target.value }))
@@ -48,6 +74,13 @@ export function ManualConfigForm({ cfg }: { cfg: AgentLlmConfigController }) {
             placeholder={modelPlaceholder(llmForm.provider)}
             className={INPUT_CLASS}
           />
+          {/* Combobox: pick from known models, or type a custom one — the
+              datalist never restricts what can be submitted. */}
+          <datalist id={modelListId}>
+            {modelOptions.map((m) => (
+              <option key={m} value={m} />
+            ))}
+          </datalist>
         </div>
         {provider.needsKey && (
           <div>

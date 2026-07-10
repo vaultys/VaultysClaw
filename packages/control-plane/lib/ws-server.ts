@@ -190,6 +190,13 @@ export class AgentWSServer {
       payload: import("@vaultysclaw/shared").WSChatHistoryResponsePayload
     ) => void
   > = new Map();
+  /** Pending one-shot callbacks for Claude model list responses. Key = agentId */
+  private claudeModelsCallbacks: Map<
+    string,
+    (
+      payload: import("@vaultysclaw/shared").WSClaudeModelsResponsePayload
+    ) => void
+  > = new Map();
   /** Cumulative message counters per transport, reset on server restart. */
   private transportStats = {
     ws: {
@@ -470,6 +477,10 @@ export class AgentWSServer {
 
         case "chat_history_response":
           this.handleChatHistoryResponse(message);
+          break;
+
+        case "claude_models_response":
+          this.handleClaudeModelsResponse(message);
           break;
 
         case "channel_message_send":
@@ -1088,6 +1099,17 @@ export class AgentWSServer {
     }
   }
 
+  private handleClaudeModelsResponse(message: WSMessage): void {
+    const agentId = message.agentId ?? "";
+    const cb = this.claudeModelsCallbacks.get(agentId);
+    if (cb) {
+      this.claudeModelsCallbacks.delete(agentId);
+      cb(
+        message.payload as import("@vaultysclaw/shared").WSClaudeModelsResponsePayload
+      );
+    }
+  }
+
   private handleChannelMessageSend(message: WSMessage): void {
     try {
       const payload = message.payload as WSChannelMessageSendPayload;
@@ -1173,6 +1195,37 @@ export class AgentWSServer {
         payload: {
           sessionId,
         } satisfies import("@vaultysclaw/shared").WSGetChatHistoryPayload,
+        timestamp: new Date().toISOString(),
+      });
+    });
+  }
+
+  /** Ask a connected agent for its available Claude models (10 s timeout). */
+  getClaudeModels(
+    agentDid: string,
+    apiKey?: string
+  ): Promise<import("@vaultysclaw/shared").ClaudeModelOption[]> {
+    return new Promise((resolve, reject) => {
+      const agent = this.agents.get(agentDid);
+      if (!agent || !agent.sender.isOpen()) {
+        return reject(new Error("Agent not connected"));
+      }
+      const timer = setTimeout(() => {
+        this.claudeModelsCallbacks.delete(agentDid);
+        reject(new Error("Timeout waiting for Claude models"));
+      }, 10_000);
+      this.claudeModelsCallbacks.set(agentDid, (payload) => {
+        clearTimeout(timer);
+        if (payload.error) return reject(new Error(payload.error));
+        resolve(payload.models);
+      });
+      this.sendMessage(agent.sender, {
+        messageId: `get-claude-models-${Date.now()}`,
+        type: "get_claude_models",
+        agentId: agentDid,
+        payload: {
+          apiKey,
+        } satisfies import("@vaultysclaw/shared").WSGetClaudeModelsPayload,
         timestamp: new Date().toISOString(),
       });
     });

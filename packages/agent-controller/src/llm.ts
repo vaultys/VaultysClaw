@@ -10,7 +10,12 @@ import { ClaudeSDKAgent } from "@mastra/claude";
 import { CursorSDKAgent } from "@mastra/cursor";
 import { OpenAISDKAgent } from "@mastra/openai";
 import { setDefaultOpenAIKey } from "@openai/agents";
-import { isSdkAgentProvider, type LlmConfig } from "@vaultysclaw/shared";
+import { query as claudeQuery } from "@anthropic-ai/claude-agent-sdk";
+import {
+  isSdkAgentProvider,
+  type LlmConfig,
+  type ClaudeModelOption,
+} from "@vaultysclaw/shared";
 import type { MastraTool } from "./tools/types";
 import pino from "pino";
 import { trace, context, propagation, SpanStatusCode } from "@opentelemetry/api";
@@ -292,6 +297,15 @@ function buildSdkAgent(
           model: config.model,
           cwd: config.cwd,
           allowedTools: config.allowedTools,
+          // This is a headless server: there is no human to answer an
+          // interactive tool-approval control-request, so the default
+          // 'default' permissionMode (which prompts on tool use) would
+          // stall the query() generator forever waiting on an answer that
+          // never comes. Bypass permission prompting entirely here;
+          // `allowedTools` above remains a separate, complementary
+          // allow-list of which tools the agent may use.
+          permissionMode: "bypassPermissions",
+          allowDangerouslySkipPermissions: true,
           // The Claude Agent SDK spawns a subprocess whose env REPLACES
           // process.env entirely when set, so inherit it explicitly.
           env: config.apiKey
@@ -329,6 +343,37 @@ function buildSdkAgent(
 
     default:
       throw new Error(`Not an SDK-agent provider: ${config.provider}`);
+  }
+}
+
+/**
+ * Fetch the list of Claude models available to the given (or process-env)
+ * API key, via the Claude Agent SDK's `supportedModels()` control-protocol
+ * request. This spins up a short-lived, no-op query session purely to reach
+ * into the control channel — no prompt is ever sent to the model — and
+ * closes it immediately afterwards.
+ */
+export async function fetchClaudeSupportedModels(
+  apiKey?: string
+): Promise<ClaudeModelOption[]> {
+  const q = claudeQuery({
+    // Empty async generator: never yields a user message, so no request is
+    // ever sent to the model — we only need the control channel.
+    prompt: (async function* () {})(),
+    options: {
+      env: apiKey ? { ...process.env, ANTHROPIC_API_KEY: apiKey } : undefined,
+      permissionMode: "bypassPermissions",
+      allowDangerouslySkipPermissions: true,
+    },
+  });
+  try {
+    const models = await q.supportedModels();
+    return models.map((m) => ({
+      value: m.value,
+      resolvedModel: m.resolvedModel,
+    }));
+  } finally {
+    q.close();
   }
 }
 

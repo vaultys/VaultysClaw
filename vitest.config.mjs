@@ -16,6 +16,7 @@ export default defineConfig({
       // condition only applies under the tsx dev runner, not vitest. Alias them
       // to their TS source so tests run from source (CI parity with local).
       "@vaultysclaw/shared": resolve(__dirname, "packages/shared/src/index.ts"),
+      "@vaultysclaw/policy": resolve(__dirname, "packages/policy/src/index.ts"),
       "@vaultysclaw/agent-runtime": resolve(
         __dirname,
         "packages/agent-runtime/src/index.ts"

@@ -4,26 +4,16 @@
  * Agents call verifyIntentMessage() on every incoming intent to confirm it was
  * signed by the control plane they authenticated against.
  *
- * Wire format (identical to delegation certs produced by control-plane):
- *   base64( 4-byte-LE-bodyLen | msgpack(body) | raw-signature )
- *
- * Body:
- *   { type: "intent", id: string, action: string, agentId: string, timestamp: number }
+ * This is a thin wrapper around the shared cert primitives in
+ * `@vaultysclaw/policy`.
  */
 
-import { VaultysId, crypto } from "@vaultys/id";
-import { decode as msgpackDecode } from "@msgpack/msgpack";
+import { VaultysId } from "@vaultys/id";
 import type { WSMessage } from "@vaultysclaw/shared";
+import { verifyIntentCert, type IntentCertBody } from "@vaultysclaw/policy";
 
-const Buf = crypto.Buffer;
-
-export interface IntentSigningBody {
-  type: string;
-  id: string;
-  action: string;
-  agentId: string;
-  timestamp: number;
-}
+/** @deprecated Prefer importing `IntentCertBody` from `@vaultysclaw/policy`. */
+export type IntentSigningBody = IntentCertBody;
 
 /**
  * Verify a signed WSMessage of type "intent".
@@ -37,32 +27,17 @@ export function verifyIntentMessage(
   message: WSMessage,
   serverPublicKey: Buffer
 ): boolean {
-  console.log("boom");
   if (!message.signature) return false;
 
   try {
-    const combined = Buf.from(message.signature, "base64");
-    if (combined.length < 5) return false;
-
-    const bodyLen = combined.readUInt32LE(0);
-    if (combined.length < 4 + bodyLen) return false;
-
-    const body = combined.subarray(4, 4 + bodyLen);
-    const sig = combined.subarray(4 + bodyLen);
-
-
     const serverVid = VaultysId.fromId(serverPublicKey);
-    console.log("Verifying intent signature with server public key:", serverVid.did);
-    const valid = serverVid.verifyChallenge(
-      Buf.from(body),
-      Buf.from(sig),
-      false
-    );
-    if (!valid) return false;
-
-    const payload = msgpackDecode(body) as IntentSigningBody;
-    if (payload.type !== "intent") return false;
-    if (payload.id !== message.messageId) return false;
+    const payload = verifyIntentCert(serverVid, message.signature, {
+      intentId: message.messageId,
+    });
+    if (!payload) return false;
+    // Agent-side match is stricter than the server audit path: the signed
+    // agentId must equal the envelope's agentId exactly (including when the
+    // envelope omits it).
     if (payload.agentId !== message.agentId) return false;
 
     return true;

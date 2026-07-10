@@ -1,24 +1,18 @@
 /**
  * Peer grant certificate verification for the agent controller.
  *
- * Mirrors the control-plane's peer-grant.ts but uses only the agent's
- * available imports (no server-side dependencies).
+ * This is a thin wrapper around the shared cert primitives in
+ * `@vaultysclaw/policy`. It verifies a server-signed peer-grant cert using the
+ * server's raw public key bytes (available offline from the auth cert).
  */
-import { decode as msgpackDecode } from "@msgpack/msgpack";
-import { VaultysId, crypto } from "@vaultys/id";
+import { VaultysId } from "@vaultys/id";
+import {
+  verifyPeerGrantCert,
+  type PeerGrantCertBody,
+} from "@vaultysclaw/policy";
 
-const Buffer = crypto.Buffer;
-
-export interface PeerGrantPayload {
-  type: "peer_grant";
-  sourceDid: string;
-  targetDid: string;
-  targetName: string;
-  skillDescription: string;
-  capabilities: string[];
-  issuedAt: number;
-  expiresAt?: number;
-}
+/** @deprecated Prefer importing `PeerGrantCertBody` from `@vaultysclaw/policy`. */
+export type PeerGrantPayload = PeerGrantCertBody;
 
 /**
  * Verify a peer grant certificate using the server's raw public key bytes.
@@ -29,29 +23,8 @@ export async function verifyPeerGrant(
   serverPublicKey: Buffer
 ): Promise<PeerGrantPayload | null> {
   try {
-    const combined = Buffer.from(cert, "base64");
-    if (combined.length < 5) return null;
-
-    const bodyLen = combined.readUInt32LE(0);
-    if (combined.length < 4 + bodyLen) return null;
-
-    const body = combined.subarray(4, 4 + bodyLen);
-    const signature = combined.subarray(4 + bodyLen);
-
     const serverVid = VaultysId.fromId(serverPublicKey);
-    const valid = serverVid.verifyChallenge(
-      Buffer.from(body),
-      Buffer.from(signature),
-      false
-    );
-    if (!valid) return null;
-
-    const payload = msgpackDecode(body) as PeerGrantPayload;
-    if (payload.type !== "peer_grant") return null;
-
-    if (payload.expiresAt && payload.expiresAt < Date.now()) return null;
-
-    return payload;
+    return verifyPeerGrantCert(serverVid, cert);
   } catch {
     return null;
   }

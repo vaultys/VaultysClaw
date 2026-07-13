@@ -1,5 +1,12 @@
 # app/api — REST API Routes
 
+> `app/api/mcp/route.ts` is the one exception: a plain JSON-RPC 2.0 handler
+> (not ts-rest) exposing a small tool surface over MCP for remote HTTP
+> clients authenticated by API key or session — see `lib/mcp/tools.ts` for
+> the tool implementations. It's a companion to `packages/mcp-gateway` (a
+> separate stdio VaultysId agent) for callers that just want a bearer-token
+> HTTP endpoint.
+
 All **new** REST APIs follow the ts-rest + APIException pattern:
 
 - **Single source of truth**: Zod schemas in contracts → type-safe on both client & server

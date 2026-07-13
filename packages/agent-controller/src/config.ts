@@ -46,6 +46,8 @@ export interface AgentControllerConfig {
   workspaceRoot?: string;
   /** Directory to load user-defined skill plugins from. Defaults to ~/.vaultysclaw/skills */
   skillsDir?: string;
+  /** Path to the MCP servers config (mcpServers map, same shape as Claude Desktop's config). Defaults to ~/.vaultysclaw/mcp-servers.json */
+  mcpServersPath?: string;
   /** Watch the skills directory and hot-reload when files change. Default false. */
   watchSkills?: boolean;
   /** How long (ms) to wait for an admin to approve a tool request before auto-rejecting. Default 10 minutes. */
@@ -111,6 +113,7 @@ export function loadConfig(): AgentControllerConfig {
     peerjsServer: process.env.PEERJS_SERVER || undefined,
     workspaceRoot: process.env.AGENT_WORKSPACE_ROOT || undefined,
     skillsDir: process.env.SKILLS_DIR || undefined,
+    mcpServersPath: process.env.MCP_SERVERS_PATH || undefined,
     watchSkills: process.env.SKILLS_WATCH === "true",
     approvalTimeoutMs: process.env.APPROVAL_TIMEOUT_MS
       ? parseInt(process.env.APPROVAL_TIMEOUT_MS, 10)

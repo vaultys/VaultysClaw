@@ -89,6 +89,7 @@ import {
 } from "./tools";
 import { buildRemoteAgentTools } from "./tools/remote-agent-tools";
 import { SkillLoader, type SkillRegistry } from "./skills";
+import { McpClientManager, loadMcpServersConfig } from "./mcp";
 import { TaskQueue } from "./task-queue";
 import { Scheduler } from "./scheduler";
 import { MemoryStore, MemoryRetriever, ConversationSummarizer } from "./memory";
@@ -255,6 +256,8 @@ export class Agent extends BaseAgentRuntime {
   // Tool system
   private toolRegistry: ToolRegistry;
   private skillLoader: SkillLoader | null = null;
+  private mcpManager = new McpClientManager();
+  private mcpTools: import("./tools/types").AgentToolDefinition[] = [];
   /** Skill filter pushed by the control plane. null = no filter (use all local skills). */
   private workspaceSkillFilter: SkillConfig[] | null = null;
   private pendingApprovals = new Map<
@@ -1698,6 +1701,13 @@ export class Agent extends BaseAgentRuntime {
     this.skillLoader = new SkillLoader({ skillsDir });
     const skillRegistry = await this.skillLoader.load();
 
+    const mcpServers = loadMcpServersConfig(
+      (this.config as AgentControllerConfig).mcpServersPath
+    );
+    this.mcpTools = await this.mcpManager.connectAll(mcpServers, (level, msg) =>
+      this.log(level, msg)
+    );
+
     this.rebuildToolRegistry(skillRegistry);
     this.log(
       "info",
@@ -1741,7 +1751,7 @@ export class Agent extends BaseAgentRuntime {
 
     this.toolRegistry = createToolRegistry({
       workspaceRoot: this.config.workspaceRoot ?? process.cwd(),
-      extraTools: [...extraTools, knowledgeToolDef],
+      extraTools: [...extraTools, ...this.mcpTools, knowledgeToolDef],
     });
   }
 

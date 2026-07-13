@@ -11,6 +11,7 @@ import {
 import { prisma } from "./prisma";
 import { sendMail } from "./smtp";
 import { renderNotification } from "./render";
+import { buildEmail } from "./email";
 import { resolveRecipients, resolvePrefs, type Recipient } from "./recipients";
 
 const log = pino({ name: "notifier" });
@@ -18,6 +19,10 @@ const log = pino({ name: "notifier" });
 // ── Redis wiring ──────────────────────────────────────────────────────────────
 
 const REDIS_URL = process.env.REDIS_URL || "redis://localhost:6379";
+
+/** Browser-facing base URL used to build deep links in emails. */
+const APP_URL =
+  process.env.APP_URL || process.env.NEXTAUTH_URL || "http://localhost:3000";
 
 /** Parse REDIS_URL into BullMQ connection options (BullMQ owns its ioredis). */
 function connectionFromUrl(url: string): RedisOptions {
@@ -84,14 +89,26 @@ async function deliver(recipient: Recipient, job: NotificationJob) {
     );
   }
 
-  // Email.
+  // Email — rich HTML with details + a deep-link action button.
   if (prefs.email && recipient.email) {
     try {
+      // Best-effort: resolve the actor's display name for a nicer "By …" row.
+      let actorName: string | undefined;
+      const actorDid = job.data.actorDid as string | undefined;
+      if (actorDid) {
+        const actor = await prisma.user.findUnique({
+          where: { id: actorDid },
+          select: { name: true, email: true },
+        });
+        actorName = actor?.name ?? actor?.email ?? undefined;
+      }
+
+      const email = buildEmail(job.eventType, job.data, APP_URL, actorName);
       const sent = await sendMail({
         to: recipient.email,
-        subject: title,
-        html: `<p>${body}</p>`,
-        text: body,
+        subject: email.subject,
+        html: email.html,
+        text: email.text,
       });
       if (!sent) log.warn("SMTP not configured — email skipped");
     } catch (err) {

@@ -43,7 +43,15 @@ service (`docker/Dockerfile.notifier` + `docker/docker-compose.yml`).
     the event's catalog `defaultChannels`.
   - `normalizeRole` / `isAdmin` / `isOwner` — mirror `control-plane/lib/roles.ts`.
 - **`src/render.ts`** — `renderNotification(eventType, data)` → `{ title, body }`.
-  Add a `case` here when adding an event that needs custom copy.
+  Add a `case` here when adding an event that needs custom copy. Used for in-app,
+  push, and as the headline of emails.
+- **`src/email.ts`** — rich HTML emails. `buildEmail(eventType, data, baseUrl,
+  actorName?)` → `{ subject, html, text }`: branded layout (`renderEmailLayout`)
+  with a details table and, when relevant, a deep-link **action button**. Pure
+  (no Prisma/env) so it's unit-tested (`__tests__/notifier-email.test.ts`). Base
+  URL comes from `APP_URL` ?? `NEXTAUTH_URL` ?? `http://localhost:3000` (resolved
+  in `index.ts`); the notifier service must receive it (docker-compose env). Add
+  a `case` here to give a new event its own details/action.
 - **`src/prisma.ts`** — Prisma client (same generated client + schema as the
   control plane; pg adapter). Reads/writes `users`, `notifications`,
   `notification_preferences`, `settings`.
@@ -63,9 +71,10 @@ Per recipient, resolve channel prefs, then:
 ## Adding an event
 
 The catalog lives in `@vaultysclaw/shared` (`src/notifications.ts`), not here.
-Add it there (with its `level` + `defaultChannels`), emit it from the control
-plane via `enqueueNotification`, then add a render `case` in `src/render.ts` and,
-if it needs a non-standard audience, extend `resolveRecipients`.
+Add it there (with its `level`, `audience` + `defaultChannels`), emit it from the
+control plane via `enqueueNotification`, then add a render `case` in
+`src/render.ts` (short copy), a `case` in `src/email.ts` (details + action
+button) and, if it needs a non-standard audience, extend `resolveRecipients`.
 
 ## Prisma in Docker
 

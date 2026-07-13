@@ -203,6 +203,8 @@ services:
     environment:
       DATABASE_URL: postgresql://vaultys:${PG_PASSWORD:-vaultys_dev_secret}@postgres:5432/vaultysclaw
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      # Browser-facing base URL used to build deep links in notification emails.
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
       NODE_ENV: production
     restart: unless-stopped
 

@@ -12,7 +12,10 @@ channels:
 
 - **In-app** — a bell in the top bar with a dropdown of your notifications (stored
   in the database, so they persist across sessions).
-- **Email** — sent via the SMTP server configured in the control plane.
+- **Email** — sent via the SMTP server configured in the control plane. Emails are
+  richly formatted: a summary, a details table (workspace, agent, workflow, error,
+  …) and, when relevant, an action button that deep-links straight to the relevant
+  page in the app.
 - **Push** — a system/browser notification, delivered in real time over SSE while
   you have the app open.
 

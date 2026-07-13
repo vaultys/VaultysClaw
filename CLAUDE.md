@@ -97,6 +97,7 @@ browser ── SSE /api/notifications/stream (subscribes Redis) ◄────�
 |---|---|---|
 | `DATABASE_URL` | control-plane, notifier | PostgreSQL connection string (Prisma) |
 | `REDIS_URL` | control-plane, notifier | Redis URL for the BullMQ notification queue + pub/sub |
+| `NEXTAUTH_URL` / `APP_URL` | control-plane, notifier | Browser-facing base URL; the notifier uses it to build deep-link buttons in emails (`APP_URL` overrides `NEXTAUTH_URL`) |
 | `PORT` / `WS_PORT` | control-plane | HTTP + WebSocket ports (default 3000/8080) |
 | `NEXTAUTH_SECRET` | control-plane | NextAuth session secret |
 | `LITELLM_BASE_URL` | control-plane | LiteLLM proxy URL |

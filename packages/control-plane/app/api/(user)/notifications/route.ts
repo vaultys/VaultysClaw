@@ -19,10 +19,17 @@ async function currentUserId(): Promise<string> {
 const handlers = createNextRoute(userContract.notifications, {
   list: async ({ query }) => {
     const userId = await currentUserId();
+    const unreadOnly = query.unreadOnly === "true";
+    const limit = Math.min(Math.max(Number(query.limit) || 10, 1), 100);
+    const offset = Math.max(Number(query.offset) || 0, 0);
+
     const rows = await NotificationDAO.listForUser(userId, {
-      unreadOnly: query.unreadOnly === "true",
+      unreadOnly,
+      limit,
+      offset,
     });
     const unreadCount = await NotificationDAO.unreadCount(userId);
+    const total = await NotificationDAO.countForUser(userId, { unreadOnly });
     const notifications: NotificationDTO[] = rows.map((n) => ({
       id: n.id,
       eventType: n.eventType,
@@ -32,7 +39,7 @@ const handlers = createNextRoute(userContract.notifications, {
       readAt: n.readAt ? n.readAt.toISOString() : null,
       createdAt: n.createdAt.toISOString(),
     }));
-    return { status: 200, body: { notifications, unreadCount } };
+    return { status: 200, body: { notifications, unreadCount, total } };
   },
 
   clearAll: async () => {

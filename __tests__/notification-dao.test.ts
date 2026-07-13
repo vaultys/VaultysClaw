@@ -99,6 +99,68 @@ describe("NotificationDAO", () => {
   });
 });
 
+describe("NotificationDAO pagination + retention", () => {
+  beforeAll(async () => {
+    await prisma.notification.deleteMany({ where: { userId: USER_ID } });
+    for (let i = 0; i < 25; i++) {
+      await NotificationDAO.create({
+        userId: USER_ID,
+        eventType: "user.joined",
+        title: `n${i}`,
+        body: "x",
+      });
+    }
+  });
+
+  it("countForUser returns the total", async () => {
+    expect(await NotificationDAO.countForUser(USER_ID)).toBe(25);
+  });
+
+  it("listForUser paginates with limit + offset", async () => {
+    const page1 = await NotificationDAO.listForUser(USER_ID, {
+      limit: 10,
+      offset: 0,
+    });
+    const page2 = await NotificationDAO.listForUser(USER_ID, {
+      limit: 10,
+      offset: 10,
+    });
+    expect(page1).toHaveLength(10);
+    expect(page2).toHaveLength(10);
+    // Disjoint pages (newest first, no overlap)
+    const ids = new Set(page1.map((n) => n.id));
+    expect(page2.every((n) => !ids.has(n.id))).toBe(true);
+  });
+
+  it("purgeReadOlderThan deletes only read rows older than the cutoff", async () => {
+    const rows = await NotificationDAO.listForUser(USER_ID, { limit: 100 });
+    const target = rows[0];
+    // Mark one read and backdate its readAt well into the past.
+    await NotificationDAO.markRead(target.id, USER_ID);
+    await prisma.notification.update({
+      where: { id: target.id },
+      data: { readAt: new Date("2000-01-01") },
+    });
+
+    const before = await NotificationDAO.countForUser(USER_ID);
+    const { count } = await NotificationDAO.purgeReadOlderThan(
+      new Date("2001-01-01")
+    );
+    expect(count).toBe(1);
+    expect(await NotificationDAO.countForUser(USER_ID)).toBe(before - 1);
+
+    // An unread row is never purged even if old (create + backdate createdAt only).
+    const unread = rows[1];
+    const purgeAgain = await NotificationDAO.purgeReadOlderThan(new Date());
+    // Only read rows are eligible; unread stays.
+    const stillThere = await prisma.notification.findUnique({
+      where: { id: unread.id },
+    });
+    expect(stillThere).not.toBeNull();
+    expect(purgeAgain.count).toBe(0);
+  });
+});
+
 describe("NotificationPreferenceDAO", () => {
   it("upsert creates then updates a preference", async () => {
     await NotificationPreferenceDAO.upsert(USER_ID, "user.joined", {

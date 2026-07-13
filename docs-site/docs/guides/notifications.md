@@ -47,8 +47,13 @@ To receive **push** notifications, click **Enable push** once to grant the
 browser permission. Push notifications only appear while a VaultysClaw tab is
 open — for anything you might miss, keep in-app enabled (it persists in the bell).
 
-You can delete in-app notifications individually (the **✕** on each item) or clear
-them all from the bell dropdown.
+The bell shows your 10 most recent notifications; when there are more, a **See all
+notifications** link opens the full, paginated history page. You can delete in-app
+notifications individually (the **✕** on each item) or clear them all.
+
+Read notifications are automatically pruned after a retention period
+(`NOTIFICATION_RETENTION_DAYS`, 30 days by default) so the list stays manageable;
+unread notifications are never auto-deleted.
 
 ## How it works
 

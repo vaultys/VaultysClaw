@@ -3,6 +3,8 @@ import { z } from "zod";
 // ── Queries
 export const ListNotificationsQuerySchema = z.object({
   unreadOnly: z.string().optional(),
+  limit: z.string().optional(),
+  offset: z.string().optional(),
 });
 
 // ── Bodies

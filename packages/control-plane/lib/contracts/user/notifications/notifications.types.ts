@@ -21,6 +21,8 @@ export interface NotificationDTO {
 export interface NotificationListResponse {
   notifications: NotificationDTO[];
   unreadCount: number;
+  /** Total notifications matching the query (for pagination). */
+  total: number;
 }
 
 export type ChannelPrefs = Record<NotificationChannel, boolean>;

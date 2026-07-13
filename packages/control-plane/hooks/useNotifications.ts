@@ -21,17 +21,20 @@ export function useNotifications() {
   const { status } = useSession();
   const [notifications, setNotifications] = useState<NotificationDTO[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [total, setTotal] = useState(0);
   const esRef = useRef<EventSource | null>(null);
 
-  // Initial load
+  // Initial load — the bell only shows the 10 most recent; the full history
+  // lives on the dedicated notifications page.
   useEffect(() => {
     if (status !== "authenticated") return;
     userApi.notifications
-      .list({ query: {} })
+      .list({ query: { limit: "10" } })
       .then((res) => {
         const data = unwrap(res);
         setNotifications(data.notifications);
         setUnreadCount(data.unreadCount);
+        setTotal(data.total);
       })
       .catch(() => {});
   }, [status]);
@@ -70,6 +73,7 @@ export function useNotifications() {
       if (target && !target.readAt) setUnreadCount((c) => Math.max(0, c - 1));
       return prev.filter((n) => n.id !== id);
     });
+    setTotal((t) => Math.max(0, t - 1));
     try {
       unwrap(await userApi.notifications.remove({ params: { id } }));
     } catch {
@@ -80,6 +84,7 @@ export function useNotifications() {
   const clearAll = useCallback(async () => {
     setNotifications([]);
     setUnreadCount(0);
+    setTotal(0);
     try {
       unwrap(await userApi.notifications.clearAll({}));
     } catch {
@@ -112,8 +117,9 @@ export function useNotifications() {
           readAt: null,
           createdAt: msg.createdAt,
         };
-        setNotifications((prev) => [entry, ...prev].slice(0, 50));
+        setNotifications((prev) => [entry, ...prev].slice(0, 10));
         setUnreadCount((c) => c + 1);
+        setTotal((t) => t + 1);
       }
 
       // Raise a system notification when requested and permitted. Clicking it
@@ -148,5 +154,13 @@ export function useNotifications() {
     };
   }, [status, router, markRead]);
 
-  return { notifications, unreadCount, markRead, markAllRead, remove, clearAll };
+  return {
+    notifications,
+    unreadCount,
+    total,
+    markRead,
+    markAllRead,
+    remove,
+    clearAll,
+  };
 }

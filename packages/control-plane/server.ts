@@ -24,6 +24,10 @@ import {
   startWorkflowScheduler,
   stopWorkflowScheduler,
 } from "./lib/workflow-scheduler";
+import {
+  startNotificationRetention,
+  stopNotificationRetention,
+} from "./lib/notification-retention";
 
 const logger = pino();
 
@@ -153,6 +157,9 @@ app.prepare().then(async () => {
   // Start workflow scheduler (fires cron-scheduled workflows)
   startWorkflowScheduler();
 
+  // Start notification retention (prunes old read notifications daily)
+  startNotificationRetention();
+
   // Initialize WebSocket server for agents (separate port)
   logger.info({ wsPort }, "Initializing WebSocket server for agents");
   const wsServer = initializeWSServer(wsPort);
@@ -198,6 +205,7 @@ app.prepare().then(async () => {
     });
     wsServer.shutdown();
     stopWorkflowScheduler();
+    stopNotificationRetention();
     await prisma.$disconnect();
   });
 });

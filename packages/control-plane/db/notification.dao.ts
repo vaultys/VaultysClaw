@@ -50,17 +50,35 @@ export class NotificationDAO {
 
   static async listForUser(
     userId: string,
-    opts: { unreadOnly?: boolean; limit?: number } = {}
+    opts: { unreadOnly?: boolean; limit?: number; offset?: number } = {}
   ) {
     return prisma.notification.findMany({
       where: { userId, ...(opts.unreadOnly ? { readAt: null } : {}) },
       orderBy: { createdAt: "desc" },
-      take: opts.limit ?? 50,
+      take: opts.limit ?? 10,
+      skip: opts.offset ?? 0,
+    });
+  }
+
+  /** Total notifications for a user (for pagination). */
+  static async countForUser(
+    userId: string,
+    opts: { unreadOnly?: boolean } = {}
+  ): Promise<number> {
+    return prisma.notification.count({
+      where: { userId, ...(opts.unreadOnly ? { readAt: null } : {}) },
     });
   }
 
   static async unreadCount(userId: string): Promise<number> {
     return prisma.notification.count({ where: { userId, readAt: null } });
+  }
+
+  /** Retention: delete already-read notifications older than the cutoff. */
+  static async purgeReadOlderThan(cutoff: Date) {
+    return prisma.notification.deleteMany({
+      where: { readAt: { not: null, lt: cutoff } },
+    });
   }
 
   static async markRead(id: string, userId: string) {

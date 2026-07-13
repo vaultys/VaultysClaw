@@ -94,6 +94,9 @@ export async function resolveRecipients(
     return user ? [{ id: user.id, email: user.email }] : [];
   }
 
+  // Broadcast audiences: never notify the actor about their own action.
+  const actorId = (job.data.actorDid as string | undefined) ?? undefined;
+
   if (audience === "workspaceMembers") {
     const workspaceId = job.data.workspaceId as string | undefined;
     if (!workspaceId) return [];
@@ -107,7 +110,7 @@ export async function resolveRecipients(
       select: { id: true, email: true, role: true },
     });
     return users
-      .filter((u) => memberIds.has(u.id))
+      .filter((u) => memberIds.has(u.id) && u.id !== actorId)
       .map((u) => ({ id: u.id, email: u.email }));
   }
 
@@ -117,7 +120,7 @@ export async function resolveRecipients(
   });
   const pass = audience === "owners" ? isOwner : isAdmin;
   return users
-    .filter((u) => pass(u.role))
+    .filter((u) => pass(u.role) && u.id !== actorId)
     .map((u) => ({ id: u.id, email: u.email }));
 }
 

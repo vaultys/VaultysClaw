@@ -40,10 +40,6 @@ export class IntentDAO {
     });
   }
 
-  static async findById(intentId: string): Promise<IntentLog | null> {
-    return prisma.intentLog.findUnique({ where: { intentId } });
-  }
-
   static async findAll(
     limit = 100,
     agentDid?: string,

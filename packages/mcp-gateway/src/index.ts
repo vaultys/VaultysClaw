@@ -59,7 +59,7 @@ import {
   CreateMessageResultSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
-import type { AgentPeerGrant, ChatMessageEntry } from "@vaultysclaw/shared";
+import type { AgentPeerGrant, ChatMessageEntry, LlmConfig } from "@vaultysclaw/shared";
 import { BaseAgentRuntime } from "@vaultysclaw/agent-runtime";
 
 // ── Logging (always stderr) ───────────────────────────────────────────────────
@@ -90,13 +90,33 @@ function buildAgentConfig() {
   const peerjsControlPlaneId = process.env.VC_PEERJS_CONTROL_PLANE_ID || undefined;
   const peerjsServerUrl = process.env.VC_PEERJS_SERVER_URL || undefined;
 
+  // Build LlmConfig from env vars (local mode). Remote config pushed by the
+  // control plane takes precedence at runtime — mirrors agent-controller's loadConfig().
+  const llmProvider = process.env.VC_LLM_PROVIDER as
+    | LlmConfig["provider"]
+    | undefined;
+  const llmModel = process.env.VC_LLM_MODEL;
+  const llmConfig: LlmConfig | null =
+    llmProvider && llmModel
+      ? {
+          provider: llmProvider,
+          model: llmModel,
+          apiKey: process.env.VC_LLM_API_KEY,
+          baseUrl: process.env.VC_LLM_BASE_URL,
+          systemPrompt: process.env.VC_LLM_SYSTEM_PROMPT,
+          maxTokens: process.env.VC_LLM_MAX_TOKENS
+            ? parseInt(process.env.VC_LLM_MAX_TOKENS, 10)
+            : undefined,
+        }
+      : null;
+
   return {
     name: process.env.VC_AGENT_NAME ?? "mcp-gateway",
     controlPlaneUrl,
     controlPlaneWsUrl,
     peerjsControlPlaneId,
     peerjsServerUrl,
-    llmConfig: null,
+    llmConfig,
     vaultysIdPath,
     requestedCapabilities: ["agent_communication"] as any[],
     workspaceRoot: process.cwd(),

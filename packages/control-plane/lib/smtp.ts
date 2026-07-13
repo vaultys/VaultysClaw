@@ -19,14 +19,28 @@ export async function getSmtpConfig(): Promise<SmtpConfig | null> {
   const host = await SettingsDAO.get("smtp_host");
   const port = await SettingsDAO.get("smtp_port");
   const from = await SettingsDAO.get("smtp_from");
-  if (!host || !port || !from) return null;
+  if (host && port && from) {
+    return {
+      host,
+      port: parseInt(port, 10),
+      secure: await SettingsDAO.get("smtp_secure") === "true",
+      user: await SettingsDAO.get("smtp_user") ?? "",
+      password: await SettingsDAO.get("smtp_password") ?? "",
+      from,
+    };
+  }
+
+  // Dev/demo fallback: no SMTP configured in the admin UI yet, but SMTP_HOST
+  // is set in the environment (e.g. the smtp4dev catcher in docker-compose).
+  const envHost = process.env.SMTP_HOST;
+  if (!envHost) return null;
   return {
-    host,
-    port: parseInt(port, 10),
-    secure: await SettingsDAO.get("smtp_secure") === "true",
-    user: await SettingsDAO.get("smtp_user") ?? "",
-    password: await SettingsDAO.get("smtp_password") ?? "",
-    from,
+    host: envHost,
+    port: parseInt(process.env.SMTP_PORT ?? "25", 10),
+    secure: process.env.SMTP_SECURE === "true",
+    user: process.env.SMTP_USER ?? "",
+    password: process.env.SMTP_PASSWORD ?? "",
+    from: process.env.SMTP_FROM ?? "noreply@vaultysclaw.local",
   };
 }
 

@@ -30,9 +30,15 @@ The stack is ready when you see `wait-for-db: postgres:5432 is up — starting a
 | MinIO API       | http://localhost:9000     | Same credentials                                |
 | Docling         | http://localhost:5001     | No auth                                         |
 | Prisma Studio   | http://localhost:5555     | No auth (DB browser, dev only)                  |
+| smtp4dev Web UI | http://localhost:5100     | No auth (view all outgoing mail)                |
 | PostgreSQL      | localhost:5432            | User `vaultys`, password `vaultys_dev_secret`   |
 
 > **LiteLLM models** are registered dynamically through the Control Plane UI — no static config required.
+
+> **Email**: the control plane sends invite/QR emails via SMTP configured in the admin UI.
+> If nothing is configured there, it falls back to the `SMTP_HOST`/`SMTP_PORT`/`SMTP_FROM`
+> env vars, which default to the bundled **smtp4dev** catcher — no real mail server needed
+> for local dev/demo. View sent mail at http://localhost:5100.
 
 ## Stop / restart
 

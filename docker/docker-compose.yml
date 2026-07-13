@@ -17,6 +17,7 @@
 #   Docling         → http://localhost:5001
 #   LiteLLM         → http://localhost:4000
 #   PostgreSQL      → localhost:5432
+#   smtp4dev Web UI → http://localhost:5100   (catches all outgoing mail, no real SMTP needed)
 
 services:
   # ── PostgreSQL ────────────────────────────────────────────────────────────
@@ -111,6 +112,20 @@ services:
       retries: 12
       start_period: 60s
 
+  # ── smtp4dev (dev/demo mail catcher — no real SMTP required) ───────────────
+  smtp4dev:
+    image: rnwood/smtp4dev:latest
+    ports:
+      - "5100:80"
+      - "2525:25"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:80/api/version"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 20s
+    restart: unless-stopped
+
   # ── LiteLLM proxy ─────────────────────────────────────────────────────────
   litellm:
     build:
@@ -151,6 +166,8 @@ services:
         condition: service_started
       minio:
         condition: service_healthy
+      smtp4dev:
+        condition: service_healthy
     environment:
       DATABASE_URL: postgresql://vaultys:${PG_PASSWORD:-vaultys_dev_secret}@postgres:5432/vaultysclaw
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-insecure-dev-secret-change-me}
@@ -162,6 +179,13 @@ services:
       LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:-sk-demo-insecure-changeme}
       # Dev-only: enables the "connect without the app" browser login option.
       VC_DEV_LOGIN: ${VC_DEV_LOGIN:-false}
+      # Dev-only fallback SMTP config — used only when no SMTP settings are saved
+      # in the admin UI. Mail is caught by smtp4dev (view at http://localhost:5100),
+      # never actually delivered.
+      SMTP_HOST: ${SMTP_HOST:-smtp4dev}
+      SMTP_PORT: ${SMTP_PORT:-25}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_FROM: ${SMTP_FROM:-noreply@vaultysclaw.local}
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:3000/api/health || exit 1"]
       interval: 10s

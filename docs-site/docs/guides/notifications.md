@@ -105,12 +105,17 @@ sequenceDiagram
 | `workspace.workflow_removed`| workspace members | A workflow was removed from a workspace you belong to |
 | `inbox.message`             | you            | A new item was assigned to your inbox |
 | `profile.updated`           | you            | Your profile was updated |
+| `grant.received`            | you            | You were granted a capability delegation |
+| `grant.revoked`             | you            | A capability delegation of yours was revoked |
+| `tool.approval_required`    | workspace members | An agent is waiting for approval to run a tool |
 
 ### Admin level
 
 | Event | Who receives it | Description |
 |-------|-----------------|-------------|
 | `user.joined`         | admins/owners | A user completed onboarding and joined |
+| `agent.pending`       | admins/owners | An agent requested registration and needs approval |
+| `policy.updated`      | admins/owners | A governance policy was created, updated or revoked |
 | `workspace.created`   | admins/owners | A workspace was created |
 | `workspace.deleted`   | admins/owners | A workspace was deleted |
 | `agent.created`       | admins/owners | An agent was created |

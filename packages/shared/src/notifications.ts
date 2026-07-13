@@ -118,6 +118,30 @@ export const NOTIFICATION_EVENTS: NotificationEventDef[] = [
     description: "Your profile (name, email, …) was updated.",
     defaultChannels: ["inApp"],
   },
+  {
+    type: "grant.received",
+    level: "user",
+    audience: "target",
+    label: "Access granted",
+    description: "You were granted a capability delegation.",
+    defaultChannels: ["inApp"],
+  },
+  {
+    type: "grant.revoked",
+    level: "user",
+    audience: "target",
+    label: "Access revoked",
+    description: "A capability delegation of yours was revoked.",
+    defaultChannels: ["inApp"],
+  },
+  {
+    type: "tool.approval_required",
+    level: "user",
+    audience: "workspaceMembers",
+    label: "Tool approval required",
+    description: "An agent is waiting for approval to run a tool.",
+    defaultChannels: ["inApp"],
+  },
 
   // ── Admin-level ─────────────────────────────────────────────────────────────
   {
@@ -126,6 +150,22 @@ export const NOTIFICATION_EVENTS: NotificationEventDef[] = [
     audience: "admins",
     label: "New user joined",
     description: "A user completed onboarding and joined VaultysClaw.",
+    defaultChannels: ["inApp"],
+  },
+  {
+    type: "agent.pending",
+    level: "admin",
+    audience: "admins",
+    label: "Agent awaiting approval",
+    description: "A new agent requested registration and needs approval.",
+    defaultChannels: ["inApp"],
+  },
+  {
+    type: "policy.updated",
+    level: "admin",
+    audience: "admins",
+    label: "Policy changed",
+    description: "A governance policy was created or updated.",
     defaultChannels: ["inApp"],
   },
   {

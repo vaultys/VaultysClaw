@@ -55,12 +55,44 @@ export function renderNotification(
       };
     case "profile.updated":
       return { title: "Profile updated", body: "Your profile was updated." };
+    case "grant.received":
+      return {
+        title: "Access granted",
+        body: `You were granted ${s("capabilities", "new")} access${
+          data.agentName ? ` on ${s("agentName", "")}` : ""
+        }.`,
+      };
+    case "grant.revoked":
+      return {
+        title: "Access revoked",
+        body: "One of your capability delegations was revoked.",
+      };
+    case "tool.approval_required":
+      return {
+        title: "Tool approval required",
+        body: `${s("agentName", "An agent")} is waiting for approval to run ${s(
+          "toolName",
+          "a tool"
+        )}.`,
+      };
 
     // ── Admin ─────────────────────────────────────────────────────────────────
     case "user.joined":
       return {
         title: "New user joined",
         body: `${s("name", "") || s("email", "A new user")} joined VaultysClaw.`,
+      };
+    case "agent.pending":
+      return {
+        title: "Agent awaiting approval",
+        body: `${s("agentName", "An agent")} requested registration and needs approval.`,
+      };
+    case "policy.updated":
+      return {
+        title: "Policy changed",
+        body: `A governance policy was ${s("action", "updated")}${
+          data.agentName ? ` for ${s("agentName", "")}` : ""
+        }.`,
       };
     case "workspace.created":
       return { title: "Workspace created", body: `Workspace "${ws}" was created.` };

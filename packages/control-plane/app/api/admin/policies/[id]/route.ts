@@ -2,6 +2,7 @@ import { APIException } from "@/lib/api/utils/api-utils";
 import { getWSServer } from "@/lib/ws-server";
 import { PolicyDAO } from "@/db";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
+import { enqueueNotification } from "@/lib/notification-queue";
 import {
   adminContract,
   type PolicyEntry,
@@ -54,6 +55,16 @@ const handlers = createNextRoute(adminContract.policies, {
         if (applied) sentTo.push(policy.agentDid);
       }
     }
+
+    void enqueueNotification({
+      eventType: "policy.updated",
+      data: {
+        action: "revoked",
+        policyId: params.id,
+        agentDid: policy.agentDid ?? undefined,
+        workspaceId: policy.workspaceId ?? undefined,
+      },
+    });
 
     return { status: 200, body: { ok: true, sentTo } };
   },

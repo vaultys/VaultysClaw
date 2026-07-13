@@ -8,6 +8,7 @@ import { APIException } from "@/lib/api/utils/api-utils";
 import { getWSServer } from "@/lib/ws-server";
 import { GrantDAO } from "@/db";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
+import { enqueueNotification } from "@/lib/notification-queue";
 import {
   adminContract,
 } from "@/lib/contracts";
@@ -29,6 +30,11 @@ const handlers = createNextRoute(adminContract.users, {
       if (agentDid) wsServer.pushDelegationUpdate(agentDid);
       else wsServer.pushDelegationUpdateAll();
     }
+
+    void enqueueNotification({
+      eventType: "grant.revoked",
+      data: { targetUserId: params.did, agentDid },
+    });
 
     return { status: 200, body: { ok: true } };
   },

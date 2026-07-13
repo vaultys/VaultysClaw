@@ -723,6 +723,15 @@ export class AgentWSServer {
           );
           this.broadcastAdminUpdate("registration_requested");
 
+          void enqueueNotification({
+            eventType: "agent.pending",
+            data: {
+              agentDid,
+              agentName: pending.agentName ?? "unknown",
+              registrationId,
+            },
+          });
+
           // Notify agent it's pending
           this.sendMessage(pending.sender, {
             messageId: `reg-pending-${Date.now()}`,
@@ -1195,6 +1204,26 @@ export class AgentWSServer {
       payload,
       createdAt: Date.now(),
     });
+
+    // Notify members of the agent's workspace that an approval is pending.
+    void (async () => {
+      try {
+        const workspaces = await AgentDAO.getWorkspaces(agentId);
+        const workspaceId = workspaces[0]?.workspaceId;
+        if (!workspaceId) return;
+        await enqueueNotification({
+          eventType: "tool.approval_required",
+          data: {
+            workspaceId,
+            agentName: this.agents.get(agentId)?.name ?? agentId,
+            toolName: payload.toolName,
+            requestId: payload.requestId,
+          },
+        });
+      } catch {
+        /* best-effort */
+      }
+    })();
 
     // Auto-cleanup after 3 minutes
     setTimeout(

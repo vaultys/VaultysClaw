@@ -200,4 +200,23 @@ describe("renderNotification", () => {
     );
     expect(renderNotification("profile.updated", {}).title).toBe("Profile updated");
   });
+
+  it("renders grant / tool-approval / pending / policy events", () => {
+    expect(
+      renderNotification("grant.received", { capabilities: "read_files" }).body
+    ).toContain("read_files");
+    expect(renderNotification("grant.revoked", {}).title).toBe("Access revoked");
+    expect(
+      renderNotification("tool.approval_required", {
+        agentName: "Bot",
+        toolName: "shell",
+      }).body
+    ).toBe("Bot is waiting for approval to run shell.");
+    expect(
+      renderNotification("agent.pending", { agentName: "Bot" }).body
+    ).toContain("needs approval");
+    expect(
+      renderNotification("policy.updated", { action: "created" }).body
+    ).toContain("created");
+  });
 });

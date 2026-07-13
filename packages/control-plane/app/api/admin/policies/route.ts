@@ -4,6 +4,7 @@ import type { AgentCapability } from "@vaultysclaw/shared";
 import { PolicyDAO } from "@/db";
 import type { Policy } from "@prisma/client";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
+import { enqueueNotification } from "@/lib/notification-queue";
 import {
   adminContract,
   type PolicyEntry,
@@ -74,6 +75,17 @@ const handlers = createNextRoute(adminContract.policies, {
       );
       if (applied) sentTo.push(agentDid);
     }
+
+    void enqueueNotification({
+      eventType: "policy.updated",
+      data: {
+        action: "created",
+        policyId: policy.id,
+        agentDid: agentDid ?? undefined,
+        workspaceId: workspaceId ?? undefined,
+        actorDid: auth.did,
+      },
+    });
 
     return {
       status: 201 as const,

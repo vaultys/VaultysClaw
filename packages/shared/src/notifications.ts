@@ -298,6 +298,73 @@ export interface NotificationJob {
   data: Record<string, unknown>;
 }
 
+/**
+ * Where a notification should take the user when clicked. `path` is an app-relative
+ * route (used directly by the in-app bell / push click, and prefixed with the base
+ * URL for email buttons). Returns null for events with no meaningful destination
+ * (e.g. deletions). Single source of truth for both the client and the notifier.
+ */
+export interface NotificationAction {
+  label: string;
+  path: string;
+}
+
+export function notificationAction(
+  eventType: string,
+  data: Record<string, unknown> = {}
+): NotificationAction | null {
+  const s = (k: string) => (data[k] == null ? "" : String(data[k]));
+  const enc = (k: string) => encodeURIComponent(s(k));
+
+  switch (eventType) {
+    case "workspace.member_added":
+    case "workspace.agent_added":
+    case "workspace.agent_removed":
+    case "workspace.workflow_added":
+    case "workspace.workflow_removed":
+    case "workspace.created":
+      return s("workspaceId")
+        ? { label: "View workspace", path: `/workspaces/${enc("workspaceId")}` }
+        : null;
+    case "inbox.message":
+      return { label: "Open inbox", path: "/app/inbox" };
+    case "tool.approval_required":
+      return { label: "Review approval", path: "/app/inbox" };
+    case "profile.updated":
+      return { label: "Review security", path: "/app/settings/security" };
+    case "grant.received":
+    case "grant.revoked":
+      return { label: "Your access", path: "/app/settings/security" };
+    case "user.joined":
+      return { label: "View users", path: "/admin/users" };
+    case "agent.pending":
+      return { label: "Review registration", path: "/admin/registrations" };
+    case "policy.updated":
+      return { label: "View governance", path: "/admin/governance" };
+    case "agent.created":
+      return s("agentDid")
+        ? { label: "View agent", path: `/admin/agents/${enc("agentDid")}` }
+        : null;
+    case "model.added":
+    case "model.removed":
+      return { label: "View models", path: "/admin/models" };
+    case "knowledge.added":
+    case "knowledge.removed":
+      return { label: "View knowledge", path: "/admin/knowledge" };
+    case "skill.added":
+    case "skill.removed":
+      return { label: "View skills", path: "/admin/skills" };
+    case "workflow.failed":
+    case "workflow.succeeded":
+      return s("runId")
+        ? { label: "View run", path: `/admin/workflows/runs/${enc("runId")}` }
+        : null;
+    // No destination: workspace.member_removed, workspace.deleted, agent.deleted
+    default:
+      return null;
+  }
+}
+
 /** Name of the BullMQ queue used for notification jobs. */
 export const NOTIFICATION_QUEUE_NAME = "notifications";
 

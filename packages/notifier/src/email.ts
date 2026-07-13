@@ -1,3 +1,4 @@
+import { notificationAction } from "@vaultysclaw/shared";
 import { renderNotification } from "./render";
 
 /**
@@ -127,8 +128,9 @@ export function buildEmail(
   };
   const actor = actorName || "";
 
+  // Per-event details table (email-specific). The click destination/label is
+  // shared with the in-app bell + push click via `notificationAction`.
   let details: DetailRow[] = [];
-  let action: EmailAction | undefined;
 
   switch (eventType) {
     case "workspace.member_added":
@@ -136,10 +138,9 @@ export function buildEmail(
         { label: "Workspace", value: s("workspaceName") },
         { label: "Added by", value: actor },
       ];
-      if (s("workspaceId"))
-        action = { label: "View workspace", url: abs(baseUrl, `/workspaces/${s("workspaceId")}`) };
       break;
     case "workspace.member_removed":
+    case "workspace.deleted":
       details = [{ label: "Workspace", value: s("workspaceName") }];
       break;
     case "workspace.agent_added":
@@ -148,8 +149,6 @@ export function buildEmail(
         { label: "Workspace", value: s("workspaceName") },
         { label: "Agent", value: s("agentName") },
       ];
-      if (s("workspaceId"))
-        action = { label: "View workspace", url: abs(baseUrl, `/workspaces/${s("workspaceId")}`) };
       break;
     case "workspace.workflow_added":
     case "workspace.workflow_removed":
@@ -157,12 +156,9 @@ export function buildEmail(
         { label: "Workspace", value: s("workspaceName") },
         { label: "Workflow", value: s("workflowName") },
       ];
-      if (s("workspaceId"))
-        action = { label: "View workspace", url: abs(baseUrl, `/workspaces/${s("workspaceId")}`) };
       break;
     case "inbox.message":
       details = [{ label: "Message", value: s("message") }];
-      action = { label: "Open inbox", url: abs(baseUrl, "/app/inbox") };
       break;
     case "profile.updated":
       details = [
@@ -173,7 +169,6 @@ export function buildEmail(
             : s("fields"),
         },
       ];
-      action = { label: "Review security", url: abs(baseUrl, "/app/settings/security") };
       break;
     case "grant.received":
       details = [
@@ -181,29 +176,26 @@ export function buildEmail(
         { label: "Agent", value: s("agentDid") || "all agents" },
         { label: "Granted by", value: actor },
       ];
-      action = { label: "Your access", url: abs(baseUrl, "/app/settings/security") };
       break;
     case "grant.revoked":
       details = [{ label: "Agent", value: s("agentDid") || "all agents" }];
-      action = { label: "Your access", url: abs(baseUrl, "/app/settings/security") };
       break;
     case "tool.approval_required":
       details = [
         { label: "Agent", value: s("agentName") },
         { label: "Tool", value: s("toolName") },
       ];
-      action = { label: "Review approval", url: abs(baseUrl, "/app/inbox") };
       break;
     case "user.joined":
       details = [
         { label: "Name", value: s("name") },
         { label: "Email", value: s("email") },
       ];
-      action = { label: "View users", url: abs(baseUrl, "/admin/users") };
       break;
     case "agent.pending":
+    case "agent.created":
+    case "agent.deleted":
       details = [{ label: "Agent", value: s("agentName") }];
-      action = { label: "Review registration", url: abs(baseUrl, "/admin/registrations") };
       break;
     case "policy.updated":
       details = [
@@ -211,31 +203,16 @@ export function buildEmail(
         { label: "Agent", value: s("agentDid") },
         { label: "Workspace", value: s("workspaceId") },
       ];
-      action = { label: "View governance", url: abs(baseUrl, "/admin/governance") };
       break;
     case "workspace.created":
       details = [
         { label: "Workspace", value: s("workspaceName") },
         { label: "Created by", value: actor },
       ];
-      if (s("workspaceId"))
-        action = { label: "View workspace", url: abs(baseUrl, `/workspaces/${s("workspaceId")}`) };
-      break;
-    case "workspace.deleted":
-      details = [{ label: "Workspace", value: s("workspaceName") }];
-      break;
-    case "agent.created":
-      details = [{ label: "Agent", value: s("agentName") }];
-      if (s("agentDid"))
-        action = { label: "View agent", url: abs(baseUrl, `/admin/agents/${s("agentDid")}`) };
-      break;
-    case "agent.deleted":
-      details = [{ label: "Agent", value: s("agentName") }];
       break;
     case "model.added":
     case "model.removed":
       details = [{ label: "Model", value: s("modelName") }];
-      action = { label: "View models", url: abs(baseUrl, "/admin/models") };
       break;
     case "knowledge.added":
     case "knowledge.removed":
@@ -243,29 +220,28 @@ export function buildEmail(
         { label: "Knowledge", value: s("knowledgeName") },
         { label: "Workspace", value: s("workspaceName") },
       ];
-      action = { label: "View knowledge", url: abs(baseUrl, "/admin/knowledge") };
       break;
     case "skill.added":
     case "skill.removed":
       details = [{ label: "Skill", value: s("skillName") }];
-      action = { label: "View skills", url: abs(baseUrl, "/admin/skills") };
       break;
     case "workflow.failed":
       details = [
         { label: "Workflow", value: s("workflowName") },
         { label: "Error", value: s("error") },
       ];
-      if (s("runId"))
-        action = { label: "View run", url: abs(baseUrl, `/admin/workflows/runs/${s("runId")}`) };
       break;
     case "workflow.succeeded":
       details = [{ label: "Workflow", value: s("workflowName") }];
-      if (s("runId"))
-        action = { label: "View run", url: abs(baseUrl, `/admin/workflows/runs/${s("runId")}`) };
       break;
     default:
       details = [];
   }
+
+  const act = notificationAction(eventType, data);
+  const action: EmailAction | undefined = act
+    ? { label: act.label, url: abs(baseUrl, act.path) }
+    : undefined;
 
   const html = renderEmailLayout({
     title,

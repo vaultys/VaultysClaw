@@ -13,6 +13,7 @@ import {
   getNotificationEvent,
   eventsForRole,
   userNotificationChannel,
+  notificationAction,
   NOTIFICATION_QUEUE_NAME,
 } from "@vaultysclaw/shared";
 
@@ -62,5 +63,45 @@ describe("notification catalog", () => {
 
   it("exposes a stable queue name", () => {
     expect(NOTIFICATION_QUEUE_NAME).toBe("notifications");
+  });
+});
+
+describe("notificationAction (click destinations)", () => {
+  it("builds workspace-scoped destinations from the payload", () => {
+    expect(
+      notificationAction("workspace.agent_added", { workspaceId: "ws-1" })
+    ).toEqual({ label: "View workspace", path: "/workspaces/ws-1" });
+  });
+
+  it("routes workflow outcomes to the run page", () => {
+    expect(notificationAction("workflow.failed", { runId: "run-9" })?.path).toBe(
+      "/admin/workflows/runs/run-9"
+    );
+  });
+
+  it("routes admin lifecycle events to their admin pages", () => {
+    expect(notificationAction("agent.pending", {})?.path).toBe("/admin/registrations");
+    expect(notificationAction("model.added", {})?.path).toBe("/admin/models");
+    expect(notificationAction("policy.updated", {})?.path).toBe("/admin/governance");
+  });
+
+  it("routes personal events to inbox / settings", () => {
+    expect(notificationAction("inbox.message", {})?.path).toBe("/app/inbox");
+    expect(notificationAction("profile.updated", {})?.path).toBe(
+      "/app/settings/security"
+    );
+  });
+
+  it("encodes dynamic id segments", () => {
+    expect(
+      notificationAction("agent.created", { agentDid: "did:vaultys:abc" })?.path
+    ).toBe(`/admin/agents/${encodeURIComponent("did:vaultys:abc")}`);
+  });
+
+  it("returns null for events with no meaningful destination", () => {
+    expect(notificationAction("workspace.member_removed", {})).toBeNull();
+    expect(notificationAction("agent.deleted", {})).toBeNull();
+    expect(notificationAction("workspace.deleted", {})).toBeNull();
+    expect(notificationAction("unknown.event", {})).toBeNull();
   });
 });

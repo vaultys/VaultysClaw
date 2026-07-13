@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Bell, Check, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNotifications } from "@/hooks/useNotifications";
+import { notificationAction } from "@vaultysclaw/shared";
 
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -14,13 +15,6 @@ function timeAgo(iso: string): string {
   const hours = Math.floor(mins / 60);
   if (hours < 24) return `${hours}h ago`;
   return `${Math.floor(hours / 24)}d ago`;
-}
-
-/** Link a notification to a target page based on its payload, if any. */
-function notificationHref(data: Record<string, unknown> | null): string | null {
-  if (!data) return null;
-  if (typeof data.workspaceId === "string") return `/workspaces/${data.workspaceId}`;
-  return null;
 }
 
 export function NotificationBell() {
@@ -95,7 +89,7 @@ export function NotificationBell() {
               </div>
             ) : (
               notifications.map((n) => {
-                const href = notificationHref(n.data);
+                const href = notificationAction(n.eventType, n.data ?? {})?.path;
                 return (
                   <div
                     key={n.id}

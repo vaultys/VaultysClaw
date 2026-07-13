@@ -11,13 +11,15 @@ user decides **what** they want to be notified about and **how** — through thr
 channels:
 
 - **In-app** — a bell in the top bar with a dropdown of your notifications (stored
-  in the database, so they persist across sessions).
+  in the database, so they persist across sessions). Clicking a notification marks
+  it read and takes you straight to the relevant page (the workspace, the workflow
+  run, the pending registration, …).
 - **Email** — sent via the SMTP server configured in the control plane. Emails are
   richly formatted: a summary, a details table (workspace, agent, workflow, error,
   …) and, when relevant, an action button that deep-links straight to the relevant
   page in the app.
 - **Push** — a system/browser notification, delivered in real time over SSE while
-  you have the app open.
+  you have the app open. Clicking it focuses the tab and opens the relevant page.
 
 If no channel is enabled for an event, you simply aren't notified about it.
 

@@ -5,6 +5,7 @@
  */
 
 import { APIException } from "@/lib/api/utils/api-utils";
+import { getAuthContext } from "@/lib/auth-utils";
 import { getWSServer } from "@/lib/ws-server";
 import { GrantDAO } from "@/db";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
@@ -14,7 +15,8 @@ import {
 } from "@/lib/contracts";
 
 const handlers = createNextRoute(adminContract.users, {
-  revokeGrant: async ({ params }) => {
+  revokeGrant: async ({ params, request }) => {
+    const auth = await getAuthContext(request);
     const grant = await GrantDAO.findById(params.id);
     if (!grant || grant.userDid !== params.did)
       throw new APIException("NOT_FOUND", "Grant not found");
@@ -33,7 +35,7 @@ const handlers = createNextRoute(adminContract.users, {
 
     void enqueueNotification({
       eventType: "grant.revoked",
-      data: { targetUserId: params.did, agentDid },
+      data: { targetUserId: params.did, agentDid, actorDid: auth.did },
     });
 
     return { status: 200, body: { ok: true } };

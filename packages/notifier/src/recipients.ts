@@ -82,20 +82,23 @@ export async function resolveRecipients(
 
   const audience: NotificationAudience = def.audience;
 
+  // Never notify the actor about their own action, for every audience — a change
+  // that originates from a user should not notify that same user (this also makes
+  // self-only events like a profile self-edit notify nobody).
+  const actorId = (job.data.actorDid as string | undefined) ?? undefined;
+  const notActor = (id: string) => id !== actorId;
+
   if (audience === "target") {
     const targetId = (job.data.targetUserId ?? job.data.userId) as
       | string
       | undefined;
-    if (!targetId) return [];
+    if (!targetId || !notActor(targetId)) return [];
     const user = await db.user.findUnique({
       where: { id: targetId },
       select: { id: true, email: true },
     });
     return user ? [{ id: user.id, email: user.email }] : [];
   }
-
-  // Broadcast audiences: never notify the actor about their own action.
-  const actorId = (job.data.actorDid as string | undefined) ?? undefined;
 
   if (audience === "workspaceMembers") {
     const workspaceId = job.data.workspaceId as string | undefined;
@@ -110,7 +113,7 @@ export async function resolveRecipients(
       select: { id: true, email: true, role: true },
     });
     return users
-      .filter((u) => memberIds.has(u.id) && u.id !== actorId)
+      .filter((u) => memberIds.has(u.id) && notActor(u.id))
       .map((u) => ({ id: u.id, email: u.email }));
   }
 
@@ -120,7 +123,7 @@ export async function resolveRecipients(
   });
   const pass = audience === "owners" ? isOwner : isAdmin;
   return users
-    .filter((u) => pass(u.role) && u.id !== actorId)
+    .filter((u) => pass(u.role) && notActor(u.id))
     .map((u) => ({ id: u.id, email: u.email }));
 }
 

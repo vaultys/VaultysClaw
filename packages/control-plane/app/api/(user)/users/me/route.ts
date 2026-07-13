@@ -54,7 +54,10 @@ const handlers = createNextRoute(userContract.users, {
 
     void enqueueNotification({
       eventType: "profile.updated",
-      data: { targetUserId: auth.did, fields: Object.keys(update) },
+      // actorDid === targetUserId here (self-edit), so the notifier suppresses it
+      // — you don't get notified about a change you made yourself. It stays in the
+      // catalog for future admin-driven profile updates (actor ≠ target).
+      data: { targetUserId: auth.did, actorDid: auth.did, fields: Object.keys(update) },
     });
 
     const user = await UserDAO.findByDid(auth.did);

@@ -16,7 +16,14 @@ const notifyUserJoined = (user: {
 }) => {
   void enqueueNotification({
     eventType: "user.joined",
-    data: { userId: user.id, name: user.name ?? null, email: user.email ?? null },
+    data: {
+      userId: user.id,
+      name: user.name ?? null,
+      email: user.email ?? null,
+      // Exclude the joining user from the admin broadcast (e.g. the first Owner
+      // who self-registers shouldn't be notified about their own arrival).
+      actorDid: user.id,
+    },
   });
 };
 

@@ -4,6 +4,7 @@
  */
 
 import { APIException } from "@/lib/api/utils/api-utils";
+import { getAuthContext } from "@/lib/auth-utils";
 import { OrgSkillDAO } from "@/db";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 import { adminContract } from "@/lib/contracts";
@@ -27,7 +28,8 @@ const handlers = createNextRoute(adminContract.orgSkills, {
     return { status: 200, body: { skill: skill! } };
   },
 
-  remove: async ({ params }) => {
+  remove: async ({ params, request }) => {
+    const auth = await getAuthContext(request);
 
     const skill = await OrgSkillDAO.findById(params.id);
     if (!skill) throw new APIException("NOT_FOUND", "Skill not found");
@@ -36,7 +38,7 @@ const handlers = createNextRoute(adminContract.orgSkills, {
 
     void enqueueNotification({
       eventType: "skill.removed",
-      data: { skillId: params.id, skillName: skill.name },
+      data: { skillId: params.id, skillName: skill.name, actorDid: auth.did },
     });
 
     return { status: 200, body: { success: true } };

@@ -1472,7 +1472,8 @@ export class AgentWSServer {
    */
   async approveRegistration(
     registrationId: string,
-    capabilities: AgentCapability[]
+    capabilities: AgentCapability[],
+    actorDid?: string
   ): Promise<boolean> {
     // Find the pending connection with this registration ID
     let target: PendingConnection | undefined;
@@ -1517,7 +1518,7 @@ export class AgentWSServer {
 
     void enqueueNotification({
       eventType: "agent.created",
-      data: { agentDid, agentName: target.agentName ?? "unknown" },
+      data: { agentDid, agentName: target.agentName ?? "unknown", actorDid },
     });
 
     // Promote to authenticated agent

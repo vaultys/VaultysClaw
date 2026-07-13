@@ -148,11 +148,20 @@ describe("resolveRecipients", () => {
     expect(r.map((x) => x.id)).toEqual(["admin-1"]); // member-1 (actor) excluded
   });
 
-  it("does NOT exclude the actor for target audience (self events)", async () => {
+  it("excludes the actor even for target audience (self-only events notify nobody)", async () => {
     const db = makeDb(USERS);
     const r = await resolveRecipients(db, {
       eventType: "profile.updated",
       data: { targetUserId: "member-1", actorDid: "member-1" },
+    });
+    expect(r).toEqual([]);
+  });
+
+  it("still delivers target events when actor differs from the target", async () => {
+    const db = makeDb(USERS);
+    const r = await resolveRecipients(db, {
+      eventType: "workspace.member_added",
+      data: { targetUserId: "member-1", actorDid: "admin-1" },
     });
     expect(r.map((x) => x.id)).toEqual(["member-1"]);
   });

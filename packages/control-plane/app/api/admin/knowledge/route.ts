@@ -1,4 +1,5 @@
 import { APIException } from "@/lib/api/utils/api-utils";
+import { getAuthContext } from "@/lib/auth-utils";
 import { AgentDAO, KnowledgeDAO, WorkspaceDAO } from "@/db";
 import { adminContract } from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
@@ -6,7 +7,8 @@ import { enqueueNotification } from "@/lib/notification-queue";
 
 const handlers = createNextRoute(adminContract.knowledge, {
   // ── POST /api/admin/knowledge ─────────────────────────────────────────────
-  create: async ({ body }) => {
+  create: async ({ body, request }) => {
+    const auth = await getAuthContext(request);
     const { workspaceId, agentDid, name, sourceType, config } = body;
 
     const workspace = await WorkspaceDAO.findById(workspaceId);
@@ -30,6 +32,7 @@ const handlers = createNextRoute(adminContract.knowledge, {
         knowledgeName: name,
         workspaceId,
         workspaceName: workspace.name,
+        actorDid: auth.did,
       },
     });
 

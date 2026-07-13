@@ -8,6 +8,7 @@ import {
   type AgentCapability,
 } from "@vaultysclaw/shared";
 import { APIException } from "@/lib/api/utils/api-utils";
+import { getAuthContext } from "@/lib/auth-utils";
 import {
   adminContract,
 } from "@/lib/contracts";
@@ -132,8 +133,9 @@ const handlers = createNextRoute(adminContract.agents, {
   },
 
   // ── DELETE /api/agents/:did ─────────────────────────────────────────────
-  deleteAgent: async ({ params }) => {
+  deleteAgent: async ({ params, request }) => {
     const { did } = params;
+    const auth = await getAuthContext(request);
 
     const agent = await AgentDAO.findByDid(did);
     if (!agent) {
@@ -148,7 +150,7 @@ const handlers = createNextRoute(adminContract.agents, {
 
     void enqueueNotification({
       eventType: "agent.deleted",
-      data: { agentDid: did, agentName: agent.name },
+      data: { agentDid: did, agentName: agent.name, actorDid: auth.did },
     });
 
     return { status: 204, body: undefined };

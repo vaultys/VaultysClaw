@@ -4,8 +4,13 @@ import { useState, useEffect, useCallback } from "react";
 import { Check, Cpu, RefreshCw, CheckCircle2, XCircle, X } from "lucide-react";
 import { ApiError, modelsClient, unwrap } from "@/lib/api/ts-rest/client";
 import type { SafeModel } from "@/lib/contracts";
+import { isSdkAgentProvider, type LlmProviderType } from "@vaultysclaw/shared";
 
-const PROVIDERS = [
+const PROVIDERS: {
+  value: LlmProviderType;
+  label: string;
+  defaults: { baseUrl: string; modelId: string };
+}[] = [
   {
     value: "openai-compatible",
     label: "OpenAI-compatible / vLLM",
@@ -39,6 +44,24 @@ const PROVIDERS = [
     value: "ollama",
     label: "Ollama",
     defaults: { baseUrl: "http://localhost:11434", modelId: "llama2" },
+  },
+  // SDK-agent providers wrap a vendor's own agent harness (own tool loop,
+  // permissions, sessions) via Mastra SDK Agents, run locally by the agent
+  // controller — there is no network endpoint, so baseUrl is unused.
+  {
+    value: "claude-agent-sdk",
+    label: "Claude Agent SDK (experimental)",
+    defaults: { baseUrl: "", modelId: "claude-sonnet-5" },
+  },
+  {
+    value: "cursor-agent-sdk",
+    label: "Cursor Agent SDK (experimental)",
+    defaults: { baseUrl: "", modelId: "cursor-default" },
+  },
+  {
+    value: "openai-agent-sdk",
+    label: "OpenAI Agents SDK (experimental)",
+    defaults: { baseUrl: "", modelId: "gpt-4o" },
   },
 ];
 
@@ -74,7 +97,8 @@ export function RegisterModelForm({
   // Form fields
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [provider, setProvider] = useState("openai-compatible");
+  const [provider, setProvider] = useState<LlmProviderType>("openai-compatible");
+  const isSdkAgent = isSdkAgentProvider(provider);
   const [modelId, setModelId] = useState(PROVIDERS[0].defaults.modelId);
   const [baseUrl, setBaseUrl] = useState(PROVIDERS[0].defaults.baseUrl);
   const [apiKey, setApiKey] = useState("");
@@ -102,7 +126,7 @@ export function RegisterModelForm({
     loadExisting();
   }, [loadExisting]);
 
-  const handleProviderChange = (newProvider: string) => {
+  const handleProviderChange = (newProvider: LlmProviderType) => {
     setProvider(newProvider);
     const p = PROVIDERS.find((p) => p.value === newProvider);
     if (p) {
@@ -115,6 +139,7 @@ export function RegisterModelForm({
   };
 
   const testConnection = async () => {
+    if (isSdkAgent) return; // No network endpoint to test — local vendor harness.
     if (!baseUrl.trim()) {
       setFormMsg({ ok: false, text: "Base URL is required" });
       return;
@@ -161,7 +186,7 @@ export function RegisterModelForm({
       setFormMsg({ ok: false, text: "Model ID is required" });
       return;
     }
-    if (!baseUrl.trim()) {
+    if (!isSdkAgent && !baseUrl.trim()) {
       setFormMsg({ ok: false, text: "Base URL is required" });
       return;
     }
@@ -176,8 +201,11 @@ export function RegisterModelForm({
             description: description.trim() || undefined,
             provider,
             modelId: modelId.trim(),
-            baseUrl: baseUrl.trim(),
+            baseUrl: isSdkAgent ? undefined : baseUrl.trim(),
             apiKey: apiKey.trim() || undefined,
+            // SDK-agent providers run locally via the agent controller — never
+            // route them through the LiteLLM OpenAI-compatible proxy.
+            skipLiteLLM: isSdkAgent || undefined,
           },
         })
       );
@@ -330,7 +358,9 @@ export function RegisterModelForm({
             </label>
             <select
               value={provider}
-              onChange={(e) => handleProviderChange(e.target.value)}
+              onChange={(e) =>
+                handleProviderChange(e.target.value as LlmProviderType)
+              }
               className={inputCls}
             >
               {PROVIDERS.map((p) => (
@@ -341,22 +371,24 @@ export function RegisterModelForm({
             </select>
           </div>
 
-          {/* Base URL */}
-          <div>
-            <label className="block text-xs text-foreground-500 mb-1.5">
-              Base URL *
-            </label>
-            <input
-              value={baseUrl}
-              onChange={(e) => {
-                setBaseUrl(e.target.value);
-                setAvailableModels([]);
-                setShowModelList(false);
-              }}
-              placeholder="https://api.openai.com/v1"
-              className={inputCls}
-            />
-          </div>
+          {/* Base URL — not applicable to SDK-agent providers (local harness, no endpoint) */}
+          {!isSdkAgent && (
+            <div>
+              <label className="block text-xs text-foreground-500 mb-1.5">
+                Base URL *
+              </label>
+              <input
+                value={baseUrl}
+                onChange={(e) => {
+                  setBaseUrl(e.target.value);
+                  setAvailableModels([]);
+                  setShowModelList(false);
+                }}
+                placeholder="https://api.openai.com/v1"
+                className={inputCls}
+              />
+            </div>
+          )}
 
           {/* Model ID */}
           <div>
@@ -374,7 +406,14 @@ export function RegisterModelForm({
           {/* API Key */}
           <div className={layout === "grid" ? "col-span-2" : ""}>
             <label className="block text-xs text-foreground-500 mb-1.5">
-              API Key <span className="text-foreground-400">(optional)</span>
+              API Key{" "}
+              <span className="text-foreground-400">
+                (optional
+                {isSdkAgent
+                  ? " — leave blank to use this machine's existing CLI/OAuth session"
+                  : ""}
+                )
+              </span>
             </label>
             <input
               type="password"
@@ -384,6 +423,18 @@ export function RegisterModelForm({
               className={inputCls}
             />
           </div>
+
+          {isSdkAgent && (
+            <div className={layout === "grid" ? "col-span-2" : ""}>
+              <p className="text-xs px-3 py-2 rounded-xl border border-warning-300 bg-warning-50 text-warning-700">
+                Experimental: runs the vendor&apos;s own agent harness (its own
+                tool loop, permissions, sessions) locally in the agent
+                controller via Mastra SDK Agents — not routed through
+                LiteLLM. The internal tool registry is not forwarded; the
+                harness manages its own tools/MCP servers.
+              </p>
+            </div>
+          )}
 
           {/* Description */}
           {showDescription && (
@@ -447,19 +498,21 @@ export function RegisterModelForm({
 
         {/* Actions */}
         <div className="flex items-center gap-2 pt-1">
-          <button
-            type="button"
-            onClick={testConnection}
-            disabled={testing || !baseUrl.trim() || !modelId.trim()}
-            className="flex items-center gap-1.5 px-3 py-2 text-sm border border-neutral-200 text-foreground-500 hover:text-foreground hover:bg-background-200 rounded-xl disabled:opacity-40 transition-colors"
-          >
-            {testing ? (
-              <div className="w-3.5 h-3.5 border border-current border-t-transparent rounded-full animate-spin" />
-            ) : (
-              <RefreshCw className="w-3.5 h-3.5" />
-            )}
-            {testing ? "Testing…" : "Test"}
-          </button>
+          {!isSdkAgent && (
+            <button
+              type="button"
+              onClick={testConnection}
+              disabled={testing || !baseUrl.trim() || !modelId.trim()}
+              className="flex items-center gap-1.5 px-3 py-2 text-sm border border-neutral-200 text-foreground-500 hover:text-foreground hover:bg-background-200 rounded-xl disabled:opacity-40 transition-colors"
+            >
+              {testing ? (
+                <div className="w-3.5 h-3.5 border border-current border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <RefreshCw className="w-3.5 h-3.5" />
+              )}
+              {testing ? "Testing…" : "Test"}
+            </button>
+          )}
 
           <button
             type="submit"

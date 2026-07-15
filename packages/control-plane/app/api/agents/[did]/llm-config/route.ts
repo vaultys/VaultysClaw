@@ -13,6 +13,9 @@ const VALID_PROVIDERS: LlmProviderType[] = [
   "google",
   "ollama",
   "openai-compatible",
+  "claude-agent-sdk",
+  "cursor-agent-sdk",
+  "openai-agent-sdk",
 ];
 
 function validateConfig(
@@ -48,6 +51,16 @@ function validateConfig(
   ) {
     return { error: "disableStreamingBuffer must be a boolean" };
   }
+  if (body.cwd !== undefined && typeof body.cwd !== "string") {
+    return { error: "cwd must be a string" };
+  }
+  if (
+    body.allowedTools !== undefined &&
+    (!Array.isArray(body.allowedTools) ||
+      !body.allowedTools.every((t) => typeof t === "string"))
+  ) {
+    return { error: "allowedTools must be an array of strings" };
+  }
   return {
     config: {
       provider: body.provider as LlmProviderType,
@@ -59,6 +72,8 @@ function validateConfig(
         : undefined,
       maxTokens: body.maxTokens as number | undefined,
       disableStreamingBuffer: body.disableStreamingBuffer as boolean | undefined,
+      cwd: body.cwd ? (body.cwd as string).trim() : undefined,
+      allowedTools: body.allowedTools as string[] | undefined,
     },
   };
 }

@@ -1528,6 +1528,9 @@ const PROVIDERS = [
   "google",
   "ollama",
   "openai-compatible",
+  "claude-agent-sdk",
+  "cursor-agent-sdk",
+  "openai-agent-sdk",
 ] as const;
 type Provider = (typeof PROVIDERS)[number];
 const inputCls =

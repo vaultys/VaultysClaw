@@ -234,6 +234,8 @@ export abstract class BaseAgentRuntime extends EventEmitter {
 
   protected async handleGetChatHistory(_msg: WSMessage): Promise<void> { }
 
+  protected async handleGetClaudeModels(_msg: WSMessage): Promise<void> { }
+
   protected async handleToolApprovalResponse(_msg: WSMessage): Promise<void> { }
 
   protected async handleTaskEnqueue(_msg: WSMessage): Promise<void> { }
@@ -798,6 +800,11 @@ export abstract class BaseAgentRuntime extends EventEmitter {
         case "get_chat_history":
           this.handleGetChatHistory(message).catch((e) =>
             this.log("error", "handleGetChatHistory error", e)
+          );
+          break;
+        case "get_claude_models":
+          this.handleGetClaudeModels(message).catch((e) =>
+            this.log("error", "handleGetClaudeModels error", e)
           );
           break;
         case "policy_update":

@@ -18,8 +18,6 @@ generator zod {
   // useDecimalJs          = false // (default) represent the prisma Decimal type using as a JS number
   useDecimalJs = true // represent the prisma Decimal type using Decimal.js (as Prisma does)
 
-  imports = null // (default) will import the referenced file in generated schemas to be used via imports.someExportedVariable
-
   // https://www.prisma.io/docs/concepts/components/prisma-client/working-with-fields/working-with-json-fields#filtering-by-null-values
   prismaJsonNullability = true // (default) uses prisma's scheme for JSON field nullability
   // prismaJsonNullability = false // allows null assignment to optional JSON fields
@@ -51,8 +49,8 @@ model EntraIdentity {
 // ─── OIDC / Generic SSO ───────────────────────────────────────────────────────
 
 model OidcIdentity {
-  sub      String   @id     // OIDC subject claim (globally unique per issuer)
-  issuer   String           // Issuer URL
+  sub      String   @id // OIDC subject claim (globally unique per issuer)
+  issuer   String // Issuer URL
   email    String?
   name     String?
   syncedAt DateTime @default(now())
@@ -82,7 +80,7 @@ model Agent {
   locationLon          Float?
   locationLabel        String?
 
-  agentWorkspaces      AgentWorkspace[]
+  agentWorkspaces  AgentWorkspace[]
   tokenUsage       AgentTokenUsage?
   tokenHistory     AgentTokenUsageHistory[]
   peerGrantsSource AgentPeerGrant[]         @relation("sourcePeerGrants")
@@ -158,13 +156,13 @@ model User {
   locationLon   Float?
   locationLabel String?
 
-  manager         User?            @relation("reportsTo", fields: [reportsTo], references: [id], onDelete: SetNull)
-  reports         User[]           @relation("reportsTo")
-  entraIdentity   EntraIdentity?   @relation(fields: [entraId], references: [id], onDelete: SetNull)
-  oidcIdentity    OidcIdentity?    @relation(fields: [oidcId], references: [sub], onDelete: SetNull)
-  userWorkspaces      UserWorkspace[]
-  userGrants      UserGrant[]
-  invitations     UserInvitation[]
+  manager                 User?                    @relation("reportsTo", fields: [reportsTo], references: [id], onDelete: SetNull)
+  reports                 User[]                   @relation("reportsTo")
+  entraIdentity           EntraIdentity?           @relation(fields: [entraId], references: [id], onDelete: SetNull)
+  oidcIdentity            OidcIdentity?            @relation(fields: [oidcId], references: [sub], onDelete: SetNull)
+  userWorkspaces          UserWorkspace[]
+  userGrants              UserGrant[]
+  invitations             UserInvitation[]
   notificationPreferences NotificationPreference[]
   notifications           Notification[]
 
@@ -295,9 +293,9 @@ model Workspace {
   createdAt           DateTime @default(now())
 
   tokenUsage       WorkspaceTokenUsage?
-  agentWorkspaces      AgentWorkspace[]
-  userWorkspaces       UserWorkspace[]
-  workspaceSkills      WorkspaceSkill[]
+  agentWorkspaces  AgentWorkspace[]
+  userWorkspaces   UserWorkspace[]
+  workspaceSkills  WorkspaceSkill[]
   knowledgeSources KnowledgeSource[]
   channels         Channel[]
   credentials      Credential[]
@@ -308,7 +306,7 @@ model Workspace {
 }
 
 model WorkspaceTokenUsage {
-  workspaceId          String   @id
+  workspaceId      String   @id
   promptTokens     Int      @default(0)
   completionTokens Int      @default(0)
   updatedAt        DateTime @default(now())
@@ -319,25 +317,25 @@ model WorkspaceTokenUsage {
 // ─── Agent & User workspace membership ───────────────────────────────────────────
 
 model AgentWorkspace {
-  agentDid  String
-  workspaceId   String
-  isPrimary Boolean  @default(false)
-  joinedAt  DateTime @default(now())
+  agentDid    String
+  workspaceId String
+  isPrimary   Boolean  @default(false)
+  joinedAt    DateTime @default(now())
 
-  agent Agent @relation(fields: [agentDid], references: [did], onDelete: Cascade)
+  agent     Agent     @relation(fields: [agentDid], references: [did], onDelete: Cascade)
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@id([agentDid, workspaceId])
 }
 
 model UserWorkspace {
-  userId       String
-  workspaceId      String
-  isPrimary    Boolean  @default(false)
-  role         String   @default("Member")
-  joinedAt     DateTime @default(now())
+  userId      String
+  workspaceId String
+  isPrimary   Boolean  @default(false)
+  role        String   @default("Member")
+  joinedAt    DateTime @default(now())
 
-  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@id([userId, workspaceId])
@@ -359,7 +357,7 @@ model OrgSkill {
 
 model WorkspaceSkill {
   id          String   @id
-  workspaceId     String
+  workspaceId String
   name        String
   description String?
   version     String?
@@ -368,18 +366,18 @@ model WorkspaceSkill {
   content     String?
   createdAt   DateTime @default(now())
 
-  workspace          Workspace                @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspace      Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   agentOverrides AgentSkillOverride[]
 
   @@unique([workspaceId, name])
 }
 
 model AgentSkillOverride {
-  agentDid     String
+  agentDid         String
   workspaceSkillId String
-  enabled      Boolean @default(true)
+  enabled          Boolean @default(true)
 
-  agent      Agent      @relation(fields: [agentDid], references: [did], onDelete: Cascade)
+  agent          Agent          @relation(fields: [agentDid], references: [did], onDelete: Cascade)
   workspaceSkill WorkspaceSkill @relation(fields: [workspaceSkillId], references: [id], onDelete: Cascade)
 
   @@id([agentDid, workspaceSkillId])
@@ -408,19 +406,19 @@ model ModelRegistry {
 }
 
 model ModelWorkspaceAccess {
-  modelId   String
-  workspaceId   String
-  grantedAt DateTime @default(now())
+  modelId     String
+  workspaceId String
+  grantedAt   DateTime @default(now())
 
-  model ModelRegistry @relation(fields: [modelId], references: [id], onDelete: Cascade)
-  workspace Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  model     ModelRegistry @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  workspace Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@id([modelId, workspaceId])
   @@index([workspaceId])
 }
 
 model WorkspaceRouterKey {
-  workspaceId           String   @id
+  workspaceId       String   @id
   litellmVirtualKey String?
   allowedModelIds   Json     @default("[]")
   monthlyBudgetUsd  Float?
@@ -434,7 +432,7 @@ model WorkspaceRouterKey {
 model Policy {
   id             String    @id
   agentDid       String?
-  workspaceId        String?
+  workspaceId    String?
   capabilities   Json      @default("[]")
   resourceLimits Json?
   expiresAt      DateTime?
@@ -454,7 +452,7 @@ model Workflow {
   name            String
   description     String?
   definition      Json
-  workspaceId         String?
+  workspaceId     String?
   createdBy       String?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @default(now()) @updatedAt
@@ -463,8 +461,8 @@ model Workflow {
   scheduleLastRun DateTime?
   scheduleNextRun DateTime?
 
-  workspace Workspace?        @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
-  runs  WorkflowRun[]
+  workspace Workspace?    @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  runs      WorkflowRun[]
 
   @@index([createdBy, createdAt(sort: Desc)])
   @@index([workspaceId])
@@ -553,7 +551,7 @@ model UserInvitation {
   claimedAt DateTime?
   userId    String?
 
-  user      User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([email])
   @@index([expiresAt])
@@ -564,7 +562,7 @@ model UserInvitation {
 
 model KnowledgeSource {
   id           String    @id
-  workspaceId      String
+  workspaceId  String
   agentDid     String
   name         String
   sourceType   String
@@ -576,9 +574,9 @@ model KnowledgeSource {
   error        String?
   createdAt    DateTime  @default(now())
 
-  workspace Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  agent Agent           @relation(fields: [agentDid], references: [did], onDelete: Cascade)
-  files KnowledgeFile[]
+  workspace Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  agent     Agent           @relation(fields: [agentDid], references: [did], onDelete: Cascade)
+  files     KnowledgeFile[]
 
   @@index([workspaceId])
   @@index([agentDid])
@@ -603,7 +601,7 @@ model KnowledgeFile {
 
 model Channel {
   id          String   @id
-  workspaceId     String?
+  workspaceId String?
   name        String
   slug        String
   description String?
@@ -614,10 +612,10 @@ model Channel {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @default(now()) @updatedAt
 
-  workspace    Workspace?           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  members  ChannelMember[]
-  messages ChannelMessage[]
-  bridges  ChannelBridge[]
+  workspace Workspace?       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  members   ChannelMember[]
+  messages  ChannelMessage[]
+  bridges   ChannelBridge[]
 
   @@unique([workspaceId, slug])
   @@index([workspaceId])
@@ -683,15 +681,15 @@ model ChannelBridge {
 // ─── Credentials vault ────────────────────────────────────────────────────────
 
 model Credential {
-  id        String   @id
-  workspaceId   String
-  service   String
-  name      String
-  secretEnc String
-  metadata  Json     @default("{}")
-  createdBy String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @default(now()) @updatedAt
+  id          String   @id
+  workspaceId String
+  service     String
+  name        String
+  secretEnc   String
+  metadata    Json     @default("{}")
+  createdBy   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
@@ -703,18 +701,18 @@ model Credential {
 // ─── API keys ─────────────────────────────────────────────────────────────────
 
 model ApiKey {
-  id            String    @id
-  name          String
-  keyHash       String    @unique
-  keyPrefix     String
-  allowedRoutes Json      @default("[]")
-  workspaceId       String?
-  isWorkspaceAdmin  Boolean   @default(false)
-  createdBy     String
-  createdAt     DateTime  @default(now())
-  lastUsedAt    DateTime?
-  expiresAt     DateTime?
-  isActive      Boolean   @default(true)
+  id               String    @id
+  name             String
+  keyHash          String    @unique
+  keyPrefix        String
+  allowedRoutes    Json      @default("[]")
+  workspaceId      String?
+  isWorkspaceAdmin Boolean   @default(false)
+  createdBy        String
+  createdAt        DateTime  @default(now())
+  lastUsedAt       DateTime?
+  expiresAt        DateTime?
+  isActive         Boolean   @default(true)
 
   @@index([keyHash])
   @@index([workspaceId])

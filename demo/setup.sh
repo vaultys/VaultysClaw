@@ -6,7 +6,9 @@
 #   - MinIO    (S3-compatible object storage)   http://localhost:9000  (API)
 #                                               http://localhost:9001  (console)
 #   - Docling  (document processing service)   http://localhost:5001
+#   - Redis    (notification queue + pub/sub)   localhost:6380
 #   - Control Plane (Next.js + WebSocket)      http://localhost:3000
+#   - Notifier (delivers notifications)
 #   - research-agent  (internet_access)
 #   - code-agent      (code_execution, file_access)
 #   - report-agent    (file_access)
@@ -53,9 +55,18 @@ MINIO_BUCKET=demo-files
 DOCLING_CONTAINER="vaultysclaw-demo-docling"
 DOCLING_PORT=5001
 
+# Redis — notification queue (BullMQ) + per-user pub/sub. Host port 6380 avoids
+# clashing with a local Redis on 6379. Exported so the control plane (started
+# below and inheriting this environment) uses it as producer + SSE subscriber.
+REDIS_CONTAINER="vaultysclaw-demo-redis"
+REDIS_PORT=6380
+REDIS_URL="redis://localhost:${REDIS_PORT}"
+export REDIS_URL
+
 # ── Flags ─────────────────────────────────────────────────────────────────────
 SKIP_MINIO=false
 SKIP_DOCLING=false
+NOTIFICATIONS_ENABLED=false   # set true once Redis is up (requires Docker)
 for arg in "$@"; do
   case "$arg" in
     --skip-minio)   SKIP_MINIO=true ;;
@@ -105,6 +116,8 @@ cleanup_existing() {
   pkill -f "tsx/dist/cli.mjs src/cli.ts" 2>/dev/null || true
   # Kill any lingering control plane processes
   pkill -f "tsx.*control-plane.*server.ts" 2>/dev/null || true
+  # Kill any lingering notifier process
+  pkill -f "notifier/src/index.ts" 2>/dev/null || true
   sleep 1
 }
 
@@ -168,6 +181,74 @@ start_docling() {
   echo "$DOCLING_CONTAINER" >> "$DOCKER_CONTAINERS_FILE"
   # Docling takes longer to start; wait up to 120 s.
   wait_for_http "http://localhost:${DOCLING_PORT}/health" "Docling" 120
+}
+
+start_redis() {
+  log "Starting Redis (port :${REDIS_PORT})..."
+  docker rm -f "$REDIS_CONTAINER" 2>/dev/null || true
+
+  docker run -d \
+    --name "$REDIS_CONTAINER" \
+    -p "${REDIS_PORT}:6379" \
+    redis:7-alpine \
+    > /dev/null
+
+  echo "$REDIS_CONTAINER" >> "$DOCKER_CONTAINERS_FILE"
+
+  for i in $(seq 1 15); do
+    if docker exec "$REDIS_CONTAINER" redis-cli ping 2>/dev/null | grep -q PONG; then
+      log "Redis ready."
+      return 0
+    fi
+    sleep 1
+  done
+  warn "Redis did not respond within 15s — notifications may not work."
+}
+
+# Resolve DATABASE_URL the same way the control plane does (env → .env files).
+resolve_db_url() {
+  local db_url="${DATABASE_URL:-}"
+  if [[ -z "$db_url" ]]; then
+    for env_file in "$CP_DIR/.env.local" "$CP_DIR/.env" "$CP_DATA_DIR/.env"; do
+      if [[ -f "$env_file" ]]; then
+        local found
+        found=$(grep -E "^DATABASE_URL=" "$env_file" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"' || true)
+        if [[ -n "$found" ]]; then
+          db_url="$found"
+          break
+        fi
+      fi
+    done
+  fi
+  echo "$db_url"
+}
+
+start_notifier() {
+  local db_url
+  db_url="$(resolve_db_url)"
+  if [[ -z "$db_url" ]]; then
+    warn "DATABASE_URL not found — skipping notifier (notifications disabled)."
+    return
+  fi
+
+  # The notifier runs as a standalone Node process and imports @vaultysclaw/shared
+  # from its built dist, so build shared (+policy) first.
+  log "Building shared packages for the notifier..."
+  (
+    cd "$REPO_ROOT"
+    pnpm turbo run build --filter @vaultysclaw/shared
+  ) > "$LOG_DIR/notifier-build.log" 2>&1 \
+    || warn "shared build failed — see $LOG_DIR/notifier-build.log (notifier may not start)"
+
+  log "Starting notifier service..."
+  cd "$REPO_ROOT"
+  DATABASE_URL="$db_url" \
+  REDIS_URL="$REDIS_URL" \
+  NEXTAUTH_URL="${NEXTAUTH_URL:-$CONTROL_PLANE_URL}" \
+    node --import tsx packages/notifier/src/index.ts \
+    > "$LOG_DIR/notifier.log" 2>&1 &
+  echo $! >> "$PIDS_FILE"
+  log "Notifier started — log: $LOG_DIR/notifier.log"
 }
 
 # ── Configure services in the control plane DB ────────────────────────────────
@@ -283,12 +364,15 @@ check_env_keys "$AGENTS_BASE_DIR/research-agent"
 check_env_keys "$AGENTS_BASE_DIR/code-agent"
 check_env_keys "$AGENTS_BASE_DIR/report-agent"
 
-# 3. Start Docker services (MinIO, Docling)
+# 3. Start Docker services (MinIO, Docling, Redis)
 if have_docker; then
   $SKIP_MINIO   || start_minio
   $SKIP_DOCLING || start_docling
+  start_redis
+  NOTIFICATIONS_ENABLED=true
 else
-  warn "Docker not available — skipping MinIO and Docling."
+  warn "Docker not available — skipping MinIO, Docling and Redis."
+  warn "Notifications require Redis and will be disabled."
   SKIP_MINIO=true
   SKIP_DOCLING=true
 fi
@@ -318,6 +402,11 @@ else
   done
 fi
 
+# 4b. Start the notifier (needs Redis + the control-plane DB)
+if $NOTIFICATIONS_ENABLED; then
+  start_notifier
+fi
+
 # 5. Write MinIO / Docling settings into the control-plane DB
 if ! $SKIP_MINIO || ! $SKIP_DOCLING; then
   configure_services
@@ -331,8 +420,10 @@ start_agent "report-agent"
 # 7. Summary
 MINIO_STATUS="${GREEN}running${NC}"
 DOCLING_STATUS="${GREEN}running${NC}"
+NOTIF_STATUS="${GREEN}running${NC}"
 $SKIP_MINIO   && MINIO_STATUS="${YELLOW}skipped${NC}"
 $SKIP_DOCLING && DOCLING_STATUS="${YELLOW}skipped${NC}"
+$NOTIFICATIONS_ENABLED || NOTIF_STATUS="${YELLOW}disabled (needs Docker/Redis)${NC}"
 ! have_docker && MINIO_STATUS="${YELLOW}no docker${NC}" && DOCLING_STATUS="${YELLOW}no docker${NC}"
 
 cat <<EOF
@@ -347,6 +438,8 @@ ${GREEN}  VaultysClaw Demo is running${NC}
   MinIO Console:      http://localhost:${MINIO_PORT_CONSOLE}  — $(echo -e "$MINIO_STATUS")
     user: ${MINIO_USER}   password: ${MINIO_PASS}
   Docling:            http://localhost:${DOCLING_PORT}  — $(echo -e "$DOCLING_STATUS")
+  Redis:              localhost:${REDIS_PORT}
+  Notifier:           $(echo -e "$NOTIF_STATUS")
 
   Agents (pending approval in the dashboard):
     • research-agent  — internet_access

@@ -66,6 +66,8 @@ import {
   type WSChatSessionsResponsePayload,
   type WSGetChatHistoryPayload,
   type WSChatHistoryResponsePayload,
+  type WSGetClaudeModelsPayload,
+  type WSClaudeModelsResponsePayload,
   type AgentCapability,
   type LlmConfig,
   type AgentPeerGrant,
@@ -79,6 +81,7 @@ import {
   LlmNotConfiguredError,
   LlmProviderError,
   streamChat,
+  fetchClaudeSupportedModels,
   type StepFinishEvent,
 } from "./llm";
 import {
@@ -1042,6 +1045,34 @@ export class Agent extends BaseAgentRuntime {
       });
     } catch (err) {
       this.log("warn", "Failed to get chat history", err);
+    }
+  }
+
+  protected override async handleGetClaudeModels(
+    message: WSMessage
+  ): Promise<void> {
+    const payload = (message.payload ?? {}) as WSGetClaudeModelsPayload;
+    try {
+      const models = await fetchClaudeSupportedModels(payload.apiKey);
+      this.send({
+        messageId: `claude-models-${Date.now()}`,
+        type: "claude_models_response",
+        agentId: this.id,
+        payload: { models } satisfies WSClaudeModelsResponsePayload,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (err) {
+      this.log("warn", "Failed to fetch Claude models", err);
+      this.send({
+        messageId: `claude-models-${Date.now()}`,
+        type: "claude_models_response",
+        agentId: this.id,
+        payload: {
+          models: [],
+          error: err instanceof Error ? err.message : String(err),
+        } satisfies WSClaudeModelsResponsePayload,
+        timestamp: new Date().toISOString(),
+      });
     }
   }
 

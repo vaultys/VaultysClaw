@@ -194,6 +194,9 @@ const VALID_PROVIDERS = new Set([
   "google",
   "ollama",
   "openai-compatible",
+  "claude-agent-sdk",
+  "cursor-agent-sdk",
+  "openai-agent-sdk",
 ]);
 
 function validateLlmConfig(
@@ -224,6 +227,12 @@ function validateLlmConfig(
       maxTokens:
         typeof b.maxTokens === "number" && b.maxTokens > 0
           ? Math.floor(b.maxTokens)
+          : undefined,
+      cwd: typeof b.cwd === "string" && b.cwd ? b.cwd : undefined,
+      allowedTools:
+        Array.isArray(b.allowedTools) &&
+        b.allowedTools.every((t) => typeof t === "string")
+          ? (b.allowedTools as string[])
           : undefined,
     },
   };

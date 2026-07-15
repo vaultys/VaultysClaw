@@ -144,7 +144,9 @@ export type WSMessageType =
   | "knowledge_sync_result"
   | "knowledge_status_sync"
   | "channel_event"
-  | "channel_message_send";
+  | "channel_message_send"
+  | "get_claude_models"
+  | "claude_models_response";
 
 /**
  * LLM provider type — controls which AI SDK provider is instantiated.
@@ -153,13 +155,40 @@ export type WSMessageType =
  * - google              → Google Generative AI (Gemini 2.x)
  * - ollama              → Local Ollama (any pulled model)
  * - openai-compatible   → Any OpenAI-compatible server (LM Studio, llama.cpp, Groq, etc.)
+ * - claude-agent-sdk    → Claude Agent SDK harness via Mastra SDK Agents (@mastra/claude).
+ *                         Runs the vendor's own coding-agent loop (tools, permissions,
+ *                         MCP servers) instead of a plain chat model. Experimental.
+ * - cursor-agent-sdk    → Cursor Agent SDK harness via Mastra SDK Agents (@mastra/cursor).
+ *                         Experimental.
+ * - openai-agent-sdk    → OpenAI Agents SDK harness via Mastra SDK Agents (@mastra/openai).
+ *                         Experimental.
  */
 export type LlmProviderType =
   | "openai"
   | "anthropic"
   | "google"
   | "ollama"
-  | "openai-compatible";
+  | "openai-compatible"
+  | "claude-agent-sdk"
+  | "cursor-agent-sdk"
+  | "openai-agent-sdk";
+
+/** Providers that wrap a vendor agent harness (Mastra SDK Agents) instead of a plain chat model. */
+export const SDK_AGENT_PROVIDERS = new Set<LlmProviderType>([
+  "claude-agent-sdk",
+  "cursor-agent-sdk",
+  "openai-agent-sdk",
+]);
+
+/**
+ * True for providers that run a vendor's own agent harness (own tool loop,
+ * permissions, sessions) rather than a plain chat model behind the AI SDK —
+ * these are not OpenAI-compatible network endpoints and cannot be routed
+ * through LiteLLM.
+ */
+export function isSdkAgentProvider(provider: LlmProviderType): boolean {
+  return SDK_AGENT_PROVIDERS.has(provider);
+}
 
 /**
  * LLM configuration shared between agent controller and control plane.
@@ -186,6 +215,10 @@ export interface LlmConfig {
   /** Skip the text-buffer workaround for tool-call parsing. Set to true for
    *  openai-compatible endpoints that support native function calling (e.g. LiteLLM). */
   disableStreamingBuffer?: boolean;
+  /** claude-agent-sdk only: working directory for the harness's file/shell tools. Defaults to process.cwd(). */
+  cwd?: string;
+  /** claude-agent-sdk only: restrict the harness to these tool names (e.g. ["Read", "Bash"]). */
+  allowedTools?: string[];
 }
 
 /**
@@ -647,6 +680,26 @@ export interface WSGetChatHistoryPayload {
 export interface WSChatHistoryResponsePayload {
   sessionId: string;
   messages: ChatHistoryMessage[];
+}
+
+/** Sent by control plane to ask a connected agent for its available Claude models. */
+export interface WSGetClaudeModelsPayload {
+  /** Optional API key to query with, if the caller wants to check a not-yet-saved key. */
+  apiKey?: string;
+}
+
+/** A single model choice returned to the control plane. */
+export interface ClaudeModelOption {
+  /** Identifier to use in API calls. */
+  value: string;
+  /** Canonical wire model id this value resolves to, if it's an alias. */
+  resolvedModel?: string;
+}
+
+/** Sent by agent in response with the Claude models it discovered (or an error). */
+export interface WSClaudeModelsResponsePayload {
+  models: ClaudeModelOption[];
+  error?: string;
 }
 
 // ---------------------------------------------------------------------------

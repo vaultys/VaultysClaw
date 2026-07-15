@@ -6,12 +6,23 @@ import { Agent } from "@mastra/core/agent";
 import { createOllama } from "ollama-ai-provider-v2";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
-import type { LlmConfig } from "@vaultysclaw/shared";
+import { ClaudeSDKAgent } from "@mastra/claude";
+import { CursorSDKAgent } from "@mastra/cursor";
+import { OpenAISDKAgent } from "@mastra/openai";
+import { setDefaultOpenAIKey } from "@openai/agents";
+import { query as claudeQuery } from "@anthropic-ai/claude-agent-sdk";
+import {
+  isSdkAgentProvider,
+  type LlmConfig,
+  type ClaudeModelOption,
+} from "@vaultysclaw/shared";
 import type { MastraTool } from "./tools/types";
 import pino from "pino";
 import { trace, context, propagation, SpanStatusCode } from "@opentelemetry/api";
 
 const logger = pino({ name: "llm" });
+
+export { isSdkAgentProvider };
 
 export class LlmNotConfiguredError extends Error {
   constructor() {
@@ -242,9 +253,127 @@ export function buildModel(config: LlmConfig): any {
       return client.chat(config.model);
     }
 
+    case "claude-agent-sdk":
+    case "cursor-agent-sdk":
+    case "openai-agent-sdk":
+      throw new Error(
+        `buildModel() does not support SDK-agent provider "${config.provider}" — ` +
+          "it wraps a full agent harness, not a chat model. Use runIntent()/streamChat() directly."
+      );
+
     default: {
       throw new Error(`Unknown LLM provider: ${(config as any).provider}`);
     }
+  }
+}
+
+/**
+ * Build a Mastra SDK-Agent wrapper (Claude/Cursor/OpenAI Agents SDK) — these
+ * run a vendor's own agent harness (own tool loop, permissions, sessions)
+ * behind Mastra's standard Agent interface, so `runIntent`/`streamChat`
+ * construct and invoke them the exact same way as a regular `Agent`.
+ *
+ * The internal tool registry (`tools`) is intentionally not forwarded: each
+ * harness manages its own tools (MCP servers, allowed-tools lists, etc.)
+ * rather than accepting Mastra `MastraTool`s directly. Multi-turn history is
+ * forwarded as-is via `messages` (Mastra's MessageListInput accepts the same
+ * array shape used for regular providers); true session continuity across
+ * turns would use `resumeGenerate()`/`resumeStream()` with a stored session
+ * id, which is out of scope for this experimental integration.
+ */
+function buildSdkAgent(
+  config: LlmConfig,
+  id: string,
+  name: string,
+  instructions: string
+): Agent {
+  switch (config.provider) {
+    case "claude-agent-sdk":
+      return new ClaudeSDKAgent({
+        id,
+        name,
+        description: instructions,
+        sdkOptions: {
+          model: config.model,
+          cwd: config.cwd,
+          allowedTools: config.allowedTools,
+          // This is a headless server: there is no human to answer an
+          // interactive tool-approval control-request, so the default
+          // 'default' permissionMode (which prompts on tool use) would
+          // stall the query() generator forever waiting on an answer that
+          // never comes. Bypass permission prompting entirely here;
+          // `allowedTools` above remains a separate, complementary
+          // allow-list of which tools the agent may use.
+          permissionMode: "bypassPermissions",
+          allowDangerouslySkipPermissions: true,
+          // The Claude Agent SDK spawns a subprocess whose env REPLACES
+          // process.env entirely when set, so inherit it explicitly.
+          env: config.apiKey
+            ? { ...process.env, ANTHROPIC_API_KEY: config.apiKey }
+            : undefined,
+        },
+      });
+
+    case "cursor-agent-sdk":
+      return new CursorSDKAgent({
+        id,
+        name,
+        description: instructions,
+        sdkOptions: {
+          model: config.model ? { id: config.model } : undefined,
+          // Defaults to process.env.CURSOR_API_KEY when omitted.
+          apiKey: config.apiKey,
+        },
+      });
+
+    case "openai-agent-sdk":
+      // The OpenAI Agents SDK reads its key from a process-wide default
+      // rather than per-agent config.
+      if (config.apiKey) setDefaultOpenAIKey(config.apiKey);
+      return new OpenAISDKAgent({
+        id,
+        name,
+        description: instructions,
+        sdkOptions: {
+          name,
+          instructions,
+          model: config.model,
+        },
+      });
+
+    default:
+      throw new Error(`Not an SDK-agent provider: ${config.provider}`);
+  }
+}
+
+/**
+ * Fetch the list of Claude models available to the given (or process-env)
+ * API key, via the Claude Agent SDK's `supportedModels()` control-protocol
+ * request. This spins up a short-lived, no-op query session purely to reach
+ * into the control channel — no prompt is ever sent to the model — and
+ * closes it immediately afterwards.
+ */
+export async function fetchClaudeSupportedModels(
+  apiKey?: string
+): Promise<ClaudeModelOption[]> {
+  const q = claudeQuery({
+    // Empty async generator: never yields a user message, so no request is
+    // ever sent to the model — we only need the control channel.
+    prompt: (async function* () {})(),
+    options: {
+      env: apiKey ? { ...process.env, ANTHROPIC_API_KEY: apiKey } : undefined,
+      permissionMode: "bypassPermissions",
+      allowDangerouslySkipPermissions: true,
+    },
+  });
+  try {
+    const models = await q.supportedModels();
+    return models.map((m) => ({
+      value: m.value,
+      resolvedModel: m.resolvedModel,
+    }));
+  } finally {
+    q.close();
   }
 }
 
@@ -304,7 +433,8 @@ export async function runIntent(
   text: string;
   usage: { promptTokens: number; completionTokens: number };
 }> {
-  const model = buildModel(config);
+  const isSdkAgent = isSdkAgentProvider(config.provider);
+  const model = isSdkAgent ? undefined : buildModel(config);
   const base = config.systemPrompt?.trim() || DEFAULT_SYSTEM_PROMPT;
   const withMemory = memoryContext ? `${base}\n\n${memoryContext}` : base;
   const instructions = skillExtensions?.length
@@ -317,6 +447,12 @@ export async function runIntent(
     : action;
 
   const hasTools = tools && Object.keys(tools).length > 0;
+  if (hasTools && isSdkAgent) {
+    logger.warn(
+      { provider: config.provider },
+      "Ignoring internal tool registry for SDK-agent provider; the vendor harness manages its own tools"
+    );
+  }
 
   logger.info(
     {
@@ -343,13 +479,15 @@ export async function runIntent(
     parentCtx,
     async (span) => {
       try {
-        const agent = new Agent({
-          id: "vaultysclaw-intent",
-          name: "vaultysclaw-intent",
-          instructions,
-          model,
-          ...(hasTools ? { tools: tools as Record<string, MastraTool> } : {}),
-        });
+        const agent = isSdkAgent
+          ? buildSdkAgent(config, "vaultysclaw-intent", "vaultysclaw-intent", instructions)
+          : new Agent({
+              id: "vaultysclaw-intent",
+              name: "vaultysclaw-intent",
+              instructions,
+              model,
+              ...(hasTools ? { tools: tools as Record<string, MastraTool> } : {}),
+            });
 
         const result = await agent.generate(userMessage, {
           maxSteps: 10,
@@ -451,13 +589,20 @@ export function streamChat(
   chunkStream: AsyncIterable<{ text: string; thinking: boolean }>;
   usage: Promise<{ promptTokens: number; completionTokens: number }>;
 } {
-  const model = buildModel(config);
+  const isSdkAgent = isSdkAgentProvider(config.provider);
+  const model = isSdkAgent ? undefined : buildModel(config);
   const base = config.systemPrompt?.trim() || DEFAULT_CHAT_PROMPT;
   const withMemory = memoryContext ? `${base}\n\n${memoryContext}` : base;
   const instructions = skillExtensions?.length
     ? `${withMemory}\n\n---\n\n${skillExtensions.join("\n\n---\n\n")}`
     : withMemory;
   const hasTools = tools && Object.keys(tools).length > 0;
+  if (hasTools && isSdkAgent) {
+    logger.warn(
+      { provider: config.provider },
+      "Ignoring internal tool registry for SDK-agent provider; the vendor harness manages its own tools"
+    );
+  }
 
   logger.info(
     {
@@ -469,13 +614,15 @@ export function streamChat(
     "Starting chat stream"
   );
 
-  const agent = new Agent({
-    id: "vaultysclaw-chat",
-    name: "vaultysclaw-chat",
-    instructions,
-    model,
-    ...(hasTools ? { tools: tools as Record<string, MastraTool> } : {}),
-  });
+  const agent = isSdkAgent
+    ? buildSdkAgent(config, "vaultysclaw-chat", "vaultysclaw-chat", instructions)
+    : new Agent({
+        id: "vaultysclaw-chat",
+        name: "vaultysclaw-chat",
+        instructions,
+        model,
+        ...(hasTools ? { tools: tools as Record<string, MastraTool> } : {}),
+      });
 
   // When reasoning is requested, forward a provider-appropriate "thinking"
   // setting. Only models that support reasoning will act on it; others ignore it.

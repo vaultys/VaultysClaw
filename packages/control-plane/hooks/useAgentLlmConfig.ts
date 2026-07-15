@@ -21,6 +21,10 @@ export interface LlmForm {
   baseUrl: string;
   systemPrompt: string;
   maxTokens: string;
+  /** claude-agent-sdk only. */
+  cwd: string;
+  /** claude-agent-sdk only, comma-separated in the UI. */
+  allowedTools: string;
 }
 
 export interface LiteLlmModelOption {
@@ -67,6 +71,8 @@ export function useAgentLlmConfig(
     baseUrl: "",
     systemPrompt: "",
     maxTokens: "",
+    cwd: "",
+    allowedTools: "",
   });
 
   // Agent LiteLLM key form state (the key itself is derived from `agent`)
@@ -81,6 +87,11 @@ export function useAgentLlmConfig(
   // LiteLLM models
   const [liteLlmModels, setLiteLlmModels] = useState<LiteLlmModelOption[]>([]);
   const [selectedLiteLlmModel, setSelectedLiteLlmModel] = useState("");
+
+  // Claude models (dynamic, via the agent's own supportedModels() query) —
+  // used to populate the Model combobox for the claude-agent-sdk provider.
+  const [claudeModels, setClaudeModels] = useState<string[]>([]);
+  const [claudeModelsLoading, setClaudeModelsLoading] = useState(false);
 
   // Common
   const [llmSaving, setLlmSaving] = useState(false);
@@ -126,6 +137,8 @@ export function useAgentLlmConfig(
           baseUrl: cfg.baseUrl ?? "",
           systemPrompt: cfg.systemPrompt ?? "",
           maxTokens: cfg.maxTokens?.toString() ?? "",
+          cwd: cfg.cwd ?? "",
+          allowedTools: cfg.allowedTools?.join(", ") ?? "",
         });
       }
     } catch {
@@ -275,6 +288,44 @@ export function useAgentLlmConfig(
     setLlmStatus("idle");
   }, []);
 
+  /**
+   * Fetch the live list of Claude models via the connected agent's own
+   * `supportedModels()` query (see /api/agents/:did/claude-models). Best
+   * effort: on any failure (agent offline, bad/missing key, SDK error) this
+   * just leaves `claudeModels` empty so callers fall back to the static list.
+   */
+  const fetchClaudeModels = useCallback(async () => {
+    setClaudeModelsLoading(true);
+    try {
+      const qs = llmForm.apiKey
+        ? `?apiKey=${encodeURIComponent(llmForm.apiKey)}`
+        : "";
+      const res = await fetch(`/api/agents/${did}/claude-models${qs}`);
+      if (!res.ok) {
+        setClaudeModels([]);
+        return;
+      }
+      const data = (await res.json()) as {
+        models?: { value: string }[];
+      };
+      setClaudeModels((data.models ?? []).map((m) => m.value));
+    } catch {
+      setClaudeModels([]);
+    } finally {
+      setClaudeModelsLoading(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [did, llmForm.apiKey]);
+
+  // Fetch (once per edit session) as soon as the manual form targets
+  // claude-agent-sdk — cheap best-effort call, ignored on failure.
+  useEffect(() => {
+    if (llmEditing && llmForm.provider === "claude-agent-sdk") {
+      fetchClaudeModels();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [llmEditing, llmForm.provider]);
+
   // ── Save handlers ─────────────────────────────────────────────────────────
 
   async function clearConfig() {
@@ -421,6 +472,13 @@ export function useAgentLlmConfig(
       if (llmForm.baseUrl) body.baseUrl = llmForm.baseUrl;
       if (llmForm.systemPrompt) body.systemPrompt = llmForm.systemPrompt;
       if (llmForm.maxTokens) body.maxTokens = parseInt(llmForm.maxTokens, 10);
+      if (llmForm.cwd) body.cwd = llmForm.cwd;
+      if (llmForm.allowedTools) {
+        body.allowedTools = llmForm.allowedTools
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean);
+      }
       const { config } = unwrap(
         await adminApi.agents.setLlmConfig({ params: { did }, body })
       );
@@ -462,6 +520,9 @@ export function useAgentLlmConfig(
     registryModels,
     workspaceLlmData,
     liteLlmModels,
+    claudeModels,
+    claudeModelsLoading,
+    fetchClaudeModels,
     // workspace selection
     selectedWorkspaceId,
     setSelectedWorkspaceId,

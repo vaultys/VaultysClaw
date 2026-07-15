@@ -17,7 +17,11 @@ import type { GraphNode } from "@vaultysclaw/shared";
 import { shortDid, formatDate } from "@vaultysclaw/shared";
 import { useToolbar, type ToolbarAction } from "@/components/layout/ToolbarContext";
 import { useBreadcrumbs } from "@/components/layout/BreadcrumbContext";
-import { usersClient, unwrap, ApiError } from "@/lib/api/ts-rest/client";
+import {
+  adminApi,
+  unwrap,
+  ApiError,
+} from "@/lib/api/ts-rest/client";
 import type { UserDetail } from "@/lib/contracts";
 import { isOwnerRole } from "@/lib/roles";
 import UserGrantsPanel from "@/components/users/UserGrantsPanel";
@@ -42,7 +46,7 @@ export default function UserEditPage() {
 
   const load = useCallback(async () => {
     try {
-      setUser(unwrap(await usersClient.getOne({ params: { did } })));
+      setUser(unwrap(await adminApi.users.getOne({ params: { did } })));
     } catch (err) {
       if (err instanceof ApiError && err.status === 403) {
         router.push("/");
@@ -70,7 +74,7 @@ export default function UserEditPage() {
       return;
     setRemoving(true);
     try {
-      unwrap(await usersClient.remove({ params: { did } }));
+      unwrap(await adminApi.users.remove({ params: { did } }));
       router.push("/admin/users");
     } catch {
       setRemoving(false);
@@ -217,7 +221,7 @@ export default function UserEditPage() {
                     `/admin/agents/${encodeURIComponent(node.id.replace("agent:", ""))}`
                   );
                 else if (node.type === "workspace")
-                  router.push(`/app/workspaces/${node.id.replace("workspace:", "")}`);
+                  router.push(`/workspaces/${node.id.replace("workspace:", "")}`);
                 else if (node.type === "user") {
                   const uid = node.id.replace("user:", "");
                   if (uid !== user.did)

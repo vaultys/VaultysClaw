@@ -39,7 +39,7 @@ export function EmailStep({ onNext }: { onNext: () => void }) {
     }
     setSaving(true);
     try {
-      const r = await fetch("/api/server/smtp", {
+      const r = await fetch("/api/admin/server/smtp", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(smtpBody()),
@@ -56,7 +56,7 @@ export function EmailStep({ onNext }: { onNext: () => void }) {
   const test = async () => {
     setTesting(true);
     try {
-      const r = await fetch("/api/server/smtp", {
+      const r = await fetch("/api/admin/server/smtp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(smtpBody()),

@@ -2,7 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { X, Loader2 } from "lucide-react";
-import { channelsClient, workspacesClient, unwrap } from "@/lib/api/ts-rest/client";
+import {
+  adminApi,
+  userApi,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 import { Workspace } from "@prisma/client";
 
 interface CreateChannelModalProps {
@@ -31,7 +35,7 @@ export default function CreateChannelModal({
     const fetchWorkspaces = async () => {
       try {
         setIsLoadingWorkspaces(true);
-        const { userWorkspaces } = unwrap(await workspacesClient.listMyWorkspaces());
+        const { userWorkspaces } = unwrap(await userApi.workspaces.listMyWorkspaces());
         const workspaces = userWorkspaces.map((ur) => ur.workspace);
         setWorkspaces(workspaces);
         // Auto-select first workspace only if no preSelectedWorkspaceId was provided
@@ -67,7 +71,7 @@ export default function CreateChannelModal({
         .replace(/^-|-$/g, "");
 
       const { channel } = unwrap(
-        await channelsClient.create({
+        await userApi.channels.create({
           body: {
             name: name.trim(),
             slug,

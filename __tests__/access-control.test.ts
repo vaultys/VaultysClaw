@@ -3,7 +3,9 @@
  *
  * Verifies page/API access by role:
  *   - /admin*  → Admin or Owner (Member → /app, anonymous → /login)
+ *   - /api/admin* → Admin or Owner (Member → forbidden/403, anonymous → /login)
  *   - /owner*  → Owner only (Admin/Member → /app, anonymous → /login)
+ *   - /workspaces* → any authenticated user (workspace roles enforced by the API)
  *   - /app*    → any authenticated user (anonymous → /login)
  *   - /api*    → any authenticated user (public API paths excepted)
  *   - public paths → everyone
@@ -49,6 +51,20 @@ describe("resolveAccess — /admin (Admin or Owner)", () => {
   });
 });
 
+describe("resolveAccess — /api/admin (Admin or Owner, 403 for non-admins)", () => {
+  it.each([owner, admin])("allows role %o", (token) => {
+    expect(decide("/api/admin/users", token)).toEqual({ type: "next" });
+  });
+
+  it("returns forbidden (403 JSON) for an authenticated Member", () => {
+    expect(decide("/api/admin/users", member)).toEqual({ type: "forbidden" });
+  });
+
+  it("redirects an anonymous user to /login (not forbidden)", () => {
+    expect(decide("/api/admin/users", null).type).toBe("redirect");
+  });
+});
+
 describe("resolveAccess — /owner (Owner only)", () => {
   it("allows an Owner", () => {
     expect(decide("/owner/dashboard", owner)).toEqual({ type: "next" });
@@ -78,13 +94,30 @@ describe("resolveAccess — /owner (Owner only)", () => {
 
 describe("resolveAccess — /app (any authenticated user)", () => {
   it.each([owner, admin, member])("allows role %o", (token) => {
-    expect(decide("/app/workspaces", token)).toEqual({ type: "next" });
+    expect(decide("/app/my-agents", token)).toEqual({ type: "next" });
   });
 
   it("redirects an anonymous user to /login preserving the query string", () => {
     expect(decide("/app/workflows", null, "?tab=runs")).toEqual({
       type: "redirect",
       location: "/login?callbackUrl=%2Fapp%2Fworkflows%3Ftab%3Druns",
+    });
+  });
+});
+
+describe("resolveAccess — /workspaces (any authenticated user)", () => {
+  it.each([owner, admin, member])(
+    "allows role %o (no global-role restriction)",
+    (token) => {
+      expect(decide("/workspaces", token)).toEqual({ type: "next" });
+      expect(decide("/workspaces/ws-1", token)).toEqual({ type: "next" });
+    }
+  );
+
+  it("redirects an anonymous user to /login with callbackUrl", () => {
+    expect(decide("/workspaces/ws-1", null)).toEqual({
+      type: "redirect",
+      location: "/login?callbackUrl=%2Fworkspaces%2Fws-1",
     });
   });
 });
@@ -99,7 +132,7 @@ describe("resolveAccess — /api (authenticated, routes self-check)", () => {
   });
 
   it("allows public API paths without a session", () => {
-    expect(decide("/api/health", null)).toEqual({ type: "next" });
+    expect(decide("/api/public/health", null)).toEqual({ type: "next" });
     expect(decide("/api/auth/session", null)).toEqual({ type: "next" });
     expect(decide("/api/workflows/wf-123/execute", null)).toEqual({
       type: "next",
@@ -132,7 +165,7 @@ describe("resolveAccess — public paths", () => {
 
 describe("resolveAccess — OIDC user without a claimed DID", () => {
   it("forces a page navigation to /claim", () => {
-    expect(decide("/app/workspaces", noDidUser)).toEqual({
+    expect(decide("/app/my-agents", noDidUser)).toEqual({
       type: "redirect",
       location: "/claim",
     });
@@ -158,11 +191,11 @@ describe("isPublicPath", () => {
   it("treats the root and known public prefixes as public", () => {
     expect(isPublicPath("/")).toBe(true);
     expect(isPublicPath("/login")).toBe(true);
-    expect(isPublicPath("/api/health")).toBe(true);
+    expect(isPublicPath("/api/public/health")).toBe(true);
   });
 
   it("treats admin/app paths as non-public", () => {
     expect(isPublicPath("/admin/users")).toBe(false);
-    expect(isPublicPath("/app/workspaces")).toBe(false);
+    expect(isPublicPath("/app/my-agents")).toBe(false);
   });
 });

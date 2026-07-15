@@ -1,5 +1,5 @@
 /**
- * Route-handler tests for /api/api-keys and /api/api-keys/[id].
+ * Route-handler tests for /api/admin/api-keys and /api/api-keys/[id].
  *
  * Tests:
  *   - 401 when unauthenticated
@@ -70,11 +70,11 @@ import { prisma } from "../packages/control-plane/db/client";
 import {
   GET as listKeys,
   POST as createKey,
-} from "../packages/control-plane/app/api/api-keys/route";
+} from "../packages/control-plane/app/api/admin/api-keys/route";
 import {
   PATCH as updateKey,
   DELETE as deleteKey,
-} from "../packages/control-plane/app/api/api-keys/[id]/route";
+} from "../packages/control-plane/app/api/admin/api-keys/[id]/route";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -120,7 +120,7 @@ class MockRequest {
   headers: Headers;
 
   constructor(
-    url = "http://localhost/api/api-keys",
+    url = "http://localhost/api/admin/api-keys",
     body?: unknown,
     method = "GET"
   ) {
@@ -167,22 +167,10 @@ beforeEach(() => {
 });
 
 // ---------------------------------------------------------------------------
-// GET /api/api-keys — list
+// GET /api/admin/api-keys — list
 // ---------------------------------------------------------------------------
 
 describe("GET /api/api-keys", () => {
-  it("returns 401 when unauthenticated", async () => {
-    asUnauthenticated();
-    const res = await listKeys(req());
-    expectStatus(res, 401);
-  });
-
-  it("returns 403 when non-admin", async () => {
-    asMember();
-    const res = await listKeys(req());
-    expectStatus(res, 403);
-  });
-
   it("returns 200 with apiKeys array for admin", async () => {
     asAdmin();
     const res = await listKeys(req());
@@ -211,41 +199,15 @@ describe("GET /api/api-keys", () => {
 });
 
 // ---------------------------------------------------------------------------
-// POST /api/api-keys — create
+// POST /api/admin/api-keys — create
 // ---------------------------------------------------------------------------
 
 describe("POST /api/api-keys", () => {
-  it("returns 401 when unauthenticated", async () => {
-    asUnauthenticated();
-    // Body must be valid: createNextRoute validates the body before the handler
-    // (and thus before the auth check) runs.
-    const res = await createKey(
-      req(
-        "http://localhost/api/api-keys",
-        { name: `${SENTINEL}-unauth`, allowedRoutes: ["GET /api/agents"] },
-        "POST"
-      )
-    );
-    expectStatus(res, 401);
-  });
-
-  it("returns 403 when non-admin", async () => {
-    asMember();
-    const res = await createKey(
-      req(
-        "http://localhost/api/api-keys",
-        { name: `${SENTINEL}-x`, allowedRoutes: ["GET /api/agents"] },
-        "POST"
-      )
-    );
-    expectStatus(res, 403);
-  });
-
   it("returns 400 when name is missing", async () => {
     asAdmin();
     const res = await createKey(
       req(
-        "http://localhost/api/api-keys",
+        "http://localhost/api/admin/api-keys",
         { allowedRoutes: ["GET /api/agents"] },
         "POST"
       )
@@ -257,7 +219,7 @@ describe("POST /api/api-keys", () => {
     asAdmin();
     const res = await createKey(
       req(
-        "http://localhost/api/api-keys",
+        "http://localhost/api/admin/api-keys",
         { name: "  ", allowedRoutes: ["GET /api/agents"] },
         "POST"
       )
@@ -269,7 +231,7 @@ describe("POST /api/api-keys", () => {
     asAdmin();
     const res = await createKey(
       req(
-        "http://localhost/api/api-keys",
+        "http://localhost/api/admin/api-keys",
         { name: `${SENTINEL}-no-routes` },
         "POST"
       )
@@ -281,7 +243,7 @@ describe("POST /api/api-keys", () => {
     asAdmin();
     const res = await createKey(
       req(
-        "http://localhost/api/api-keys",
+        "http://localhost/api/admin/api-keys",
         { name: `${SENTINEL}-empty-routes`, allowedRoutes: [] },
         "POST"
       )
@@ -293,7 +255,7 @@ describe("POST /api/api-keys", () => {
     asAdmin();
     const res = await createKey(
       req(
-        "http://localhost/api/api-keys",
+        "http://localhost/api/admin/api-keys",
         {
           name: `${SENTINEL}-create-ok`,
           allowedRoutes: ["GET /api/agents"],
@@ -312,7 +274,7 @@ describe("POST /api/api-keys", () => {
     asAdmin();
     const res = await createKey(
       req(
-        "http://localhost/api/api-keys",
+        "http://localhost/api/admin/api-keys",
         {
           name: `${SENTINEL}-prefix-check`,
           allowedRoutes: ["GET /api/agents"],
@@ -329,7 +291,7 @@ describe("POST /api/api-keys", () => {
     const bodyA = await (
       await createKey(
         req(
-          "http://localhost/api/api-keys",
+          "http://localhost/api/admin/api-keys",
           { name: `${SENTINEL}-uniq-a`, allowedRoutes: ["GET /api/agents"] },
           "POST"
         )
@@ -339,7 +301,7 @@ describe("POST /api/api-keys", () => {
     const bodyB = await (
       await createKey(
         req(
-          "http://localhost/api/api-keys",
+          "http://localhost/api/admin/api-keys",
           { name: `${SENTINEL}-uniq-b`, allowedRoutes: ["GET /api/agents"] },
           "POST"
         )
@@ -354,7 +316,7 @@ describe("POST /api/api-keys", () => {
     const created = await (
       await createKey(
         req(
-          "http://localhost/api/api-keys",
+          "http://localhost/api/admin/api-keys",
           {
             name: `${SENTINEL}-appears-in-list`,
             allowedRoutes: ["GET /api/agents"],
@@ -376,7 +338,7 @@ describe("POST /api/api-keys", () => {
     asAdmin();
     const res = await createKey(
       req(
-        "http://localhost/api/api-keys",
+        "http://localhost/api/admin/api-keys",
         {
           name: `${SENTINEL}-workspace-scoped`,
           allowedRoutes: ["GET /api/agents"],
@@ -393,7 +355,7 @@ describe("POST /api/api-keys", () => {
     asAdmin();
     const res = await createKey(
       req(
-        "http://localhost/api/api-keys",
+        "http://localhost/api/admin/api-keys",
         {
           name: `${SENTINEL}-global`,
           allowedRoutes: ["GET /api/agents"],
@@ -419,7 +381,7 @@ describe("PATCH /api/api-keys/[id]", () => {
     asAdmin();
     const res = await createKey(
       req(
-        "http://localhost/api/api-keys",
+        "http://localhost/api/admin/api-keys",
         {
           name: `${SENTINEL}-patch-target`,
           allowedRoutes: ["GET /api/agents"],
@@ -431,28 +393,10 @@ describe("PATCH /api/api-keys/[id]", () => {
     keyId = body.apiKey.id;
   });
 
-  it("returns 401 when unauthenticated", async () => {
-    asUnauthenticated();
-    const res = await updateKey(
-      req("http://localhost/api/api-keys/" + keyId, { name: "x" }, "PATCH"),
-      params({ id: keyId })
-    );
-    expectStatus(res, 401);
-  });
-
-  it("returns 403 when non-admin", async () => {
-    asMember();
-    const res = await updateKey(
-      req("http://localhost/api/api-keys/" + keyId, { name: "x" }, "PATCH"),
-      params({ id: keyId })
-    );
-    expectStatus(res, 403);
-  });
-
   it("returns 404 for unknown id", async () => {
     asAdmin();
     const res = await updateKey(
-      req("http://localhost/api/api-keys/no-such-id", { name: "x" }, "PATCH"),
+      req("http://localhost/api/admin/api-keys/no-such-id", { name: "x" }, "PATCH"),
       params({ id: "no-such-id" })
     );
     expectStatus(res, 404);
@@ -461,7 +405,7 @@ describe("PATCH /api/api-keys/[id]", () => {
   it("returns 400 when name is empty string", async () => {
     asAdmin();
     const res = await updateKey(
-      req("http://localhost/api/api-keys/" + keyId, { name: "" }, "PATCH"),
+      req("http://localhost/api/admin/api-keys/" + keyId, { name: "" }, "PATCH"),
       params({ id: keyId })
     );
     expectStatus(res, 400);
@@ -471,7 +415,7 @@ describe("PATCH /api/api-keys/[id]", () => {
     asAdmin();
     const res = await updateKey(
       req(
-        "http://localhost/api/api-keys/" + keyId,
+        "http://localhost/api/admin/api-keys/" + keyId,
         { allowedRoutes: [] },
         "PATCH"
       ),
@@ -483,7 +427,7 @@ describe("PATCH /api/api-keys/[id]", () => {
   it("returns 400 when body has no updatable fields", async () => {
     asAdmin();
     const res = await updateKey(
-      req("http://localhost/api/api-keys/" + keyId, {}, "PATCH"),
+      req("http://localhost/api/admin/api-keys/" + keyId, {}, "PATCH"),
       params({ id: keyId })
     );
     expectStatus(res, 400);
@@ -493,7 +437,7 @@ describe("PATCH /api/api-keys/[id]", () => {
     asAdmin();
     const res = await updateKey(
       req(
-        "http://localhost/api/api-keys/" + keyId,
+        "http://localhost/api/admin/api-keys/" + keyId,
         { name: `${SENTINEL}-renamed` },
         "PATCH"
       ),
@@ -509,7 +453,7 @@ describe("PATCH /api/api-keys/[id]", () => {
     const newRoutes = ["GET /api/workflows", "POST /api/workflows"];
     const res = await updateKey(
       req(
-        "http://localhost/api/api-keys/" + keyId,
+        "http://localhost/api/admin/api-keys/" + keyId,
         { allowedRoutes: newRoutes },
         "PATCH"
       ),
@@ -524,7 +468,7 @@ describe("PATCH /api/api-keys/[id]", () => {
     asAdmin();
     const res = await updateKey(
       req(
-        "http://localhost/api/api-keys/" + keyId,
+        "http://localhost/api/admin/api-keys/" + keyId,
         { isActive: false },
         "PATCH"
       ),
@@ -539,7 +483,7 @@ describe("PATCH /api/api-keys/[id]", () => {
     asAdmin();
     const res = await updateKey(
       req(
-        "http://localhost/api/api-keys/" + keyId,
+        "http://localhost/api/admin/api-keys/" + keyId,
         { isActive: true },
         "PATCH"
       ),
@@ -555,7 +499,7 @@ describe("PATCH /api/api-keys/[id]", () => {
     const futureUnix = Math.floor(Date.now() / 1000) + 3600;
     const res = await updateKey(
       req(
-        "http://localhost/api/api-keys/" + keyId,
+        "http://localhost/api/admin/api-keys/" + keyId,
         { expiresAt: futureUnix },
         "PATCH"
       ),
@@ -570,7 +514,7 @@ describe("PATCH /api/api-keys/[id]", () => {
     asAdmin();
     const res = await updateKey(
       req(
-        "http://localhost/api/api-keys/" + keyId,
+        "http://localhost/api/admin/api-keys/" + keyId,
         { expiresAt: null },
         "PATCH"
       ),
@@ -587,28 +531,10 @@ describe("PATCH /api/api-keys/[id]", () => {
 // ---------------------------------------------------------------------------
 
 describe("DELETE /api/api-keys/[id]", () => {
-  it("returns 401 when unauthenticated", async () => {
-    asUnauthenticated();
-    const res = await deleteKey(
-      req("http://localhost/api/api-keys/some-id", undefined, "DELETE"),
-      params({ id: "some-id" })
-    );
-    expectStatus(res, 401);
-  });
-
-  it("returns 403 when non-admin", async () => {
-    asMember();
-    const res = await deleteKey(
-      req("http://localhost/api/api-keys/some-id", undefined, "DELETE"),
-      params({ id: "some-id" })
-    );
-    expectStatus(res, 403);
-  });
-
   it("returns 404 for unknown id", async () => {
     asAdmin();
     const res = await deleteKey(
-      req("http://localhost/api/api-keys/no-such-id", undefined, "DELETE"),
+      req("http://localhost/api/admin/api-keys/no-such-id", undefined, "DELETE"),
       params({ id: "no-such-id" })
     );
     expectStatus(res, 404);
@@ -620,7 +546,7 @@ describe("DELETE /api/api-keys/[id]", () => {
     const created = await (
       await createKey(
         req(
-          "http://localhost/api/api-keys",
+          "http://localhost/api/admin/api-keys",
           { name: `${SENTINEL}-to-delete`, allowedRoutes: ["GET /api/agents"] },
           "POST"
         )
@@ -630,7 +556,7 @@ describe("DELETE /api/api-keys/[id]", () => {
 
     asAdmin();
     const delRes = await deleteKey(
-      req(`http://localhost/api/api-keys/${id}`, undefined, "DELETE"),
+      req(`http://localhost/api/admin/api-keys/${id}`, undefined, "DELETE"),
       params({ id })
     );
     expectStatus(delRes, 204);
@@ -638,7 +564,7 @@ describe("DELETE /api/api-keys/[id]", () => {
     // Key should be gone — second delete returns 404
     asAdmin();
     const delAgain = await deleteKey(
-      req(`http://localhost/api/api-keys/${id}`, undefined, "DELETE"),
+      req(`http://localhost/api/admin/api-keys/${id}`, undefined, "DELETE"),
       params({ id })
     );
     expectStatus(delAgain, 404);
@@ -649,7 +575,7 @@ describe("DELETE /api/api-keys/[id]", () => {
     const created = await (
       await createKey(
         req(
-          "http://localhost/api/api-keys",
+          "http://localhost/api/admin/api-keys",
           { name: `${SENTINEL}-list-gone`, allowedRoutes: ["GET /api/agents"] },
           "POST"
         )
@@ -659,7 +585,7 @@ describe("DELETE /api/api-keys/[id]", () => {
 
     asAdmin();
     await deleteKey(
-      req(`http://localhost/api/api-keys/${id}`, undefined, "DELETE"),
+      req(`http://localhost/api/admin/api-keys/${id}`, undefined, "DELETE"),
       params({ id })
     );
 

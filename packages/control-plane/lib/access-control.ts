@@ -10,23 +10,23 @@ import { isAdminRole, isOwnerRole } from "./roles";
  *   - public paths (see {@link publicPaths})       → everyone
  *   - authenticated OIDC user without a DID         → forced to /claim
  *   - /owner*                                       → Owner only
- *   - /admin*                                       → Admin or Owner
+ *   - /admin* (pages) and /api/admin* (API)         → Admin or Owner
+ *   - /workspaces*                                  → any authenticated user
+ *                                                     (workspace roles enforced by the API)
  *   - /app* and /api*                               → any authenticated user
  *                                                     (API routes enforce fine-grained perms)
  *   - anything else                                 → any authenticated user
+ *
+ * Page routes that fail a role check redirect to /app; API routes ({@link isApiPath})
+ * instead resolve to a `forbidden` decision so the client receives a 403 JSON
+ * response rather than an HTML redirect.
  */
 
 // Paths accessible without authentication.
 export const publicPaths = [
-  "/api/health",
+  "/api/public",
   "/api/auth",
-  "/api/user",
-  "/api/server",
   "/api/test",
-  "/api/workflows/test-seed",
-  "/api/invitations",
-  "/api/users/invite/email",
-  "/api/users/invite/from-email",
   "/api/vaultys/",
   "/login",
   "/invite/",
@@ -51,7 +51,12 @@ export interface AccessToken {
 
 export type AccessDecision =
   | { type: "next" }
-  | { type: "redirect"; location: string };
+  | { type: "redirect"; location: string }
+  | { type: "forbidden" };
+
+function isApiPath(pathname: string): boolean {
+  return pathname.startsWith("/api");
+}
 
 /**
  * Pure access-control decision for a request. Returns either `next` (allow) or
@@ -96,10 +101,22 @@ export function resolveAccess(
     return { type: "next" };
   }
 
-  // /admin* — Admin or Owner only
-  if (pathname.startsWith("/admin")) {
+  // /admin* (pages) and /api/admin* (API) — Admin or Owner only.
+  // A failed role check redirects pages to /app, but resolves to `forbidden`
+  // for API paths so the client gets a 403 JSON instead of an HTML redirect.
+  if (pathname.startsWith("/admin") || pathname.startsWith("/api/admin")) {
     if (!token) return loginRedirect();
-    if (!isAdminRole(role)) return { type: "redirect", location: "/app" };
+    if (!isAdminRole(role)) {
+      return isApiPath(pathname)
+        ? { type: "forbidden" }
+        : { type: "redirect", location: "/app" };
+    }
+    return { type: "next" };
+  }
+
+  // /workspaces* — any authenticated user (workspace roles enforced by the API)
+  if (pathname.startsWith("/workspaces")) {
+    if (!token) return loginRedirect();
     return { type: "next" };
   }
 

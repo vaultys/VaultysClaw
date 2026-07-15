@@ -3,9 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { type LlmProviderType } from "@vaultysclaw/shared";
 import {
-  agentsClient,
-  litellmClient,
-  modelsClient,
+  adminApi,
   unwrap,
 } from "@/lib/api/ts-rest/client";
 import { SafeLlmConfig, SafeModel, type AgentInfo } from "@/lib/contracts";
@@ -114,10 +112,10 @@ export function useAgentLlmConfig(
     try {
       const [configData, modelsData, workspaceData, liteLlmModelsData] =
         await Promise.all([
-          agentsClient.getLlmConfig({ params: { did } }).then(unwrap),
-          modelsClient.list().then(unwrap),
-          agentsClient.getWorkspaceLlm({ params: { did } }).then(unwrap),
-          litellmClient.models().then(unwrap),
+          adminApi.agents.getLlmConfig({ params: { did } }).then(unwrap),
+          adminApi.models.list().then(unwrap),
+          adminApi.agents.getWorkspaceLlm({ params: { did } }).then(unwrap),
+          adminApi.litellm.models().then(unwrap),
         ]);
 
       const cfg = (configData as { config: SafeLlmConfig | null }).config;
@@ -292,25 +290,20 @@ export function useAgentLlmConfig(
 
   /**
    * Fetch the live list of Claude models via the connected agent's own
-   * `supportedModels()` query (see /api/agents/:did/claude-models). Best
+   * `supportedModels()` query (see /api/admin/agents/:did/claude-models). Best
    * effort: on any failure (agent offline, bad/missing key, SDK error) this
    * just leaves `claudeModels` empty so callers fall back to the static list.
    */
   const fetchClaudeModels = useCallback(async () => {
     setClaudeModelsLoading(true);
     try {
-      const qs = llmForm.apiKey
-        ? `?apiKey=${encodeURIComponent(llmForm.apiKey)}`
-        : "";
-      const res = await fetch(`/api/agents/${did}/claude-models${qs}`);
-      if (!res.ok) {
-        setClaudeModels([]);
-        return;
-      }
-      const data = (await res.json()) as {
-        models?: { value: string }[];
-      };
-      setClaudeModels((data.models ?? []).map((m) => m.value));
+      const { models } = unwrap(
+        await adminApi.agents.claudeModels({
+          params: { did },
+          query: llmForm.apiKey ? { apiKey: llmForm.apiKey } : {},
+        })
+      );
+      setClaudeModels(models.map((m) => m.value));
     } catch {
       setClaudeModels([]);
     } finally {
@@ -334,7 +327,7 @@ export function useAgentLlmConfig(
     setLlmSaving(true);
     setLlmError(null);
     try {
-      unwrap(await agentsClient.deleteLlmConfig({ params: { did } }));
+      unwrap(await adminApi.agents.deleteLlmConfig({ params: { did } }));
       await loadAll();
       flashStatus("cleared");
     } catch {
@@ -350,14 +343,14 @@ export function useAgentLlmConfig(
     try {
       // 1. Clear any manual llmConfig so the agent key takes priority
       if (llmConfig)
-        unwrap(await agentsClient.deleteLlmConfig({ params: { did } }));
+        unwrap(await adminApi.agents.deleteLlmConfig({ params: { did } }));
 
       // 2. Provision / refresh the key
       const body: { allowedModels?: string[]; dailyBudget?: number } = {};
       if (keyModels.length > 0) body.allowedModels = keyModels;
       if (keyBudget) body.dailyBudget = parseFloat(keyBudget);
 
-      unwrap(await agentsClient.putLitellmKey({ params: { did }, body }));
+      unwrap(await adminApi.agents.putLitellmKey({ params: { did }, body }));
 
       await Promise.all([loadAll(), onChanged?.()]);
       setLlmEditing(false);
@@ -373,7 +366,7 @@ export function useAgentLlmConfig(
   async function revokeAgentKey() {
     setRevoking(true);
     try {
-      unwrap(await agentsClient.deleteLitellmKey({ params: { did } }));
+      unwrap(await adminApi.agents.deleteLitellmKey({ params: { did } }));
       await Promise.all([loadAll(), onChanged?.()]);
       setShowRevokeConfirm(false);
       flashStatus("cleared");
@@ -389,7 +382,7 @@ export function useAgentLlmConfig(
     setLlmError(null);
     try {
       const { config } = unwrap(
-        await agentsClient.setLlmConfig({
+        await adminApi.agents.setLlmConfig({
           params: { did },
           body: { workspaceId: selectedWorkspaceId, workspaceModelId: selectedWorkspaceModelId },
         })
@@ -411,7 +404,7 @@ export function useAgentLlmConfig(
     setLlmError(null);
     try {
       const { config } = unwrap(
-        await agentsClient.setLlmConfig({
+        await adminApi.agents.setLlmConfig({
           params: { did },
           body: { registryModelId: selectedRegistryId },
         })
@@ -434,11 +427,11 @@ export function useAgentLlmConfig(
     try {
       // 1. Clear any manual llmConfig so the LiteLLM model takes priority
       if (llmConfig)
-        unwrap(await agentsClient.deleteLlmConfig({ params: { did } }));
+        unwrap(await adminApi.agents.deleteLlmConfig({ params: { did } }));
 
       // 2. Create agent key with the selected model
       unwrap(
-        await agentsClient.putLitellmKey({
+        await adminApi.agents.putLitellmKey({
           params: { did },
           body: { allowedModels: [selectedLiteLlmModel] },
         })
@@ -482,7 +475,7 @@ export function useAgentLlmConfig(
           .filter(Boolean);
       }
       const { config } = unwrap(
-        await agentsClient.setLlmConfig({ params: { did }, body })
+        await adminApi.agents.setLlmConfig({ params: { did }, body })
       );
       setLlmConfig(config);
       setLlmEditing(false);

@@ -3,7 +3,10 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { Check, Loader2, AlertCircle, Mail, QrCode } from "lucide-react";
-import { usersClient, userAuthClient, unwrap } from "@/lib/api/ts-rest/client";
+import {
+  publicApi,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 
 type Phase = "form" | "sending" | "sent" | "qr-loading" | "qr" | "qr-success" | "qr-failure";
 
@@ -21,7 +24,7 @@ export default function InviteUserModal({
   const [error, setError] = useState<string | null>(null);
   const [qrUrl, setQrUrl] = useState("");
 
-  // Cancel the QR poll when the modal unmounts so /api/user/listen stops being
+  // Cancel the QR poll when the modal unmounts so /api/public/user/listen stops being
   // called once it is closed.
   const pollRef = useRef<{ cancelled: boolean } | null>(null);
   useEffect(
@@ -40,7 +43,7 @@ export default function InviteUserModal({
       setPhase("sending");
       setError(null);
       try {
-        const res = await fetch("/api/users/invite/email", {
+        const res = await fetch("/api/admin/users/invite/email", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(form),
@@ -67,7 +70,7 @@ export default function InviteUserModal({
     setError(null);
     try {
       // Create invitation and unclaimed user without sending email
-      const invRes = await fetch("/api/users/invite/email", {
+      const invRes = await fetch("/api/admin/users/invite/email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...form, skipEmail: true }),
@@ -85,7 +88,7 @@ export default function InviteUserModal({
       let inviteToken: string;
       try {
         const data = unwrap(
-          await usersClient.inviteFromEmail({ body: { token } })
+          await publicApi.users.inviteFromEmail({ body: { token } })
         );
         url = data.qrUrl;
         inviteToken = data.inviteToken;
@@ -108,7 +111,7 @@ export default function InviteUserModal({
         await new Promise((r) => setTimeout(r, 1500));
         if (poll.cancelled) return;
         const { status } = unwrap(
-          await userAuthClient.listen({ params: { token: inviteToken } })
+          await publicApi.userAuth.listen({ params: { token: inviteToken } })
         );
         if (poll.cancelled) return;
         if (status === 2) { setPhase("qr-success"); return; }

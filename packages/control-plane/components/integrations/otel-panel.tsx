@@ -9,7 +9,11 @@ import {
   IntegrationHeader,
   IntegrationModal,
 } from "./shared";
-import { settingsClient, unwrap } from "@/lib/api/ts-rest/client";
+import {
+  adminApi,
+  userApi,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 import type { OtelConfig, OtelTestResult } from "@/lib/contracts";
 
 export function OpenTelemetryPanel() {
@@ -29,7 +33,7 @@ export function OpenTelemetryPanel() {
 
   const loadStatus = async () => {
     try {
-      const data = unwrap(await settingsClient.getOtel());
+      const data = unwrap(await userApi.settings.getOtel());
       setStatus(data);
       setEnabled(data.enabled);
       setBaseUrl(data.baseUrl || "");
@@ -59,7 +63,7 @@ export function OpenTelemetryPanel() {
     setTestResult(null);
     try {
       const result = unwrap(
-        await settingsClient.testOtel({ body: { baseUrl: testUrl } })
+        await adminApi.settings.testOtel({ body: { baseUrl: testUrl } })
       );
       setTestResult(result);
       if (currentStatus) {
@@ -78,7 +82,7 @@ export function OpenTelemetryPanel() {
     setIsSaving(true);
     try {
       unwrap(
-        await settingsClient.saveOtel({
+        await adminApi.settings.saveOtel({
           body: { enabled, baseUrl, serviceName },
         })
       );

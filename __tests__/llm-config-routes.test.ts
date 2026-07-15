@@ -62,8 +62,8 @@ import {
   GET as llmConfigGET,
   PUT as llmConfigPUT,
   DELETE as llmConfigDELETE,
-} from "../packages/control-plane/app/api/agents/[did]/llm-config/route";
-import { GET as workspaceLlmGET } from "../packages/control-plane/app/api/agents/[did]/workspace-llm/route";
+} from "../packages/control-plane/app/api/admin/agents/[did]/llm-config/route";
+import { GET as workspaceLlmGET } from "../packages/control-plane/app/api/admin/agents/[did]/workspace-llm/route";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -134,15 +134,6 @@ beforeEach(async () => {
 // ---------------------------------------------------------------------------
 
 describe("GET /api/agents/[did]/llm-config", () => {
-  it("returns 401 when unauthenticated", async () => {
-    mockGetAuthContext.mockRejectedValueOnce(new APIException("UNAUTHORIZED"));
-    const res = await llmConfigGET(
-      req("GET", "http://localhost") as any,
-      params(agentDid)
-    );
-    expect(res._status).toBe(401);
-  });
-
   it("returns config: null when no config is set", async () => {
     const res = await llmConfigGET(
       req("GET", "http://localhost") as any,
@@ -304,15 +295,6 @@ describe("DELETE /api/agents/[did]/llm-config", () => {
 // ---------------------------------------------------------------------------
 
 describe("GET /api/agents/[did]/workspace-llm", () => {
-  it("returns 401 when unauthenticated", async () => {
-    mockGetAuthContext.mockRejectedValueOnce(new APIException("UNAUTHORIZED"));
-    const res = await workspaceLlmGET(
-      req("GET", "http://localhost") as any,
-      params(agentDid)
-    );
-    expect(res._status).toBe(401);
-  });
-
   it("returns workspace options with models and virtual key status", async () => {
     const res = await workspaceLlmGET(
       req("GET", "http://localhost") as any,

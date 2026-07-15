@@ -2,11 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  intentsClient,
-  mapClient,
-  networkClient,
-  statsClient,
-  workflowRunsClient,
+  adminApi,
+  userApi,
   unwrap,
 } from "@/lib/api/ts-rest/client";
 import type {
@@ -124,7 +121,7 @@ export function useMissionControlData(
   useEffect(() => {
     const fetch_ = async () => {
       try {
-        setMarkers(unwrap(await mapClient.get({ query: {} })).markers);
+        setMarkers(unwrap(await userApi.map.get({ query: {} })).markers);
       } catch {}
     };
     fetch_();
@@ -136,7 +133,7 @@ export function useMissionControlData(
   useEffect(() => {
     const fetch_ = async () => {
       try {
-        setTokenStats(unwrap(await statsClient.tokens()));
+        setTokenStats(unwrap(await adminApi.stats.tokens()));
       } catch {}
     };
     fetch_();
@@ -148,7 +145,7 @@ export function useMissionControlData(
   useEffect(() => {
     const fetch_ = async () => {
       try {
-        setNetworkStats(unwrap(await networkClient.get({ query: {} })));
+        setNetworkStats(unwrap(await userApi.network.get({ query: {} })));
       } catch {}
     };
     fetch_();
@@ -161,7 +158,7 @@ export function useMissionControlData(
     const fetch_ = async () => {
       try {
         const data = unwrap(
-          await workflowRunsClient.list({
+          await userApi.workflowRuns.list({
             query: { pageSize: 10, sortDir: "desc" },
           })
         );
@@ -179,7 +176,7 @@ export function useMissionControlData(
     const fetch_ = async () => {
       try {
         const intents = unwrap(
-          await intentsClient.list({ query: { limit: 20 } })
+          await userApi.intents.list({ query: { limit: 20 } })
         ).intents;
         setRecentIntents(intents.slice(0, 8));
 

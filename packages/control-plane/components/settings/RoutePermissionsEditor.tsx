@@ -21,37 +21,37 @@ const ROUTE_GROUPS: RouteGroup[] = [
     routes: [
       {
         label: "List / create agents",
-        path: "/api/agents",
+        path: "/api/admin/agents",
         methods: ["GET", "POST"],
       },
       {
         label: "Agent detail",
-        path: "/api/agents/[did]",
+        path: "/api/admin/agents/[did]",
         methods: ["GET", "PATCH", "DELETE"],
       },
       {
         label: "Run intent on agent",
-        path: "/api/agents/[did]/run",
+        path: "/api/admin/agents/[did]/run",
         methods: ["POST"],
       },
       {
         label: "Agent task queue",
-        path: "/api/agents/[did]/task",
+        path: "/api/admin/agents/[did]/task",
         methods: ["GET", "POST"],
       },
       {
         label: "Agent skills",
-        path: "/api/agents/[did]/skills",
+        path: "/api/admin/agents/[did]/skills",
         methods: ["GET", "POST"],
       },
       {
         label: "Agent token usage",
-        path: "/api/agents/[did]/token-usage",
+        path: "/api/admin/agents/[did]/token-usage",
         methods: ["GET"],
       },
       {
         label: "Agent schedules",
-        path: "/api/agents/[did]/schedules",
+        path: "/api/admin/agents/[did]/schedules",
         methods: ["GET", "POST"],
       },
     ],
@@ -118,19 +118,19 @@ const ROUTE_GROUPS: RouteGroup[] = [
     routes: [
       {
         label: "Governance summary",
-        path: "/api/governance/summary",
+        path: "/api/admin/governance/summary",
         methods: ["GET"],
       },
-      { label: "Audit log", path: "/api/governance/audit", methods: ["GET"] },
+      { label: "Audit log", path: "/api/admin/governance/audit", methods: ["GET"] },
     ],
   },
   {
     name: "Users",
     routes: [
-      { label: "List users", path: "/api/users", methods: ["GET"] },
+      { label: "List users", path: "/api/admin/users", methods: ["GET"] },
       {
         label: "User detail",
-        path: "/api/users/[did]",
+        path: "/api/admin/users/[did]",
         methods: ["GET", "PATCH", "DELETE"],
       },
     ],
@@ -138,21 +138,31 @@ const ROUTE_GROUPS: RouteGroup[] = [
   {
     name: "Models & Knowledge",
     routes: [
-      { label: "Models", path: "/api/models", methods: ["GET", "POST"] },
+      { label: "Models", path: "/api/admin/models", methods: ["GET", "POST"] },
       {
         label: "Model detail",
-        path: "/api/models/[id]",
+        path: "/api/admin/models/[id]",
         methods: ["GET", "PATCH", "DELETE"],
       },
       {
-        label: "Knowledge bases",
+        label: "Knowledge bases (read)",
         path: "/api/knowledge",
-        methods: ["GET", "POST"],
+        methods: ["GET"],
       },
       {
-        label: "Knowledge detail",
+        label: "Knowledge detail (read)",
         path: "/api/knowledge/[id]",
-        methods: ["GET", "PATCH", "DELETE"],
+        methods: ["GET"],
+      },
+      {
+        label: "Knowledge — create",
+        path: "/api/admin/knowledge",
+        methods: ["POST"],
+      },
+      {
+        label: "Knowledge — delete",
+        path: "/api/admin/knowledge/[id]",
+        methods: ["DELETE"],
       },
     ],
   },

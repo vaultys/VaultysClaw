@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { AlertCircle, Link2 } from "lucide-react";
 import { ComingSoonOverlay } from "@/components/shared";
-import { modelsClient, workspacesClient, unwrap } from "@/lib/api/ts-rest/client";
+import { userApi, unwrap } from "@/lib/api/ts-rest/client";
 import type { SafeModel, WorkspaceWithCounts } from "@/lib/contracts";
 
 export function WorkspaceAccessTab({
@@ -16,7 +16,7 @@ export function WorkspaceAccessTab({
   const grantedIds = new Set(model.workspaceAccess.map((r) => r.workspaceId));
 
   useEffect(() => {
-    workspacesClient
+    userApi.workspaces
       .list()
       .then((r) => unwrap(r))
       .then((d) => setAllWorkspaces(d.workspaces));
@@ -26,16 +26,16 @@ export function WorkspaceAccessTab({
     setToggling(workspaceId);
     if (hasAccess) {
       unwrap(
-        await modelsClient.revokeWorkspace({
-          params: { id: model.id },
-          query: { workspaceId },
+        await userApi.workspaces.revokeModel({
+          params: { id: workspaceId },
+          query: { modelId: model.id },
         })
       );
     } else {
       unwrap(
-        await modelsClient.grantWorkspace({
-          params: { id: model.id },
-          body: { workspaceId },
+        await userApi.workspaces.grantModel({
+          params: { id: workspaceId },
+          body: { modelId: model.id },
         })
       );
     }

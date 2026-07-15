@@ -3,7 +3,10 @@
 import { useState, useEffect } from "react";
 import { Mail, Send, Loader2, Check, AlertCircle } from "lucide-react";
 import { Field, StatusBadge, IntegrationPanel, IntegrationHeader } from "./shared";
-import { serverClient, unwrap } from "@/lib/api/ts-rest/client";
+import {
+  adminApi,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 
 export function SmtpPanel() {
   const [host, setHost] = useState("");
@@ -19,7 +22,7 @@ export function SmtpPanel() {
   const [statusMsg, setStatusMsg] = useState("");
 
   useEffect(() => {
-    serverClient
+    adminApi.server
       .getSmtp()
       .then((res) => {
         const d = unwrap(res) as {
@@ -55,7 +58,7 @@ export function SmtpPanel() {
     setSaving(true);
     try {
       unwrap(
-        await serverClient.saveSmtp({
+        await adminApi.server.saveSmtp({
           body: { host, port: parseInt(port, 10), secure, user, password, from },
         })
       );
@@ -71,7 +74,7 @@ export function SmtpPanel() {
     setTesting(true);
     try {
       unwrap(
-        await serverClient.verifySmtp({
+        await adminApi.server.verifySmtp({
           body: { host, port: parseInt(port, 10), secure, user, password, from },
         })
       );

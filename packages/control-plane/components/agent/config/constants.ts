@@ -94,7 +94,7 @@ export function modelPlaceholder(provider: LlmProviderType): string {
  * too, so an unlisted or brand-new model id can still be typed in directly.
  *
  * `claude-agent-sdk` is deliberately absent here: its options are fetched
- * live via `/api/agents/:did/claude-models` (backed by the Claude Agent
+ * live via `/api/admin/agents/:did/claude-models` (backed by the Claude Agent
  * SDK's `supportedModels()`), with this list only used as a fallback if
  * that fetch fails.
  */

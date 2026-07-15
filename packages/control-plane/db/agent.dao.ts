@@ -1,4 +1,4 @@
-import { AgentWithInfo } from "@/lib/contracts";
+import { AgentWithInfo, UserAgentWithUsage } from "@/lib/contracts";
 import { prisma } from "./client";
 import { Prisma } from "@prisma/client";
 import type {
@@ -63,6 +63,41 @@ export class AgentDAO {
                 isDefault: true,
               },
             },
+          },
+        },
+        tokenUsage: {
+          select: {
+            promptTokens: true,
+            completionTokens: true,
+            updatedAt: true,
+          },
+        },
+      },
+    });
+  }
+
+  /**
+   * Lighter counterpart of {@link findByDid} for the user-facing agent detail
+   * endpoint: includes token history and usage but NOT workspace membership.
+   */
+  static async findByDidWithUsage(
+    did: string
+  ): Promise<UserAgentWithUsage | null> {
+    return prisma.agent.findUnique({
+      where: { did },
+      include: {
+        tokenHistory: {
+          where: {
+            OR: [
+              {
+                granularity: "day",
+                bucket: new Date().toISOString().slice(0, 10),
+              },
+              {
+                granularity: "month",
+                bucket: new Date().toISOString().slice(0, 7),
+              },
+            ],
           },
         },
         tokenUsage: {

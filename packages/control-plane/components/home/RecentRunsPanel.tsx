@@ -19,7 +19,7 @@ const EXPLORE_LINKS = [
   { icon: GitBranch, label: "Workflows", path: "/app/workflows" },
   { icon: Cpu, label: "Models", path: "/admin/models" },
   { icon: Layers, label: "Skills", path: "/admin/skills" },
-  { icon: Globe, label: "Workspaces", path: "/app/workspaces" },
+  { icon: Globe, label: "Workspaces", path: "/workspaces" },
   { icon: Network, label: "Graph", path: "/admin/graph" },
 ];
 
@@ -68,7 +68,7 @@ export function RecentRunsPanel({
             {runs.map((run) => (
               <button
                 key={run.id}
-                onClick={() => router.push(`/app/workflows/runs/${run.id}`)}
+                onClick={() => router.push(`/admin/workflows/runs/${run.id}`)}
                 className="flex items-center gap-3 px-4 py-3 w-full text-left hover:bg-background-200 transition-colors group"
               >
                 <div className="flex-1 min-w-0">

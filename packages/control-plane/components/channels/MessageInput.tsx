@@ -3,7 +3,10 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Send, Loader2 } from "lucide-react";
 import { shortDid } from "@vaultysclaw/shared";
-import { channelsClient, unwrap } from "@/lib/api/ts-rest/client";
+import {
+  userApi,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 
 interface Member {
   memberDid: string;
@@ -160,7 +163,7 @@ export default function MessageInput({
       setSuggestions([]);
 
       unwrap(
-        await channelsClient.postMessage({
+        await userApi.channels.postMessage({
           params: { id: channelId },
           body: { content: content.trim() },
         })

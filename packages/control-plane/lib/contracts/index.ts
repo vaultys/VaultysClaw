@@ -1,162 +1,270 @@
 import { c } from "./contract";
-import { agentsContract } from "./agents/agents.contract";
-import { apiKeysContract } from "./api-keys/api-keys.contract";
+
+// ── Admin domain contracts (lib/contracts/admin/*)
+import { adminAgentsContract } from "./admin/agents/agents.contract";
+import { apiKeysContract } from "./admin/api-keys/api-keys.contract";
+import { channelsContract } from "./user/channels/channels.contract";
+import { governanceContract } from "./admin/governance/governance.contract";
+import { litellmContract, modelsContract } from "./admin/models/models.contract";
+import { networkControlContract } from "./admin/network/network.contract";
+import { orgSkillsAdminContract } from "./admin/org-skills/org-skills.contract";
+import { skillsAdminContract } from "./admin/skills/skills.contract";
+import { policiesContract } from "./admin/policies/policies.contract";
+import { registrationsContract } from "./admin/registrations/registrations.contract";
+import { serverContract } from "./admin/server/server.contract";
+import { settingsContract } from "./admin/settings/settings.contract";
+import { statsContract } from "./admin/stats/stats.contract";
+import { usersContract } from "./admin/users/users.contract";
 import {
-  bridgesContract,
-  channelsContract,
-} from "./channels/channels.contract";
-import { governanceContract } from "./governance/governance.contract";
-import { intentsContract } from "./intents/intents.contract";
-import { knowledgeContract } from "./knowledge/knowledge.contract";
-import {
-  aboutContract,
-  statsContract,
-  userStatusContract,
-} from "./misc/misc.contract";
-import { litellmContract, modelsContract } from "./models/models.contract";
-import { graphContract } from "./graph/graph.contract";
-import {
-  healthContract,
-  mapContract,
-  networkContract,
-} from "./network/network.contract";
-import { policiesContract } from "./policies/policies.contract";
-import { workspacesContract } from "./workspaces/workspaces.contract";
-import {
-  registrationsContract,
-  toolApprovalsContract,
-} from "./registrations/registrations.contract";
-import { serverContract } from "./server/server.contract";
-import { setupContract, settingsContract } from "./settings/settings.contract";
-import { orgSkillsContract, skillsContract } from "./skills/skills.contract";
-import { userAuthContract } from "./user-auth/user-auth.contract";
-import { wellKnownContract } from "./well-known/well-known.contract";
-import { invitationsContract, usersContract } from "./users/users.contract";
+  workspacesContract,
+  workspacesAdminContract,
+} from "./admin/workspaces/workspaces.contract";
+
+// ── User domain contracts (lib/contracts/user/*)
+import { userAgentsContract } from "./user/agents/agents.contract";
+import { graphContract } from "./user/graph/graph.contract";
+import { knowledgeContract } from "./user/knowledge/knowledge.contract";
+import { knowledgeAdminContract } from "./admin/knowledge/knowledge.contract";
+import { mapContract } from "./user/map/map.contract";
+import { intentsContract } from "./user/intents/intents.contract";
+import { networkContract } from "./user/network/network.contract";
+import { orgSkillsContract } from "./user/org-skills/org-skills.contract";
+import { toolApprovalsContract } from "./user/tool-approvals/tool-approvals.contract";
+import { otelSettingsContract } from "./user/settings/settings.contract";
+import { skillsContract } from "./user/skills/skills.contract";
+import { usersUserContract } from "./user/users/users.contract";
+import { userStatusContract } from "./public/user-status/user-status.contract";
 import {
   workflowApprovalsContract,
   workflowRunsContract,
   workflowsContract,
-} from "./workflows/workflows.contract";
+  workflowsAdminContract,
+} from "./user/workflows/workflows.contract";
+
+// ── Public domain contracts (lib/contracts/public/*)
+import { aboutContract } from "./public/about/about.contract";
+import { bridgesContract } from "./public/bridges/bridges.contract";
+import { healthContract } from "./public/health/health.contract";
+import { invitationsContract } from "./public/invitations/invitations.contract";
+import { serverPublicContract } from "./public/server/server.contract";
+import { usersPublicContract } from "./public/users/users.contract";
+import { setupContract } from "./admin/setup/setup.contract";
+import { userAuthContract } from "./public/user-auth/user-auth.contract";
+import { wellKnownContract } from "./public/well-known/well-known.contract";
 
 export { c } from "./contract";
 export * from "./common";
 
-export type * from "./agents/agents.contract";
-export * from "./agents/agents.contract";
-export * from "./agents/agents.schemas";
-export * from "./agents/agents.types";
-export type * from "./api-keys/api-keys.contract";
-export * from "./api-keys/api-keys.contract";
-export * from "./api-keys/api-keys.schemas";
-export * from "./api-keys/api-keys.types";
-export type * from "./channels/channels.contract";
-export * from "./channels/channels.contract";
-export * from "./channels/channels.schemas";
-export * from "./channels/channels.types";
-export type * from "./governance/governance.contract";
-export * from "./governance/governance.contract";
-export * from "./governance/governance.schemas";
-export * from "./governance/governance.types";
-export type * from "./graph/graph.contract";
-export * from "./graph/graph.contract";
-export * from "./graph/graph.schemas";
-export * from "./graph/graph.types";
-export type * from "./intents/intents.contract";
-export * from "./intents/intents.contract";
-export * from "./intents/intents.schemas";
-export * from "./intents/intents.types";
-export type * from "./knowledge/knowledge.contract";
-export * from "./knowledge/knowledge.contract";
-export * from "./knowledge/knowledge.schemas";
-export * from "./knowledge/knowledge.types";
-export * from "./misc/misc.contract";
-export * from "./misc/misc.schemas";
-export * from "./misc/misc.types";
-export type * from "./models/models.contract";
-export * from "./models/models.contract";
-export * from "./models/models.schemas";
-export * from "./models/models.types";
-export type * from "./network/network.contract";
-export * from "./network/network.contract";
-export * from "./network/network.schemas";
-export * from "./network/network.types";
-export type * from "./policies/policies.contract";
-export * from "./policies/policies.contract";
-export * from "./policies/policies.schemas";
-export * from "./policies/policies.types";
-export type * from "./workspaces/workspaces.contract";
-export * from "./workspaces/workspaces.contract";
-export * from "./workspaces/workspaces.schemas";
-export * from "./workspaces/workspaces.types";
-export type * from "./registrations/registrations.contract";
-export * from "./registrations/registrations.contract";
-export * from "./registrations/registrations.schemas";
-export * from "./registrations/registrations.types";
-export type * from "./server/server.contract";
-export * from "./server/server.contract";
-export * from "./server/server.schemas";
-export * from "./server/server.types";
-export type * from "./settings/settings.contract";
-export * from "./settings/settings.contract";
-export * from "./settings/settings.schemas";
-export * from "./settings/settings.types";
-export type * from "./skills/skills.contract";
-export * from "./skills/skills.contract";
-export * from "./skills/skills.schemas";
-export * from "./skills/skills.types";
-export type * from "./user-auth/user-auth.contract";
-export * from "./user-auth/user-auth.contract";
-export * from "./user-auth/user-auth.schemas";
-export * from "./user-auth/user-auth.types";
-export type * from "./users/users.contract";
-export * from "./users/users.contract";
-export * from "./users/users.schemas";
-export * from "./users/users.types";
-export type * from "./well-known/well-known.contract";
-export * from "./well-known/well-known.contract";
-export * from "./well-known/well-known.schemas";
-export * from "./well-known/well-known.types";
-export type * from "./workflows/workflows.contract";
-export * from "./workflows/workflows.contract";
-export * from "./workflows/workflows.schemas";
-export * from "./workflows/workflows.types";
+// ── Admin re-exports
+export type * from "./admin/agents/agents.contract";
+export * from "./admin/agents/agents.contract";
+export * from "./admin/agents/agents.schemas";
+export * from "./admin/agents/agents.types";
+export type * from "./admin/api-keys/api-keys.contract";
+export * from "./admin/api-keys/api-keys.contract";
+export * from "./admin/api-keys/api-keys.schemas";
+export * from "./admin/api-keys/api-keys.types";
+export type * from "./user/channels/channels.contract";
+export * from "./user/channels/channels.contract";
+export * from "./user/channels/channels.schemas";
+export * from "./user/channels/channels.types";
+export type * from "./admin/governance/governance.contract";
+export * from "./admin/governance/governance.contract";
+export * from "./admin/governance/governance.schemas";
+export * from "./admin/governance/governance.types";
+export type * from "./admin/models/models.contract";
+export * from "./admin/models/models.contract";
+export * from "./admin/models/models.schemas";
+export * from "./admin/models/models.types";
+export type * from "./admin/network/network.contract";
+export * from "./admin/network/network.contract";
+export * from "./admin/network/network.schemas";
+export * from "./admin/network/network.types";
+export type * from "./admin/org-skills/org-skills.contract";
+export * from "./admin/org-skills/org-skills.contract";
+export * from "./admin/org-skills/org-skills.schemas";
+export * from "./admin/org-skills/org-skills.types";
+export type * from "./admin/policies/policies.contract";
+export * from "./admin/policies/policies.contract";
+export * from "./admin/policies/policies.schemas";
+export * from "./admin/policies/policies.types";
+export type * from "./admin/registrations/registrations.contract";
+export * from "./admin/registrations/registrations.contract";
+export * from "./admin/registrations/registrations.schemas";
+export * from "./admin/registrations/registrations.types";
+export type * from "./admin/server/server.contract";
+export * from "./admin/server/server.contract";
+export * from "./admin/server/server.schemas";
+export * from "./admin/server/server.types";
+export type * from "./admin/settings/settings.contract";
+export * from "./admin/settings/settings.contract";
+export * from "./admin/settings/settings.schemas";
+export * from "./admin/settings/settings.types";
+export type * from "./admin/skills/skills.contract";
+export * from "./admin/skills/skills.contract";
+export * from "./admin/skills/skills.schemas";
+export * from "./admin/skills/skills.types";
+export type * from "./admin/stats/stats.contract";
+export * from "./admin/stats/stats.contract";
+export * from "./admin/stats/stats.types";
+export type * from "./admin/users/users.contract";
+export * from "./admin/users/users.contract";
+export * from "./admin/users/users.schemas";
+export * from "./admin/users/users.types";
+export type * from "./admin/workspaces/workspaces.contract";
+export * from "./admin/workspaces/workspaces.contract";
+export * from "./admin/workspaces/workspaces.schemas";
+export * from "./admin/workspaces/workspaces.types";
+
+// ── User re-exports
+export type * from "./user/agents/agents.contract";
+export * from "./user/agents/agents.contract";
+export * from "./user/agents/agents.schemas";
+export * from "./user/agents/agents.types";
+export type * from "./user/graph/graph.contract";
+export * from "./user/graph/graph.contract";
+export * from "./user/graph/graph.schemas";
+export * from "./user/graph/graph.types";
+export type * from "./user/knowledge/knowledge.contract";
+export * from "./user/knowledge/knowledge.contract";
+export * from "./user/knowledge/knowledge.schemas";
+export * from "./user/knowledge/knowledge.types";
+export * from "./admin/knowledge/knowledge.contract";
+export type * from "./user/map/map.contract";
+export * from "./user/map/map.contract";
+export * from "./user/map/map.schemas";
+export * from "./user/map/map.types";
+export type * from "./user/intents/intents.contract";
+export * from "./user/intents/intents.contract";
+export * from "./user/intents/intents.schemas";
+export * from "./user/intents/intents.types";
+export type * from "./user/network/network.contract";
+export * from "./user/network/network.contract";
+export * from "./user/network/network.schemas";
+export * from "./user/network/network.types";
+export type * from "./user/org-skills/org-skills.contract";
+export * from "./user/org-skills/org-skills.contract";
+export type * from "./user/tool-approvals/tool-approvals.contract";
+export * from "./user/tool-approvals/tool-approvals.contract";
+export * from "./user/tool-approvals/tool-approvals.schemas";
+export * from "./user/tool-approvals/tool-approvals.types";
+export type * from "./user/settings/settings.contract";
+export * from "./user/settings/settings.contract";
+export * from "./user/settings/settings.types";
+export type * from "./user/skills/skills.contract";
+export * from "./user/skills/skills.contract";
+export * from "./user/skills/skills.schemas";
+export * from "./user/skills/skills.types";
+export type * from "./user/users/users.contract";
+export * from "./user/users/users.contract";
+export type * from "./public/user-status/user-status.contract";
+export * from "./public/user-status/user-status.contract";
+export * from "./public/user-status/user-status.schemas";
+export * from "./public/user-status/user-status.types";
+export type * from "./user/workflows/workflows.contract";
+export * from "./user/workflows/workflows.contract";
+export * from "./user/workflows/workflows.schemas";
+export * from "./user/workflows/workflows.types";
+
+// ── Public re-exports
+export * from "./public/about/about.contract";
+export * from "./public/about/about.schemas";
+export * from "./public/about/about.types";
+export type * from "./public/bridges/bridges.contract";
+export * from "./public/bridges/bridges.contract";
+export * from "./public/bridges/bridges.schemas";
+export type * from "./public/health/health.contract";
+export * from "./public/health/health.contract";
+export * from "./public/health/health.schemas";
+export type * from "./public/invitations/invitations.contract";
+export * from "./public/invitations/invitations.contract";
+export * from "./public/invitations/invitations.schemas";
+export * from "./public/invitations/invitations.types";
+export type * from "./public/server/server.contract";
+export * from "./public/server/server.contract";
+export * from "./public/server/server.schemas";
+export * from "./public/server/server.types";
+export type * from "./public/users/users.contract";
+export * from "./public/users/users.contract";
+export type * from "./admin/setup/setup.contract";
+export * from "./admin/setup/setup.contract";
+export type * from "./public/user-auth/user-auth.contract";
+export * from "./public/user-auth/user-auth.contract";
+export * from "./public/user-auth/user-auth.schemas";
+export * from "./public/user-auth/user-auth.types";
+export type * from "./public/well-known/well-known.contract";
+export * from "./public/well-known/well-known.contract";
+export * from "./public/well-known/well-known.schemas";
+export * from "./public/well-known/well-known.types";
 
 /**
- * Aggregate contract — every domain router under a namespaced key. Useful for a
- * single typed client (`initClient(appContract, ...)`) or generating one OpenAPI
- * document. Domain contracts remain independently importable for per-route files.
+ * Audience-grouped contracts. Each domain router is mounted under its own key
+ * inside one of three grouping routers — `admin`, `user`, `public` — so callers
+ * can navigate the contract tree by audience (e.g. `adminContract.agents.search`).
+ *
+ * Grouping is **purely structural**: every route keeps its absolute `path`, so
+ * nesting changes no URL. Contract folders live under `lib/contracts/<audience>/`.
  */
-export const appContract = c.router({
-  about: aboutContract,
-  agents: agentsContract,
-  apiKeys: apiKeysContract,
-  bridges: bridgesContract,
-  channels: channelsContract,
-  governance: governanceContract,
-  graph: graphContract,
-  health: healthContract,
-  intents: intentsContract,
-  invitations: invitationsContract,
-  knowledge: knowledgeContract,
-  litellm: litellmContract,
-  map: mapContract,
-  models: modelsContract,
-  network: networkContract,
-  orgSkills: orgSkillsContract,
+export const adminContract = c.router({
+  agents: adminAgentsContract,
+  workspaces: workspacesAdminContract,
+  workflows: workflowsAdminContract,
+  users: usersContract,
   policies: policiesContract,
-  workspaces: workspacesContract,
-  registrations: registrationsContract,
+  governance: governanceContract,
+  models: modelsContract,
+  litellm: litellmContract,
   server: serverContract,
   settings: settingsContract,
   setup: setupContract,
-  skills: skillsContract,
+  apiKeys: apiKeysContract,
+  registrations: registrationsContract,
+  network: networkControlContract,
   stats: statsContract,
+  orgSkills: orgSkillsAdminContract,
+  skills: skillsAdminContract,
+  knowledge: knowledgeAdminContract,
+});
+
+export const userContract = c.router({
+  agents: userAgentsContract,
+  channels: channelsContract,
+  graph: graphContract,
+  knowledge: knowledgeContract,
+  map: mapContract,
+  intents: intentsContract,
   toolApprovals: toolApprovalsContract,
-  userAuth: userAuthContract,
-  userStatus: userStatusContract,
-  users: usersContract,
-  wellKnown: wellKnownContract,
+  network: networkContract,
+  orgSkills: orgSkillsContract,
+  settings: otelSettingsContract,
+  skills: skillsContract,
   workflows: workflowsContract,
   workflowRuns: workflowRunsContract,
   workflowApprovals: workflowApprovalsContract,
+  users: usersUserContract,
+  workspaces: workspacesContract,
+});
+
+export const publicContract = c.router({
+  about: aboutContract,
+  bridges: bridgesContract,
+  invitations: invitationsContract,
+  server: serverPublicContract,
+  wellKnown: wellKnownContract,
+  userAuth: userAuthContract,
+  userStatus: userStatusContract,
+  users: usersPublicContract,
+  health: healthContract,
+});
+
+/**
+ * Aggregate contract — the three audience groups nested under `admin` / `user` /
+ * `public`. Used to generate one OpenAPI document (grouped tags) and derive the
+ * API-key route tree. Domain and group contracts remain independently importable
+ * for per-route files and grouped clients.
+ */
+export const appContract = c.router({
+  admin: adminContract,
+  user: userContract,
+  public: publicContract,
 });

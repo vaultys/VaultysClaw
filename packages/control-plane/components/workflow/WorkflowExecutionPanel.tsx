@@ -3,7 +3,11 @@
 import React, { useEffect, useState } from "react";
 import { useWorkflowStore } from "./store";
 import { ChevronDown, X } from "lucide-react";
-import { agentsClient, workflowsClient, unwrap } from "@/lib/api/ts-rest/client";
+import {
+  adminApi,
+  userApi,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 
 interface ExecutionStatus {
   runId: string;
@@ -55,7 +59,7 @@ export const WorkflowExecutionPanel: React.FC = () => {
 
     unknownDids.forEach(async (did) => {
       const agent = unwrap(
-        await agentsClient.getAgent({
+        await adminApi.agents.getAgent({
           params: {
             did,
           },
@@ -72,7 +76,7 @@ export const WorkflowExecutionPanel: React.FC = () => {
     // Poll for execution status
     const pollInterval = setInterval(async () => {
       try {
-        const statusRes = await workflowsClient.runStatus({
+        const statusRes = await userApi.workflows.runStatus({
           params: { runId: executionRunId },
         });
         if (statusRes.status !== 200) return;
@@ -80,7 +84,7 @@ export const WorkflowExecutionPanel: React.FC = () => {
         setExecutionStatus(data as any);
 
         // Fetch execution history
-        const historyRes = await workflowsClient.runHistory({
+        const historyRes = await userApi.workflows.runHistory({
           params: { runId: executionRunId },
         });
         if (historyRes.status !== 200) return;

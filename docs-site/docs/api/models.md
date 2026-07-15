@@ -29,7 +29,7 @@ interface ModelRegistryEntry {
 ## List models
 
 ```http
-GET /api/models
+GET /api/admin/models
 ```
 
 Returns all model registry entries.
@@ -57,7 +57,7 @@ Returns all model registry entries.
 ## Create a model
 
 ```http
-POST /api/models
+POST /api/admin/models
 ```
 
 Registers a new model. If LiteLLM is configured (`LITELLM_BASE_URL` + `LITELLM_MASTER_KEY`), the model is also registered with the proxy.
@@ -98,7 +98,7 @@ Registers a new model. If LiteLLM is configured (`LITELLM_BASE_URL` + `LITELLM_M
 ## Get a model
 
 ```http
-GET /api/models/:id
+GET /api/admin/models/:id
 ```
 
 **Response `200`**
@@ -110,7 +110,7 @@ Full `ModelRegistryEntry` object.
 ## Update a model
 
 ```http
-PUT /api/models/:id
+PUT /api/admin/models/:id
 ```
 
 Update name, description, or status. `provider`, `modelId`, and `baseUrl` changes are reflected in the registry but are **not** automatically synced to LiteLLM — delete and re-register if the backend config changes.
@@ -136,7 +136,7 @@ Update name, description, or status. `provider`, `modelId`, and `baseUrl` change
 ## Delete a model
 
 ```http
-DELETE /api/models/:id
+DELETE /api/admin/models/:id
 ```
 
 Removes the model from the registry and, if LiteLLM is configured, deregisters it from the proxy. Workspace access grants for this model are also removed.
@@ -152,10 +152,10 @@ Removes the model from the registry and, if LiteLLM is configured, deregisters i
 ## Grant workspace access
 
 ```http
-POST /api/models/:id/workspaces
+POST /api/workspaces/:id/models
 ```
 
-Allows agents in the specified workspace to use this model. If LiteLLM is configured:
+Allows agents in the specified workspace (`:id`) to use a model. Requires **workspace admin** rights on that workspace. If LiteLLM is configured:
 
 1. The model is added to the workspace's allowed model list.
 2. A new workspace virtual key is generated (or refreshed) scoped to the updated list.
@@ -165,15 +165,13 @@ Allows agents in the specified workspace to use this model. If LiteLLM is config
 
 ```json
 {
-  "workspaceId": "workspace-uuid",
-  "monthlyBudgetUsd": 50.0
+  "modelId": "model-uuid"
 }
 ```
 
-| Field              | Required | Description                                              |
-| ------------------ | -------- | -------------------------------------------------------- |
-| `workspaceId`          | Yes      | UUID of the workspace.                                       |
-| `monthlyBudgetUsd` | No       | LiteLLM monthly budget cap for this workspace's virtual key. |
+| Field     | Required | Description          |
+| --------- | -------- | -------------------- |
+| `modelId` | Yes      | UUID of the model.   |
 
 **Response `200`**
 
@@ -186,7 +184,7 @@ Allows agents in the specified workspace to use this model. If LiteLLM is config
 ## Revoke workspace access
 
 ```http
-DELETE /api/models/:id/workspaces/:workspaceId
+DELETE /api/workspaces/:id/models?modelId=:modelId
 ```
 
 Removes the model from the workspace's allowed list and refreshes the virtual key.

@@ -2,9 +2,8 @@
 
 import { useEffect, useState } from "react";
 import {
-  agentsClient,
-  workspacesClient,
-  usersClient,
+  adminApi,
+  userApi,
   unwrap,
   ApiError,
 } from "@/lib/api/ts-rest/client";
@@ -36,12 +35,12 @@ export function AddMemberModal({
 
   useEffect(() => {
     if (type === "agent") {
-      agentsClient
+      adminApi.agents
         .search()
         .then((r) => unwrap(r))
         .then((d) => setAgents(d.items));
     } else {
-      usersClient
+      adminApi.users
         .list({ query: { page: 1, pageSize: 1000 } })
         .then((r) => unwrap(r))
         .then((d) => setUsers(d.users ?? []));
@@ -61,14 +60,14 @@ export function AddMemberModal({
     try {
       if (type === "agent") {
         unwrap(
-          await workspacesClient.addAgent({
+          await userApi.workspaces.addAgent({
             params: { id: workspace.id },
             body: { agentDid: selected, isPrimary },
           })
         );
       } else {
         unwrap(
-          await workspacesClient.addUser({
+          await userApi.workspaces.addUser({
             params: { id: workspace.id },
             body: { userDid: selected, isPrimary, role },
           })

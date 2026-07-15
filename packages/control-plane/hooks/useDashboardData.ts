@@ -3,10 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { daysFromNow } from "@vaultysclaw/shared";
 import {
-  agentsClient,
-  policiesClient,
-  workflowApprovalsClient,
-  workflowRunsClient,
+  adminApi,
+  userApi,
   unwrap,
 } from "@/lib/api/ts-rest/client";
 import type {
@@ -47,7 +45,7 @@ export function useDashboardData(isGlobalAdmin: boolean) {
       fetch("/api/workspaces")
         .then((r) => (r.ok ? r.json() : { workspaces: [] }))
         .then((d: { workspaces?: unknown[] }) => d.workspaces?.length ?? 0),
-      agentsClient
+      adminApi.agents
         .search()
         .then((r) => unwrap(r))
         .then((page) => page.items ?? [])
@@ -97,7 +95,7 @@ export function useDashboardData(isGlobalAdmin: boolean) {
 
   const fetchApprovals = useCallback(
     () =>
-      workflowApprovalsClient
+      userApi.workflowApprovals
         .list({ query: {} })
         .then((r) => setApprovals(unwrap(r).approvals))
         .catch(() => {}),
@@ -118,9 +116,9 @@ export function useDashboardData(isGlobalAdmin: boolean) {
       setActing(id);
       try {
         if (action === "dismiss") {
-          await workflowApprovalsClient.dismiss({ params: { id } });
+          await userApi.workflowApprovals.dismiss({ params: { id } });
         } else {
-          await workflowApprovalsClient[action]({
+          await userApi.workflowApprovals[action]({
             params: { id },
             body: { comment: comment[id] || undefined },
           });
@@ -150,7 +148,7 @@ export function useDashboardData(isGlobalAdmin: boolean) {
 
   const fetchExpiredPolicies = useCallback(() => {
     if (!isGlobalAdmin) return;
-    policiesClient
+    adminApi.policies
       .list({ query: { expiredOnly: true } })
       .then((r) => setExpiredPolicies(unwrap(r).policies))
       .catch(() => {});
@@ -177,7 +175,7 @@ export function useDashboardData(isGlobalAdmin: boolean) {
           ? renewingPolicy.resourceLimits
           : undefined;
       unwrap(
-        await policiesClient.create({
+        await adminApi.policies.create({
           body: {
             agentDid: renewingPolicy.agentDid ?? undefined,
             capabilities: renewingPolicy.capabilities,
@@ -188,7 +186,7 @@ export function useDashboardData(isGlobalAdmin: boolean) {
           },
         })
       );
-      await policiesClient.remove({ params: { id: renewingPolicy.id } });
+      await adminApi.policies.remove({ params: { id: renewingPolicy.id } });
       setRenewingPolicy(null);
       fetchExpiredPolicies();
     } finally {
@@ -200,7 +198,7 @@ export function useDashboardData(isGlobalAdmin: boolean) {
   const [recentRuns, setRecentRuns] = useState<WorkflowRunWithName[]>([]);
 
   const fetchRecentRuns = useCallback(() => {
-    workflowRunsClient
+    userApi.workflowRuns
       .list({ query: { pageSize: 6, sortDir: "desc" } })
       .then((r) => setRecentRuns(unwrap(r).runs))
       .catch(() => {});

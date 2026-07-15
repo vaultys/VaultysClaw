@@ -79,7 +79,7 @@ export function initializeLiteLLMService(): void {
 
 /**
  * (Re-)connect: reload settings from DB and probe.
- * Called from PUT /api/settings/litellm after saving new config.
+ * Called from PUT /api/admin/settings/litellm after saving new config.
  */
 export async function reconnectLiteLLMService(): Promise<{
   ok: boolean;

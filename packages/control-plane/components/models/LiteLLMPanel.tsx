@@ -21,7 +21,10 @@ import {
   Copy,
   Check,
 } from "lucide-react";
-import { litellmClient, settingsClient, unwrap } from "@/lib/api/ts-rest/client";
+import {
+  adminApi,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 import type { LiteLLMStatus } from "@/lib/contracts";
 
 export function LiteLLMPanel() {
@@ -49,7 +52,7 @@ export function LiteLLMPanel() {
     if (!status?.configured) return;
     setModelsLoading(true);
     try {
-      const { models } = unwrap(await litellmClient.models());
+      const { models } = unwrap(await adminApi.litellm.models());
       setModels(models);
     } catch {
       setModels([]);
@@ -61,7 +64,7 @@ export function LiteLLMPanel() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const data = unwrap(await settingsClient.getLitellm());
+      const data = unwrap(await adminApi.settings.getLitellm());
       setStatus(data);
       if (data.baseUrl) setBaseUrl(data.baseUrl);
     } finally {
@@ -92,7 +95,7 @@ export function LiteLLMPanel() {
     setSaveMsg(null);
     try {
       const data = unwrap(
-        await settingsClient.saveLitellm({
+        await adminApi.settings.saveLitellm({
           body: { baseUrl, masterKey: masterKey || null },
         })
       );
@@ -118,7 +121,7 @@ export function LiteLLMPanel() {
     try {
       // Save first if URL changed, then reload
       const data = unwrap(
-        await settingsClient.saveLitellm({
+        await adminApi.settings.saveLitellm({
           body: { baseUrl, masterKey: masterKey || null },
         })
       );
@@ -144,7 +147,7 @@ export function LiteLLMPanel() {
     setReconnecting(true);
     setSaveMsg(null);
     try {
-      const data = unwrap(await settingsClient.reconnectLitellm());
+      const data = unwrap(await adminApi.settings.reconnectLitellm());
       setSaveMsg({
         ok: data.ok,
         text: data.ok
@@ -161,7 +164,7 @@ export function LiteLLMPanel() {
 
   const clear = async () => {
     if (!confirm("Remove stored LiteLLM settings? The proxy will fall back to environment variables.")) return;
-    await settingsClient.disconnectLitellm();
+    await adminApi.settings.disconnectLitellm();
     setBaseUrl("");
     setMasterKey("");
     await load();

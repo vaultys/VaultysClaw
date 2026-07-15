@@ -224,7 +224,7 @@ node server.js | filebeat
 
 | Endpoint                      | Returns                  |
 | ----------------------------- | ------------------------ |
-| `GET /api/health`             | Control plane health     |
+| `GET /api/public/health`             | Control plane health     |
 | `GET /api/agents?online=true` | List of connected agents |
 
 ## Upgrade procedure

@@ -6,7 +6,6 @@ import dynamic from "next/dynamic";
 import {
   Trash2,
   Loader2,
-  MessageSquare,
   Settings2,
   Clock,
   ShieldCheck,
@@ -24,7 +23,6 @@ import {
 } from "@/components/layout/ToolbarContext";
 import { useBreadcrumbs } from "@/components/layout/BreadcrumbContext";
 import { OverviewTab } from "@/components/agent/OverviewTab";
-import { ChatTab } from "@/components/agent/ChatTab";
 import { TokensTab } from "@/components/agent/TokensTab";
 import { ConfigTab } from "@/components/agent/ConfigTab";
 import { GovernanceTab } from "@/components/agent/GovernanceTab";
@@ -32,8 +30,8 @@ import { AutomationTab } from "@/components/agent/AutomationTab";
 import { ApprovalsTab } from "@/components/agent/ApprovalsTab";
 import { KnowledgeTab } from "@/components/agent/KnowledgeTab";
 import {
-  agentsClient,
-  toolApprovalsClient,
+  adminApi,
+  userApi,
   unwrap,
 } from "@/lib/api/ts-rest/client";
 import { AgentInfo } from "@/lib/contracts";
@@ -63,7 +61,7 @@ export default function AgentDetailPage() {
   const handleDeleteAgent = async () => {
     setDeletingAgent(true);
     try {
-      await agentsClient.deleteAgent({
+      await adminApi.agents.deleteAgent({
         params: {
           did,
         },
@@ -79,7 +77,7 @@ export default function AgentDetailPage() {
 
   const fetchAgent = useCallback(async () => {
     try {
-      const agent = unwrap(await agentsClient.getAgent({ params: { did } }));
+      const agent = unwrap(await adminApi.agents.getAgent({ params: { did } }));
       setAgent(agent);
       setError(null);
     } catch (err) {
@@ -124,7 +122,7 @@ export default function AgentDetailPage() {
   useEffect(() => {
     const refresh = async () => {
       try {
-        const { approvals } = unwrap(await toolApprovalsClient.list());
+        const { approvals } = unwrap(await userApi.toolApprovals.list());
         setPendingApprovals(approvals.length);
       } catch {
         setPendingApprovals(0);
@@ -155,7 +153,6 @@ export default function AgentDetailPage() {
           label: "Overview",
           icon: <LayoutDashboard size={15} />,
         },
-        { value: "chat", label: "Chat", icon: <MessageSquare size={15} /> },
         { value: "tokens", label: "Tokens", icon: <TrendingUp size={15} /> },
         { value: "config", label: "Config", icon: <Settings2 size={15} /> },
         {
@@ -264,9 +261,7 @@ export default function AgentDetailPage() {
   }
 
   return (
-    <div
-      className={`p-6 w-full max-w-7xl mx-auto ${activeTab === "chat" ? "flex flex-col flex-1 min-h-0 pb-0" : "space-y-0"}`}
-    >
+    <div className="p-6 w-full max-w-7xl mx-auto space-y-0">
       <ConfirmModal
         open={showDeleteConfirm}
         title="Delete agent"
@@ -282,25 +277,10 @@ export default function AgentDetailPage() {
       />
 
       {/* ── Tabbed content ── */}
-      <div
-        className={`border border-neutral-200 rounded-xl overflow-hidden bg-background-100 ${activeTab === "chat" ? "flex flex-col flex-1 min-h-0" : ""}`}
-      >
-        <div
-          className={
-            activeTab === "chat"
-              ? "flex flex-col flex-1 min-h-0 overflow-hidden"
-              : "p-6"
-          }
-        >
+      <div className="border border-neutral-200 rounded-xl overflow-hidden bg-background-100">
+        <div className="p-6">
           {activeTab === "overview" && (
             <OverviewTab agent={agent} onTabChange={setActiveTab} />
-          )}
-          {activeTab === "chat" && (
-            <ChatTab
-              agentId={agent.did}
-              agentName={agent.name}
-              online={agent.online}
-            />
           )}
           {activeTab === "tokens" && <TokensTab agentId={agent.did} />}
           {activeTab === "config" && (

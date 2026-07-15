@@ -22,7 +22,10 @@ import {
   timeAgo,
 } from "@vaultysclaw/shared";
 import type { AgentInfo } from "@/lib/contracts";
-import { workflowRunsClient, unwrap } from "@/lib/api/ts-rest/client";
+import {
+  userApi,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 import {
   agentLabel,
   STATUS_COLOR,
@@ -190,7 +193,7 @@ function WorkflowDetail({
   useEffect(() => {
     if (!run) return;
     setLoading(true);
-    workflowRunsClient
+    userApi.workflowRuns
       .getOne({ params: { runId: run.id } })
       .then((r) => setSteps(unwrap(r).steps))
       .catch(() => setSteps([]))
@@ -272,7 +275,7 @@ function WorkflowDetail({
         <button
           onClick={() => {
             onClose();
-            router.push(`/app/workflows/${run.workflowId}`);
+            router.push(`/admin/workflows/${run.workflowId}`);
           }}
           className="flex items-center gap-1.5 text-[11px] text-primary-600 hover:text-primary-700 font-medium transition-colors"
         >

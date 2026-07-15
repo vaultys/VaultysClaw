@@ -7,8 +7,7 @@ import {
   timeAgo,
 } from "@vaultysclaw/shared";
 import {
-  agentsClient,
-  policiesClient,
+  adminApi,
   unwrap,
 } from "@/lib/api/ts-rest/client";
 import type { AgentInfo, PolicyEntry } from "@/lib/contracts";
@@ -50,8 +49,8 @@ export function PoliciesTab() {
     setLoading(true);
     try {
       const [polRes, agentRes] = await Promise.all([
-        policiesClient.list({ query: { includeExpired: false } }),
-        agentsClient.search({
+        adminApi.policies.list({ query: { includeExpired: false } }),
+        adminApi.agents.search({
           query: {
             pageSize: 100,
           },
@@ -79,7 +78,7 @@ export function PoliciesTab() {
         resourceLimits.maxRequestsPerHour = parseInt(form.maxRequestsPerHour);
 
       unwrap(
-        await policiesClient.create({
+        await adminApi.policies.create({
           body: {
             agentDid: form.agentDid,
             capabilities: form.capabilities,
@@ -109,7 +108,7 @@ export function PoliciesTab() {
   const handleRevoke = async (id: string) => {
     setRevoking(id);
     try {
-      await policiesClient.remove({ params: { id } });
+      await adminApi.policies.remove({ params: { id } });
       await fetchAll();
     } finally {
       setRevoking(null);
@@ -123,7 +122,7 @@ export function PoliciesTab() {
     try {
       const daily = edit.daily === "" ? null : parseInt(edit.daily);
       const monthly = edit.monthly === "" ? null : parseInt(edit.monthly);
-      await agentsClient.updateAgent({
+      await adminApi.agents.updateAgent({
         params: { did },
         body: {
           tokenBudgetDaily: daily !== null && isNaN(daily) ? null : daily,

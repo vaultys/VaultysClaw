@@ -3,7 +3,11 @@
 import { useState, useEffect } from "react";
 import { Network, Loader2 } from "lucide-react";
 import { Field, StatusBadge, IntegrationPanel, IntegrationHeader } from "./shared";
-import { serverClient, unwrap } from "@/lib/api/ts-rest/client";
+import {
+  adminApi,
+  publicApi,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 
 export function PeerjsPanel() {
   const [peerjsHost, setPeerjsHost] = useState("");
@@ -12,7 +16,7 @@ export function PeerjsPanel() {
   const [status, setStatus] = useState<"idle" | "saved" | "error">("idle");
 
   useEffect(() => {
-    serverClient
+    publicApi.server
       .getSettings()
       .then((res) => setPeerjsHost(unwrap(res).peerjsHost ?? ""))
       .catch(() => {})
@@ -23,7 +27,7 @@ export function PeerjsPanel() {
     e.preventDefault();
     setSaving(true);
     try {
-      unwrap(await serverClient.saveSettings({ body: { peerjsHost } }));
+      unwrap(await adminApi.server.saveSettings({ body: { peerjsHost } }));
       setStatus("saved");
       setTimeout(() => setStatus("idle"), 3500);
     } catch {

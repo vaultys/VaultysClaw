@@ -13,7 +13,10 @@ import {
 } from "lucide-react";
 import { Field, StatusBadge, IntegrationPanel, IntegrationHeader } from "./shared";
 import { cn } from "@/lib/utils";
-import { serverClient, unwrap } from "@/lib/api/ts-rest/client";
+import {
+  adminApi,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 
 interface DiscoveryCheck {
   id: string;
@@ -154,7 +157,7 @@ export function OidcPanel() {
   const callbackUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/api/auth/callback/oidc`;
 
   useEffect(() => {
-    serverClient
+    adminApi.server
       .getOidc()
       .then((res) => {
         const d = unwrap(res) as {
@@ -184,7 +187,7 @@ export function OidcPanel() {
     setTestChecks(null);
     try {
       unwrap(
-        await serverClient.saveOidc({
+        await adminApi.server.saveOidc({
           body: {
             issuer,
             clientId,
@@ -213,7 +216,7 @@ export function OidcPanel() {
     setTestChecks(null);
     try {
       const d = unwrap(
-        await serverClient.testOidc({ body: { issuer } })
+        await adminApi.server.testOidc({ body: { issuer } })
       ) as { checks?: DiscoveryCheck[] };
       setTestChecks(d.checks ?? []);
     } catch {
@@ -227,7 +230,7 @@ export function OidcPanel() {
     if (!confirm("Remove OIDC configuration? Users who signed in via SSO will still exist but cannot log in until OIDC is reconfigured.")) return;
     setRemoving(true);
     try {
-      unwrap(await serverClient.removeOidc());
+      unwrap(await adminApi.server.removeOidc());
       setConfigured(false);
       setIssuer("");
       setClientId("");

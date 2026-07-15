@@ -13,7 +13,10 @@ import {
   ChevronUp,
   ChevronDown,
 } from "lucide-react";
-import { knowledgeClient, unwrap } from "@/lib/api/ts-rest/client";
+import {
+  userApi,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 import { KsStatusBadge } from "./KsStatusBadge";
 import { mimeIcon } from "./utils";
 import type { KnowledgeFile } from "./types";
@@ -62,7 +65,7 @@ export function KsSourceCard({
     setLoadingFiles(true);
     try {
       const { files: loaded } = unwrap(
-        await knowledgeClient.listFiles({ query: { sourceId: source.id } })
+        await userApi.knowledge.listFiles({ query: { sourceId: source.id } })
       );
       setFiles(loaded);
     } catch {

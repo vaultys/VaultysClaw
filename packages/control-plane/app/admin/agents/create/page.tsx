@@ -12,8 +12,7 @@ import {
   type PendingReg,
 } from "@/components/agent/create/constants";
 import {
-  policiesClient,
-  registrationsClient,
+  adminApi,
   unwrap,
   ApiError,
 } from "@/lib/api/ts-rest/client";
@@ -146,7 +145,7 @@ export default function CreateAgentPage() {
     // REST-fetch current pending registrations — the WS state may not have delivered them yet
     // (or they existed before the user clicked this button and were filtered by prevRegIds).
     try {
-      const data = unwrap(await registrationsClient.list());
+      const data = unwrap(await adminApi.registrations.list());
       const pending = (data.registrations as unknown as PendingReg[]).filter(
         (r) => r.status === "pending" && r.agentName === agentName
       );
@@ -174,7 +173,7 @@ export default function CreateAgentPage() {
     setApproveError(null);
     try {
       const data = unwrap(
-        await registrationsClient.approve({
+        await adminApi.registrations.approve({
           params: { id: pendingReg.id },
           body: {
             capabilities: Array.from(selectedCaps),
@@ -206,7 +205,7 @@ export default function CreateAgentPage() {
           }
 
           unwrap(
-            await policiesClient.create({
+            await adminApi.policies.create({
               body: {
                 agentDid: newAgentDid,
                 capabilities: Array.from(selectedCaps),
@@ -247,7 +246,7 @@ export default function CreateAgentPage() {
     setApproveError(null);
     try {
       unwrap(
-        await registrationsClient.reject({
+        await adminApi.registrations.reject({
           params: { id: pendingReg.id },
           body: { reason: "Rejected by admin" },
         })

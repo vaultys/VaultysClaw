@@ -1,5 +1,8 @@
 "use client";
-import { agentsClient, usersClient, unwrap } from "@/lib/api/ts-rest/client";
+import {
+  adminApi,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 import { AgentInfo, type UserGrant } from "@/lib/contracts";
 import { useState, useEffect, useCallback } from "react";
 
@@ -28,13 +31,13 @@ export default function UserGrantsPanel({ userDid }: UserGrantsPanelProps) {
   const [revoking, setRevoking] = useState<string | null>(null);
 
   const loadAgents = useCallback(async () => {
-    const agents = unwrap(await agentsClient.search()).items;
+    const agents = unwrap(await adminApi.agents.search()).items;
     setAgents(agents ?? []);
   }, []);
 
   const loadGrants = useCallback(async () => {
     const { grants } = unwrap(
-      await usersClient.listGrants({ params: { did: userDid } })
+      await adminApi.users.listGrants({ params: { did: userDid } })
     );
     setGrants(grants ?? []);
   }, [userDid]);
@@ -54,7 +57,7 @@ export default function UserGrantsPanel({ userDid }: UserGrantsPanelProps) {
     if (selectedCaps.length === 0) return;
     setSaving(true);
     try {
-      await usersClient.createGrant({
+      await adminApi.users.createGrant({
         params: { did: userDid },
         body: {
           agentDid: selectedAgent === "*" ? null : selectedAgent,
@@ -71,7 +74,7 @@ export default function UserGrantsPanel({ userDid }: UserGrantsPanelProps) {
   const handleRevoke = async (grantId: string) => {
     setRevoking(grantId);
     try {
-      await usersClient.revokeGrant({
+      await adminApi.users.revokeGrant({
         params: { did: userDid, id: grantId },
       });
       await loadGrants();

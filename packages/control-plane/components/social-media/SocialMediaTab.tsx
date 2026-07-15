@@ -25,7 +25,10 @@ import {
   Send,
   Info,
 } from "lucide-react";
-import { workspacesClient, unwrap } from "@/lib/api/ts-rest/client";
+import {
+  userApi,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 
 /** Minimal X (Twitter) logo — lucide-react v1 removed the Twitter icon */
 function XLogo({ className }: { className?: string }) {
@@ -123,7 +126,7 @@ export function SocialMediaTab({ workspaceId }: SocialMediaTabProps) {
     setLoading(true);
     try {
       const { credentials } = unwrap(
-        await workspacesClient.listCredentials({
+        await userApi.workspaces.listCredentials({
           params: { id: workspaceId },
           query: { service: "x" },
         })
@@ -157,7 +160,7 @@ export function SocialMediaTab({ workspaceId }: SocialMediaTabProps) {
     try {
       // Save username (not secret — just metadata) and password (secret)
       unwrap(
-        await workspacesClient.saveCredential({
+        await userApi.workspaces.saveCredential({
           params: { id: workspaceId },
           body: {
             service: "x",
@@ -191,7 +194,7 @@ export function SocialMediaTab({ workspaceId }: SocialMediaTabProps) {
 
     try {
       unwrap(
-        await workspacesClient.deleteCredential({
+        await userApi.workspaces.deleteCredential({
           params: { id: workspaceId },
           query: { service: "x", name: "session" },
         })
@@ -211,7 +214,7 @@ export function SocialMediaTab({ workspaceId }: SocialMediaTabProps) {
     try {
       // Save schedule cron expression as a credential-like config
       unwrap(
-        await workspacesClient.saveCredential({
+        await userApi.workspaces.saveCredential({
           params: { id: workspaceId },
           body: {
             service: "x",
@@ -242,7 +245,7 @@ export function SocialMediaTab({ workspaceId }: SocialMediaTabProps) {
 
     try {
       const data = unwrap(
-        await workspacesClient.socialMedia({
+        await userApi.workspaces.socialMedia({
           params: { id: workspaceId },
           body: { text: postText },
         })

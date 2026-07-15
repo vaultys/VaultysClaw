@@ -15,26 +15,30 @@ import {
 import { useBreadcrumbs } from "@/components/layout/BreadcrumbContext";
 import { MyAgentOverview } from "@/components/agent/MyAgentOverview";
 import { ChatTab } from "@/components/agent/ChatTab";
-import { agentsClient, unwrap } from "@/lib/api/ts-rest/client";
-import { AgentInfo } from "@/lib/contracts";
+import {
+  userApi,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
+import { UserAgentDetail } from "@/lib/contracts";
 
 /**
  * Member-facing agent detail. A simplified counterpart of the admin agent page:
- * two tabs only (Overview + Chat), read-only, no delete. Relies on endpoints
- * gated by `canAccessAgent`, so it is safe for any role.
+ * two tabs only (Overview + Chat), read-only, no delete. Uses the user-facing
+ * `/api/agents/:did` endpoint, gated by `canAccessAgent`, so it is safe for any
+ * role.
  */
 export default function MyAgentDetailPage() {
   const params = useParams();
   const did = decodeURIComponent(params.did as string);
 
   const [activeTab, setActiveTab] = useState<string>("overview");
-  const [agent, setAgent] = useState<AgentInfo | null>(null);
+  const [agent, setAgent] = useState<UserAgentDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchAgent = useCallback(async () => {
     try {
-      const data = unwrap(await agentsClient.getAgent({ params: { did } }));
+      const data = unwrap(await userApi.agents.getAgent({ params: { did } }));
       setAgent(data);
       setError(null);
     } catch (err) {

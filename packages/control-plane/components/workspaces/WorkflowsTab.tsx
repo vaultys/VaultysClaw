@@ -4,7 +4,10 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronRight, GitFork, LayoutTemplate, Plus } from "lucide-react";
-import { workflowsClient, unwrap } from "@/lib/api/ts-rest/client";
+import {
+  userApi,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 import { useWorkflowStore } from "@/components/workflow/store";
 import { TemplateSelectionModal } from "@/components/workflow/TemplateSelectionModal";
 import type { WorkflowDefinition } from "@/lib/workflow-types";
@@ -28,7 +31,7 @@ export function WorkflowsTab({
   async function handleSelectTemplate(templateId: string) {
     try {
       const data = unwrap(
-        await workflowsClient.getTemplate({ params: { templateId } })
+        await userApi.workflows.getTemplate({ params: { templateId } })
       );
       const template = data.template as {
         definition: WorkflowDefinition;
@@ -36,7 +39,7 @@ export function WorkflowsTab({
       };
       clearWorkflowStore();
       setWorkflowStore("", template.name, "", template.definition);
-      router.push(`/app/workflows/new/edit?fromTemplate=1&workspace=${workspaceId}`);
+      router.push(`/admin/workflows/new/edit?fromTemplate=1&workspace=${workspaceId}`);
     } catch (err) {
       console.error("Failed to load template:", err);
       alert("Failed to load template");
@@ -54,7 +57,7 @@ export function WorkflowsTab({
             <LayoutTemplate className="w-4 h-4" /> From Template
           </button>
           <Link
-            href={`/app/workflows/new/edit?workspace=${workspaceId}`}
+            href={`/admin/workflows/new/edit?workspace=${workspaceId}`}
             className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-xl bg-primary-600 hover:bg-primary-500 text-white font-medium transition-colors"
           >
             <Plus className="w-4 h-4" /> New Workflow
@@ -77,7 +80,7 @@ export function WorkflowsTab({
               </button>
               <span className="text-foreground-400 text-sm">or</span>
               <Link
-                href={`/app/workflows/new/edit?workspace=${workspaceId}`}
+                href={`/admin/workflows/new/edit?workspace=${workspaceId}`}
                 className="text-primary-700 hover:text-primary-300 text-sm underline"
               >
                 Create blank workflow
@@ -106,7 +109,7 @@ export function WorkflowsTab({
                 </p>
               </div>
               <Link
-                href={`/app/workflows/${wf.id}`}
+                href={`/admin/workflows/${wf.id}`}
                 className="p-1.5 rounded-lg text-foreground-500 hover:text-primary-400 transition-colors"
                 title="Open workflow editor"
               >

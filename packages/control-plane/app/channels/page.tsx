@@ -5,7 +5,10 @@ import { Plus, Settings, MessageSquare, Search } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAdminWS } from "@/hooks/useAdminWS";
 import type { Channel } from "@vaultysclaw/shared";
-import { channelsClient, unwrap } from "@/lib/api/ts-rest/client";
+import {
+  userApi,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 import ChannelList from "@/components/channels/ChannelList";
 import ChannelView from "@/components/channels/ChannelView";
 import CreateChannelModal from "@/components/channels/CreateChannelModal";
@@ -32,7 +35,7 @@ export default function ChannelsPage() {
     try {
       setIsLoading(true);
       const { channels } = unwrap(
-        await channelsClient.list({
+        await userApi.channels.list({
           query: { workspace: workspaceId, includeGlobal: true },
         })
       );

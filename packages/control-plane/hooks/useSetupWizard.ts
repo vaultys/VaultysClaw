@@ -2,7 +2,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { setupClient, unwrap } from "@/lib/api/ts-rest/client";
+import {
+  adminApi,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 import {
   LS_DONE,
   STEP_IDS,
@@ -33,7 +36,7 @@ export function useSetupWizard() {
     const load = async () => {
       let backendStatus: SetupStatus | null = null;
       try {
-        const data = unwrap(await setupClient.status());
+        const data = unwrap(await adminApi.setup.status());
         if (data.status) {
           backendStatus = data.status;
           setCompletedSteps(
@@ -75,7 +78,7 @@ export function useSetupWizard() {
   /** Verify the current step on the backend, then advance (or finish). */
   const advance = useCallback(async () => {
     try {
-      const data = unwrap(await setupClient.status());
+      const data = unwrap(await adminApi.setup.status());
       if (!data.status[currentStep]) return; // not actually complete yet
     } catch (err) {
       console.warn("Could not verify setup status:", err);

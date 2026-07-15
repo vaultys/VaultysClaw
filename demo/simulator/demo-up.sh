@@ -723,7 +723,7 @@ OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT}
 OTEL_SERVICE_NAME=${OTEL_SERVICE_NAME}
 CPENV
 
-if curl -sf --max-time 2 "${CONTROL_PLANE_URL}/api/health" >/dev/null 2>&1; then
+if curl -sf --max-time 2 "${CONTROL_PLANE_URL}/api/public/health" >/dev/null 2>&1; then
   # Detect if the running process was started with different Postgres credentials
   # (e.g. sync_postgres_password just reset the DB password to a new value).
   # We can't hot-reload env vars into a running Node process — warn so the
@@ -761,9 +761,9 @@ else
   log "Control plane started (PID $CP_PID) → $LOG_DIR/control-plane.log"
 
   log "Waiting for control plane to be ready (this takes ~20-30s on first run)…"
-  wait_http "${CONTROL_PLANE_URL}/api/health" "Control Plane" 90
+  wait_http "${CONTROL_PLANE_URL}/api/public/health" "Control Plane" 90
 
-  if ! curl -sf --max-time 2 "${CONTROL_PLANE_URL}/api/health" >/dev/null 2>&1; then
+  if ! curl -sf --max-time 2 "${CONTROL_PLANE_URL}/api/public/health" >/dev/null 2>&1; then
     warn "Control plane may not be fully ready. Last log lines:"
     tail -20 "$LOG_DIR/control-plane.log" | sed 's/^/    /'
   fi

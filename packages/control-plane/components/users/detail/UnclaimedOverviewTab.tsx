@@ -3,7 +3,11 @@
 import { useState } from "react";
 import { Save, AlertCircle } from "lucide-react";
 import { formatDateTime } from "@vaultysclaw/shared";
-import { usersClient, unwrap, ApiError } from "@/lib/api/ts-rest/client";
+import {
+  adminApi,
+  unwrap,
+  ApiError,
+} from "@/lib/api/ts-rest/client";
 import type { UnclaimedUserDetail } from "@/lib/contracts";
 
 const ROLE_OPTIONS = [
@@ -38,7 +42,7 @@ export function UnclaimedOverviewTab({
     setSaveError(null);
     try {
       unwrap(
-        await usersClient.updateUnclaimed({
+        await adminApi.users.updateUnclaimed({
           params: { id: user.id },
           body: {
             name,

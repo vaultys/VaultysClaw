@@ -163,7 +163,7 @@ services:
       # Dev-only: enables the "connect without the app" browser login option.
       VC_DEV_LOGIN: ${VC_DEV_LOGIN:-false}
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:3000/api/health || exit 1"]
+      test: ["CMD-SHELL", "curl -sf http://localhost:3000/api/public/health || exit 1"]
       interval: 10s
       timeout: 10s
       retries: 30

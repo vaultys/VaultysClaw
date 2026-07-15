@@ -14,7 +14,10 @@ import {
 import { useRole } from "@/hooks/useRole";
 import { RegisterModelModal } from "@/components/models/RegisterModelModal";
 import { ProviderBadge } from "@/components/models/ProviderBadge";
-import { modelsClient, unwrap } from "@/lib/api/ts-rest/client";
+import {
+  adminApi,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 import { useToolbar } from "@/components/layout/ToolbarContext";
 import { useBreadcrumbs } from "@/components/layout/BreadcrumbContext";
 import type { SafeModel } from "@/lib/contracts";
@@ -33,7 +36,7 @@ export default function ModelsPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const { models } = unwrap(await modelsClient.list());
+      const { models } = unwrap(await adminApi.models.list());
       setModels(models);
     } finally {
       setLoading(false);

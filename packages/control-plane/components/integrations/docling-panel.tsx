@@ -9,7 +9,10 @@ import {
   IntegrationHeader,
   IntegrationModal,
 } from "./shared";
-import { settingsClient, unwrap } from "@/lib/api/ts-rest/client";
+import {
+  adminApi,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 import type { DoclingConfig } from "@/lib/contracts";
 
 export function DoclingPanel() {
@@ -28,7 +31,7 @@ export function DoclingPanel() {
 
   const loadStatus = async () => {
     try {
-      const data = unwrap(await settingsClient.getDocling());
+      const data = unwrap(await adminApi.settings.getDocling());
       setStatus(data);
       setUrl(data.url || "");
       setEnabled(data.enabled);
@@ -42,7 +45,7 @@ export function DoclingPanel() {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      unwrap(await settingsClient.updateDocling({ body: { url, enabled } }));
+      unwrap(await adminApi.settings.updateDocling({ body: { url, enabled } }));
       setIsModalOpen(false);
       await loadStatus();
     } catch {
@@ -56,7 +59,7 @@ export function DoclingPanel() {
     setIsTesting(true);
     setTestResult(null);
     try {
-      const data = unwrap(await settingsClient.testDocling({ body: { url } }));
+      const data = unwrap(await adminApi.settings.testDocling({ body: { url } }));
       setTestResult(data.ok ? `✓ Connected (v${data.version || "unknown"})` : `✗ ${data.error || "Connection failed"}`);
     } catch (e) {
       setTestResult(`✗ ${e instanceof Error ? e.message : "Connection failed"}`);

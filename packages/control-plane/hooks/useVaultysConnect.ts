@@ -14,9 +14,7 @@ import {
   type WalletSecurityType,
 } from "@/lib/browser-connect";
 import {
-  serverClient,
-  userAuthClient,
-  userStatusClient,
+  publicApi,
   unwrap,
 } from "@/lib/api/ts-rest/client";
 
@@ -115,8 +113,8 @@ export function useVaultysConnect(): UseVaultysConnectResult {
   useEffect(() => {
     (async () => {
       const [statusRes, settingsRes] = await Promise.all([
-        userStatusClient.status(),
-        serverClient.getSettings(),
+        publicApi.userStatus.status(),
+        publicApi.server.getSettings(),
       ]);
       const { hasUsers: hu, serverDid: sd } = unwrap(statusRes);
       const { walletUrl: wu, devLogin: dl } = unwrap(settingsRes);
@@ -133,7 +131,7 @@ export function useVaultysConnect(): UseVaultysConnectResult {
   const waitForUser = useCallback(async (token: string): Promise<boolean> => {
     for (let i = 0; i < 180; i++) {
       const { status } = unwrap(
-        await userAuthClient.listen({ params: { token } })
+        await publicApi.userAuth.listen({ params: { token } })
       );
       if (status === 2) return true;
       if (status === -2) return false;
@@ -146,7 +144,7 @@ export function useVaultysConnect(): UseVaultysConnectResult {
     async (token: string): Promise<{ browserDid: string } | null> => {
       for (let i = 0; i < 180; i++) {
         const result = unwrap(
-          await userAuthClient.bastionListen({ params: { token } })
+          await publicApi.userAuth.bastionListen({ params: { token } })
         );
         if (result.status === 2 && result.browserDid)
           return { browserDid: result.browserDid };
@@ -163,11 +161,11 @@ export function useVaultysConnect(): UseVaultysConnectResult {
     setUIStep("qr-connect");
 
     const { key, token } = unwrap(
-      await userAuthClient.connect({ query: {} })
+      await publicApi.userAuth.connect({ query: {} })
     );
 
     const isPhone = /iPhone|Android/i.test(navigator.userAgent);
-    const vaultysUrl = `vaultys://register?url=${encodeURIComponent(SERVER_URL + "/api/user/request")}&key=${key}${isPhone ? "&phone=true" : ""}`;
+    const vaultysUrl = `vaultys://register?url=${encodeURIComponent(SERVER_URL + "/api/public/user/request")}&key=${key}${isPhone ? "&phone=true" : ""}`;
     const browserUrl = `${walletUrl}#${encodeURIComponent(vaultysUrl)}`;
 
     setUserConnectInfo({ key, connectionToken: token, url: browserUrl });
@@ -198,7 +196,7 @@ export function useVaultysConnect(): UseVaultysConnectResult {
       token,
       key,
       serverDid: sd,
-    } = unwrap(await userAuthClient.p2pConnect());
+    } = unwrap(await publicApi.userAuth.p2pConnect());
 
     const did = sd ?? serverDid;
     const didParam = did ? `&did=${encodeURIComponent(did)}` : "";
@@ -227,7 +225,7 @@ export function useVaultysConnect(): UseVaultysConnectResult {
       setBastionPhase("connect");
       setUIStep("bastion-connect");
 
-      const bastionRes = await userAuthClient.bastionConnect({
+      const bastionRes = await publicApi.userAuth.bastionConnect({
         query: { vid: vid.vid },
       });
       if (bastionRes.status !== 200) {
@@ -248,7 +246,7 @@ export function useVaultysConnect(): UseVaultysConnectResult {
 
       // Perform SRP auth in background
       const channel = new BrowserChannel(
-        `${SERVER_URL}/api/user/request`,
+        `${SERVER_URL}/api/public/user/request`,
         rawKey
       );
       try {

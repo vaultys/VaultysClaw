@@ -1,7 +1,8 @@
 import { initClient } from "@ts-rest/core";
 import {
   aboutContract,
-  agentsContract,
+  adminAgentsContract,
+  userAgentsContract,
   apiKeysContract,
   bridgesContract,
   channelsContract,
@@ -11,26 +12,37 @@ import {
   intentsContract,
   invitationsContract,
   knowledgeContract,
+  knowledgeAdminContract,
   litellmContract,
   mapContract,
   modelsContract,
   networkContract,
+  networkControlContract,
   orgSkillsContract,
+  orgSkillsAdminContract,
   policiesContract,
   workspacesContract,
+  workspacesAdminContract,
   registrationsContract,
   serverContract,
+  serverPublicContract,
   settingsContract,
+  otelSettingsContract,
   setupContract,
   skillsContract,
+  skillsAdminContract,
   statsContract,
   toolApprovalsContract,
   userAuthContract,
   userStatusContract,
   usersContract,
+  usersUserContract,
+  usersPublicContract,
+  wellKnownContract,
   workflowApprovalsContract,
   workflowRunsContract,
   workflowsContract,
+  workflowsAdminContract,
 } from "@/lib/contracts";
 
 /** Shared client options — relative baseUrl keeps calls same-origin in the browser. */
@@ -46,12 +58,13 @@ const clientOptions = {
  *
  * Usage:
  * ```ts
- * import { agentsClient, workflowsClient } from "@/lib/api/ts-rest/client";
- * const { items } = unwrap(await agentsClient.search({ query: {} }));
+ * import { adminAgentsClient, workflowsClient } from "@/lib/api/ts-rest/client";
+ * const { items } = unwrap(await adminAgentsClient.search({ query: {} }));
  * ```
  */
 export const aboutClient = initClient(aboutContract, clientOptions);
-export const agentsClient = initClient(agentsContract, clientOptions);
+export const adminAgentsClient = initClient(adminAgentsContract, clientOptions);
+export const userAgentsClient = initClient(userAgentsContract, clientOptions);
 export const apiKeysClient = initClient(apiKeysContract, clientOptions);
 export const bridgesClient = initClient(bridgesContract, clientOptions);
 export const channelsClient = initClient(channelsContract, clientOptions);
@@ -61,21 +74,46 @@ export const healthClient = initClient(healthContract, clientOptions);
 export const intentsClient = initClient(intentsContract, clientOptions);
 export const invitationsClient = initClient(invitationsContract, clientOptions);
 export const knowledgeClient = initClient(knowledgeContract, clientOptions);
+export const knowledgeAdminClient = initClient(
+  knowledgeAdminContract,
+  clientOptions
+);
 export const litellmClient = initClient(litellmContract, clientOptions);
 export const mapClient = initClient(mapContract, clientOptions);
 export const modelsClient = initClient(modelsContract, clientOptions);
 export const networkClient = initClient(networkContract, clientOptions);
+export const networkControlClient = initClient(
+  networkControlContract,
+  clientOptions
+);
 export const orgSkillsClient = initClient(orgSkillsContract, clientOptions);
+export const orgSkillsAdminClient = initClient(
+  orgSkillsAdminContract,
+  clientOptions
+);
 export const policiesClient = initClient(policiesContract, clientOptions);
 export const workspacesClient = initClient(workspacesContract, clientOptions);
+export const workspacesAdminClient = initClient(
+  workspacesAdminContract,
+  clientOptions
+);
 export const registrationsClient = initClient(
   registrationsContract,
   clientOptions
 );
 export const serverClient = initClient(serverContract, clientOptions);
+export const serverPublicClient = initClient(
+  serverPublicContract,
+  clientOptions
+);
 export const settingsClient = initClient(settingsContract, clientOptions);
+export const otelSettingsClient = initClient(
+  otelSettingsContract,
+  clientOptions
+);
 export const setupClient = initClient(setupContract, clientOptions);
 export const skillsClient = initClient(skillsContract, clientOptions);
+export const skillsAdminClient = initClient(skillsAdminContract, clientOptions);
 export const statsClient = initClient(statsContract, clientOptions);
 export const toolApprovalsClient = initClient(
   toolApprovalsContract,
@@ -84,6 +122,9 @@ export const toolApprovalsClient = initClient(
 export const userAuthClient = initClient(userAuthContract, clientOptions);
 export const userStatusClient = initClient(userStatusContract, clientOptions);
 export const usersClient = initClient(usersContract, clientOptions);
+export const usersUserClient = initClient(usersUserContract, clientOptions);
+export const usersPublicClient = initClient(usersPublicContract, clientOptions);
+export const wellKnownClient = initClient(wellKnownContract, clientOptions);
 export const workflowApprovalsClient = initClient(
   workflowApprovalsContract,
   clientOptions
@@ -93,6 +134,70 @@ export const workflowRunsClient = initClient(
   clientOptions
 );
 export const workflowsClient = initClient(workflowsContract, clientOptions);
+export const workflowsAdminClient = initClient(
+  workflowsAdminContract,
+  clientOptions
+);
+
+/**
+ * Audience-grouped clients — plain objects bundling the per-domain clients above
+ * so calls read by audience: `unwrap(await adminApi.agents.search({ query }))`.
+ *
+ * These are just references to the existing singletons (no `initClient` over a
+ * merged contract), so TypeScript still infers one small client type per call —
+ * no inference cost. Mirrors the `admin`/`user`/`public` split of `appContract`.
+ */
+export const adminApi = {
+  agents: adminAgentsClient,
+  workspaces: workspacesAdminClient,
+  workflows: workflowsAdminClient,
+  users: usersClient,
+  policies: policiesClient,
+  governance: governanceClient,
+  models: modelsClient,
+  litellm: litellmClient,
+  server: serverClient,
+  settings: settingsClient,
+  apiKeys: apiKeysClient,
+  registrations: registrationsClient,
+  network: networkControlClient,
+  stats: statsClient,
+  orgSkills: orgSkillsAdminClient,
+  skills: skillsAdminClient,
+  setup: setupClient,
+  knowledge: knowledgeAdminClient,
+} as const;
+
+export const userApi = {
+  agents: userAgentsClient,
+  channels: channelsClient,
+  graph: graphClient,
+  knowledge: knowledgeClient,
+  map: mapClient,
+  intents: intentsClient,
+  toolApprovals: toolApprovalsClient,
+  network: networkClient,
+  orgSkills: orgSkillsClient,
+  settings: otelSettingsClient,
+  skills: skillsClient,
+  workflows: workflowsClient,
+  workflowRuns: workflowRunsClient,
+  workflowApprovals: workflowApprovalsClient,
+  users: usersUserClient,
+  workspaces: workspacesClient,
+} as const;
+
+export const publicApi = {
+  about: aboutClient,
+  bridges: bridgesClient,
+  invitations: invitationsClient,
+  server: serverPublicClient,
+  wellKnown: wellKnownClient,
+  userAuth: userAuthClient,
+  userStatus: userStatusClient,
+  users: usersPublicClient,
+  health: healthClient,
+} as const;
 
 /** ts-rest responses are a `{ status, body }` union keyed by status code. */
 type TsRestResult = { status: number; body: unknown };

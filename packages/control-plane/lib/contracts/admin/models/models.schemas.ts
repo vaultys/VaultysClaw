@@ -1,0 +1,41 @@
+import { z } from "zod";
+
+// ── Path params
+export const ModelIdParamSchema = z.object({ id: z.string().min(1) });
+
+// ── Bodies
+export const CreateModelBodySchema = z.object({
+  name: z.string(),
+  description: z.string().optional(),
+  provider: z.string(),
+  modelId: z.string(),
+  // Required for OpenAI-compatible endpoints; SDK-agent providers (see
+  // isSdkAgentProvider) run a local harness with no network endpoint.
+  baseUrl: z.string().optional(),
+  apiKey: z.string().optional(),
+  skipLiteLLM: z.boolean().optional(),
+});
+
+export const TestModelBodySchema = z.object({
+  provider: z.string(),
+  modelId: z.string(),
+  baseUrl: z.string(),
+  apiKey: z.string().nullable().optional(),
+});
+
+export const UpdateModelBodySchema = z.object({
+  name: z.string().optional(),
+  description: z.string().nullable().optional(),
+  provider: z.string().optional(),
+  modelId: z.string().optional(),
+  baseUrl: z.string().optional(),
+  apiKey: z.string().nullable().optional(),
+  status: z.enum(["active", "inactive"]).optional(),
+});
+
+// ── Responses
+export const ModelConnectivitySchema = z.object({
+  ok: z.boolean(),
+  models: z.array(z.string()),
+  error: z.string().optional(),
+});

@@ -3,7 +3,11 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ChevronLeft, Loader2 } from "lucide-react";
-import { governanceClient, unwrap, ApiError } from "@/lib/api/ts-rest/client";
+import {
+  adminApi,
+  unwrap,
+  ApiError,
+} from "@/lib/api/ts-rest/client";
 import type { AuditEntryDetail, AuditCertInfo } from "@/lib/contracts";
 import { useToolbar } from "@/components/layout/ToolbarContext";
 import { useBreadcrumbs } from "@/components/layout/BreadcrumbContext";
@@ -50,7 +54,7 @@ export default function AuditDetailPage() {
     (async () => {
       try {
         const data = unwrap(
-          await governanceClient.auditEntry({ params: { id } })
+          await adminApi.governance.auditEntry({ params: { id } })
         );
         setEntry(data.entry);
         setCertInfo(data.certInfo ?? null);

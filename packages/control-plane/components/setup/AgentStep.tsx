@@ -3,7 +3,10 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Bot } from "lucide-react";
-import { agentsClient, unwrap } from "@/lib/api/ts-rest/client";
+import {
+  adminApi,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 import type { AgentInfo } from "@/lib/contracts";
 import { StepFooter } from "./ui";
 
@@ -31,7 +34,7 @@ export function AgentStep({ onNext }: { onNext: () => void }) {
   const [fetching, setFetching] = useState(true);
 
   useEffect(() => {
-    agentsClient
+    adminApi.agents
       .search({ query: { pageSize: 20 } })
       .then((r) => unwrap(r))
       .then((page) => setAgents(page.items ?? []))

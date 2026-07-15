@@ -294,7 +294,7 @@ else
 fi
 
 # 4. Start control plane
-if curl -sf "$CONTROL_PLANE_URL/api/health" >/dev/null 2>&1; then
+if curl -sf "$CONTROL_PLANE_URL/api/public/health" >/dev/null 2>&1; then
   warn "Control plane already running at $CONTROL_PLANE_URL — skipping start."
 else
   log "Starting control plane (data: $CP_DATA_DIR)..."
@@ -305,7 +305,7 @@ else
 
   log "Waiting for control plane to be ready..."
   for i in $(seq 1 30); do
-    if curl -sf "$CONTROL_PLANE_URL/api/health" >/dev/null 2>&1; then
+    if curl -sf "$CONTROL_PLANE_URL/api/public/health" >/dev/null 2>&1; then
       log "Control plane ready."
       break
     fi

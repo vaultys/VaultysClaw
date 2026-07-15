@@ -18,7 +18,10 @@ import { OverviewTab } from "@/components/models/OverviewTab";
 import { WorkspaceAccessTab } from "@/components/models/WorkspaceAccessTab";
 import { DeploymentTab } from "@/components/models/DeploymentTab";
 import { TrainingTab } from "@/components/models/TrainingTab";
-import { modelsClient, unwrap } from "@/lib/api/ts-rest/client";
+import {
+  adminApi,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 import { SafeModel } from "@/lib/contracts";
 
 const TABS = [
@@ -46,7 +49,7 @@ export default function ModelDetailPage() {
 
   const load = useCallback(async () => {
     const model = unwrap(
-      await modelsClient.getOne({
+      await adminApi.models.getOne({
         params: {
           id,
         },
@@ -64,7 +67,7 @@ export default function ModelDetailPage() {
     if (!confirm(`Delete model "${model?.name}"? This cannot be undone.`))
       return;
     setDeleting(true);
-    unwrap(await modelsClient.remove({ params: { id } }));
+    unwrap(await adminApi.models.remove({ params: { id } }));
     router.push("/admin/models");
   }
 

@@ -10,7 +10,10 @@ import {
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
-import { workflowApprovalsClient, unwrap } from "@/lib/api/ts-rest/client";
+import {
+  userApi,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 
 // Prisma returns camelCase — the DB @map() directives only affect the column
 // names, not the JavaScript property names returned by the ORM.
@@ -38,7 +41,7 @@ export default function WorkflowApprovalInbox() {
   const fetchApprovals = useCallback(async () => {
     if (status !== "authenticated") return;
     try {
-      const data = unwrap(await workflowApprovalsClient.list({ query: {} }));
+      const data = unwrap(await userApi.workflowApprovals.list({ query: {} }));
       setApprovals(data.approvals as unknown as Approval[]);
     } catch {
       // silently ignore polling errors
@@ -55,7 +58,7 @@ export default function WorkflowApprovalInbox() {
   const handleApprove = async (id: string) => {
     setActing(id);
     try {
-      await workflowApprovalsClient.approve({
+      await userApi.workflowApprovals.approve({
         params: { id },
         body: { comment: comment[id] || undefined },
       });
@@ -68,7 +71,7 @@ export default function WorkflowApprovalInbox() {
   const handleReject = async (id: string) => {
     setActing(id);
     try {
-      await workflowApprovalsClient.reject({
+      await userApi.workflowApprovals.reject({
         params: { id },
         body: { comment: comment[id] || undefined },
       });
@@ -81,7 +84,7 @@ export default function WorkflowApprovalInbox() {
   const handleDismiss = async (id: string) => {
     setActing(id);
     try {
-      await workflowApprovalsClient.dismiss({ params: { id } });
+      await userApi.workflowApprovals.dismiss({ params: { id } });
       await fetchApprovals();
     } finally {
       setActing(null);

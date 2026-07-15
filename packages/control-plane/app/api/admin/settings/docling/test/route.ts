@@ -1,0 +1,119 @@
+import { APIException } from "@/lib/api/utils/api-utils";
+import { setDoclingEndpoints } from "@/db/settings.dao";
+import {
+  OpenApiSpec,
+  adminContract,
+} from "@/lib/contracts";
+import { createNextRoute } from "@/lib/api/ts-rest/next-route";
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetch /openapi.json and return the best-matching POST paths for:
+ *   - URL source conversion  (e.g. /v1/convert/source)
+ *   - File upload conversion (e.g. /v1/convert/file)
+ *
+ * Falls back to v1alpha defaults if the spec cannot be read.
+ */
+async function discoverEndpoints(baseUrl: string): Promise<{
+  sourceEndpoint: string;
+  fileEndpoint: string;
+}> {
+  const defaults = {
+    sourceEndpoint: "/v1alpha/convert/source",
+    fileEndpoint: "/v1alpha/convert/file",
+  };
+
+  try {
+    const res = await fetch(`${baseUrl}/openapi.json`, {
+      signal: AbortSignal.timeout(5_000),
+      headers: { Accept: "application/json" },
+    });
+    if (!res.ok) return defaults;
+
+    const spec = (await res.json()) as OpenApiSpec;
+    const paths = Object.keys(spec.paths ?? {});
+
+    // POST paths only
+    const postPaths = paths.filter((p) => spec.paths![p].post !== undefined);
+
+    // Source / URL conversion — prefer paths containing both "convert" and "source"
+    const sourceEndpoint =
+      postPaths.find((p) => /convert/.test(p) && /source/.test(p)) ??
+      postPaths.find((p) => /convert/.test(p) && !/file/.test(p)) ??
+      defaults.sourceEndpoint;
+
+    // File conversion — prefer paths containing both "convert" and "file"
+    const fileEndpoint =
+      postPaths.find((p) => /convert/.test(p) && /file/.test(p)) ??
+      sourceEndpoint; // fall back to same path if no dedicated file endpoint
+
+    return { sourceEndpoint, fileEndpoint };
+  } catch {
+    return defaults;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Route handler
+// ---------------------------------------------------------------------------
+
+const handlers = createNextRoute(adminContract.settings, {
+  testDocling: async ({ body }) => {
+
+    const rawUrl = (body.url ?? "").trim().replace(/\/$/, "");
+    if (!rawUrl) throw new APIException("MALFORMED", "URL is required");
+
+    const start = Date.now();
+    try {
+      // 1. Health check
+      const healthRes = await fetch(`${rawUrl}/health`, {
+        signal: AbortSignal.timeout(5_000),
+        headers: { Accept: "application/json" },
+      });
+
+      const latency = Date.now() - start;
+
+      if (!healthRes.ok) {
+        return {
+          status: 200,
+          body: {
+            ok: false,
+            error: `Health check returned HTTP ${healthRes.status}`,
+            latency,
+          },
+        };
+      }
+
+      let version: string | undefined;
+      try {
+        const data = (await healthRes.json()) as {
+          version?: string;
+          docling_version?: string;
+        };
+        version = data.version ?? data.docling_version;
+      } catch {
+        /* non-JSON health response — fine */
+      }
+
+      // 2. Discover real API endpoints from OpenAPI spec
+      const { sourceEndpoint, fileEndpoint } = await discoverEndpoints(rawUrl);
+
+      // 3. Persist the discovered endpoints so syncs use the right paths
+      await setDoclingEndpoints(sourceEndpoint, fileEndpoint);
+
+      return {
+        status: 200,
+        body: { ok: true, latency, version, sourceEndpoint, fileEndpoint },
+      };
+    } catch (err) {
+      const latency = Date.now() - start;
+      const msg = err instanceof Error ? err.message : String(err);
+      return { status: 200, body: { ok: false, error: msg, latency } };
+    }
+  },
+});
+
+export const POST = handlers.POST!;

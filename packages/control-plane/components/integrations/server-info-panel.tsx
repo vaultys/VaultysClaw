@@ -3,7 +3,10 @@
 import { useState, useEffect } from "react";
 import { Server, Loader2 } from "lucide-react";
 import { IntegrationPanel, IntegrationHeader } from "./shared";
-import { serverClient, unwrap } from "@/lib/api/ts-rest/client";
+import {
+  publicApi,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 
 interface ServerInfo {
   stats: {
@@ -47,7 +50,7 @@ export function ServerInfoPanel() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    serverClient
+    publicApi.server
       .get()
       .then((res) => setInfo(unwrap(res) as unknown as ServerInfo))
       .catch(() => {})

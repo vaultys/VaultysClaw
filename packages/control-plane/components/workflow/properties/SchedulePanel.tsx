@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { workflowsClient, unwrap } from "@/lib/api/ts-rest/client";
+import {
+  userApi,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 import { CRON_PRESETS } from "./types";
 
 export function SchedulePanel({ workflowId }: { workflowId: string | null }) {
@@ -17,7 +20,7 @@ export function SchedulePanel({ workflowId }: { workflowId: string | null }) {
   useEffect(() => {
     if (!workflowId || workflowId === "default") return;
     setLoading(true);
-    workflowsClient
+    userApi.workflows
       .getSchedule({ params: { id: workflowId } })
       .then((res) => {
         if (res.status !== 200) return;
@@ -40,7 +43,7 @@ export function SchedulePanel({ workflowId }: { workflowId: string | null }) {
     setSaving(true);
     try {
       const d = unwrap(
-        await workflowsClient.setSchedule({
+        await userApi.workflows.setSchedule({
           params: { id: workflowId },
           body: { cron: cron || undefined, enabled },
         })
@@ -60,7 +63,7 @@ export function SchedulePanel({ workflowId }: { workflowId: string | null }) {
     if (!workflowId) return;
     setSaving(true);
     try {
-      await workflowsClient.clearSchedule({ params: { id: workflowId } });
+      await userApi.workflows.clearSchedule({ params: { id: workflowId } });
       setCron("");
       setEnabled(false);
       setNextRun(null);

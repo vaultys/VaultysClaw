@@ -14,9 +14,8 @@ import {
 import { useToolbar, type ToolbarAction } from "@/components/layout/ToolbarContext";
 import { useBreadcrumbs } from "@/components/layout/BreadcrumbContext";
 import {
-  usersClient,
-  serverClient,
-  userAuthClient,
+  adminApi,
+  publicApi,
   unwrap,
   ApiError,
 } from "@/lib/api/ts-rest/client";
@@ -51,7 +50,7 @@ export default function UnregisteredUserPage() {
   } | null>(null);
 
   // Tracks the in-flight QR poll so it can be cancelled when the modal closes
-  // or the page unmounts — otherwise /api/user/listen keeps polling forever.
+  // or the page unmounts — otherwise /api/public/user/listen keeps polling forever.
   const pollRef = useRef<{ cancelled: boolean } | null>(null);
   const cancelPoll = useCallback(() => {
     if (pollRef.current) pollRef.current.cancelled = true;
@@ -63,7 +62,7 @@ export default function UnregisteredUserPage() {
 
   const load = useCallback(async () => {
     try {
-      setUser(unwrap(await usersClient.getUnclaimed({ params: { id } })));
+      setUser(unwrap(await adminApi.users.getUnclaimed({ params: { id } })));
     } catch (err) {
       if (err instanceof ApiError && err.status === 403) {
         router.push("/");
@@ -82,7 +81,7 @@ export default function UnregisteredUserPage() {
   }, [load]);
 
   useEffect(() => {
-    serverClient
+    adminApi.server
       .getSmtp()
       .then((res) =>
         setSmtpAvailable(
@@ -100,7 +99,7 @@ export default function UnregisteredUserPage() {
         if (sendByEmail) {
           try {
             unwrap(
-              await usersClient.inviteEmail({
+              await adminApi.users.inviteEmail({
                 body: {
                   email: user.email ?? "",
                   name: user.name ?? "",
@@ -120,8 +119,8 @@ export default function UnregisteredUserPage() {
         }
 
         const [inviteRes, settingsRes] = await Promise.all([
-          usersClient.invite({ query: { userId: user.id } }),
-          serverClient.getSettings(),
+          adminApi.users.invite({ query: { userId: user.id } }),
+          publicApi.server.getSettings(),
         ]);
         const data = unwrap(inviteRes);
         const settings = unwrap(settingsRes);
@@ -142,7 +141,7 @@ export default function UnregisteredUserPage() {
           await new Promise((res) => setTimeout(res, 1500));
           if (poll.cancelled) return;
           const { status } = unwrap(
-            await userAuthClient.listen({ params: { token: data.token } })
+            await publicApi.userAuth.listen({ params: { token: data.token } })
           );
           if (poll.cancelled) return;
           if (status === 2) {
@@ -173,7 +172,7 @@ export default function UnregisteredUserPage() {
       return;
     setRemoving(true);
     try {
-      unwrap(await usersClient.removeUnclaimed({ params: { id } }));
+      unwrap(await adminApi.users.removeUnclaimed({ params: { id } }));
       router.push("/admin/users");
     } catch {
       setRemoving(false);

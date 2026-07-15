@@ -1,0 +1,92 @@
+import { z } from "zod";
+
+// ─────────────────────────────────────────────
+// Queries
+// ─────────────────────────────────────────────
+
+export const ListAgentsQuerySchema = z.object({
+  search: z.string().optional(),
+  online: z.enum(["true", "false"]).optional(),
+  workspace: z.string().optional(),
+  capabilities: z.string().optional(),
+  page: z.coerce.number().optional(),
+  pageSize: z.coerce.number().optional(),
+  sortBy: z.enum(["name", "lastSeen", "registeredAt"]).optional(),
+  sortDir: z.enum(["asc", "desc"]).optional(),
+});
+
+export const TokenUsageQuerySchema = z.object({
+  granularity: z.enum(["day", "month"]).optional(),
+  from: z.string().optional(),
+  to: z.string().optional(),
+});
+
+export const SearchAgentsQuerySchema = z.object({
+  q: z.string().optional(),
+  workspace: z.string().optional(),
+});
+
+/** Optional candidate API key to query the agent's supported Claude models against. */
+export const ClaudeModelsQuerySchema = z.object({
+  apiKey: z.string().optional(),
+});
+
+// ─────────────────────────────────────────────
+// Bodies
+// ─────────────────────────────────────────────
+
+export const UpdateAgentBodySchema = z.object({
+  capabilities: z.array(z.string()).optional(),
+  tokenBudgetDaily: z.number().nullable().optional(),
+  tokenBudgetMonthly: z.number().nullable().optional(),
+});
+
+// SendTaskBodySchema moved to the user agents contract — sending a task is a
+// user-facing action served under /api/agents/:did/task.
+
+export const CreateScheduleBodySchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  cron: z.string(),
+  action: z.string(),
+  params: z.record(z.string(), z.unknown()).optional(),
+  enabled: z.boolean().optional(),
+});
+
+export const UpdateSkillBodySchema = z.object({
+  enabled: z.boolean(),
+});
+
+export const UpdateSkillOverrideBodySchema = z.object({
+  workspaceSkillId: z.string(),
+  enabled: z.boolean(),
+});
+
+export const CreatePeerBodySchema = z.object({
+  peerDid: z.string(),
+  capabilities: z.array(z.string()),
+  expiresAt: z.string().optional(),
+});
+
+export const SetLlmConfigBodySchema = z.record(z.string(), z.unknown());
+
+export const PutLiteLlmKeyBodySchema = z.object({
+  allowedModels: z.array(z.string()).optional(),
+  dailyBudget: z.number().nullable().optional(),
+});
+
+export const RunIntentBodySchema = z.object({
+  action: z.string(),
+  params: z.record(z.string(), z.unknown()).optional(),
+  timeoutMs: z.number().min(1000).max(120_000).optional(),
+});
+
+/** Set or clear an agent's geographic location (global-admin only). */
+export const SetLocationBodySchema = z.object({
+  lat: z.number().nullable().optional(),
+  lon: z.number().optional(),
+  label: z.string().optional(),
+});
+
+// SendChatMessageBodySchema moved to the user agents contract — chat is a
+// user-facing action served under /api/agents/:did/chat-sessions.

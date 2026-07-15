@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { X, Copy } from "lucide-react";
-import { workflowsClient, unwrap } from "@/lib/api/ts-rest/client";
+import {
+  userApi,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 
 interface Template {
   id: string;
@@ -36,7 +39,7 @@ export function TemplateSelectionModal({
   const fetchTemplates = async () => {
     try {
       setLoading(true);
-      const data = unwrap(await workflowsClient.listTemplates({ query: {} }));
+      const data = unwrap(await userApi.workflows.listTemplates({ query: {} }));
       const templates = data.templates as unknown as Template[];
       setTemplates(templates);
 

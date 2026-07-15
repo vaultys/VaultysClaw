@@ -3,8 +3,11 @@ import { useState, useEffect } from "react";
 import { Zap, Cpu, BookOpen, MapPin, Loader2 } from "lucide-react";
 import { parseUTC, timeAgo } from "@vaultysclaw/shared";
 import { CAPABILITY_ICONS } from "./capability-icons";
-import { knowledgeClient, unwrap } from "@/lib/api/ts-rest/client";
-import { AgentInfo } from "@/lib/contracts";
+import {
+  userApi,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
+import { UserAgentDetail } from "@/lib/contracts";
 
 /**
  * Read-only overview for the member-facing "My Agents" detail page. Shows only
@@ -13,7 +16,7 @@ import { AgentInfo } from "@/lib/contracts";
  * admin-only calls (no governance/policies) and shows neither policy nor the
  * recent-activity audit stream.
  */
-export function MyAgentOverview({ agent }: { agent: AgentInfo }) {
+export function MyAgentOverview({ agent }: { agent: UserAgentDetail }) {
   const [knowledge, setKnowledge] = useState<{
     total: number;
     ready: number;
@@ -25,25 +28,14 @@ export function MyAgentOverview({ agent }: { agent: AgentInfo }) {
     (async () => {
       setKnowledgeLoading(true);
       try {
-        // Aggregate knowledge sources across the workspaces the agent belongs
-        // to (workspaces the caller can't access simply 403 and are skipped).
-        const results = await Promise.all(
-          agent.agentWorkspaces.map((aw) =>
-            knowledgeClient
-              .list({
-                query: { workspaceId: aw.workspace.id, agentDid: agent.did },
-              })
-              .then(unwrap)
-              .catch(() => null)
-          )
-        );
+        // Knowledge sources for this agent across the workspaces the caller can
+        // access (the endpoint scopes by the caller's own memberships).
+        const r = await userApi.knowledge
+          .list({ query: { agentDid: agent.did } })
+          .then(unwrap)
+          .catch(() => null);
         if (cancelled) return;
-        const byId = new Map<string, { status: string }>();
-        for (const r of results) {
-          if (!r) continue;
-          for (const s of r.sources) byId.set(s.id, { status: s.status });
-        }
-        const sources = Array.from(byId.values());
+        const sources = r?.sources ?? [];
         setKnowledge({
           total: sources.length,
           ready: sources.filter((s) => s.status === "ready").length,
@@ -55,7 +47,7 @@ export function MyAgentOverview({ agent }: { agent: AgentInfo }) {
     return () => {
       cancelled = true;
     };
-  }, [agent.did, agent.agentWorkspaces]);
+  }, [agent.did]);
 
   const todayUsageToken = agent.tokenHistory.find(
     (th) => th.granularity === "day"

@@ -78,7 +78,7 @@ services:
 ### Via the API
 
 ```bash
-curl -X POST https://vaultysclaw.acme.com/api/models \
+curl -X POST https://vaultysclaw.acme.com/api/admin/models \
   -H "Cookie: next-auth.session-token=..." \
   -H "Content-Type: application/json" \
   -d '{
@@ -89,18 +89,18 @@ curl -X POST https://vaultysclaw.acme.com/api/models \
   }'
 ```
 
-See [Models API](/docs/api/models) for the full reference.
+See [Models API](/docs/api/admin/models) for the full reference.
 
 ## Granting a model to a workspace
 
 ```bash
-curl -X POST https://vaultysclaw.acme.com/api/models/{modelId}/workspaces \
+curl -X POST https://vaultysclaw.acme.com/api/workspaces/{workspaceId}/models \
   -H "Cookie: ..." \
   -H "Content-Type: application/json" \
-  -d '{ "workspaceId": "workspace-uuid" }'
+  -d '{ "modelId": "model-uuid" }'
 ```
 
-This:
+Requires **workspace admin** rights on the target workspace. This:
 
 1. Creates (or refreshes) a LiteLLM virtual key for the workspace, scoped to the newly allowed model list.
 2. Pushes updated `llm_config` to every agent currently in that workspace.
@@ -137,11 +137,11 @@ When an agent is added to a workspace that already has a virtual key and active 
 
 ## Per-workspace budget limits
 
-When granting model access, you can set a monthly budget cap:
+Set a monthly budget cap on the workspace's LiteLLM virtual key:
 
 ```bash
-curl -X POST .../api/models/{modelId}/workspaces \
-  -d '{ "workspaceId": "...", "monthlyBudgetUsd": 50.0 }'
+curl -X PUT .../api/workspaces/{workspaceId}/litellm-key \
+  -d '{ "monthlyBudget": 50.0 }'
 ```
 
 This passes `max_budget` to LiteLLM when generating the virtual key.

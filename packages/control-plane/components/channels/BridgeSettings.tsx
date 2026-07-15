@@ -10,7 +10,10 @@ import {
   Copy,
   RefreshCw,
 } from "lucide-react";
-import { channelsClient, unwrap } from "@/lib/api/ts-rest/client";
+import {
+  userApi,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 import type { ChannelBridgePublic } from "@/lib/contracts";
 
 type BridgeRecord = ChannelBridgePublic;
@@ -76,7 +79,7 @@ export default function BridgeSettings({
     try {
       setLoading(true);
       const { bridges } = unwrap(
-        await channelsClient.listBridges({ params: { id: channelId } })
+        await userApi.channels.listBridges({ params: { id: channelId } })
       );
       setBridges(bridges);
     } catch (err) {
@@ -116,7 +119,7 @@ export default function BridgeSettings({
 
     try {
       unwrap(
-        await channelsClient.createBridge({
+        await userApi.channels.createBridge({
           params: { id: channelId },
           body: {
             externalService: service,
@@ -142,7 +145,7 @@ export default function BridgeSettings({
   const handleToggle = async (bridge: BridgeRecord) => {
     try {
       unwrap(
-        await channelsClient.updateBridge({
+        await userApi.channels.updateBridge({
           params: { id: channelId, bridgeId: bridge.id },
           body: { isSyncEnabled: !bridge.isSyncEnabled },
         })
@@ -157,7 +160,7 @@ export default function BridgeSettings({
     if (!confirm("Delete this bridge? External messages will no longer sync."))
       return;
     try {
-      await channelsClient.deleteBridge({
+      await userApi.channels.deleteBridge({
         params: { id: channelId, bridgeId },
       });
       await fetchBridges();
@@ -172,8 +175,8 @@ export default function BridgeSettings({
 
   const incomingWebhookUrl = (bridgeId: string) =>
     typeof window !== "undefined"
-      ? `${window.location.origin}/api/bridges/webhook/${bridgeId}/incoming`
-      : `/api/bridges/webhook/${bridgeId}/incoming`;
+      ? `${window.location.origin}/api/public/bridges/webhook/${bridgeId}/incoming`
+      : `/api/public/bridges/webhook/${bridgeId}/incoming`;
 
   return (
     <div className="w-80 border-l border-neutral-200 bg-background-200 flex flex-col h-full overflow-hidden">

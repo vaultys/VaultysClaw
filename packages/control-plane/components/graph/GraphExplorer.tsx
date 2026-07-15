@@ -51,7 +51,7 @@ export function GraphExplorer() {
           `/admin/users/${encodeURIComponent(node.id.replace("user:", ""))}`
         );
       else if (node.type === "workspace")
-        router.push(`/app/workspaces/${node.id.replace("workspace:", "")}`);
+        router.push(`/workspaces/${node.id.replace("workspace:", "")}`);
     },
     [router]
   );

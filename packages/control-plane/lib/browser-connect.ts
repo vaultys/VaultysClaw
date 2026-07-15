@@ -10,7 +10,7 @@
  *                                  of delegating to the mobile VaultysID app.
  *
  * The "dev login" mode reuses exactly the same SRP primitive as the bastion flow
- * (a BrowserChannel against /api/user/request driven by the cert `key`), just
+ * (a BrowserChannel against /api/public/user/request driven by the cert `key`), just
  * with a user identity and a configurable service ("auth" for login, "register"
  * for claim/invite).
  */
@@ -171,7 +171,7 @@ export async function srp(
 // ---------------------------------------------------------------------------
 
 export interface BrowserDirectConnectArgs {
-  /** Raw certificate key (hex), as returned by /api/user/connect, claim, or invite. */
+  /** Raw certificate key (hex), as returned by /api/public/user/connect, claim, or invite. */
   key: string;
   /** "auth" for login, "register" for claim/invite. */
   service: SrpService;
@@ -182,9 +182,9 @@ export interface BrowserDirectConnectArgs {
 /**
  * Authenticates the browser directly against the control plane, without the
  * mobile VaultysID app. Reuses (or generates) the persisted user identity, then
- * drives the SRP exchange against /api/user/request using `key`.
+ * drives the SRP exchange against /api/public/user/request using `key`.
  *
- * The caller is expected to be polling /api/user/listen/[token] already — this
+ * The caller is expected to be polling /api/public/user/listen/[token] already — this
  * function only completes the server-side certificate; it does not poll.
  */
 export async function runBrowserDirectConnect({
@@ -198,6 +198,6 @@ export async function runBrowserDirectConnect({
   }
 
   const vaultysId = VaultysId.fromSecret(userVid.secret, "base64").toVersion(1);
-  const channel = new BrowserChannel(`${SERVER_URL}/api/user/request`, key);
+  const channel = new BrowserChannel(`${SERVER_URL}/api/public/user/request`, key);
   await srp(channel, vaultysId, service);
 }

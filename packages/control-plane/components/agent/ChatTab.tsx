@@ -5,8 +5,7 @@ import ReactMarkdown from "react-markdown";
 import { Bot, Send, Trash2, Loader2, Zap, Brain } from "lucide-react";
 import type { ChatMessageEntry, ChatSession } from "@vaultysclaw/shared";
 import {
-  agentsClient,
-  toolApprovalsClient,
+  userApi,
   unwrap,
 } from "@/lib/api/ts-rest/client";
 import { ThinkingBlock } from "./ThinkingBlock";
@@ -92,7 +91,7 @@ export function ChatTab({
 
   const fetchSessions = useCallback(async () => {
     const { sessions } = unwrap(
-      await agentsClient.getChatSessions({ params: { did: agentId } })
+      await userApi.agents.getChatSessions({ params: { did: agentId } })
     );
     setSessions(sessions ?? []);
   }, [agentId]);
@@ -106,7 +105,7 @@ export function ChatTab({
       pinnedToBottomRef.current = true;
       try {
         const { messages } = unwrap(
-          await agentsClient.getSessionMessages({
+          await userApi.agents.getSessionMessages({
             params: { did: agentId, sessionId },
           })
         );
@@ -561,7 +560,7 @@ export function ChatTab({
                 );
                 try {
                   unwrap(
-                    await toolApprovalsClient.respond({
+                    await userApi.toolApprovals.respond({
                       body: { requestId: a.requestId, approved },
                     })
                   );

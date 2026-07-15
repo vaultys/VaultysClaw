@@ -15,7 +15,10 @@ import {
 } from "lucide-react";
 import { Field, StatusBadge, IntegrationPanel, IntegrationHeader } from "./shared";
 import { cn } from "@/lib/utils";
-import { serverClient, unwrap } from "@/lib/api/ts-rest/client";
+import {
+  adminApi,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 
 interface EntraGroup {
   id: string;
@@ -155,7 +158,7 @@ export function EntraPanel() {
   const [syncResult, setSyncResult] = useState<SyncResult | null>(null);
 
   useEffect(() => {
-    serverClient
+    adminApi.server
       .getEntra()
       .then((res) => {
         const d = unwrap(res) as {
@@ -173,7 +176,7 @@ export function EntraPanel() {
       .catch(() => {})
       .finally(() => setLoading(false));
 
-    serverClient
+    adminApi.server
       .entraUnclaimed()
       .then((res) => setUnclaimedCount(unwrap(res).users?.length ?? 0))
       .catch(() => {});
@@ -184,7 +187,7 @@ export function EntraPanel() {
     setSaving(true);
     try {
       unwrap(
-        await serverClient.saveEntra({
+        await adminApi.server.saveEntra({
           body: { tenantId, clientId, clientSecret },
         })
       );
@@ -203,7 +206,7 @@ export function EntraPanel() {
     setDiagnostics(null);
     try {
       const d = unwrap(
-        await serverClient.testEntra({
+        await adminApi.server.testEntra({
           body: { tenantId, clientId, clientSecret },
         })
       ) as { checks?: DiagnosticCheck[] };
@@ -226,7 +229,7 @@ export function EntraPanel() {
     setGroupsLoading(true);
 
     const [groupsRes, workspacesRes] = await Promise.allSettled([
-      serverClient.testEntra({
+      adminApi.server.testEntra({
         body: { tenantId, clientId, clientSecret },
       }),
       fetch("/api/workspaces").then((r) => r.json()),
@@ -265,7 +268,7 @@ export function EntraPanel() {
     for (const g of groups) groupNames[g.id] = g.displayName;
     try {
       const result = unwrap(
-        await serverClient.entraSync({
+        await adminApi.server.entraSync({
           body: {
             groupIds: Array.from(selectedGroups),
             groupWorkspaceMap: mapGroups ? workspaceMap : {},
@@ -275,7 +278,7 @@ export function EntraPanel() {
       );
       setSyncResult(result as unknown as SyncResult);
       setWizardStep("done");
-      serverClient
+      adminApi.server
         .entraUnclaimed()
         .then((res) => setUnclaimedCount(unwrap(res).users?.length ?? 0))
         .catch(() => {});

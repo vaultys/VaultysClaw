@@ -290,25 +290,20 @@ export function useAgentLlmConfig(
 
   /**
    * Fetch the live list of Claude models via the connected agent's own
-   * `supportedModels()` query (see /api/agents/:did/claude-models). Best
+   * `supportedModels()` query (see /api/admin/agents/:did/claude-models). Best
    * effort: on any failure (agent offline, bad/missing key, SDK error) this
    * just leaves `claudeModels` empty so callers fall back to the static list.
    */
   const fetchClaudeModels = useCallback(async () => {
     setClaudeModelsLoading(true);
     try {
-      const qs = llmForm.apiKey
-        ? `?apiKey=${encodeURIComponent(llmForm.apiKey)}`
-        : "";
-      const res = await fetch(`/api/agents/${did}/claude-models${qs}`);
-      if (!res.ok) {
-        setClaudeModels([]);
-        return;
-      }
-      const data = (await res.json()) as {
-        models?: { value: string }[];
-      };
-      setClaudeModels((data.models ?? []).map((m) => m.value));
+      const { models } = unwrap(
+        await adminApi.agents.claudeModels({
+          params: { did },
+          query: llmForm.apiKey ? { apiKey: llmForm.apiKey } : {},
+        })
+      );
+      setClaudeModels(models.map((m) => m.value));
     } catch {
       setClaudeModels([]);
     } finally {

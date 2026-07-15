@@ -26,6 +26,11 @@ export const SearchAgentsQuerySchema = z.object({
   workspace: z.string().optional(),
 });
 
+/** Optional candidate API key to query the agent's supported Claude models against. */
+export const ClaudeModelsQuerySchema = z.object({
+  apiKey: z.string().optional(),
+});
+
 // ─────────────────────────────────────────────
 // Bodies
 // ─────────────────────────────────────────────

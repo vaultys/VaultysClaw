@@ -9,7 +9,9 @@ export const CreateModelBodySchema = z.object({
   description: z.string().optional(),
   provider: z.string(),
   modelId: z.string(),
-  baseUrl: z.string(),
+  // Required for OpenAI-compatible endpoints; SDK-agent providers (see
+  // isSdkAgentProvider) run a local harness with no network endpoint.
+  baseUrl: z.string().optional(),
   apiKey: z.string().optional(),
   skipLiteLLM: z.boolean().optional(),
 });

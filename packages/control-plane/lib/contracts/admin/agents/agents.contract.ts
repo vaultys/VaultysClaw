@@ -2,6 +2,7 @@ import { commonErrorResponses, PaginatedResponse } from "../../common";
 import { c } from "../../contract";
 
 import {
+  ClaudeModelsQuerySchema,
   CreatePeerBodySchema,
   CreateScheduleBodySchema,
   ListAgentsQuerySchema,
@@ -15,6 +16,7 @@ import {
   UpdateSkillOverrideBodySchema,
 } from "./agents.schemas";
 import z from "zod";
+import type { ClaudeModelOption } from "@vaultysclaw/shared";
 import { AgentInfo } from "./agents.types";
 
 export const adminAgentsContract = c.router({
@@ -257,6 +259,22 @@ export const adminAgentsContract = c.router({
     body: c.noBody(),
     responses: {
       200: c.type<{ ok: boolean }>(),
+      ...commonErrorResponses,
+    },
+  },
+
+  // ─── Claude models ───────────────────────────────────────────────────────────
+  // Live, best-effort query against the connected agent's own supportedModels()
+  // (Claude Agent SDK). No persisted registry — failures (offline, bad key, SDK
+  // error) are expected; callers fall back to a static model list.
+
+  claudeModels: {
+    method: "GET",
+    path: "/api/admin/agents/:did/claude-models",
+    pathParams: z.object({ did: z.string() }),
+    query: ClaudeModelsQuerySchema,
+    responses: {
+      200: c.type<{ models: ClaudeModelOption[] }>(),
       ...commonErrorResponses,
     },
   },

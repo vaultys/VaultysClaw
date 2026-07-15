@@ -6,6 +6,7 @@ import type { LlmConfig } from "@vaultysclaw/shared";
 import { AgentDAO, ModelDAO, WorkspaceDAO } from "@/db";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 import { userContract } from "@/lib/contracts";
+import { enqueueNotification } from "@/lib/notification-queue";
 
 const handlers = createNextRoute(userContract.workspaces, {
   // ── POST /api/workspaces/:id/agents ───────────────────────────────────────────
@@ -21,6 +22,16 @@ const handlers = createNextRoute(userContract.workspaces, {
     if (!agent) throw new APIException("NOT_FOUND", "Agent not found");
 
     await AgentDAO.addToWorkspace(body.agentDid, params.id, body.isPrimary ?? false);
+
+    void enqueueNotification({
+      eventType: "workspace.agent_added",
+      data: {
+        workspaceId: params.id,
+        workspaceName: workspace.name,
+        agentName: agent.name,
+        actorDid: auth.did,
+      },
+    });
 
     // Auto-push LiteLLM config if the workspace has a virtual key and active models
     let llmPushed = false;
@@ -59,12 +70,25 @@ const handlers = createNextRoute(userContract.workspaces, {
     if (!(await auth.canAdminWorkspace(params.id)))
       throw new APIException("FORBIDDEN");
 
+    const agent = await AgentDAO.findByDid(body.agentDid);
+    const workspace = await WorkspaceDAO.findById(params.id);
+
     const ok = await AgentDAO.removeFromWorkspace(body.agentDid, params.id);
     if (!ok)
       throw new APIException(
         "MALFORMED",
         "Cannot remove agent from the default workspace"
       );
+
+    void enqueueNotification({
+      eventType: "workspace.agent_removed",
+      data: {
+        workspaceId: params.id,
+        workspaceName: workspace?.name,
+        agentName: agent?.name,
+        actorDid: auth.did,
+      },
+    });
 
     return { status: 200, body: { ok: true } };
   },

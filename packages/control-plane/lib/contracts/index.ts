@@ -31,6 +31,7 @@ import { networkContract } from "./user/network/network.contract";
 import { orgSkillsContract } from "./user/org-skills/org-skills.contract";
 import { toolApprovalsContract } from "./user/tool-approvals/tool-approvals.contract";
 import { otelSettingsContract } from "./user/settings/settings.contract";
+import { notificationsContract } from "./user/notifications/notifications.contract";
 import { skillsContract } from "./user/skills/skills.contract";
 import { usersUserContract } from "./user/users/users.contract";
 import { userStatusContract } from "./public/user-status/user-status.contract";
@@ -151,6 +152,10 @@ export * from "./user/tool-approvals/tool-approvals.types";
 export type * from "./user/settings/settings.contract";
 export * from "./user/settings/settings.contract";
 export * from "./user/settings/settings.types";
+export type * from "./user/notifications/notifications.contract";
+export * from "./user/notifications/notifications.contract";
+export * from "./user/notifications/notifications.schemas";
+export * from "./user/notifications/notifications.types";
 export type * from "./user/skills/skills.contract";
 export * from "./user/skills/skills.contract";
 export * from "./user/skills/skills.schemas";
@@ -237,6 +242,7 @@ export const userContract = c.router({
   network: networkContract,
   orgSkills: orgSkillsContract,
   settings: otelSettingsContract,
+  notifications: notificationsContract,
   skills: skillsContract,
   workflows: workflowsContract,
   workflowRuns: workflowRunsContract,

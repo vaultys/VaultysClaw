@@ -1,11 +1,12 @@
 import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
-import { WorkflowDAO } from "@/db";
+import { WorkflowDAO, WorkspaceDAO } from "@/db";
 import { Prisma } from "@prisma/client";
 import {
   userContract,
 } from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
+import { enqueueNotification } from "@/lib/notification-queue";
 
 /**
  * Routes for /api/workflows — the collection-level slice of `userContract.workflows`.
@@ -67,6 +68,19 @@ const handlers = createNextRoute(userContract.workflows, {
 
     if (!workflow) {
       throw new APIException("INTERNAL_ERROR", "Failed to create workflow");
+    }
+
+    if (workflow.workspaceId) {
+      const workspace = await WorkspaceDAO.findById(workflow.workspaceId);
+      void enqueueNotification({
+        eventType: "workspace.workflow_added",
+        data: {
+          workspaceId: workflow.workspaceId,
+          workspaceName: workspace?.name,
+          workflowName: workflow.name,
+          actorDid: auth.did,
+        },
+      });
     }
 
     return {

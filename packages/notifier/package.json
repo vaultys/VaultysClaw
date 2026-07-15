@@ -1,0 +1,29 @@
+{
+  "name": "@vaultysclaw/notifier",
+  "version": "0.0.1",
+  "description": "Notifier service — consumes notification events from BullMQ and delivers them via email, in-app and push (SSE)",
+  "type": "module",
+  "scripts": {
+    "dev": "node --import tsx --watch src/index.ts",
+    "start": "node --import tsx src/index.ts",
+    "build": "tsc --noEmit",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "^7.8.0",
+    "@prisma/client": "^7.8.0",
+    "@vaultysclaw/shared": "workspace:*",
+    "bullmq": "^5.80.0",
+    "ioredis": "^5.10.1",
+    "nodemailer": "^8.0.7",
+    "pg": "^8.21.0",
+    "pino": "^10.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.19",
+    "@types/nodemailer": "^7.0.4",
+    "prisma": "^7.8.0",
+    "tsx": "^4.22.4",
+    "typescript": "^5.9.3"
+  }
+}

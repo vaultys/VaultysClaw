@@ -7,7 +7,11 @@ import { useSession } from "next-auth/react";
 import {
   LayoutDashboard,
   Users,
-  UserCircle,
+  User,
+  Settings,
+  Bell,
+  Shield,
+  Sun,
   ChevronLeft,
   ChevronRight,
   Bot,
@@ -46,6 +50,7 @@ interface NavItem {
   icon: React.ElementType;
   label: string;
   exact: boolean;
+  adminOnly?: boolean;
 }
 
 interface NavSection {
@@ -106,10 +111,21 @@ const SECTIONS: NavSection[] = [
       { href: "/admin/settings/integrations", icon: Plug, label: "Integrations", exact: false },
     ],
   },
+  {
+    id: "settings",
+    icon: Settings,
+    label: "Settings",
+    adminOnly: false,
+    items: [
+      { href: "/app/settings/profile", icon: User, label: "Profile", exact: false },
+      { href: "/app/settings/security", icon: Shield, label: "Security", exact: false },
+      { href: "/app/settings/notifications", icon: Bell, label: "Notifications", exact: false },
+      { href: "/app/settings/appearance", icon: Sun, label: "Appearance", exact: false },
+    ],
+  },
 ];
 
 const LEAVES: NavLeaf[] = [
-  { id: "account", icon: UserCircle, label: "Account", href: "/admin/settings" },
   { id: "about", icon: Info, label: "About", href: "/app/about" },
 ];
 
@@ -336,7 +352,9 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
             </span>
           </div>
           <nav className="flex-1 py-3 px-2 overflow-y-auto space-y-0.5">
-            {activeSection.items.map((item) => (
+            {activeSection.items
+              .filter((item) => !item.adminOnly || isGlobalAdmin)
+              .map((item) => (
               <PanelLink
                 key={item.href}
                 href={item.href}

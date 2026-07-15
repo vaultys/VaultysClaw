@@ -6,6 +6,26 @@
 import { Challenger, CryptoChannel, VaultysId, crypto } from "@vaultys/id";
 import { CertificateDAO, SettingsDAO, UserDAO, WorkspaceDAO } from "@/db";
 import type { Certificate } from "@prisma/client";
+import { enqueueNotification } from "@/lib/notification-queue";
+
+/** Fire the admin-level "a user completed onboarding" notification. */
+const notifyUserJoined = (user: {
+  id: string;
+  name?: string | null;
+  email?: string | null;
+}) => {
+  void enqueueNotification({
+    eventType: "user.joined",
+    data: {
+      userId: user.id,
+      name: user.name ?? null,
+      email: user.email ?? null,
+      // Exclude the joining user from the admin broadcast (e.g. the first Owner
+      // who self-registers shouldn't be notified about their own arrival).
+      actorDid: user.id,
+    },
+  });
+};
 
 const Buffer = crypto.Buffer;
 
@@ -54,6 +74,7 @@ const registerUser = async (contact: VaultysId, pendingUserId?: string): Promise
     if (!existing.claimedAt && (existing.entraId || !existing.did)) {
       await UserDAO.claim(existing.id, did, publicKey);
       await WorkspaceDAO.createPersonalWorkspace(existing.id);
+      notifyUserJoined(existing);
     }
     console.log(`[registerUser] already registered — returning true`);
     return true;
@@ -68,6 +89,7 @@ const registerUser = async (contact: VaultysId, pendingUserId?: string): Promise
       );
       await UserDAO.claim(pendingUserId, did, publicKey);
       await WorkspaceDAO.createPersonalWorkspace(pendingUserId);
+      notifyUserJoined(pending);
       return true;
     }
   }
@@ -76,6 +98,7 @@ const registerUser = async (contact: VaultysId, pendingUserId?: string): Promise
   console.log(`[registerUser] creating new user isFirstUser=${isFirstUser}`);
   const user = await UserDAO.create(did, publicKey, isFirstUser ? "Owner" : "Member");
   await WorkspaceDAO.createPersonalWorkspace(user.id);
+  notifyUserJoined(user);
   console.log(`[registerUser] created successfully`);
   return true;
 };

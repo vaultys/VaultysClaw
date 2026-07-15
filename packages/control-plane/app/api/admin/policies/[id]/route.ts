@@ -1,7 +1,9 @@
 import { APIException } from "@/lib/api/utils/api-utils";
+import { getAuthContext } from "@/lib/auth-utils";
 import { getWSServer } from "@/lib/ws-server";
 import { PolicyDAO } from "@/db";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
+import { enqueueNotification } from "@/lib/notification-queue";
 import {
   adminContract,
   type PolicyEntry,
@@ -34,7 +36,8 @@ const handlers = createNextRoute(adminContract.policies, {
   // ── DELETE /api/admin/policies/:id ──────────────────────────────────────────────
   // Revoke a policy. If it was bound to a connected agent, reissue its cert
   // with an empty capability set so the removed limits take effect immediately.
-  remove: async ({ params }) => {
+  remove: async ({ params, request }) => {
+    const auth = await getAuthContext(request);
 
     const policy = await PolicyDAO.findById(params.id);
     if (!policy) throw new APIException("NOT_FOUND", "Policy not found");
@@ -54,6 +57,17 @@ const handlers = createNextRoute(adminContract.policies, {
         if (applied) sentTo.push(policy.agentDid);
       }
     }
+
+    void enqueueNotification({
+      eventType: "policy.updated",
+      data: {
+        action: "revoked",
+        policyId: params.id,
+        agentDid: policy.agentDid ?? undefined,
+        workspaceId: policy.workspaceId ?? undefined,
+        actorDid: auth.did,
+      },
+    });
 
     return { status: 200, body: { ok: true, sentTo } };
   },

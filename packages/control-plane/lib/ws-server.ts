@@ -61,6 +61,7 @@ import {
 } from "@opentelemetry/api";
 import { agentsConnected, llmTokens, intentsTotal } from "./metrics";
 import { ChannelService } from "./channel-service";
+import { enqueueNotification } from "./notification-queue";
 import { crypto } from "@vaultys/id";
 import { signIntent } from "./intent-signing";
 import {
@@ -733,6 +734,15 @@ export class AgentWSServer {
           );
           this.broadcastAdminUpdate("registration_requested");
 
+          void enqueueNotification({
+            eventType: "agent.pending",
+            data: {
+              agentDid,
+              agentName: pending.agentName ?? "unknown",
+              registrationId,
+            },
+          });
+
           // Notify agent it's pending
           this.sendMessage(pending.sender, {
             messageId: `reg-pending-${Date.now()}`,
@@ -1248,6 +1258,26 @@ export class AgentWSServer {
       createdAt: Date.now(),
     });
 
+    // Notify members of the agent's workspace that an approval is pending.
+    void (async () => {
+      try {
+        const workspaces = await AgentDAO.getWorkspaces(agentId);
+        const workspaceId = workspaces[0]?.workspaceId;
+        if (!workspaceId) return;
+        await enqueueNotification({
+          eventType: "tool.approval_required",
+          data: {
+            workspaceId,
+            agentName: this.agents.get(agentId)?.name ?? agentId,
+            toolName: payload.toolName,
+            requestId: payload.requestId,
+          },
+        });
+      } catch {
+        /* best-effort */
+      }
+    })();
+
     // Auto-cleanup after 3 minutes
     setTimeout(
       () => this.pendingToolApprovals.delete(payload.requestId),
@@ -1495,7 +1525,8 @@ export class AgentWSServer {
    */
   async approveRegistration(
     registrationId: string,
-    capabilities: AgentCapability[]
+    capabilities: AgentCapability[],
+    actorDid?: string
   ): Promise<boolean> {
     // Find the pending connection with this registration ID
     let target: PendingConnection | undefined;
@@ -1536,6 +1567,11 @@ export class AgentWSServer {
       name: target.agentName ?? "unknown",
       capabilities,
       certificateData: target.certificateData,
+    });
+
+    void enqueueNotification({
+      eventType: "agent.created",
+      data: { agentDid, agentName: target.agentName ?? "unknown", actorDid },
     });
 
     // Promote to authenticated agent

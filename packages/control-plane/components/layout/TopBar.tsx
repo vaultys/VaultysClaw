@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { useTheme, type Theme } from "@/components/ThemeProvider";
 import { useBreadcrumbsState } from "./BreadcrumbContext";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
 import {
   userApi,
   unwrap,
@@ -107,8 +108,10 @@ export default function TopBar() {
         })}
       </nav>
 
-      {/* Right: user menu */}
-      <div ref={menuRef} className="relative">
+      {/* Right: notifications + user menu */}
+      <div className="flex items-center gap-1">
+        <NotificationBell />
+        <div ref={menuRef} className="relative">
         <button
           onClick={() => setOpen((o) => !o)}
           className={cn(
@@ -191,13 +194,13 @@ export default function TopBar() {
             {/* Settings link */}
             <button
               onClick={() => {
-                router.push("/admin/settings");
+                router.push("/app/settings/profile");
                 setOpen(false);
               }}
               className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-foreground-700 hover:text-foreground hover:bg-background-200/60 transition-colors"
             >
               <User className="w-4 h-4 text-foreground-700" />
-              Account & Settings
+              Settings
             </button>
 
             {/* Sign out */}
@@ -210,6 +213,7 @@ export default function TopBar() {
             </button>
           </div>
         )}
+        </div>
       </div>
     </header>
   );

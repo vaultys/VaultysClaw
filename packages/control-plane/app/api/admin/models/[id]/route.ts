@@ -1,9 +1,11 @@
 import { APIException } from "@/lib/api/utils/api-utils";
+import { getAuthContext } from "@/lib/auth-utils";
 import { ModelDAO } from "@/db";
 import {
   adminContract,
 } from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
+import { enqueueNotification } from "@/lib/notification-queue";
 import {
   registerModel,
   removeModel,
@@ -61,7 +63,8 @@ const handlers = createNextRoute(adminContract.models, {
   },
 
   // ── DELETE /api/admin/models/:id — remove an entry (admin only) ─────────────────
-  remove: async ({ params }) => {
+  remove: async ({ params, request }) => {
+    const auth = await getAuthContext(request);
     const entry = await ModelDAO.findById(params.id);
     if (!entry) throw new APIException("NOT_FOUND", "Model not found");
 
@@ -74,6 +77,12 @@ const handlers = createNextRoute(adminContract.models, {
     }
 
     const deleted = await ModelDAO.delete(params.id);
+
+    void enqueueNotification({
+      eventType: "model.removed",
+      data: { modelId: entry.id, modelName: entry.name, actorDid: auth.did },
+    });
+
     return { status: 200, body: { model: deleted } };
   },
 });

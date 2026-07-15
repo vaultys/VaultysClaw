@@ -2,10 +2,9 @@ import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { registerModel, isLiteLLMConfigured } from "@/lib/litellm-client";
 import { ModelDAO } from "@/db";
-import {
-  adminContract,
-} from "@/lib/contracts";
+import { adminContract } from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
+import { enqueueNotification } from "@/lib/notification-queue";
 import { isSdkAgentProvider, type LlmProviderType } from "@vaultysclaw/shared";
 
 const handlers = createNextRoute(adminContract.models, {
@@ -29,7 +28,9 @@ const handlers = createNextRoute(adminContract.models, {
     // SDK-agent providers (claude-agent-sdk, cursor-agent-sdk, openai-agent-sdk)
     // run a local vendor harness, not an OpenAI-compatible network endpoint —
     // no baseUrl to speak of, and they can never be proxied through LiteLLM.
-    const isSdkAgent = isSdkAgentProvider(body.provider.trim() as LlmProviderType);
+    const isSdkAgent = isSdkAgentProvider(
+      body.provider.trim() as LlmProviderType
+    );
     if (!isSdkAgent && !body.baseUrl?.trim())
       throw new APIException("MALFORMED", "baseUrl is required");
 
@@ -64,6 +65,11 @@ const handlers = createNextRoute(adminContract.models, {
         console.warn("LiteLLM registration failed (non-fatal):", litellmErr);
       }
     }
+
+    void enqueueNotification({
+      eventType: "model.added",
+      data: { modelId: entry.id, modelName: entry.name, actorDid: auth.did },
+    });
 
     // Never expose the stored (encrypted) API key.
     const { apiKeyEnc: _apiKeyEnc, ...safe } = entry;

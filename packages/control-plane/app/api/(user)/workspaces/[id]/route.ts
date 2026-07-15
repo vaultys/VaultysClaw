@@ -3,6 +3,7 @@ import { APIException } from "@/lib/api/utils/api-utils";
 import { WorkspaceDAO } from "@/db";
 import { userContract } from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
+import { enqueueNotification } from "@/lib/notification-queue";
 
 /**
  * Routes for /api/workspaces/:id — the workspace-detail slice of `userContract.workspaces`.
@@ -61,9 +62,20 @@ const handlers = createNextRoute(userContract.workspaces, {
     if (!(await auth.canOwnWorkspace(params.id)))
       throw new APIException("FORBIDDEN");
 
+    const workspace = await WorkspaceDAO.findById(params.id);
+
     const ok = await WorkspaceDAO.delete(params.id);
     if (!ok)
       throw new APIException("CONFLICT", "Cannot delete the default workspace");
+
+    void enqueueNotification({
+      eventType: "workspace.deleted",
+      data: {
+        workspaceId: params.id,
+        workspaceName: workspace?.name,
+        actorDid: auth.did,
+      },
+    });
 
     return { status: 200, body: { ok: true } };
   },

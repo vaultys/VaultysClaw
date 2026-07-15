@@ -1,6 +1,7 @@
 import { getWSServer } from "@/lib/ws-server";
 import type { AgentCapability } from "@vaultysclaw/shared";
 import { APIException } from "@/lib/api/utils/api-utils";
+import { getAuthContext } from "@/lib/auth-utils";
 import { AgentDAO, PendingRegistrationDAO, WorkspaceDAO } from "@/db";
 import {
   adminContract,
@@ -9,7 +10,8 @@ import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
 const handlers = createNextRoute(adminContract.registrations, {
   // ── POST /api/admin/registrations/:id/approve ───────────────────────────────────
-  approve: async ({ params, body }) => {
+  approve: async ({ params, body, request }) => {
+    const auth = await getAuthContext(request);
 
     const capabilities = (body.capabilities ?? []) as AgentCapability[];
     const workspaceIds = body.workspaceIds ?? [];
@@ -37,7 +39,11 @@ const handlers = createNextRoute(adminContract.registrations, {
       throw new APIException("UNAVAILABLE", "WebSocket server not available");
     }
 
-    const success = await wsServer.approveRegistration(params.id, capabilities);
+    const success = await wsServer.approveRegistration(
+      params.id,
+      capabilities,
+      auth.did
+    );
     if (!success) {
       throw new APIException("UNAVAILABLE", "Failed to approve registration");
     }

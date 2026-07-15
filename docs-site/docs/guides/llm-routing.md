@@ -89,7 +89,7 @@ curl -X POST https://vaultysclaw.acme.com/api/admin/models \
   }'
 ```
 
-See [Models API](/docs/api/admin/models) for the full reference.
+See [Models API](/docs/api/models) for the full reference.
 
 ## Granting a model to a workspace
 

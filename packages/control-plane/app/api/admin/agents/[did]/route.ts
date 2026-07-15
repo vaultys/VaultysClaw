@@ -1,12 +1,14 @@
 import { Challenger, crypto } from "@vaultys/id";
 import { getWSServer } from "@/lib/ws-server";
 import { AgentDAO } from "@/db";
+import { enqueueNotification } from "@/lib/notification-queue";
 import {
   VaultysIDInfo,
   vaultysIdInfo,
   type AgentCapability,
 } from "@vaultysclaw/shared";
 import { APIException } from "@/lib/api/utils/api-utils";
+import { getAuthContext } from "@/lib/auth-utils";
 import {
   adminContract,
 } from "@/lib/contracts";
@@ -131,8 +133,9 @@ const handlers = createNextRoute(adminContract.agents, {
   },
 
   // ── DELETE /api/agents/:did ─────────────────────────────────────────────
-  deleteAgent: async ({ params }) => {
+  deleteAgent: async ({ params, request }) => {
     const { did } = params;
+    const auth = await getAuthContext(request);
 
     const agent = await AgentDAO.findByDid(did);
     if (!agent) {
@@ -144,6 +147,11 @@ const handlers = createNextRoute(adminContract.agents, {
 
     await AgentDAO.delete(did);
     console.log("Successfully deleted agent:", did);
+
+    void enqueueNotification({
+      eventType: "agent.deleted",
+      data: { agentDid: did, agentName: agent.name, actorDid: auth.did },
+    });
 
     return { status: 204, body: undefined };
   },

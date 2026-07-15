@@ -13,6 +13,7 @@ import { getWSServer } from "@/lib/ws-server";
 import type { AgentCapability } from "@vaultysclaw/shared";
 import { DelegationCertDAO, GrantDAO, UserDAO } from "@/db";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
+import { enqueueNotification } from "@/lib/notification-queue";
 import {
   adminContract,
   type UserGrant,
@@ -91,6 +92,16 @@ const handlers = createNextRoute(adminContract.users, {
       if (agentDid) wsServer.pushDelegationUpdate(agentDid);
       else wsServer.pushDelegationUpdateAll();
     }
+
+    void enqueueNotification({
+      eventType: "grant.received",
+      data: {
+        targetUserId: params.did,
+        capabilities: capabilities.join(", "),
+        agentDid,
+        actorDid: session.user.did,
+      },
+    });
 
     return { status: 201, body: { grant: toGrant(grant) } };
   },

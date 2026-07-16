@@ -34,6 +34,26 @@ Point your MCP client at the `vaultysclaw-mcp` command with `VC_CONTROL_PLANE_UR
 and `VC_API_KEY` set in the environment. Peer agents reachable through the control
 plane then appear as callable tools.
 
+## Tools
+
+| Tool | Purpose |
+| --- | --- |
+| `vc_list_agents` | List peer agents this gateway has grants for |
+| `vc_run_intent` | Send an action + params to a peer agent (policy-governed) |
+| `vc_chat` | Send a natural-language message to a peer agent |
+| `vc_agent_status` | Report this gateway's own connection status, DID, peer count |
+| `vc_gateway_metrics` | Per-tool call counts, error counts, p50/p95 latency since process start |
+
+`agent_did` on `vc_run_intent`/`vc_chat` is validated locally against the peer
+catalog before dispatch — unknown DIDs return the list of known agents
+instead of falling through to a network call.
+
+## Resources
+
+The peer catalog is also exposed as MCP resources under `vc://agents/{did}`,
+one per peer grant, for clients that prefer structured reads over the
+`vc_list_agents` text tool.
+
 ## Related
 
 - [`@vaultysclaw/agent-runtime`](../agent-runtime) — connection/auth layer this is built on

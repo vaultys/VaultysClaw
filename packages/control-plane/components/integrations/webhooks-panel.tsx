@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import {
   Webhook as WebhookIcon,
   Loader2,
@@ -11,6 +12,7 @@ import {
   Check,
   RefreshCw,
   KeyRound,
+  BookOpen,
 } from "lucide-react";
 import {
   Field,
@@ -242,13 +244,22 @@ export function WebhooksPanel() {
           <p className="text-xs text-foreground-500">
             {webhooks.length} webhook{webhooks.length === 1 ? "" : "s"} configured
           </p>
-          <button
-            onClick={openCreate}
-            className="px-3 py-1.5 text-xs font-medium rounded-lg bg-primary-600 hover:bg-primary-500 text-white transition flex items-center gap-1.5"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            New webhook
-          </button>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/admin/webhooks/docs"
+              className="px-3 py-1.5 text-xs font-medium rounded-lg bg-background-200 border border-neutral-300 hover:border-foreground-500 text-foreground transition flex items-center gap-1.5"
+            >
+              <BookOpen className="w-3.5 h-3.5" />
+              Docs
+            </Link>
+            <button
+              onClick={openCreate}
+              className="px-3 py-1.5 text-xs font-medium rounded-lg bg-primary-600 hover:bg-primary-500 text-white transition flex items-center gap-1.5"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              New webhook
+            </button>
+          </div>
         </div>
 
         {loading ? (

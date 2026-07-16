@@ -40,6 +40,11 @@ export interface WebhookJob {
 /**
  * The catalog. Extend this list to add new webhook events — the settings UI and
  * the dispatcher both derive from it.
+ *
+ * ⚠️ When you add/remove/change an event here you MUST also update its example
+ * in `control-plane/lib/webhook-docs.ts` (`EXAMPLE_PAYLOADS`) so the
+ * `/admin/webhooks/docs` reference stays correct — a missing entry documents an
+ * empty `{}` payload. Full checklist: root CLAUDE.md → Webhooks.
  */
 export const WEBHOOK_EVENTS: WebhookEventDef[] = [
   // ── Authentication ────────────────────────────────────────────────────────

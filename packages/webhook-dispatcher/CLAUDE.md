@@ -59,6 +59,11 @@ there, then emit it from the control plane via `enqueueWebhook` at the domain
 site (build the payload with a helper in `control-plane/lib/webhook-payloads.ts`).
 No change is needed here — the dispatcher is event-agnostic.
 
+**You must also update the docs** in the same change: add the event's example to
+`EXAMPLE_PAYLOADS` in `control-plane/lib/webhook-docs.ts`, otherwise the
+`/admin/webhooks/docs` reference shows an empty `{}` payload for it. See the full
+checklist in the root `CLAUDE.md` → Webhooks → "Adding or changing a webhook event".
+
 ## Prisma in Docker
 
 Same trick as the notifier: the image copies the control-plane schema into

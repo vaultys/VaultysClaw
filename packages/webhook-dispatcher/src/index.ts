@@ -1,13 +1,17 @@
-import crypto from "node:crypto";
-import { Worker, type RedisOptions } from "bullmq";
+import { Queue, Worker, type RedisOptions } from "bullmq";
 import pino from "pino";
 import {
+  WEBHOOK_DLQ_NAME,
   WEBHOOK_QUEUE_NAME,
-  getWebhookEvent,
   type WebhookJob,
 } from "@vaultysclaw/shared";
 import { prisma } from "./prisma";
-import { sign } from "./sign";
+import {
+  buildDeadLetter,
+  processWebhookJob,
+  shouldDeadLetter,
+  type WebhookSubscription,
+} from "./delivery";
 
 const log = pino({ name: "webhook-dispatcher" });
 
@@ -15,6 +19,13 @@ const REDIS_URL = process.env.REDIS_URL || "redis://localhost:6379";
 
 /** Per-endpoint delivery timeout. */
 const DELIVERY_TIMEOUT_MS = Number(process.env.WEBHOOK_TIMEOUT_MS || 10_000);
+
+/**
+ * Job data as stored on the queue. `_delivered` is bookkeeping the worker adds
+ * across retries: the endpoint ids that already succeeded, so the whole-job
+ * retry only re-hits the endpoints that actually failed.
+ */
+type QueuedWebhookJob = WebhookJob & { _delivered?: string[] };
 
 /** Parse REDIS_URL into BullMQ connection options (BullMQ owns its ioredis). */
 function connectionFromUrl(url: string): RedisOptions {
@@ -28,105 +39,118 @@ function connectionFromUrl(url: string): RedisOptions {
   };
 }
 
-// ── Delivery ────────────────────────────────────────────────────────────────
+const connection = connectionFromUrl(REDIS_URL);
 
-/**
- * Deliver a single event to a single endpoint. Throws on non-2xx / network
- * error so BullMQ's retry policy (configured on the producer job) can re-run the
- * whole job. Best-effort: no delivery is persisted.
- */
-async function deliverTo(
-  endpoint: { id: string; url: string; secret: string },
-  job: WebhookJob
-): Promise<void> {
-  const rawBody = JSON.stringify({
-    event: job.eventType,
-    occurredAt: job.occurredAt,
-    data: job.payload,
-  });
-  const timestamp = String(Date.now());
-  const deliveryId = crypto.randomUUID();
+/** Dead-letter queue: jobs that exhaust their retries land here for inspection. */
+const deadQueue = new Queue(WEBHOOK_DLQ_NAME, { connection });
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), DELIVERY_TIMEOUT_MS);
-  try {
-    const res = await fetch(endpoint.url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "User-Agent": "VaultysClaw-Webhooks/1.0",
-        "X-VaultysClaw-Event": job.eventType,
-        "X-VaultysClaw-Delivery": deliveryId,
-        "X-VaultysClaw-Timestamp": timestamp,
-        "X-VaultysClaw-Signature": sign(endpoint.secret, timestamp, rawBody),
-      },
-      body: rawBody,
-      signal: controller.signal,
-    });
-    if (!res.ok) {
-      throw new Error(`endpoint responded ${res.status}`);
-    }
-    log.info(
-      { webhookId: endpoint.id, event: job.eventType, status: res.status },
-      "delivered"
-    );
-  } finally {
-    clearTimeout(timer);
-  }
+/** Load active subscriptions from the `webhooks` table. */
+async function loadActiveWebhooks(): Promise<WebhookSubscription[]> {
+  const active = await prisma.webhook.findMany({ where: { isActive: true } });
+  return active.map((w) => ({
+    id: w.id,
+    url: w.url,
+    secret: w.secret,
+    events: w.events,
+  }));
 }
 
 // ── Worker ────────────────────────────────────────────────────────────────────
 
-const worker = new Worker<WebhookJob>(
+const worker = new Worker<QueuedWebhookJob>(
   WEBHOOK_QUEUE_NAME,
   async (job) => {
-    const payload = job.data;
-    if (!getWebhookEvent(payload.eventType)) {
-      log.warn({ eventType: payload.eventType }, "unknown event type — skipped");
+    const alreadyDelivered = job.data._delivered ?? [];
+    const result = await processWebhookJob(
+      { fetch, timeoutMs: DELIVERY_TIMEOUT_MS, loadActiveWebhooks },
+      job.data,
+      alreadyDelivered
+    );
+
+    if (result.skipped) {
+      log.warn(
+        { eventType: job.data.eventType },
+        "unknown event type — skipped"
+      );
       return;
     }
 
-    const active = await prisma.webhook.findMany({ where: { isActive: true } });
-    const targets = active.filter((w) =>
-      ((w.events as string[]) ?? []).includes(payload.eventType)
-    );
-
     log.info(
-      { eventType: payload.eventType, targets: targets.length },
+      { eventType: job.data.eventType, targets: result.targets },
       "processing webhook event"
     );
 
-    // Deliver to all matching endpoints. If any fails, throw so BullMQ retries
-    // the whole job (idempotent enough for at-least-once delivery semantics).
-    const results = await Promise.allSettled(
-      targets.map((w) =>
-        deliverTo({ id: w.id, url: w.url, secret: w.secret }, payload)
-      )
-    );
-    const failed = results.filter((r) => r.status === "rejected");
-    if (failed.length > 0) {
-      for (const f of failed)
-        if (f.status === "rejected")
-          log.warn(
-            { event: payload.eventType, err: String(f.reason) },
-            "delivery failed"
-          );
+    // Persist the endpoints delivered this run so a retry (triggered below) does
+    // not re-deliver to endpoints that already succeeded.
+    if (result.delivered.length > 0) {
+      await job.updateData({
+        ...job.data,
+        _delivered: [...alreadyDelivered, ...result.delivered],
+      });
+    }
+
+    for (const o of result.outcomes) {
+      if (o.ok) {
+        log.info(
+          { webhookId: o.endpointId, event: job.data.eventType, status: o.status },
+          "delivered"
+        );
+      } else {
+        log.warn(
+          { webhookId: o.endpointId, event: job.data.eventType, err: o.error },
+          "delivery failed"
+        );
+      }
+    }
+
+    // Throw so BullMQ retries the whole job; the retry skips endpoints already
+    // marked in `_delivered`.
+    if (result.failures.length > 0) {
       throw new Error(
-        `${failed.length}/${targets.length} webhook deliveries failed`
+        `${result.failures.length}/${result.targets} webhook deliveries failed`
       );
     }
   },
-  { connection: connectionFromUrl(REDIS_URL) }
+  { connection }
 );
 
-worker.on("failed", (job, err) =>
-  log.error({ jobId: job?.id, err: err.message }, "job failed")
-);
+// ── Dead-letter on final failure ────────────────────────────────────────────
+
+worker.on("failed", async (job, err) => {
+  log.error({ jobId: job?.id, err: err.message }, "job failed");
+  if (!job) return;
+
+  const maxAttempts = job.opts.attempts ?? 1;
+  if (!shouldDeadLetter(job.attemptsMade, maxAttempts)) return;
+
+  const dead = buildDeadLetter(job.data, {
+    attemptsMade: job.attemptsMade,
+    error: err.message,
+    deliveredEndpointIds: job.data._delivered ?? [],
+  });
+  try {
+    await deadQueue.add(dead.job.eventType, dead, {
+      removeOnComplete: false,
+      removeOnFail: false,
+    });
+    log.warn(
+      { jobId: job.id, event: dead.job.eventType, attempts: dead.attemptsMade },
+      "moved to dead-letter queue"
+    );
+  } catch (e) {
+    log.error(
+      { jobId: job.id, err: e instanceof Error ? e.message : String(e) },
+      "failed to enqueue dead letter"
+    );
+  }
+});
+
 worker.on("ready", () => log.info("webhook dispatcher worker ready"));
 
 const shutdown = async () => {
   log.info("shutting down webhook dispatcher");
   await worker.close();
+  await deadQueue.close();
   await prisma.$disconnect();
   process.exit(0);
 };

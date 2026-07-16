@@ -13,6 +13,13 @@
 /** Name of the BullMQ queue used for webhook jobs. */
 export const WEBHOOK_QUEUE_NAME = "webhooks";
 
+/**
+ * Name of the BullMQ dead-letter queue. A webhook job that exhausts its retry
+ * attempts is moved here (as a {@link DeadWebhookJob}) instead of being dropped,
+ * so failed deliveries can be inspected and replayed.
+ */
+export const WEBHOOK_DLQ_NAME = "webhooks:dead";
+
 export interface WebhookEventDef {
   /** Stable catalog key, e.g. "workspace.created". */
   type: string;
@@ -35,6 +42,27 @@ export interface WebhookJob {
   payload: Record<string, unknown>;
   /** ISO 8601 timestamp of when the domain event occurred. */
   occurredAt: string;
+}
+
+/**
+ * A webhook job that could not be delivered after exhausting all retry attempts.
+ * Enqueued on the {@link WEBHOOK_DLQ_NAME} dead-letter queue for later inspection
+ * or manual replay (re-enqueue the wrapped `job` on {@link WEBHOOK_QUEUE_NAME}).
+ */
+export interface DeadWebhookJob {
+  /** The original job that failed. */
+  job: WebhookJob;
+  /** ISO 8601 timestamp of when it was dead-lettered. */
+  failedAt: string;
+  /** How many delivery attempts were made before giving up. */
+  attemptsMade: number;
+  /** Message of the last error that caused the final failure. */
+  error: string;
+  /**
+   * Endpoint ids that DID succeed on an earlier attempt (and so were not retried
+   * on the final one). A replay should skip these to avoid double-delivery.
+   */
+  deliveredEndpointIds: string[];
 }
 
 /**

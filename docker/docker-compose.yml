@@ -208,6 +208,23 @@ services:
       NODE_ENV: production
     restart: unless-stopped
 
+  webhook-dispatcher:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.webhook-dispatcher
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      control-plane:
+        condition: service_started
+    environment:
+      DATABASE_URL: postgresql://vaultys:${PG_PASSWORD:-vaultys_dev_secret}@postgres:5432/vaultysclaw
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      NODE_ENV: production
+    restart: unless-stopped
+
 volumes:
   pgdata:
   miniodata:

@@ -4,6 +4,7 @@ import {
   adminAgentsContract,
   userAgentsContract,
   apiKeysContract,
+  webhooksContract,
   bridgesContract,
   channelsContract,
   governanceContract,
@@ -67,6 +68,7 @@ export const aboutClient = initClient(aboutContract, clientOptions);
 export const adminAgentsClient = initClient(adminAgentsContract, clientOptions);
 export const userAgentsClient = initClient(userAgentsContract, clientOptions);
 export const apiKeysClient = initClient(apiKeysContract, clientOptions);
+export const webhooksClient = initClient(webhooksContract, clientOptions);
 export const bridgesClient = initClient(bridgesContract, clientOptions);
 export const channelsClient = initClient(channelsContract, clientOptions);
 export const governanceClient = initClient(governanceContract, clientOptions);
@@ -164,6 +166,7 @@ export const adminApi = {
   server: serverClient,
   settings: settingsClient,
   apiKeys: apiKeysClient,
+  webhooks: webhooksClient,
   registrations: registrationsClient,
   network: networkControlClient,
   stats: statsClient,

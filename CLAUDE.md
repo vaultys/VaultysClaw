@@ -17,6 +17,7 @@ VaultysClaw is a decentralized AI agent orchestration platform. A central **cont
 | `packages/agent-controller` | Agent runtime CLI, tools, skills, memory | [→](packages/agent-controller/CLAUDE.md) |
 | `packages/mcp-gateway` | MCP server exposing VaultysClaw agents as tools | [→](packages/mcp-gateway/CLAUDE.md) |
 | `packages/notifier` | Standalone worker: consumes notification events from BullMQ and delivers email / in-app / push (SSE) | [→](packages/notifier/CLAUDE.md) |
+| `packages/webhook-dispatcher` | Standalone worker: consumes webhook events from BullMQ, signs them (HMAC) and POSTs to configured endpoints | [→](packages/webhook-dispatcher/CLAUDE.md) |
 
 ## Commands
 
@@ -30,6 +31,7 @@ pnpm agent:web               # Agent controller with web UI (port 3002)
 pnpm agent:tui               # Agent controller with Ink TUI
 pnpm mcp:dev                 # MCP gateway (stdio, reads VC_CONTROL_PLANE_URL + VC_API_KEY)
 pnpm notifier:dev            # Notifier worker (reads DATABASE_URL + REDIS_URL; needs Redis running)
+pnpm webhook:dev             # Webhook dispatcher worker (reads DATABASE_URL + REDIS_URL; needs Redis running)
 pnpm mcp:build               # Build MCP gateway to dist/
 
 # Demo / Simulator
@@ -91,12 +93,33 @@ browser ── SSE /api/notifications/stream (subscribes Redis) ◄────�
 - **Settings UI is split by audience**: user settings live under `app/app/settings/*` (Profile, Security, Notifications, Appearance — reachable by any authenticated user); admin-only settings (API Keys, Integrations) stay under `app/admin/settings/*` (proxy-gated). Never put a user-facing page under `/admin/*`.
 - Requires **Redis** (added to `docker/docker-compose.yml`).
 
+## Webhooks
+
+Outgoing HTTP webhooks mirror the notification pipeline but deliver **signed HTTP POSTs** to admin-configured endpoints instead of notifying users. Same decoupling: a domain event is enqueued on a BullMQ queue and a standalone worker delivers it.
+
+```
+domain event → enqueueWebhook({ eventType, payload })  → BullMQ queue "webhooks" (Redis)
+ (control-plane)                                          → webhook-dispatcher service:
+                                                             load active Webhook subscriptions
+                                                             → filter by subscribed eventType
+                                                             → sign (HMAC-SHA256) + POST to each endpoint
+```
+
+- **Event catalog is the single source of truth**: `packages/shared/src/webhooks.ts` (`WEBHOOK_EVENTS`, `WebhookEventDef`, `WebhookJob`, `WEBHOOK_QUEUE_NAME`, `getWebhookEvent`). It is **independent** of the notification catalog (no level/audience/channels; some events like `user.login`/`user.logout` are webhook-only).
+- **Emit an event**: `void enqueueWebhook({ eventType, payload })` (`packages/control-plane/lib/webhook-queue.ts`) at the domain site, alongside any existing `enqueueNotification`. Fire-and-forget; no-ops when `REDIS_URL` is unset.
+- **Sanitized payloads**: build the payload with an explicit per-entity helper in `packages/control-plane/lib/webhook-payloads.ts` (`workspacePayload`, `agentPayload`, `modelPayload`, `userPayload`, `knowledgePayload`, `skillPayload`, `workflowPayload`) — only safe fields, never secrets. `enqueueWebhook` additionally runs `stripSensitive` (recursive key blacklist) as defence-in-depth.
+- **Config storage**: `Webhook` model in Prisma (`webhooks` table: name, description, url, secret, events[], isActive). CRUD via admin ts-rest contract `adminContract.webhooks` (`app/api/admin/webhooks/*`, `db/webhook.dao.ts`). The signing secret is returned in clear **only** on create / regenerate.
+- **Config UI**: the **Webhooks** tab under `app/admin/settings/integrations` (`components/integrations/webhooks-panel.tsx`), org-global.
+- **Dispatcher** is a separate worker package — see [packages/webhook-dispatcher/CLAUDE.md](packages/webhook-dispatcher/CLAUDE.md). Signature header `X-VaultysClaw-Signature: sha256=<hmac(timestamp + "." + rawBody)>`.
+- Requires **Redis**.
+
 ## Environment Variables
 
 | Variable | Package | Purpose |
 |---|---|---|
-| `DATABASE_URL` | control-plane, notifier | PostgreSQL connection string (Prisma) |
-| `REDIS_URL` | control-plane, notifier | Redis URL for the BullMQ notification queue + pub/sub |
+| `DATABASE_URL` | control-plane, notifier, webhook-dispatcher | PostgreSQL connection string (Prisma) |
+| `REDIS_URL` | control-plane, notifier, webhook-dispatcher | Redis URL for the BullMQ notification + webhook queues + pub/sub |
+| `WEBHOOK_TIMEOUT_MS` | webhook-dispatcher | Per-endpoint delivery timeout (default 10000) |
 | `NEXTAUTH_URL` / `APP_URL` | control-plane, notifier | Browser-facing base URL; the notifier uses it to build deep-link buttons in emails (`APP_URL` overrides `NEXTAUTH_URL`) |
 | `NOTIFICATION_RETENTION_DAYS` | control-plane | Days after which **read** notifications are pruned (default 30) |
 | `PORT` / `WS_PORT` | control-plane | HTTP + WebSocket ports (default 3000/8080) |

@@ -16,7 +16,8 @@ COPY packages/shared/package.json         packages/shared/
 COPY packages/control-plane/package.json  packages/control-plane/
 # Stub the other workspace packages so pnpm workspace resolution doesn't fail
 RUN mkdir -p packages/agent-controller && echo '{"name":"@vaultysclaw/agent-controller","version":"0.0.1"}' > packages/agent-controller/package.json \
- && mkdir -p packages/agent-runtime    && echo '{"name":"@vaultysclaw/agent-runtime","version":"0.0.1"}'    > packages/agent-runtime/package.json
+ && mkdir -p packages/agent-runtime    && echo '{"name":"@vaultysclaw/agent-runtime","version":"0.0.1"}'    > packages/agent-runtime/package.json \
+ && mkdir -p packages/webhook-dispatcher && echo '{"name":"@vaultysclaw/webhook-dispatcher","version":"0.0.1"}' > packages/webhook-dispatcher/package.json
 
 # Copy Prisma schema before install so postinstall (prisma generate) can find it
 COPY packages/control-plane/prisma/ packages/control-plane/prisma/

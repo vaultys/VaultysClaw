@@ -9,6 +9,8 @@ import { OrgSkillDAO } from "@/db";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 import { adminContract } from "@/lib/contracts";
 import { enqueueNotification } from "@/lib/notification-queue";
+import { enqueueWebhook } from "@/lib/webhook-queue";
+import { skillPayload } from "@/lib/webhook-payloads";
 
 const handlers = createNextRoute(adminContract.orgSkills, {
   update: async ({ params, body }) => {
@@ -25,6 +27,11 @@ const handlers = createNextRoute(adminContract.orgSkills, {
     });
 
     const skill = await OrgSkillDAO.findById(params.id);
+    if (skill)
+      void enqueueWebhook({
+        eventType: "skill.updated",
+        payload: skillPayload(skill),
+      });
     return { status: 200, body: { skill: skill! } };
   },
 
@@ -39,6 +46,10 @@ const handlers = createNextRoute(adminContract.orgSkills, {
     void enqueueNotification({
       eventType: "skill.removed",
       data: { skillId: params.id, skillName: skill.name, actorDid: auth.did },
+    });
+    void enqueueWebhook({
+      eventType: "skill.deleted",
+      payload: skillPayload(skill),
     });
 
     return { status: 200, body: { success: true } };

@@ -7,12 +7,16 @@ import { Challenger, CryptoChannel, VaultysId, crypto } from "@vaultys/id";
 import { CertificateDAO, SettingsDAO, UserDAO, WorkspaceDAO } from "@/db";
 import type { Certificate } from "@prisma/client";
 import { enqueueNotification } from "@/lib/notification-queue";
+import { enqueueWebhook } from "@/lib/webhook-queue";
+import { userPayload } from "@/lib/webhook-payloads";
 
-/** Fire the admin-level "a user completed onboarding" notification. */
+/** Fire the admin-level "a user completed onboarding" notification + webhook. */
 const notifyUserJoined = (user: {
   id: string;
+  did?: string | null;
   name?: string | null;
   email?: string | null;
+  role?: string | null;
 }) => {
   void enqueueNotification({
     eventType: "user.joined",
@@ -24,6 +28,10 @@ const notifyUserJoined = (user: {
       // who self-registers shouldn't be notified about their own arrival).
       actorDid: user.id,
     },
+  });
+  void enqueueWebhook({
+    eventType: "user.joined",
+    payload: userPayload(user as Record<string, unknown>),
   });
 };
 
@@ -98,6 +106,10 @@ const registerUser = async (contact: VaultysId, pendingUserId?: string): Promise
   console.log(`[registerUser] creating new user isFirstUser=${isFirstUser}`);
   const user = await UserDAO.create(did, publicKey, isFirstUser ? "Owner" : "Member");
   await WorkspaceDAO.createPersonalWorkspace(user.id);
+  void enqueueWebhook({
+    eventType: "user.created",
+    payload: userPayload(user as unknown as Record<string, unknown>),
+  });
   notifyUserJoined(user);
   console.log(`[registerUser] created successfully`);
   return true;

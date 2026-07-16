@@ -62,6 +62,7 @@ import {
 import { agentsConnected, llmTokens, intentsTotal } from "./metrics";
 import { ChannelService } from "./channel-service";
 import { enqueueNotification } from "./notification-queue";
+import { enqueueWebhook } from "./webhook-queue";
 import { crypto } from "@vaultys/id";
 import { signIntent } from "./intent-signing";
 import {
@@ -739,6 +740,15 @@ export class AgentWSServer {
             data: {
               agentDid,
               agentName: pending.agentName ?? "unknown",
+              registrationId,
+            },
+          });
+          void enqueueWebhook({
+            eventType: "agent.approval_requested",
+            payload: {
+              did: agentDid,
+              name: pending.agentName ?? "unknown",
+              capabilities: pending.capabilities ?? [],
               registrationId,
             },
           });
@@ -1572,6 +1582,14 @@ export class AgentWSServer {
     void enqueueNotification({
       eventType: "agent.created",
       data: { agentDid, agentName: target.agentName ?? "unknown", actorDid },
+    });
+    void enqueueWebhook({
+      eventType: "agent.created",
+      payload: {
+        did: agentDid,
+        name: target.agentName ?? "unknown",
+        capabilities,
+      },
     });
 
     // Promote to authenticated agent

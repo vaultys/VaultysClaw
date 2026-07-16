@@ -9,6 +9,7 @@ import {
   Users,
   Activity,
   Key,
+  Webhook,
 } from "lucide-react";
 import { SmtpPanel } from "@/components/integrations/smtp-panel";
 import { PeerjsPanel } from "@/components/integrations/peerjs-panel";
@@ -20,6 +21,7 @@ import { ServerInfoPanel } from "@/components/integrations/server-info-panel";
 import { EntraPanel } from "@/components/integrations/entra-panel";
 import { OidcPanel } from "@/components/integrations/oidc-panel";
 import { ApiKeysPanel } from "@/components/integrations/api-keys-panel";
+import { WebhooksPanel } from "@/components/integrations/webhooks-panel";
 import { useToolbar } from "@/components/layout/ToolbarContext";
 import { useBreadcrumbs } from "@/components/layout/BreadcrumbContext";
 
@@ -29,7 +31,8 @@ type Tab =
   | "ai"
   | "identity"
   | "observability"
-  | "api-keys";
+  | "api-keys"
+  | "webhooks";
 
 const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
   { id: "communication", label: "Communication", icon: MessageSquare },
@@ -38,6 +41,7 @@ const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
   { id: "identity", label: "Identity", icon: Users },
   { id: "observability", label: "Observability", icon: Activity },
   { id: "api-keys", label: "API Keys", icon: Key },
+  { id: "webhooks", label: "Webhooks", icon: Webhook },
 ];
 
 export default function IntegrationsPage() {
@@ -109,6 +113,7 @@ export default function IntegrationsPage() {
         </>
       )}
       {activeTab === "api-keys" && <ApiKeysPanel />}
+      {activeTab === "webhooks" && <WebhooksPanel />}
     </div>
   );
 }

@@ -18,6 +18,8 @@ import { trace, SpanStatusCode } from "@opentelemetry/api";
 import { workflowRunsTotal } from "./metrics";
 import { WorkflowDefinition } from "./workflow-types";
 import { enqueueNotification } from "./notification-queue";
+import { enqueueWebhook } from "./webhook-queue";
+import { workflowPayload } from "./webhook-payloads";
 
 const logger = pino({ name: "workflow-executor" });
 
@@ -750,6 +752,10 @@ export async function executeWorkflow(
           eventType: "workflow.failed",
           data: { workflowName, workflowId, runId, error: result.error },
         });
+        void enqueueWebhook({
+          eventType: "workflow.failed",
+          payload: workflowPayload({ workflowName, workflowId, runId, error: result.error }),
+        });
         return;
       }
 
@@ -767,6 +773,10 @@ export async function executeWorkflow(
       eventType: "workflow.succeeded",
       data: { workflowName, workflowId, runId },
     });
+    void enqueueWebhook({
+      eventType: "workflow.succeeded",
+      payload: workflowPayload({ workflowName, workflowId, runId }),
+    });
 
     logger.info({ runId }, "Workflow completed successfully");
   } catch (err) {
@@ -781,6 +791,10 @@ export async function executeWorkflow(
     void enqueueNotification({
       eventType: "workflow.failed",
       data: { workflowName, workflowId, runId, error: String(err) },
+    });
+    void enqueueWebhook({
+      eventType: "workflow.failed",
+      payload: workflowPayload({ workflowName, workflowId, runId, error: String(err) }),
     });
   }
 }

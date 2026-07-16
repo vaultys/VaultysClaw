@@ -9,10 +9,19 @@ the MCP tool namespace.
 
 The gateway runs over **stdio** and reads its configuration from the environment:
 
-| Variable               | Purpose                                |
-| ---------------------- | -------------------------------------- |
-| `VC_CONTROL_PLANE_URL` | Control plane base URL                 |
-| `VC_API_KEY`           | API key used to authenticate           |
+| Variable                     | Purpose                                                                          |
+| ----------------------------- | --------------------------------------------------------------------------------- |
+| `VC_CONTROL_PLANE_URL`        | HTTP URL of the control plane (default: `http://localhost:3000`)                  |
+| `VC_CONTROL_PLANE_WS_URL`     | WebSocket URL (default: derived from `VC_CONTROL_PLANE_URL`, port 8080)           |
+| `VC_VAULTYS_ID_PATH`          | Path to this gateway's VaultysId identity file (default: `~/.vaultysclaw/mcp-gateway.id`) |
+| `VC_AGENT_NAME`               | Display name in the dashboard (default: `mcp-gateway`)                           |
+| `VC_PEERJS_CONTROL_PLANE_ID`  | PeerJS peer ID of the control plane — when set, connects via WebRTC instead of WebSocket |
+| `VC_PEERJS_SERVER_URL`        | Custom PeerJS signaling server URL (optional)                                    |
+
+Authentication is via **VaultysId** (a cryptographic identity generated on
+first run and stored at `VC_VAULTYS_ID_PATH`), not an API key — the gateway
+registers with the control plane like any other agent and must be approved
+in the dashboard before it can reach peer agents.
 
 ```bash
 # Development (stdio)
@@ -31,8 +40,9 @@ clients can launch it directly.
 ## Configuring in an MCP client
 
 Point your MCP client at the `vaultysclaw-mcp` command with `VC_CONTROL_PLANE_URL`
-and `VC_API_KEY` set in the environment. Peer agents reachable through the control
-plane then appear as callable tools.
+set in the environment. On first run the gateway generates a VaultysId identity
+at `VC_VAULTYS_ID_PATH` and registers with the control plane — an admin must
+approve it in the dashboard before peer agents appear as callable tools.
 
 ## Tools
 

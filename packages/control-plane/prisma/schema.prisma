@@ -136,6 +136,11 @@ model PendingRegistration {
   status                String   @default("pending")
   requestedCapabilities Json     @default("[]")
   assignedCapabilities  Json     @default("[]")
+  // Set when a user initiated the agent creation via the enrollment flow
+  // (see lib/agent-enrollment.ts): the agent is auto-enrolled into this
+  // (personal) workspace on approval instead of the global default.
+  initiatedByUserId     String?
+  targetWorkspaceId     String?
   createdAt             DateTime @default(now())
 }
 

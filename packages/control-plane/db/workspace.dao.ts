@@ -289,6 +289,19 @@ export class WorkspaceDAO {
     });
   }
 
+  /**
+   * The user's personal workspace — the one they *own*. Prefers the primary
+   * owned membership. Returns null if the user owns no workspace.
+   */
+  static async findPersonalWorkspace(
+    userId: string
+  ): Promise<Workspace | null> {
+    const rows = await WorkspaceDAO.getUserWorkspaces(userId);
+    const owned = rows.filter((r) => isWorkspaceOwnerRole(r.role));
+    const chosen = owned.find((r) => r.isPrimary) ?? owned[0];
+    return chosen?.workspace ?? null;
+  }
+
   static async enrollInDefault(
     type: "agent" | "user",
     did: string

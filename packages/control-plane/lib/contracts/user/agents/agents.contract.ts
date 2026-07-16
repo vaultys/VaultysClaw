@@ -2,6 +2,7 @@ import { z } from "zod";
 import { c } from "../../contract";
 import { commonErrorResponses, PaginatedResponse } from "../../common";
 import {
+  CreateEnrollmentBodySchema,
   ListUserAgentsQuerySchema,
   SendChatMessageBodySchema,
   SendTaskBodySchema,
@@ -38,6 +39,25 @@ export const userAgentsContract = c.router({
     pathParams: z.object({ did: z.string() }),
     responses: {
       200: c.type<UserAgentDetail>(),
+      ...commonErrorResponses,
+    },
+  },
+
+  // ─── Enrollment ───────────────────────────────────────────────────────────
+  // Issues a one-time signed token so a user can launch a local agent bound to
+  // their personal workspace. The agent self-registers over WS and awaits admin
+  // approval. See lib/agent-enrollment.ts.
+
+  createEnrollment: {
+    method: "POST",
+    path: "/api/agents/enrollment",
+    body: CreateEnrollmentBodySchema,
+    responses: {
+      200: c.type<{
+        token: string;
+        workspaceName: string;
+        wsPort: number;
+      }>(),
       ...commonErrorResponses,
     },
   },

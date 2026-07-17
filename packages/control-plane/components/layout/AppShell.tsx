@@ -13,6 +13,7 @@ import WorkflowApprovalInbox from "@/components/workflow/WorkflowApprovalInbox";
 // Pages that bypass the app shell entirely (standalone layouts).
 // Auth on these routes is handled by the page itself.
 const STANDALONE_PATHS = [
+  "/",
   "/login",
   "/admin/setup",
   "/quick-start",

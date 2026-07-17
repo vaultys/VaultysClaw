@@ -580,12 +580,8 @@ export class PeerManager {
         }
       }
     }
-    // Also allow if source has a grant to us that we may not be tracking directly.
-    // When the control plane pushes the catalog it only sends grants WHERE WE ARE THE SOURCE.
-    // So for reverse authorization we fall back to just accepting if they passed the SRP —
-    // the SRP proves identity, and any further grant check would require a shared catalog.
-    // Mark this as "trusted after SRP" for now; tighten by fetching the remote's incoming grants.
-    return true; // SRP passed — identity is proven; grant enforcement is best-effort from local catalog
+    // No matching grant found — SRP proves identity, not authorization. Reject.
+    return false;
   }
 
   // ---------------------------------------------------------------------------

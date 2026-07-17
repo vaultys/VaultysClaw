@@ -8,6 +8,6 @@ export default defineConfig({
   test: {
     ...base.test,
     globalSetup: [],
-    include: ["__tests__/mcp-gateway-server.test.ts"],
+    include: ["__tests__/mcp-gateway-server.test.ts", "__tests__/peer-manager-incoming-auth.test.ts"],
   },
 });

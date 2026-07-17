@@ -1,6 +1,6 @@
 "use client";
 
-import { useSession } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import Sidebar from "./Sidebar";
@@ -25,7 +25,7 @@ const STANDALONE_PATHS = [
 const TOPBAR_ONLY_PATHS = ["/claim"];
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
-  const { status } = useSession();
+  const { data: session, status } = useSession();
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const router = useRouter();
@@ -35,6 +35,22 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     const stored = localStorage.getItem("vc-sidebar-collapsed");
     if (stored !== null) setCollapsed(stored === "true");
   }, []);
+
+  // Guard against a stale-but-valid JWT after the underlying user is gone
+  // (account deleted / database reset). The session callback blanks such an
+  // identity to did=null AND userId=null (an unclaimed OIDC user still has a
+  // userId, so it is not caught here). Sign out to clear the cookie — this also
+  // makes the proxy stop granting access on subsequent requests.
+  useEffect(() => {
+    if (
+      status === "authenticated" &&
+      session &&
+      !session.user?.did &&
+      !session.user?.userId
+    ) {
+      void signOut({ callbackUrl: "/login" });
+    }
+  }, [status, session]);
 
   const toggleSidebar = () => {
     setCollapsed((prev) => {

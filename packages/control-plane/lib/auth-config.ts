@@ -111,8 +111,20 @@ const sharedCallbacks: NextAuthOptions["callbacks"] = {
           };
           return session;
         }
+        // The query succeeded but no user owns this DID anymore — the account
+        // was deleted or the database was reset. A cryptographically valid but
+        // stale JWT must NOT keep granting access, so invalidate the identity:
+        // getAuthContext then rejects with 401 and the client signs out.
+        session.user = {
+          did: null,
+          userId: undefined,
+          name: null,
+          email: null,
+          role: "Member",
+        };
+        return session;
       } catch {
-        // Fall through to JWT claims on transient DB errors
+        // Transient DB error — fall through to JWT claims (graceful degradation)
       }
     }
     session.user = {

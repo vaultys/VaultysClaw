@@ -1,7 +1,16 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Check, Cpu, RefreshCw, CheckCircle2, XCircle, X } from "lucide-react";
+import {
+  Check,
+  Cpu,
+  RefreshCw,
+  CheckCircle2,
+  XCircle,
+  X,
+  Radar,
+  Plus,
+} from "lucide-react";
 import {
   ApiError,
   adminApi,
@@ -9,6 +18,11 @@ import {
 } from "@/lib/api/ts-rest/client";
 import type { SafeModel } from "@/lib/contracts";
 import { isSdkAgentProvider, type LlmProviderType } from "@vaultysclaw/shared";
+import {
+  discoverLocalModels,
+  type LocalDiscoveryResult,
+  type LocalServer,
+} from "./local-discovery";
 
 const PROVIDERS: {
   value: LlmProviderType;
@@ -114,6 +128,12 @@ export function RegisterModelForm({
   );
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [showModelList, setShowModelList] = useState(false);
+  // Local-server discovery (browser-side scan)
+  const [scanning, setScanning] = useState(false);
+  const [scanResults, setScanResults] = useState<LocalDiscoveryResult[] | null>(
+    null
+  );
+  const [quickAdding, setQuickAdding] = useState<string | null>(null);
 
   const loadExisting = useCallback(async () => {
     if (!showExistingModels) return;
@@ -180,6 +200,36 @@ export function RegisterModelForm({
     }
   };
 
+  /** Shared registration path used by both the manual form and quick-add. */
+  const registerModel = async (fields: {
+    name: string;
+    description?: string;
+    provider: LlmProviderType;
+    modelId: string;
+    baseUrl?: string;
+    apiKey?: string;
+  }): Promise<boolean> => {
+    const sdk = isSdkAgentProvider(fields.provider);
+    unwrap(
+      await adminApi.models.create({
+        body: {
+          name: fields.name,
+          description: fields.description || undefined,
+          provider: fields.provider,
+          modelId: fields.modelId,
+          baseUrl: sdk ? undefined : fields.baseUrl,
+          apiKey: fields.apiKey || undefined,
+          // SDK-agent providers run locally via the agent controller — never
+          // route them through the LiteLLM OpenAI-compatible proxy.
+          skipLiteLLM: sdk || undefined,
+        },
+      })
+    );
+    onAdded?.(fields.name);
+    await loadExisting();
+    return true;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
@@ -198,23 +248,15 @@ export function RegisterModelForm({
     setSaving(true);
     setFormMsg(null);
     try {
-      unwrap(
-        await adminApi.models.create({
-          body: {
-            name: name.trim(),
-            description: description.trim() || undefined,
-            provider,
-            modelId: modelId.trim(),
-            baseUrl: isSdkAgent ? undefined : baseUrl.trim(),
-            apiKey: apiKey.trim() || undefined,
-            // SDK-agent providers run locally via the agent controller — never
-            // route them through the LiteLLM OpenAI-compatible proxy.
-            skipLiteLLM: isSdkAgent || undefined,
-          },
-        })
-      );
       const registeredName = name.trim();
-      onAdded?.(registeredName);
+      await registerModel({
+        name: registeredName,
+        description: description.trim(),
+        provider,
+        modelId: modelId.trim(),
+        baseUrl: baseUrl.trim(),
+        apiKey: apiKey.trim(),
+      });
       setName("");
       setDescription("");
       setApiKey("");
@@ -222,7 +264,6 @@ export function RegisterModelForm({
       setShowModelList(false);
       setFormMsg({ ok: true, text: `"${registeredName}" registered` });
       setTimeout(() => setFormMsg(null), 2500);
-      await loadExisting();
     } catch (err) {
       setFormMsg({
         ok: false,
@@ -230,6 +271,59 @@ export function RegisterModelForm({
       });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const scanLocal = async () => {
+    setScanning(true);
+    setFormMsg(null);
+    try {
+      const results = await discoverLocalModels();
+      setScanResults(results);
+      const found = results.filter((r) => r.reachable).length;
+      if (found === 0) {
+        setFormMsg({
+          ok: false,
+          text: "No local servers detected (check they are running / CORS is enabled)",
+        });
+      }
+    } finally {
+      setScanning(false);
+    }
+  };
+
+  /** Fill the form from a discovered model so the admin can review before saving. */
+  const prefillFrom = (server: LocalServer, model: string) => {
+    setProvider(server.provider);
+    setBaseUrl(server.baseUrl);
+    setModelId(model);
+    if (!name.trim()) setName(model);
+    setAvailableModels([]);
+    setShowModelList(false);
+    setFormMsg(null);
+  };
+
+  /** Register a discovered model immediately (name defaults to its id). */
+  const quickAdd = async (server: LocalServer, model: string) => {
+    const key = `${server.id}:${model}`;
+    setQuickAdding(key);
+    setFormMsg(null);
+    try {
+      await registerModel({
+        name: model,
+        provider: server.provider,
+        modelId: model,
+        baseUrl: server.baseUrl,
+      });
+      setFormMsg({ ok: true, text: `"${model}" registered` });
+      setTimeout(() => setFormMsg(null), 2500);
+    } catch (err) {
+      setFormMsg({
+        ok: false,
+        text: err instanceof ApiError ? err.message : "Network error",
+      });
+    } finally {
+      setQuickAdding(null);
     }
   };
 
@@ -335,6 +429,111 @@ export function RegisterModelForm({
           )}
         </div>
       )}
+
+      {/* Local model discovery (browser-side scan) */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <p className="text-sm font-medium text-foreground">
+              Local models
+            </p>
+            <p className="text-xs text-foreground-500">
+              Scan this machine for running LLM servers (LM Studio, Ollama, vLLM)
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={scanLocal}
+            disabled={scanning}
+            className="flex items-center gap-1.5 px-3 py-2 text-sm border border-neutral-200 text-foreground-500 hover:text-foreground hover:bg-background-200 rounded-xl disabled:opacity-40 transition-colors shrink-0"
+          >
+            {scanning ? (
+              <div className="w-3.5 h-3.5 border border-current border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <Radar className="w-3.5 h-3.5" />
+            )}
+            {scanning ? "Scanning…" : "Scan local models"}
+          </button>
+        </div>
+
+        {scanResults && (
+          <div className="space-y-2">
+            {scanResults.map((r) => (
+              <div
+                key={r.server.id}
+                className="rounded-xl border border-neutral-200 bg-background-200/60 p-3"
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <span
+                    className={`w-2 h-2 rounded-full shrink-0 ${
+                      r.reachable ? "bg-success-500" : "bg-neutral-300"
+                    }`}
+                  />
+                  <span className="text-sm font-medium text-foreground">
+                    {r.server.label}
+                  </span>
+                  <code className="text-xs text-foreground-400 font-mono truncate">
+                    {r.server.baseUrl}
+                  </code>
+                  {!r.reachable && (
+                    <span className="ml-auto text-xs text-foreground-400 truncate">
+                      {r.error ?? "Not detected"}
+                    </span>
+                  )}
+                </div>
+
+                {r.reachable && r.models.length === 0 && (
+                  <p className="text-xs text-foreground-500">
+                    Reachable, but no models loaded.
+                  </p>
+                )}
+
+                {r.reachable && r.models.length > 0 && (
+                  <div className="space-y-1">
+                    {r.models.map((m) => {
+                      const key = `${r.server.id}:${m}`;
+                      const isAdding = quickAdding === key;
+                      return (
+                        <div
+                          key={m}
+                          className="flex items-center gap-2 bg-background-100 border border-neutral-200 rounded-lg px-3 py-1.5"
+                        >
+                          <button
+                            type="button"
+                            onClick={() => prefillFrom(r.server, m)}
+                            className="flex-1 min-w-0 text-left text-xs font-mono text-foreground truncate hover:text-primary-600 transition-colors"
+                            title={`Use "${m}" in the form below`}
+                          >
+                            {m}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => quickAdd(r.server, m)}
+                            disabled={isAdding}
+                            className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg bg-primary-600 hover:bg-primary-500 text-white disabled:opacity-50 transition-colors shrink-0"
+                          >
+                            {isAdding ? (
+                              <div className="w-3 h-3 border border-white/40 border-t-white rounded-full animate-spin" />
+                            ) : (
+                              <Plus className="w-3 h-3" />
+                            )}
+                            Add
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            ))}
+            <p className="text-xs text-foreground-400">
+              Scanned from your browser. If the control plane (and LiteLLM) run
+              on another machine, these localhost models may not be reachable
+              server-side.
+            </p>
+          </div>
+        )}
+      </div>
 
       {/* Registration form */}
       <form onSubmit={handleSubmit} className="space-y-3">

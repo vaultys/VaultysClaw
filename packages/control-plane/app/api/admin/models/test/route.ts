@@ -28,6 +28,20 @@ const handlers = createNextRoute(adminContract.models, {
       // fall through to /health check
     }
 
+    // Ollama native: /api/tags — shape { models: [{ name }] }
+    try {
+      const res = await fetch(`${url}/api/tags`, {
+        signal: AbortSignal.timeout(5000),
+      });
+      if (res.ok) {
+        const data = (await res.json()) as { models?: { name: string }[] };
+        const models = data.models?.map((m) => m.name) ?? [];
+        return { status: 200, body: { ok: true, models } };
+      }
+    } catch {
+      // fall through to /health check
+    }
+
     // Fallback: /health
     try {
       const res = await fetch(`${url}/health`, {

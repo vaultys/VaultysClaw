@@ -23,6 +23,11 @@ export const ListUserAgentsQuerySchema = z.object({
 // Bodies
 // ─────────────────────────────────────────────
 
+/** Request a one-time enrollment token to launch a local agent. */
+export const CreateEnrollmentBodySchema = z.object({
+  agentName: z.string().min(1),
+});
+
 /** Send a one-off task/intent to an agent the user can access. */
 export const SendTaskBodySchema = z.object({
   action: z.string(),

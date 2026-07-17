@@ -17,6 +17,8 @@ import {
 
 export interface AuthContext {
   did: string;
+  /** DB UUID of the user (falls back to the DID). For API keys this is the synthetic `apikey:<id>` string. */
+  userId: string;
   /** Precomputed set of workspace IDs the user can access. Empty for global admins (use isGlobalAdmin instead). */
   workspaceIds: Set<string>;
   isOwner: boolean;
@@ -66,6 +68,7 @@ export async function getAuthContext(
 
     return {
       did,
+      userId: userId ?? did,
       workspaceIds: accessibleWorkspaceIds,
       isOwner,
       isGlobalAdmin,
@@ -142,6 +145,7 @@ export async function getAuthContext(
 
       return {
         did: `apikey:${row.id}`,
+        userId: `apikey:${row.id}`,
         workspaceIds: new Set<string>(),
         isOwner: false,
         isGlobalAdmin: isGlobalKey,

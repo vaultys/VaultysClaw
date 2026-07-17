@@ -232,6 +232,8 @@ export default function SkillsPage() {
         <BrowseLibraryModal
           onClose={() => setShowLibrary(false)}
           onSelect={(skill) => {
+            // Close the catalog and open the pre-filled add modal in its place
+            setShowLibrary(false);
             // Content is already in the catalog response — no extra fetch needed
             setAddModal({
               open: true,

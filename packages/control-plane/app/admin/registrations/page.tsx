@@ -12,9 +12,11 @@ import {
   ApiError,
 } from "@/lib/api/ts-rest/client";
 import { RegistrationList } from "@/components/registrations/RegistrationList";
+import { useConfirm } from "@/components/shared/ConfirmContext";
 
 export default function RegistrationsPage() {
   const router = useRouter();
+  const confirm = useConfirm();
   const { registrations: pendingRegs, connected: wsConnected } = useAdminWS();
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [rejectError, setRejectError] = useState<string | null>(null);
@@ -59,9 +61,11 @@ export default function RegistrationsPage() {
 
   async function handleReject(reg: PendingRegistration) {
     if (
-      !confirm(
-        `Reject registration for "${reg.agentName}"? This cannot be undone.`
-      )
+      !(await confirm({
+        title: "Reject registration",
+        message: `Reject registration for "${reg.agentName}"? This cannot be undone.`,
+        variant: "danger",
+      }))
     )
       return;
     setRejectingId(reg.id);
@@ -83,9 +87,11 @@ export default function RegistrationsPage() {
   async function handleClearDisconnected() {
     if (bulkWorking || disconnectedRegs.length === 0) return;
     if (
-      !confirm(
-        `Remove ${disconnectedRegs.length} disconnected registration${disconnectedRegs.length !== 1 ? "s" : ""}? This cannot be undone.`
-      )
+      !(await confirm({
+        title: "Clear disconnected",
+        message: `Remove ${disconnectedRegs.length} disconnected registration${disconnectedRegs.length !== 1 ? "s" : ""}? This cannot be undone.`,
+        variant: "danger",
+      }))
     )
       return;
     await batchReject(
@@ -97,9 +103,11 @@ export default function RegistrationsPage() {
   async function handleBatchReject() {
     if (bulkWorking || selected.size === 0) return;
     if (
-      !confirm(
-        `Reject ${selected.size} selected registration${selected.size !== 1 ? "s" : ""}? This cannot be undone.`
-      )
+      !(await confirm({
+        title: "Reject selected",
+        message: `Reject ${selected.size} selected registration${selected.size !== 1 ? "s" : ""}? This cannot be undone.`,
+        variant: "danger",
+      }))
     )
       return;
     await batchReject([...selected], "Rejected by admin");

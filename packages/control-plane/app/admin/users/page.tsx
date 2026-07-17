@@ -18,6 +18,7 @@ import { UnclaimedUsersTable } from "@/components/users/UnclaimedUsersTable";
 import { UsersPagination } from "@/components/users/UsersPagination";
 import { QrClaimModal, type QrPhase } from "@/components/users/QrClaimModal";
 import type { SortCol } from "@/components/users/RegisteredUsersTable";
+import { useToast } from "@/components/shared/ToastContext";
 
 type QrModalState = {
   user: UserListItem;
@@ -42,6 +43,7 @@ const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 export default function UsersPage() {
   const router = useRouter();
+  const toast = useToast();
 
   const [tab, setTab] = useState<Tab>("registered");
   const [users, setUsers] = useState<UserListItem[]>([]);
@@ -165,10 +167,10 @@ export default function UsersPage() {
               },
             })
           );
-          alert(`Invitation sent to ${user.email}`);
+          toast.success(`Invitation sent to ${user.email}`);
           reload();
         } catch (err) {
-          alert(
+          toast.error(
             err instanceof ApiError ? err.message : "Failed to send invitation"
           );
         }

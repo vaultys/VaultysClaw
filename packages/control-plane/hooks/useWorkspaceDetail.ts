@@ -11,6 +11,7 @@ import type { MapMarker, WorkspaceDetail, WorkspaceSkill } from "@/lib/contracts
 import type { WorkspaceRouterKeyData } from "@/components/workspaces/WorkspaceLiteLLMKeyCard";
 import type { Channel } from "@vaultysclaw/shared";
 import type { WorkspaceModelRow } from "../components/workspaces/types";
+import { useConfirm } from "@/components/shared/ConfirmContext";
 
 /**
  * Owns all server state for the workspace detail page: the workspace payload, its
@@ -19,6 +20,7 @@ import type { WorkspaceModelRow } from "../components/workspaces/types";
  */
 export function useWorkspaceDetail(id: string) {
   const router = useRouter();
+  const confirm = useConfirm();
 
   const [workspace, setWorkspace] = useState<WorkspaceDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -97,23 +99,37 @@ export function useWorkspaceDetail(id: string) {
 
   const removeAgent = useCallback(
     async (did: string) => {
-      if (!confirm("Remove agent from this workspace?")) return;
+      if (
+        !(await confirm({
+          title: "Remove agent",
+          message: "Remove agent from this workspace?",
+          variant: "danger",
+        }))
+      )
+        return;
       await userApi.workspaces.removeAgent({
         params: { id },
         body: { agentDid: did },
       });
       load();
     },
-    [id, load]
+    [id, load, confirm]
   );
 
   const removeUser = useCallback(
     async (did: string) => {
-      if (!confirm("Remove user from this workspace?")) return;
+      if (
+        !(await confirm({
+          title: "Remove user",
+          message: "Remove user from this workspace?",
+          variant: "danger",
+        }))
+      )
+        return;
       await userApi.workspaces.removeUser({ params: { id }, body: { userDid: did } });
       load();
     },
-    [id, load]
+    [id, load, confirm]
   );
 
   const setUserRole = useCallback(
@@ -131,7 +147,14 @@ export function useWorkspaceDetail(id: string) {
 
   const transferOwner = useCallback(
     async (did: string) => {
-      if (!confirm("Transfer ownership of this workspace to this user?")) return;
+      if (
+        !(await confirm({
+          title: "Transfer ownership",
+          message: "Transfer ownership of this workspace to this user?",
+          variant: "danger",
+        }))
+      )
+        return;
       unwrap(
         await userApi.workspaces.transferOwner({
           params: { id },
@@ -140,7 +163,7 @@ export function useWorkspaceDetail(id: string) {
       );
       load();
     },
-    [id, load]
+    [id, load, confirm]
   );
 
   const setDefault = useCallback(async () => {
@@ -149,10 +172,17 @@ export function useWorkspaceDetail(id: string) {
   }, [id, load]);
 
   const remove = useCallback(async () => {
-    if (!confirm("Delete this workspace? This cannot be undone.")) return;
+    if (
+      !(await confirm({
+        title: "Delete workspace",
+        message: "Delete this workspace? This cannot be undone.",
+        variant: "danger",
+      }))
+    )
+      return;
     await userApi.workspaces.remove({ params: { id } });
     router.push("/workspaces");
-  }, [id, router]);
+  }, [id, router, confirm]);
 
   return {
     workspace,

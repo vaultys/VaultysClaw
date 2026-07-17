@@ -26,8 +26,10 @@ import {
   unwrap,
 } from "@/lib/api/ts-rest/client";
 import type { LiteLLMStatus } from "@/lib/contracts";
+import { useConfirm } from "@/components/shared/ConfirmContext";
 
 export function LiteLLMPanel() {
+  const confirm = useConfirm();
   const [status, setStatus] = useState<LiteLLMStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -163,7 +165,15 @@ export function LiteLLMPanel() {
   };
 
   const clear = async () => {
-    if (!confirm("Remove stored LiteLLM settings? The proxy will fall back to environment variables.")) return;
+    if (
+      !(await confirm({
+        title: "Remove settings",
+        message:
+          "Remove stored LiteLLM settings? The proxy will fall back to environment variables.",
+        variant: "danger",
+      }))
+    )
+      return;
     await adminApi.settings.disconnectLitellm();
     setBaseUrl("");
     setMasterKey("");

@@ -17,6 +17,7 @@ import {
   adminApi,
   unwrap,
 } from "@/lib/api/ts-rest/client";
+import { useConfirm } from "@/components/shared/ConfirmContext";
 
 interface DiscoveryCheck {
   id: string;
@@ -138,6 +139,7 @@ function SetupGuide({ callbackUrl }: { callbackUrl: string }) {
 // ─── Main panel ───────────────────────────────────────────────────────────────
 
 export function OidcPanel() {
+  const confirm = useConfirm();
   const [issuer, setIssuer] = useState("");
   const [clientId, setClientId] = useState("");
   const [clientSecret, setClientSecret] = useState("");
@@ -227,7 +229,15 @@ export function OidcPanel() {
   };
 
   const remove = async () => {
-    if (!confirm("Remove OIDC configuration? Users who signed in via SSO will still exist but cannot log in until OIDC is reconfigured.")) return;
+    if (
+      !(await confirm({
+        title: "Remove OIDC",
+        message:
+          "Remove OIDC configuration? Users who signed in via SSO will still exist but cannot log in until OIDC is reconfigured.",
+        variant: "danger",
+      }))
+    )
+      return;
     setRemoving(true);
     try {
       unwrap(await adminApi.server.removeOidc());

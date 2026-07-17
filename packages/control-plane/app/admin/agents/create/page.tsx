@@ -24,9 +24,11 @@ import { SkillsStep } from "@/components/agent/create/SkillsStep";
 import { VerifyStep } from "@/components/agent/create/VerifyStep";
 import { Workspace } from "@prisma/client";
 import { parseJsonArray } from "@vaultysclaw/shared";
+import { useConfirm } from "@/components/shared/ConfirmContext";
 
 export default function CreateAgentPage() {
   const router = useRouter();
+  const confirm = useConfirm();
   const searchParams = useSearchParams();
   const { registrations, connected: wsConnected } = useAdminWS();
   const regId = searchParams.get("regId");
@@ -237,9 +239,11 @@ export default function CreateAgentPage() {
   async function doReject() {
     if (!pendingReg) return;
     if (
-      !confirm(
-        `Reject registration for "${pendingReg.agentName}"? This cannot be undone.`
-      )
+      !(await confirm({
+        title: "Reject registration",
+        message: `Reject registration for "${pendingReg.agentName}"? This cannot be undone.`,
+        variant: "danger",
+      }))
     )
       return;
     setRejecting(true);

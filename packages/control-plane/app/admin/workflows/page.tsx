@@ -22,9 +22,13 @@ import {
 } from "@/lib/api/ts-rest/client";
 import type { WorkflowDefinition } from "@/lib/workflow-types";
 import { Workflow } from "@prisma/client";
+import { useToast } from "@/components/shared/ToastContext";
+import { useConfirm } from "@/components/shared/ConfirmContext";
 
 export default function WorkflowsPage() {
   const router = useRouter();
+  const toast = useToast();
+  const confirm = useConfirm();
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -64,7 +68,7 @@ export default function WorkflowsPage() {
       );
       setWorkflows((w) => [...w, result.workflow]);
     } catch (err) {
-      alert("Failed to import workflow: " + String(err));
+      toast.error("Failed to import workflow: " + String(err));
     } finally {
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
@@ -84,12 +88,19 @@ export default function WorkflowsPage() {
 
   const handleDeleteWorkflow = async (id: string, e: React.MouseEvent) => {
     e.preventDefault();
-    if (!confirm("Delete this workflow?")) return;
+    if (
+      !(await confirm({
+        title: "Delete workflow",
+        message: "Delete this workflow?",
+        variant: "danger",
+      }))
+    )
+      return;
     try {
       unwrap(await userApi.workflows.remove({ params: { id } }));
       setWorkflows((w) => w.filter((wf) => wf.id !== id));
     } catch {
-      alert("Failed to delete workflow");
+      toast.error("Failed to delete workflow");
     }
   };
 
@@ -110,7 +121,7 @@ export default function WorkflowsPage() {
       if (workspaceId) params.set("workspace", workspaceId);
       router.push(`/admin/workflows/new/edit?${params.toString()}`);
     } catch {
-      alert("Failed to load template");
+      toast.error("Failed to load template");
     }
   };
 
@@ -125,7 +136,7 @@ export default function WorkflowsPage() {
         definition: data.workflow.definition as unknown as WorkflowDefinition,
       });
     } catch {
-      alert("Failed to load workflow");
+      toast.error("Failed to load workflow");
     }
   };
 

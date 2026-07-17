@@ -9,6 +9,7 @@ import {
 } from "@/lib/api/ts-rest/client";
 import type { SafeModel } from "@/lib/contracts";
 import { isSdkAgentProvider, type LlmProviderType } from "@vaultysclaw/shared";
+import { useConfirm } from "@/components/shared/ConfirmContext";
 
 const PROVIDERS: {
   value: LlmProviderType;
@@ -91,6 +92,7 @@ export function RegisterModelForm({
   showExistingModels = false,
   layout = "grid",
 }: RegisterModelFormProps) {
+  const confirm = useConfirm();
   // Existing models list
   const [existingModels, setExistingModels] = useState<ExistingModel[]>([]);
   const [existingLoading, setExistingLoading] = useState(false);
@@ -247,7 +249,14 @@ export function RegisterModelForm({
   };
 
   const deleteExisting = async (id: string) => {
-    if (!confirm("Remove this model?")) return;
+    if (
+      !(await confirm({
+        title: "Remove model",
+        message: "Remove this model?",
+        variant: "danger",
+      }))
+    )
+      return;
     unwrap(await adminApi.models.remove({ params: { id } }));
     await loadExisting();
   };

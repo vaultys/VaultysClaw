@@ -30,9 +30,11 @@ import { UserOverviewTab } from "@/components/users/detail/UserOverviewTab";
 import { UserAccessTab } from "@/components/users/detail/UserAccessTab";
 import { UserDetailsTab } from "@/components/users/detail/UserDetailsTab";
 import { UserWorkspacesTab } from "@/components/users/detail/UserWorkspacesTab";
+import { useConfirm } from "@/components/shared/ConfirmContext";
 
 export default function UserEditPage() {
   const router = useRouter();
+  const confirm = useConfirm();
   const params = useParams<{ did: string }>();
   const did = decodeURIComponent(params.did);
 
@@ -67,9 +69,11 @@ export default function UserEditPage() {
   const handleRemove = useCallback(async () => {
     if (!user || isOwnerRole(user.role)) return;
     if (
-      !confirm(
-        `Remove ${user.name ?? shortDid(user.did ?? undefined)} and all their grants? This cannot be undone.`
-      )
+      !(await confirm({
+        title: "Remove user",
+        message: `Remove ${user.name ?? shortDid(user.did ?? undefined)} and all their grants? This cannot be undone.`,
+        variant: "danger",
+      }))
     )
       return;
     setRemoving(true);

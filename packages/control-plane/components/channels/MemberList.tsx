@@ -9,6 +9,7 @@ import {
   unwrap,
 } from "@/lib/api/ts-rest/client";
 import { AgentInfo, UserListItem } from "@/lib/contracts";
+import { useConfirm } from "@/components/shared/ConfirmContext";
 
 interface MemberListProps {
   channelId: string;
@@ -21,6 +22,7 @@ const ROLE_STYLES: Record<string, string> = {
 };
 
 export default function MemberList({ channelId }: MemberListProps) {
+  const confirm = useConfirm();
   const [members, setMembers] = useState<ChannelMember[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -180,7 +182,14 @@ export default function MemberList({ channelId }: MemberListProps) {
     member: ChannelMember,
     displayName: string
   ) => {
-    if (!confirm(`Remove "${displayName}" from this channel?`)) return;
+    if (
+      !(await confirm({
+        title: "Remove member",
+        message: `Remove "${displayName}" from this channel?`,
+        variant: "danger",
+      }))
+    )
+      return;
 
     try {
       setRemoveError(null);

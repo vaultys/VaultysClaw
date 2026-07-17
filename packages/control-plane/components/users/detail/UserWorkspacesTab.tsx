@@ -18,6 +18,7 @@ import {
   normalizeWorkspaceRole,
   type AssignableWorkspaceRole,
 } from "@/lib/roles";
+import { useToast } from "@/components/shared/ToastContext";
 
 export function UserWorkspacesTab({
   user,
@@ -27,6 +28,7 @@ export function UserWorkspacesTab({
   isOwner: boolean;
 }) {
   const router = useRouter();
+  const toast = useToast();
   const [userWorkspaces, setUserWorkspaces] = useState<UserWorkspaceWithWorkspace[]>([]);
   const [available, setAvailable] = useState<WorkspaceWithCounts[]>([]);
   const [loading, setLoading] = useState(true);
@@ -98,7 +100,7 @@ export function UserWorkspacesTab({
       );
       load();
     } catch (err) {
-      alert(
+      toast.error(
         err instanceof ApiError ? err.message : "Failed to remove from workspace"
       );
     } finally {
@@ -120,7 +122,7 @@ export function UserWorkspacesTab({
       );
       load();
     } catch (err) {
-      alert(
+      toast.error(
         err instanceof ApiError ? err.message : "Failed to update workspace role"
       );
     } finally {

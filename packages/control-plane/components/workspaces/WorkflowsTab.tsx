@@ -10,6 +10,7 @@ import {
 } from "@/lib/api/ts-rest/client";
 import { useWorkflowStore } from "@/components/workflow/store";
 import { TemplateSelectionModal } from "@/components/workflow/TemplateSelectionModal";
+import { useToast } from "@/components/shared/ToastContext";
 import type { WorkflowDefinition } from "@/lib/workflow-types";
 import type { WorkspaceWorkflow } from "./types";
 import { ListCard, ListRow } from "./ui";
@@ -24,6 +25,7 @@ export function WorkflowsTab({
   canManage: boolean;
 }) {
   const router = useRouter();
+  const toast = useToast();
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const setWorkflowStore = useWorkflowStore((s) => s.setWorkflow);
   const clearWorkflowStore = useWorkflowStore((s) => s.clearWorkflow);
@@ -42,7 +44,7 @@ export function WorkflowsTab({
       router.push(`/admin/workflows/new/edit?fromTemplate=1&workspace=${workspaceId}`);
     } catch (err) {
       console.error("Failed to load template:", err);
-      alert("Failed to load template");
+      toast.error("Failed to load template");
     }
   }
 

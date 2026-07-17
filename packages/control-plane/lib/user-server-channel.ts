@@ -97,7 +97,23 @@ const registerUser = async (contact: VaultysId, pendingUserId?: string): Promise
   const isFirstUser = (await UserDAO.list({ page: 1, pageSize: 1 })).total === 0;
   console.log(`[registerUser] creating new user isFirstUser=${isFirstUser}`);
   const user = await UserDAO.create(did, publicKey, isFirstUser ? "Owner" : "Member");
-  await WorkspaceDAO.createPersonalWorkspace(user.id);
+  if (isFirstUser) {
+    // The default workspace is already seeded at server startup (see server.ts).
+    // Rather than spin up a personal workspace, make the first user its owner.
+    const defaultWorkspace = await WorkspaceDAO.findDefault();
+    if (defaultWorkspace) {
+      await WorkspaceDAO.addUserToWorkspace(
+        user.id,
+        defaultWorkspace.id,
+        true,
+        "Owner"
+      );
+    } else {
+      await WorkspaceDAO.createPersonalWorkspace(user.id);
+    }
+  } else {
+    await WorkspaceDAO.createPersonalWorkspace(user.id);
+  }
   notifyUserJoined(user);
   console.log(`[registerUser] created successfully`);
   return true;

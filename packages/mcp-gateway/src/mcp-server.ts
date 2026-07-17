@@ -234,15 +234,20 @@ export function createMcpServer(
             isError: true,
           };
         }
-        const result = await Promise.race([
-          agent.invokePeer(args.agent_did, args.action, args.params ?? {}),
-          new Promise((_, reject) =>
-            setTimeout(() => reject(new Error(`Timeout after ${args.timeout_ms}ms`)), args.timeout_ms)
-          ),
-        ]);
-        return {
-          content: [{ type: "text", text: typeof result === "string" ? result : JSON.stringify(result, null, 2) }],
-        };
+        let timer: ReturnType<typeof setTimeout>;
+        try {
+          const result = await Promise.race([
+            agent.invokePeer(args.agent_did, args.action, args.params ?? {}),
+            new Promise((_, reject) => {
+              timer = setTimeout(() => reject(new Error(`Timeout after ${args.timeout_ms}ms`)), args.timeout_ms);
+            }),
+          ]);
+          return {
+            content: [{ type: "text", text: typeof result === "string" ? result : JSON.stringify(result, null, 2) }],
+          };
+        } finally {
+          clearTimeout(timer!);
+        }
       }
 
       if (name === "vc_chat") {

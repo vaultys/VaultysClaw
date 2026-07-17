@@ -166,6 +166,19 @@ describe("mcp-gateway createMcpServer", () => {
     expect(result.isError).toBeUndefined();
   });
 
+  it("vc_run_intent clears its timeout timer once invokePeer resolves (no dangling timer)", async () => {
+    vi.useFakeTimers();
+    try {
+      const agent = new FakeAgent();
+      agent.catalog = [makeGrant()];
+      const { callTool } = setup(agent);
+      await callTool("vc_run_intent", { agent_did: "did:vaultys:peer-1", action: "do_thing" });
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("vc_run_intent times out if invokePeer never resolves in time", async () => {
     const agent = new FakeAgent();
     agent.catalog = [makeGrant()];

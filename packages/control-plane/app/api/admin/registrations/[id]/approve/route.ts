@@ -13,15 +13,7 @@ const handlers = createNextRoute(adminContract.registrations, {
   approve: async ({ params, body, request }) => {
     const auth = await getAuthContext(request);
 
-    const capabilities = (body.capabilities ?? []) as AgentCapability[];
     const workspaceIds = body.workspaceIds ?? [];
-
-    if (capabilities.length === 0) {
-      throw new APIException(
-        "MALFORMED",
-        "At least one capability must be assigned"
-      );
-    }
 
     const registration = await PendingRegistrationDAO.findById(params.id);
     if (!registration) {
@@ -31,6 +23,27 @@ const handlers = createNextRoute(adminContract.registrations, {
       throw new APIException(
         "CONFLICT",
         `Registration already ${registration.status}`
+      );
+    }
+
+    let capabilities = (body.capabilities ?? []) as AgentCapability[];
+
+    // For user-initiated (enrollment) agents where the admin didn't pick any
+    // capabilities, default to the target personal workspace's
+    // defaultCapabilities — the admin can still override by sending their own.
+    if (capabilities.length === 0 && registration.targetWorkspaceId) {
+      const targetWorkspace = await WorkspaceDAO.findById(
+        registration.targetWorkspaceId
+      );
+      capabilities = ((targetWorkspace?.defaultCapabilities as
+        | string[]
+        | undefined) ?? []) as AgentCapability[];
+    }
+
+    if (capabilities.length === 0) {
+      throw new APIException(
+        "MALFORMED",
+        "At least one capability must be assigned"
       );
     }
 

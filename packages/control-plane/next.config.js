@@ -30,7 +30,9 @@ const nextConfig = {
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: blob: https://*.basemaps.cartocdn.com https://*.tile.openstreetmap.org https://*.tiles.mapbox.com",
               "font-src 'self' data:",
-              "connect-src 'self' wss: ws: https:",
+              // http://localhost:* / http://127.0.0.1:* enable browser-side
+              // discovery of local LLM servers (LM Studio, Ollama, vLLM).
+              "connect-src 'self' wss: ws: https: http://localhost:* http://127.0.0.1:*",
               "worker-src 'self' blob:",
               "frame-ancestors 'none'",
             ].join("; "),

@@ -13,5 +13,7 @@ export const PendingRegistrationModel = z.object({
   status: z.string(),
   requestedCapabilities: jsonSchema,
   assignedCapabilities: jsonSchema,
+  initiatedByUserId: z.string().nullish(),
+  targetWorkspaceId: z.string().nullish(),
   createdAt: z.date(),
 })

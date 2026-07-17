@@ -55,6 +55,7 @@ export default function UsersPage() {
   // QR flow
   const [smtpAvailable, setSmtpAvailable] = useState(false);
   const [sendingQr, setSendingQr] = useState<string | null>(null);
+  const [copyingInvite, setCopyingInvite] = useState<string | null>(null);
   const [qrModal, setQrModal] = useState<QrModalState | null>(null);
 
   // Filters
@@ -216,6 +217,36 @@ export default function UsersPage() {
       }
     } finally {
       setSendingQr(null);
+    }
+  };
+
+  // Build the same invitation link the email would contain (`/invite/<token>`)
+  // via skipEmail — no mail is sent — and copy it to the clipboard.
+  const copyInviteLink = async (user: UserListItem) => {
+    if (!user.email) return;
+    setCopyingInvite(user.id);
+    try {
+      const { token } = unwrap(
+        await adminApi.users.inviteEmail({
+          body: {
+            email: user.email,
+            name: user.name ?? "",
+            role: user.role,
+            skipEmail: true,
+          },
+        })
+      );
+      const url = `${window.location.origin}/invite/${token}`;
+      await navigator.clipboard.writeText(url);
+      toast.success("Invitation link copied to clipboard");
+    } catch (err) {
+      toast.error(
+        err instanceof ApiError
+          ? err.message
+          : "Failed to copy the invitation link"
+      );
+    } finally {
+      setCopyingInvite(null);
     }
   };
 
@@ -382,6 +413,8 @@ export default function UsersPage() {
                   smtpAvailable={smtpAvailable}
                   sendingQr={sendingQr}
                   onGenerateQr={generateQr}
+                  copyingInvite={copyingInvite}
+                  onCopyInvite={copyInviteLink}
                 />
               )}
             </div>

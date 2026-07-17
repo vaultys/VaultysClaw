@@ -18,11 +18,27 @@ const STANDALONE_PATHS = [
   "/admin/setup",
   "/quick-start",
   "/admin/mission-control/fullscreen",
+  "/invite/*",
 ];
 
 // Pages that show only the TopBar (no sidebar). Used for full-screen flows
 // that still need the global nav context (e.g. VaultysId claim after OIDC login).
 const TOPBAR_ONLY_PATHS = ["/claim"];
+
+/**
+ * Match a pathname against a list of patterns. A trailing `/*` is a prefix
+ * wildcard (`/invite/*` matches `/invite` and `/invite/abc`); every other
+ * entry is matched exactly.
+ */
+function matchesPath(pathname: string, patterns: string[]): boolean {
+  return patterns.some((pattern) => {
+    if (pattern.endsWith("/*")) {
+      const base = pattern.slice(0, -2);
+      return pathname === base || pathname.startsWith(`${base}/`);
+    }
+    return pathname === pattern;
+  });
+}
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const { data: session, status } = useSession();
@@ -61,12 +77,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   };
 
   // Standalone pages (login): render children only
-  if (STANDALONE_PATHS.includes(pathname)) {
+  if (matchesPath(pathname, STANDALONE_PATHS)) {
     return <>{children}</>;
   }
 
   // Top-bar-only pages (claim): render TopBar + full-height content, no sidebar
-  if (TOPBAR_ONLY_PATHS.includes(pathname)) {
+  if (matchesPath(pathname, TOPBAR_ONLY_PATHS)) {
     return (
       <BreadcrumbProvider>
         <div className="flex flex-col h-screen overflow-hidden bg-background text-foreground">

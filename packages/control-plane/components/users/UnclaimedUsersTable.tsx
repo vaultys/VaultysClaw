@@ -1,6 +1,6 @@
 "use client";
 
-import { QrCode, Send, Loader2 } from "lucide-react";
+import { QrCode, Send, Loader2, Link2 } from "lucide-react";
 import { formatDate } from "@vaultysclaw/shared";
 import type { UserListItem } from "@/lib/contracts";
 import { userInitials } from "./userDisplay";
@@ -28,6 +28,8 @@ export function UnclaimedUsersTable({
   smtpAvailable,
   sendingQr,
   onGenerateQr,
+  copyingInvite,
+  onCopyInvite,
 }: {
   users: UserListItem[];
   sortBy: string;
@@ -37,6 +39,8 @@ export function UnclaimedUsersTable({
   smtpAvailable: boolean;
   sendingQr: string | null;
   onGenerateQr: (user: UserListItem, sendByEmail: boolean) => void;
+  copyingInvite: string | null;
+  onCopyInvite: (user: UserListItem) => void;
 }) {
   return (
     <table className="w-full text-sm">
@@ -139,6 +143,21 @@ export function UnclaimedUsersTable({
                   >
                     <Send className="w-3 h-3" />
                     Email
+                  </button>
+                )}
+                {u.email && (
+                  <button
+                    onClick={() => onCopyInvite(u)}
+                    disabled={copyingInvite === u.id}
+                    className="flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-lg bg-background-200 border border-neutral-300 hover:border-primary-500 text-foreground disabled:opacity-40 transition-colors"
+                    title="Copy invitation link"
+                  >
+                    {copyingInvite === u.id ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <Link2 className="w-3 h-3" />
+                    )}
+                    Copy link
                   </button>
                 )}
               </div>

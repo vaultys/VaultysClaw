@@ -1,0 +1,54 @@
+name: Build Docusaurus and Push
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --filter @vaultysclaw/docs...
+
+      - name: Build Docusaurus
+        run: pnpm --filter @vaultysclaw/docs build
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Clone destination repository
+        run: |
+          git clone https://x-access-token:${{ secrets.TOKEN }}@github.com/${{ secrets.DEST_REPO_OWNER }}/${{ secrets.DEST_REPO_NAME }}.git dest-repo
+
+      - name: Copy build files
+        run: |
+          cd dest-repo
+          # Vider le contenu du repo destination (sauf .git et le CNAME GitHub Pages)
+          find . -maxdepth 1 -not -name '.git' -not -name 'CNAME' -not -name '.' -exec rm -rf {} +
+          # Copier les fichiers buildés, fichiers cachés inclus (.nojekyll requis par GitHub Pages)
+          cp -a ../docs-site/build/. .
+
+      - name: Push to destination repository
+        working-directory: dest-repo
+        run: |
+          git add -A
+          git commit -m "Build Docusaurus from ${{ github.repository }} at ${{ github.sha }}" || echo "Nothing to commit"
+          git push origin main

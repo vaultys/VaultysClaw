@@ -1,6 +1,6 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { Filter, Zap, ArrowUpDown } from "lucide-react";
+import { Filter, Zap, ArrowUpDown, Plus } from "lucide-react";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useToolbar } from "@/components/layout/ToolbarContext";
 import { useBreadcrumbs } from "@/components/layout/BreadcrumbContext";
@@ -121,6 +121,16 @@ export default function MyAgentsPage() {
     {
       title: "My Agents",
       description: `${total} agent${total === 1 ? "" : "s"} in your workspaces`,
+      actions: [
+        {
+          kind: "button",
+          id: "create",
+          label: "Create agent",
+          variant: "primary",
+          icon: <Plus className="w-3.5 h-3.5" />,
+          onClick: () => router.push("/app/my-agents/create"),
+        },
+      ],
       search: {
         value: search,
         onChange: (v) => {
@@ -227,6 +237,7 @@ export default function MyAgentsPage() {
       selectedCapabilities,
       sortBy,
       sortDir,
+      router,
     ]
   );
 

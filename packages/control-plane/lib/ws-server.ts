@@ -63,6 +63,7 @@ import { agentsConnected, llmTokens, intentsTotal } from "./metrics";
 import { ChannelService } from "./channel-service";
 import { enqueueNotification } from "./notification-queue";
 import { enqueueWebhook } from "./webhook-queue";
+import { verifyEnrollmentToken } from "./agent-enrollment";
 import { crypto } from "@vaultys/id";
 import { signIntent } from "./intent-signing";
 import {
@@ -113,6 +114,10 @@ interface PendingConnection {
   policyMeta?: PolicyMeta;
   /** True when this re-auth was triggered solely to reissue the cert with correct metadata. */
   isCertReissue?: boolean;
+  /** User (DB UUID) who initiated this agent via the enrollment flow, if any. */
+  enrollUserId?: string;
+  /** Personal workspace to enroll the agent into on approval (from a valid enrollment token). */
+  enrollWorkspaceId?: string;
   timer: ReturnType<typeof setTimeout>;
 }
 
@@ -318,6 +323,18 @@ export class AgentWSServer {
         this.transportStats.ws.connectionsTotal++;
         this.appendLog("ws", "info", "connected", `new TCP connection`);
 
+        // Optional enrollment token (?enroll=…) binds a user-initiated agent to
+        // that user's personal workspace. Invalid/expired tokens are ignored —
+        // the agent still registers normally (enrolled into the default workspace).
+        let enroll: { userId: string; workspaceId: string } | null = null;
+        try {
+          const url = new URL(request.url ?? "/", "http://localhost");
+          const claims = verifyEnrollmentToken(url.searchParams.get("enroll"));
+          if (claims) enroll = claims;
+        } catch {
+          /* malformed URL — ignore */
+        }
+
         try {
           const { sessionId } = await createAuthSession();
 
@@ -348,6 +365,8 @@ export class AgentWSServer {
             phase: "awaiting_register",
             timer,
             clientIp,
+            enrollUserId: enroll?.userId,
+            enrollWorkspaceId: enroll?.workspaceId,
           });
 
           // Send session ID to agent — agent decides to register (new) or auth (returning)
@@ -718,7 +737,13 @@ export class AgentWSServer {
             registrationId,
             pending.sessionId,
             pending.agentName ?? "unknown",
-            pending.capabilities ?? []
+            pending.capabilities ?? [],
+            pending.enrollUserId && pending.enrollWorkspaceId
+              ? {
+                  initiatedByUserId: pending.enrollUserId,
+                  targetWorkspaceId: pending.enrollWorkspaceId,
+                }
+              : undefined
           );
 
           await ActivityLogDAO.log(
@@ -1627,8 +1652,14 @@ export class AgentWSServer {
     );
     this.broadcastAdminUpdate("registration_approved");
 
-    // Enroll agent in default workspace on first approval
-    await WorkspaceDAO.enrollInDefault("agent", agentDid);
+    // Enroll agent on first approval. A user-initiated agent (enrollment flow)
+    // goes into that user's personal workspace as its primary; otherwise the
+    // global default workspace.
+    if (target.enrollWorkspaceId) {
+      await AgentDAO.addToWorkspace(agentDid, target.enrollWorkspaceId, true);
+    } else {
+      await WorkspaceDAO.enrollInDefault("agent", agentDid);
+    }
 
     // Notify agent — approved and connected
     this.sendMessage(target.sender, {
@@ -1668,9 +1699,12 @@ export class AgentWSServer {
     if (isLiteLLMConfigured()) {
       try {
         const agentWorkspaces = await AgentDAO.getWorkspaces(agentDid);
-        const primary = agentWorkspaces.find((r) => r.isPrimary) ?? agentWorkspaces[0];
+        const primary =
+          agentWorkspaces.find((r) => r.isPrimary) ?? agentWorkspaces[0];
         if (primary) {
-          const routerKey = await WorkspaceDAO.getRouterKey(primary.workspaceId);
+          const routerKey = await WorkspaceDAO.getRouterKey(
+            primary.workspaceId
+          );
           if (routerKey?.litellmVirtualKey && routerKey.allowedModelIds) {
             const allowedModels = routerKey.allowedModelIds as string[];
             const virtualKey = await createAgentKey(agentDid, allowedModels);
@@ -2371,7 +2405,8 @@ export class AgentWSServer {
     // Priority 3: workspace-level LiteLLM virtual key
     if (isLiteLLMConfigured()) {
       const agentWorkspaces = await AgentDAO.getWorkspaces(agentDid);
-      const primary = agentWorkspaces.find((r) => r.isPrimary) ?? agentWorkspaces[0];
+      const primary =
+        agentWorkspaces.find((r) => r.isPrimary) ?? agentWorkspaces[0];
       if (primary) {
         const routerKey = await WorkspaceDAO.getRouterKey(primary.workspaceId);
         if (routerKey?.litellmVirtualKey) {
@@ -2677,7 +2712,9 @@ export function sendSkillsConfig(agentDid: string): void {
  * Called when workspace skill definitions are created, updated, or deleted.
  * Exported for use by API route handlers.
  */
-export async function broadcastSkillsConfig(workspaceId: string): Promise<void> {
+export async function broadcastSkillsConfig(
+  workspaceId: string
+): Promise<void> {
   const wsServer = getWSServer();
   if (!wsServer) return;
 

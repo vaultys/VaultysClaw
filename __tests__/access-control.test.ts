@@ -140,6 +140,32 @@ describe("resolveAccess — /api (authenticated, routes self-check)", () => {
   });
 });
 
+describe("resolveAccess — authenticated root (/)", () => {
+  it.each([owner, admin, member])(
+    "redirects role %o to /app/dashboard",
+    (token) => {
+      expect(decide("/", token)).toEqual({
+        type: "redirect",
+        location: "/app/dashboard",
+      });
+    }
+  );
+
+  it("honours a callbackUrl on the root", () => {
+    expect(decide("/", member, "?callbackUrl=%2Fapp%2Finbox")).toEqual({
+      type: "redirect",
+      location: "/app/inbox",
+    });
+  });
+
+  it("sends a DID-less user to /claim before the dashboard", () => {
+    expect(decide("/", noDidUser)).toEqual({
+      type: "redirect",
+      location: "/claim",
+    });
+  });
+});
+
 describe("resolveAccess — public paths", () => {
   it.each(["/", "/login", "/claim", "/invite/abc"])(
     "allows %s for anonymous users",

@@ -118,30 +118,41 @@ export function createMcpServer(
   });
 
   server.setRequestHandler(ReadResourceRequestSchema, async (req) => {
-    const agent = getAgent();
-    const catalog = agent?.getPeerCatalog() ?? [];
-    const uri = new URL(req.params.uri);
-    const did = decodeURIComponent(uri.pathname.replace(/^\//, ""));
-    const grant = findGrant(catalog, did);
-    if (!grant) throw new Error(`No peer grant for agent DID: ${did}`);
-    return {
-      contents: [
-        {
+    try {
+      const agent = getAgent();
+      const catalog = agent?.getPeerCatalog() ?? [];
+      const uri = new URL(req.params.uri);
+      const did = decodeURIComponent(uri.pathname.replace(/^\//, ""));
+      const grant = findGrant(catalog, did);
+      if (!grant) throw new Error(`No peer grant for agent DID: ${did}`);
+      return {
+        contents: [
+          {
+            uri: req.params.uri,
+            mimeType: "application/json",
+            text: JSON.stringify(
+              {
+                did: grant.targetDid,
+                name: grant.targetName,
+                description: grant.skillDescription,
+                capabilities: grant.capabilities,
+              },
+              null,
+              2
+            ),
+          },
+        ],
+      };
+    } catch (err) {
+      log(
+        JSON.stringify({
+          event: "read_resource_error",
           uri: req.params.uri,
-          mimeType: "application/json",
-          text: JSON.stringify(
-            {
-              did: grant.targetDid,
-              name: grant.targetName,
-              description: grant.skillDescription,
-              capabilities: grant.capabilities,
-            },
-            null,
-            2
-          ),
-        },
-      ],
-    };
+          error: err instanceof Error ? err.message : String(err),
+        })
+      );
+      throw err;
+    }
   });
 
   server.setRequestHandler(CallToolRequestSchema, async (req) => {
@@ -291,11 +302,10 @@ export function createMcpServer(
 }
 
 function unknownAgentMessage(did: string, catalog: AgentPeerGrant[]): string {
-  const known = catalog.map((g) => `${g.targetDid} (${g.targetName})`);
   return (
     `No peer grant for agent DID "${did}".\n` +
-    (known.length > 0
-      ? `Known agents:\n${known.map((k) => `  - ${k}`).join("\n")}`
+    (catalog.length > 0
+      ? "Call vc_list_agents to see which agent DIDs this gateway can reach."
       : "This gateway has no peer grants at all — ask an admin to configure one.")
   );
 }

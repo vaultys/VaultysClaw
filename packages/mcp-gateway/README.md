@@ -55,8 +55,8 @@ approve it in the dashboard before peer agents appear as callable tools.
 | `vc_gateway_metrics` | Per-tool call counts, error counts, p50/p95 latency since process start |
 
 `agent_did` on `vc_run_intent`/`vc_chat` is validated locally against the peer
-catalog before dispatch — unknown DIDs return the list of known agents
-instead of falling through to a network call.
+catalog before dispatch — unknown DIDs are rejected with a pointer to
+`vc_list_agents` instead of falling through to a network call.
 
 ## Resources
 

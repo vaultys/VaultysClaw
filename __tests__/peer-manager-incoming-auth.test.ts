@@ -1,11 +1,17 @@
 /**
  * Regression test for isIncomingAuthorized in peer-manager.ts.
  *
- * Bug: the function used to `return true` unconditionally after the grant
+ * Bug 1: the function used to `return true` unconditionally after the grant
  * loop, regardless of whether a matching grant was found — meaning any peer
  * that completed the SRP handshake (proving identity, not authorization)
  * could invoke skills on this agent even with zero peer grants. Fixed to
  * return false when no matching grant is found.
+ *
+ * Bug 2: when no server public key had been received yet, a matching grant
+ * was accepted without any certificate verification ("fail open"). Fixed to
+ * reject (fail closed) until the server key is available, since an
+ * unverified grant is not proof of authorization — only the SRP handshake
+ * proves identity.
  */
 
 import { describe, it, expect, vi } from "vitest";
@@ -51,11 +57,11 @@ describe("PeerManager.isIncomingAuthorized", () => {
     expect(authorized).toBe(false);
   });
 
-  it("allows a matching grant when no server key is set yet", async () => {
+  it("rejects a matching grant when no server key is set yet (fail closed — cert can't be verified)", async () => {
     const { pm, ownDid } = await makePeerManager();
     pm.updatePeerCatalog([makeGrant(ownDid, { sourceDid: "did:vaultys:remote" })]);
     const authorized = await (pm as any).isIncomingAuthorized("did:vaultys:remote");
-    expect(authorized).toBe(true);
+    expect(authorized).toBe(false);
   });
 
   it("allows a matching grant with a certificate that verifies against the server key", async () => {

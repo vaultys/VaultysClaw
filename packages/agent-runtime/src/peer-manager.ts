@@ -568,16 +568,21 @@ export class PeerManager {
       // Since we don't have the remote's catalog, we check our own catalog for symmetry hints,
       // BUT the actual verification relies on the certificate signed by the control plane.
       if (g.targetDid === ownDid && g.sourceDid === remoteDid) {
-        // We have a grant where remoteDid can call us — verify the cert
-        if (this.serverPublicKey) {
-          const payload = await verifyPeerGrant(
-            g.certificate,
-            this.serverPublicKey
+        // We have a grant where remoteDid can call us — verify the cert.
+        // Fail closed if the server key hasn't arrived yet: an unverified
+        // grant is not proof of authorization, only SRP-proven identity is.
+        if (!this.serverPublicKey) {
+          logger.warn(
+            { remoteDid },
+            "Rejecting incoming connection — server public key not yet available, cannot verify grant"
           );
-          if (payload) return true;
-        } else {
-          return true; // No server key yet — allow (will be tightened once key is available)
+          return false;
         }
+        const payload = await verifyPeerGrant(
+          g.certificate,
+          this.serverPublicKey
+        );
+        if (payload) return true;
       }
     }
     // No matching grant found — SRP proves identity, not authorization. Reject.

@@ -25,6 +25,12 @@
 // agent connection to the control plane.
 if (process.env.VC_GATEWAY_BYPASS === "1") process.exit(0);
 
+// Pure/side-effect-free — safe to import before the stdout guard below.
+// (ESM import bindings are available before this module's own top-level code
+// runs regardless of where the `import` statement appears in the file, but
+// it's declared here, ahead of the guard that uses it, for readability.)
+import { isJsonRpcMessage } from "./jsonrpc-guard.js";
+
 // ── Stdout guard — must run before any library import ────────────────────────
 // Pino uses sonic-boom which writes via fs.write(fd) and bypasses this guard,
 // so all pino loggers in agent-runtime must be created with process.stderr as
@@ -38,9 +44,13 @@ if (process.env.VC_GATEWAY_BYPASS === "1") process.exit(0);
     callback?: any
   ): boolean {
     const s = typeof chunk === "string" ? chunk : Buffer.from(chunk).toString("utf8");
-    const t = s.trimStart();
-    // Only let valid MCP JSON-RPC 2.0 messages through; redirect everything else to stderr
-    if (t.startsWith("{") && t.includes('"jsonrpc"') && t.includes('"2.0"')) {
+    // Only let valid MCP JSON-RPC 2.0 messages through; redirect everything else
+    // to stderr. A real JSON.parse (rather than a substring check) avoids both
+    // false positives — e.g. a log line that happens to embed the text
+    // `"jsonrpc":"2.0"` while describing a message, which would otherwise leak
+    // onto stdout and corrupt the protocol stream — and false negatives from
+    // whitespace/formatting variations.
+    if (isJsonRpcMessage(s)) {
       return orig(chunk, encoding, callback);
     }
     return process.stderr.write(chunk, encoding, callback);

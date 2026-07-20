@@ -148,7 +148,8 @@ describe("mcp-gateway createMcpServer", () => {
     const result = await callTool("vc_run_intent", { agent_did: "did:vaultys:unknown", action: "do_thing" });
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toMatch(/No peer grant for agent DID/);
-    expect(result.content[0].text).toContain("did:vaultys:peer-1 (Peer One)");
+    expect(result.content[0].text).toContain("vc_list_agents");
+    expect(result.content[0].text).not.toContain("did:vaultys:peer-1");
     expect(agent.invokePeer).not.toHaveBeenCalled();
   });
 
@@ -299,5 +300,13 @@ describe("mcp-gateway createMcpServer", () => {
     await expect(readResource(`vc://agents/${encodeURIComponent("did:vaultys:ghost")}`)).rejects.toThrow(
       /No peer grant/
     );
+  });
+
+  it("logs and rethrows when reading a resource with a malformed URI", async () => {
+    const agent = new FakeAgent();
+    agent.catalog = [makeGrant()];
+    const { readResource, log } = setup(agent);
+    await expect(readResource("not-a-valid-uri")).rejects.toThrow();
+    expect(log).toHaveBeenCalledWith(expect.stringMatching(/"event":"read_resource_error"/));
   });
 });

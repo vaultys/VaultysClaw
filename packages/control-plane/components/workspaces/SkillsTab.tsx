@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { AlertCircle, Lock, Plus, Puzzle, X } from "lucide-react";
 import type { WorkspaceSkill } from "@/lib/contracts";
+import { useConfirm } from "@/components/shared/ConfirmContext";
 import { ListCard, ListRow } from "./ui";
 
 export function SkillsTab({
@@ -16,6 +17,7 @@ export function SkillsTab({
   onChanged: () => void;
   canManage: boolean;
 }) {
+  const confirm = useConfirm();
   const [showAdd, setShowAdd] = useState(false);
   const [addName, setAddName] = useState("");
   const [addDesc, setAddDesc] = useState("");
@@ -63,7 +65,14 @@ export function SkillsTab({
   }
 
   async function handleDelete(skill: WorkspaceSkill) {
-    if (!confirm(`Remove skill "${skill.name}" from this workspace?`)) return;
+    if (
+      !(await confirm({
+        title: "Remove skill",
+        message: `Remove skill "${skill.name}" from this workspace?`,
+        variant: "danger",
+      }))
+    )
+      return;
     await fetch(`/api/workspaces/${workspaceId}/skills/${skill.id}`, {
       method: "DELETE",
     });

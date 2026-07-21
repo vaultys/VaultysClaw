@@ -13,6 +13,7 @@ import {
   ApiError,
 } from "@/lib/api/ts-rest/client";
 import type { WorkspaceWithCounts } from "@/lib/contracts";
+import { useConfirm } from "@/components/shared/ConfirmContext";
 import { normalizeWorkspaceRole } from "@/lib/roles";
 import { slugify } from "@vaultysclaw/shared";
 
@@ -161,6 +162,7 @@ function CreateWorkspaceModal({
 
 export default function WorkspacesPage() {
   const router = useRouter();
+  const confirm = useConfirm();
   const { isGlobalAdmin } = useRole();
   const [workspaces, setWorkspaces] = useState<WorkspaceWithCounts[]>([]);
   const [loading, setLoading] = useState(true);
@@ -198,9 +200,12 @@ export default function WorkspacesPage() {
 
   async function handleDelete(id: string) {
     if (
-      !confirm(
-        "Delete this workspace? Members will be removed from it. This cannot be undone."
-      )
+      !(await confirm({
+        title: "Delete workspace",
+        message:
+          "Delete this workspace? Members will be removed from it. This cannot be undone.",
+        variant: "danger",
+      }))
     )
       return;
     setDeletingId(id);

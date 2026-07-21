@@ -76,7 +76,7 @@ const SECTIONS: NavSection[] = [
     label: "Home",
     adminOnly: false,
     items: [
-      { href: "/", icon: LayoutDashboard, label: "Dashboard", exact: true },
+      { href: "/app/dashboard", icon: LayoutDashboard, label: "Dashboard", exact: true },
       { href: "/app/my-agents", icon: Bot, label: "My Agents", exact: false },
       { href: "/app/workflows", icon: Workflow, label: "My Workflows", exact: false },
       { href: "/app/inbox", icon: Inbox, label: "Inbox", exact: false },

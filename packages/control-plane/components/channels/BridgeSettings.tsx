@@ -15,6 +15,7 @@ import {
   unwrap,
 } from "@/lib/api/ts-rest/client";
 import type { ChannelBridgePublic } from "@/lib/contracts";
+import { useConfirm } from "@/components/shared/ConfirmContext";
 
 type BridgeRecord = ChannelBridgePublic;
 
@@ -53,6 +54,7 @@ export default function BridgeSettings({
   channelId,
   onClose,
 }: BridgeSettingsProps) {
+  const confirm = useConfirm();
   const [bridges, setBridges] = useState<BridgeRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -157,7 +159,13 @@ export default function BridgeSettings({
   };
 
   const handleDelete = async (bridgeId: string) => {
-    if (!confirm("Delete this bridge? External messages will no longer sync."))
+    if (
+      !(await confirm({
+        title: "Delete bridge",
+        message: "Delete this bridge? External messages will no longer sync.",
+        variant: "danger",
+      }))
+    )
       return;
     try {
       await userApi.channels.deleteBridge({

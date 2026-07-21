@@ -10,6 +10,7 @@ import { StatBox } from "./StatBox";
 import { TrafficChart } from "./TrafficChart";
 import { AgentsTable } from "./AgentsTable";
 import { LogPanel } from "./LogPanel";
+import { useConfirm } from "@/components/shared/ConfirmContext";
 
 export function WsTab({
   stats,
@@ -22,14 +23,18 @@ export function WsTab({
   logs: NetworkLogEntry[];
   onRestartWs: () => Promise<void>;
 }) {
+  const confirm = useConfirm();
   const [restarting, setRestarting] = useState(false);
   const [successBanner, setSuccessBanner] = useState(false);
 
   async function handleRestart() {
     if (
-      !window.confirm(
-        "Restart the WebSocket server? All agents will be disconnected."
-      )
+      !(await confirm({
+        title: "Restart WebSocket",
+        message:
+          "Restart the WebSocket server? All agents will be disconnected.",
+        variant: "danger",
+      }))
     )
       return;
     setRestarting(true);

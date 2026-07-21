@@ -13,11 +13,15 @@ import {
   unwrap,
 } from "@/lib/api/ts-rest/client";
 import type { WorkflowDefinition } from "@/lib/workflow-types";
+import { useToast } from "@/components/shared/ToastContext";
+import { useConfirm } from "@/components/shared/ConfirmContext";
 
 type SaveStatus = "idle" | "saving" | "success" | "error";
 
 export default function WorkflowEditPage() {
   const params = useParams();
+  const toast = useToast();
+  const confirm = useConfirm();
   const searchParams = useSearchParams();
   const router = useRouter();
   const workflowId = typeof params.id === "string" ? params.id : params.id?.[0];
@@ -85,7 +89,7 @@ export default function WorkflowEditPage() {
       setEditorKey((k) => k + 1);
     } catch (err) {
       console.error("Failed to fetch workflow:", err);
-      alert("Failed to load workflow");
+      toast.error("Failed to load workflow");
     }
   };
 
@@ -123,7 +127,7 @@ export default function WorkflowEditPage() {
 
   const handleExecute = async () => {
     if (!storeId) {
-      alert("Please save the workflow first");
+      toast.info("Please save the workflow first");
       return;
     }
     if (!workflowInput) {
@@ -146,13 +150,13 @@ export default function WorkflowEditPage() {
       startExecution(data.runId);
     } catch (err) {
       console.error("Failed to execute workflow:", err);
-      alert("Failed to execute workflow");
+      toast.error("Failed to execute workflow");
     }
   };
 
   const handleExport = async () => {
     if (!storeId) {
-      alert("Save the workflow first");
+      toast.info("Save the workflow first");
       return;
     }
     try {
@@ -172,7 +176,7 @@ export default function WorkflowEditPage() {
       document.body.removeChild(a);
     } catch (err) {
       console.error("Export failed:", err);
-      alert("Failed to export workflow");
+      toast.error("Failed to export workflow");
     }
   };
 
@@ -195,7 +199,7 @@ export default function WorkflowEditPage() {
       setEditorKey((k) => k + 1);
     } catch (err) {
       console.error("Import failed:", err);
-      alert("Failed to import workflow: " + String(err));
+      toast.error("Failed to import workflow: " + String(err));
     }
   };
 
@@ -205,14 +209,20 @@ export default function WorkflowEditPage() {
       router.push(workspaceFromUrl ? `/workspaces/${workspaceFromUrl}` : "/admin/workflows");
       return;
     }
-    if (!confirm(`Delete workflow "${workflowName}"? This cannot be undone.`))
+    if (
+      !(await confirm({
+        title: "Delete workflow",
+        message: `Delete workflow "${workflowName}"? This cannot be undone.`,
+        variant: "danger",
+      }))
+    )
       return;
     try {
       unwrap(await userApi.workflows.remove({ params: { id: storeId } }));
       router.push(workspaceFromUrl ? `/workspaces/${workspaceFromUrl}` : "/admin/workflows");
     } catch (err) {
       console.error("Failed to delete workflow:", err);
-      alert("Failed to delete workflow");
+      toast.error("Failed to delete workflow");
     }
   };
 

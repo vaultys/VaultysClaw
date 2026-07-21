@@ -27,11 +27,15 @@ import {
 import { UnclaimedOverviewTab } from "@/components/users/detail/UnclaimedOverviewTab";
 import { UnclaimedWorkspacesTab } from "@/components/users/detail/UnclaimedWorkspacesTab";
 import { QrClaimModal, type QrPhase } from "@/components/users/QrClaimModal";
+import { useToast } from "@/components/shared/ToastContext";
+import { useConfirm } from "@/components/shared/ConfirmContext";
 
 type TabId = "overview" | "workspaces";
 
 export default function UnregisteredUserPage() {
   const router = useRouter();
+  const toast = useToast();
+  const confirm = useConfirm();
   const params = useParams<{ id: string }>();
   const id = params.id;
 
@@ -107,9 +111,9 @@ export default function UnregisteredUserPage() {
                 },
               })
             );
-            alert(`Invitation sent to ${user.email}`);
+            toast.success(`Invitation sent to ${user.email}`);
           } catch (err) {
-            alert(
+            toast.error(
               err instanceof ApiError
                 ? err.message
                 : "Failed to send invitation"
@@ -165,9 +169,11 @@ export default function UnregisteredUserPage() {
   const handleRemove = useCallback(async () => {
     if (!user) return;
     if (
-      !confirm(
-        `Remove ${user.name ?? user.email ?? "this user"}? This cannot be undone.`
-      )
+      !(await confirm({
+        title: "Remove user",
+        message: `Remove ${user.name ?? user.email ?? "this user"}? This cannot be undone.`,
+        variant: "danger",
+      }))
     )
       return;
     setRemoving(true);

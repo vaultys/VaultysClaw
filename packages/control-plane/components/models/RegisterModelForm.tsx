@@ -11,13 +11,10 @@ import {
   Radar,
   Plus,
 } from "lucide-react";
-import {
-  ApiError,
-  adminApi,
-  unwrap,
-} from "@/lib/api/ts-rest/client";
+import { ApiError, adminApi, unwrap } from "@/lib/api/ts-rest/client";
 import type { SafeModel } from "@/lib/contracts";
 import { isSdkAgentProvider, type LlmProviderType } from "@vaultysclaw/shared";
+import { useConfirm } from "@/components/shared/ConfirmContext";
 import {
   discoverLocalModels,
   type LocalDiscoveryResult,
@@ -105,6 +102,7 @@ export function RegisterModelForm({
   showExistingModels = false,
   layout = "grid",
 }: RegisterModelFormProps) {
+  const confirm = useConfirm();
   // Existing models list
   const [existingModels, setExistingModels] = useState<ExistingModel[]>([]);
   const [existingLoading, setExistingLoading] = useState(false);
@@ -115,7 +113,8 @@ export function RegisterModelForm({
   // Form fields
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [provider, setProvider] = useState<LlmProviderType>("openai-compatible");
+  const [provider, setProvider] =
+    useState<LlmProviderType>("openai-compatible");
   const isSdkAgent = isSdkAgentProvider(provider);
   const [modelId, setModelId] = useState(PROVIDERS[0].defaults.modelId);
   const [baseUrl, setBaseUrl] = useState(PROVIDERS[0].defaults.baseUrl);
@@ -341,7 +340,14 @@ export function RegisterModelForm({
   };
 
   const deleteExisting = async (id: string) => {
-    if (!confirm("Remove this model?")) return;
+    if (
+      !(await confirm({
+        title: "Remove model",
+        message: "Remove this model?",
+        variant: "danger",
+      }))
+    )
+      return;
     unwrap(await adminApi.models.remove({ params: { id } }));
     await loadExisting();
   };
@@ -434,11 +440,10 @@ export function RegisterModelForm({
       <div className="space-y-2">
         <div className="flex items-center justify-between gap-2">
           <div>
-            <p className="text-sm font-medium text-foreground">
-              Local models
-            </p>
+            <p className="text-sm font-medium text-foreground">Local models</p>
             <p className="text-xs text-foreground-500">
-              Scan this machine for running LLM servers (LM Studio, Ollama, vLLM)
+              Scan this machine for running LLM servers (LM Studio, Ollama,
+              vLLM)
             </p>
           </div>
           <button
@@ -632,9 +637,9 @@ export function RegisterModelForm({
               <p className="text-xs px-3 py-2 rounded-xl border border-warning-300 bg-warning-50 text-warning-700">
                 Experimental: runs the vendor&apos;s own agent harness (its own
                 tool loop, permissions, sessions) locally in the agent
-                controller via Mastra SDK Agents — not routed through
-                LiteLLM. The internal tool registry is not forwarded; the
-                harness manages its own tools/MCP servers.
+                controller via Mastra SDK Agents — not routed through LiteLLM.
+                The internal tool registry is not forwarded; the harness manages
+                its own tools/MCP servers.
               </p>
             </div>
           )}

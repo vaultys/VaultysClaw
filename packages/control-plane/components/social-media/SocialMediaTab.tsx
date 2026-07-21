@@ -29,6 +29,7 @@ import {
   userApi,
   unwrap,
 } from "@/lib/api/ts-rest/client";
+import { useConfirm } from "@/components/shared/ConfirmContext";
 
 /** Minimal X (Twitter) logo — lucide-react v1 removed the Twitter icon */
 function XLogo({ className }: { className?: string }) {
@@ -93,6 +94,7 @@ function CronPreview({ cron }: { cron: string }) {
 // -----------------------------------------------------------------------
 
 export function SocialMediaTab({ workspaceId }: SocialMediaTabProps) {
+  const confirm = useConfirm();
   const [credentials, setCredentials] = useState<Credential[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -186,9 +188,12 @@ export function SocialMediaTab({ workspaceId }: SocialMediaTabProps) {
 
   async function deleteXCredential() {
     if (
-      !confirm(
-        "Delete X credentials? The agent will no longer be able to post."
-      )
+      !(await confirm({
+        title: "Delete credentials",
+        message:
+          "Delete X credentials? The agent will no longer be able to post.",
+        variant: "danger",
+      }))
     )
       return;
 

@@ -12,6 +12,7 @@ import {
   FlaskConical,
 } from "lucide-react";
 import { useRole } from "@/hooks/useRole";
+import { useConfirm } from "@/components/shared/ConfirmContext";
 import { useToolbar } from "@/components/layout/ToolbarContext";
 import { useBreadcrumbs } from "@/components/layout/BreadcrumbContext";
 import { OverviewTab } from "@/components/models/OverviewTab";
@@ -42,6 +43,7 @@ export default function ModelDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { isGlobalAdmin } = useRole();
+  const confirm = useConfirm();
   const [model, setModel] = useState<SafeModel | null>(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<TabId>("overview");
@@ -64,7 +66,13 @@ export default function ModelDetailPage() {
   }, [load]);
 
   async function handleDelete() {
-    if (!confirm(`Delete model "${model?.name}"? This cannot be undone.`))
+    if (
+      !(await confirm({
+        title: "Delete model",
+        message: `Delete model "${model?.name}"? This cannot be undone.`,
+        variant: "danger",
+      }))
+    )
       return;
     setDeleting(true);
     unwrap(await adminApi.models.remove({ params: { id } }));

@@ -6,6 +6,7 @@ import {
   unwrap,
   ApiError,
 } from "@/lib/api/ts-rest/client";
+import { useToast } from "@/components/shared/ToastContext";
 import type { WorkspaceOption } from "./types";
 
 export function AddSkillModal({
@@ -33,6 +34,7 @@ export function AddSkillModal({
   const [configError, setConfigError] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const toast = useToast();
 
   const nameLocked = prefillName.length > 0;
 
@@ -80,8 +82,11 @@ export function AddSkillModal({
       );
       onCreated();
       onClose();
+      toast.success(`Skill "${name}" added to the workspace`);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Network error");
+      const message = err instanceof ApiError ? err.message : "Network error";
+      setError(message);
+      toast.error(message);
       setSaving(false);
     }
   }

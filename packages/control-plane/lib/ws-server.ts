@@ -62,6 +62,7 @@ import {
 import { agentsConnected, llmTokens, intentsTotal } from "./metrics";
 import { ChannelService } from "./channel-service";
 import { enqueueNotification } from "./notification-queue";
+import { enqueueWebhook } from "./webhook-queue";
 import { verifyEnrollmentToken } from "./agent-enrollment";
 import { crypto } from "@vaultys/id";
 import { signIntent } from "./intent-signing";
@@ -764,6 +765,15 @@ export class AgentWSServer {
             data: {
               agentDid,
               agentName: pending.agentName ?? "unknown",
+              registrationId,
+            },
+          });
+          void enqueueWebhook({
+            eventType: "agent.approval_requested",
+            payload: {
+              did: agentDid,
+              name: pending.agentName ?? "unknown",
+              capabilities: pending.capabilities ?? [],
               registrationId,
             },
           });
@@ -1598,6 +1608,14 @@ export class AgentWSServer {
       eventType: "agent.created",
       data: { agentDid, agentName: target.agentName ?? "unknown", actorDid },
     });
+    void enqueueWebhook({
+      eventType: "agent.created",
+      payload: {
+        did: agentDid,
+        name: target.agentName ?? "unknown",
+        capabilities,
+      },
+    });
 
     // Promote to authenticated agent
     clearTimeout(target.timer);
@@ -1681,9 +1699,12 @@ export class AgentWSServer {
     if (isLiteLLMConfigured()) {
       try {
         const agentWorkspaces = await AgentDAO.getWorkspaces(agentDid);
-        const primary = agentWorkspaces.find((r) => r.isPrimary) ?? agentWorkspaces[0];
+        const primary =
+          agentWorkspaces.find((r) => r.isPrimary) ?? agentWorkspaces[0];
         if (primary) {
-          const routerKey = await WorkspaceDAO.getRouterKey(primary.workspaceId);
+          const routerKey = await WorkspaceDAO.getRouterKey(
+            primary.workspaceId
+          );
           if (routerKey?.litellmVirtualKey && routerKey.allowedModelIds) {
             const allowedModels = routerKey.allowedModelIds as string[];
             const virtualKey = await createAgentKey(agentDid, allowedModels);
@@ -2384,7 +2405,8 @@ export class AgentWSServer {
     // Priority 3: workspace-level LiteLLM virtual key
     if (isLiteLLMConfigured()) {
       const agentWorkspaces = await AgentDAO.getWorkspaces(agentDid);
-      const primary = agentWorkspaces.find((r) => r.isPrimary) ?? agentWorkspaces[0];
+      const primary =
+        agentWorkspaces.find((r) => r.isPrimary) ?? agentWorkspaces[0];
       if (primary) {
         const routerKey = await WorkspaceDAO.getRouterKey(primary.workspaceId);
         if (routerKey?.litellmVirtualKey) {
@@ -2690,7 +2712,9 @@ export function sendSkillsConfig(agentDid: string): void {
  * Called when workspace skill definitions are created, updated, or deleted.
  * Exported for use by API route handlers.
  */
-export async function broadcastSkillsConfig(workspaceId: string): Promise<void> {
+export async function broadcastSkillsConfig(
+  workspaceId: string
+): Promise<void> {
   const wsServer = getWSServer();
   if (!wsServer) return;
 

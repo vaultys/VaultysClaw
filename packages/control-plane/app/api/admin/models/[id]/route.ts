@@ -6,6 +6,8 @@ import {
 } from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 import { enqueueNotification } from "@/lib/notification-queue";
+import { enqueueWebhook } from "@/lib/webhook-queue";
+import { modelPayload } from "@/lib/webhook-payloads";
 import {
   registerModel,
   removeModel,
@@ -59,6 +61,12 @@ const handlers = createNextRoute(adminContract.models, {
       }
     }
 
+    if (updated)
+      void enqueueWebhook({
+        eventType: "model.updated",
+        payload: modelPayload(updated),
+      });
+
     return { status: 200, body: { model: updated } };
   },
 
@@ -81,6 +89,10 @@ const handlers = createNextRoute(adminContract.models, {
     void enqueueNotification({
       eventType: "model.removed",
       data: { modelId: entry.id, modelName: entry.name, actorDid: auth.did },
+    });
+    void enqueueWebhook({
+      eventType: "model.deleted",
+      payload: modelPayload(entry),
     });
 
     return { status: 200, body: { model: deleted } };

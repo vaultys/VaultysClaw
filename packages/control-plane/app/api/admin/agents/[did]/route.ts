@@ -2,6 +2,8 @@ import { Challenger, crypto } from "@vaultys/id";
 import { getWSServer } from "@/lib/ws-server";
 import { AgentDAO } from "@/db";
 import { enqueueNotification } from "@/lib/notification-queue";
+import { enqueueWebhook } from "@/lib/webhook-queue";
+import { agentPayload } from "@/lib/webhook-payloads";
 import {
   VaultysIDInfo,
   vaultysIdInfo,
@@ -120,6 +122,11 @@ const handlers = createNextRoute(adminContract.agents, {
     }
 
     const updated = await AgentDAO.findByDid(did);
+    if (updated)
+      void enqueueWebhook({
+        eventType: "agent.updated",
+        payload: agentPayload(updated),
+      });
     return {
       status: 200,
       body: {
@@ -151,6 +158,10 @@ const handlers = createNextRoute(adminContract.agents, {
     void enqueueNotification({
       eventType: "agent.deleted",
       data: { agentDid: did, agentName: agent.name, actorDid: auth.did },
+    });
+    void enqueueWebhook({
+      eventType: "agent.deleted",
+      payload: agentPayload(agent),
     });
 
     return { status: 204, body: undefined };

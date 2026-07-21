@@ -8,6 +8,8 @@ import { OrgSkillDAO } from "@/db";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 import { adminContract } from "@/lib/contracts";
 import { enqueueNotification } from "@/lib/notification-queue";
+import { enqueueWebhook } from "@/lib/webhook-queue";
+import { skillPayload } from "@/lib/webhook-payloads";
 
 const handlers = createNextRoute(adminContract.orgSkills, {
   create: async ({ body, request }) => {
@@ -27,6 +29,10 @@ const handlers = createNextRoute(adminContract.orgSkills, {
       void enqueueNotification({
         eventType: "skill.added",
         data: { skillId: skill.id, skillName: skill.name, actorDid: auth.did },
+      });
+      void enqueueWebhook({
+        eventType: "skill.created",
+        payload: skillPayload(skill),
       });
       return { status: 201, body: { skill } };
     } catch (err) {

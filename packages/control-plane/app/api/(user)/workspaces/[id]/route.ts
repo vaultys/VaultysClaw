@@ -4,6 +4,8 @@ import { WorkspaceDAO } from "@/db";
 import { userContract } from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 import { enqueueNotification } from "@/lib/notification-queue";
+import { enqueueWebhook } from "@/lib/webhook-queue";
+import { workspacePayload } from "@/lib/webhook-payloads";
 
 /**
  * Routes for /api/workspaces/:id — the workspace-detail slice of `userContract.workspaces`.
@@ -53,6 +55,12 @@ const handlers = createNextRoute(userContract.workspaces, {
     await WorkspaceDAO.update(params.id, updates);
     const workspace = await WorkspaceDAO.findById(params.id);
 
+    if (workspace)
+      void enqueueWebhook({
+        eventType: "workspace.updated",
+        payload: workspacePayload(workspace),
+      });
+
     return { status: 200, body: workspace! };
   },
 
@@ -75,6 +83,10 @@ const handlers = createNextRoute(userContract.workspaces, {
         workspaceName: workspace?.name,
         actorDid: auth.did,
       },
+    });
+    void enqueueWebhook({
+      eventType: "workspace.deleted",
+      payload: { id: params.id, name: workspace?.name ?? null },
     });
 
     return { status: 200, body: { ok: true } };

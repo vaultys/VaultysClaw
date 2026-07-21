@@ -4,6 +4,8 @@ import { KnowledgeDAO } from "@/db";
 import { adminContract } from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 import { enqueueNotification } from "@/lib/notification-queue";
+import { enqueueWebhook } from "@/lib/webhook-queue";
+import { knowledgePayload } from "@/lib/webhook-payloads";
 
 const handlers = createNextRoute(adminContract.knowledge, {
   // ── DELETE /api/admin/knowledge/:id ───────────────────────────────────────
@@ -22,6 +24,10 @@ const handlers = createNextRoute(adminContract.knowledge, {
         workspaceId: source.workspaceId,
         actorDid: auth.did,
       },
+    });
+    void enqueueWebhook({
+      eventType: "knowledge.deleted",
+      payload: knowledgePayload(source),
     });
 
     return { status: 200, body: undefined };

@@ -4,6 +4,8 @@ import { WorkspaceDAO, UserDAO } from "@/db";
 import { adminContract } from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 import { enqueueNotification } from "@/lib/notification-queue";
+import { enqueueWebhook } from "@/lib/webhook-queue";
+import { workspacePayload } from "@/lib/webhook-payloads";
 
 /**
  * POST /api/admin/workspaces — create a new workspace (global admin only).
@@ -48,6 +50,10 @@ const handlers = createNextRoute(adminContract.workspaces, {
         workspaceName: workspace.name,
         actorDid: auth.did,
       },
+    });
+    void enqueueWebhook({
+      eventType: "workspace.created",
+      payload: workspacePayload(workspace),
     });
 
     return { status: 201, body: { workspace } };

@@ -722,3 +722,21 @@ model ApiKey {
   @@index([keyHash])
   @@index([workspaceId])
 }
+
+// ─── Webhooks ─────────────────────────────────────────────────────────────────
+
+model Webhook {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  url         String
+  secret      String // HMAC signing secret; readable by the dispatcher
+  events      Json     @default("[]") // string[] of subscribed event types
+  isActive    Boolean  @default(true)
+  createdBy   String // DID of the admin who created it
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isActive])
+  @@map("webhooks")
+}

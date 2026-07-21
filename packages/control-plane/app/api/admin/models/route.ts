@@ -5,6 +5,8 @@ import { ModelDAO } from "@/db";
 import { adminContract } from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 import { enqueueNotification } from "@/lib/notification-queue";
+import { enqueueWebhook } from "@/lib/webhook-queue";
+import { modelPayload } from "@/lib/webhook-payloads";
 import { isSdkAgentProvider, type LlmProviderType } from "@vaultysclaw/shared";
 
 const handlers = createNextRoute(adminContract.models, {
@@ -69,6 +71,10 @@ const handlers = createNextRoute(adminContract.models, {
     void enqueueNotification({
       eventType: "model.added",
       data: { modelId: entry.id, modelName: entry.name, actorDid: auth.did },
+    });
+    void enqueueWebhook({
+      eventType: "model.created",
+      payload: modelPayload(entry),
     });
 
     // Never expose the stored (encrypted) API key.

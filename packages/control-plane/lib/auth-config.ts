@@ -5,6 +5,8 @@ import { UserServerChannel } from "./user-server-channel";
 import { UserDAO } from "@/db";
 import { getOidcConfig } from "@/lib/oidc-config";
 import { normalizeRole, type UserRole } from "@/lib/roles";
+import { enqueueWebhook } from "@/lib/webhook-queue";
+import { userPayload } from "@/lib/webhook-payloads";
 
 declare module "next-auth" {
   interface Session {
@@ -138,6 +140,29 @@ const sharedCallbacks: NextAuthOptions["callbacks"] = {
   },
 };
 
+// ─── Auth events → webhooks (login / logout) ──────────────────────────────────
+
+const sharedEvents: NextAuthOptions["events"] = {
+  async signIn({ user }) {
+    void enqueueWebhook({
+      eventType: "user.login",
+      payload: userPayload(user as unknown as Record<string, unknown>),
+    });
+  },
+  async signOut({ token }) {
+    void enqueueWebhook({
+      eventType: "user.logout",
+      payload: {
+        id: token?.userId ?? null,
+        did: token?.did ?? null,
+        name: token?.name ?? null,
+        email: token?.email ?? null,
+        role: token?.role ?? null,
+      },
+    });
+  },
+};
+
 /**
  * Static authOptions — used everywhere for session validation (getServerSession).
  * Does NOT include the OIDC provider; OIDC is only needed for the login handler.
@@ -147,6 +172,7 @@ export const authOptions: NextAuthOptions = {
   pages: { signIn: "/login" },
   providers,
   callbacks: sharedCallbacks,
+  events: sharedEvents,
 };
 
 /**

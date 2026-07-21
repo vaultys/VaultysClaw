@@ -7,12 +7,16 @@ import { Challenger, CryptoChannel, VaultysId, crypto } from "@vaultys/id";
 import { CertificateDAO, SettingsDAO, UserDAO, WorkspaceDAO } from "@/db";
 import type { Certificate } from "@prisma/client";
 import { enqueueNotification } from "@/lib/notification-queue";
+import { enqueueWebhook } from "@/lib/webhook-queue";
+import { userPayload } from "@/lib/webhook-payloads";
 
-/** Fire the admin-level "a user completed onboarding" notification. */
+/** Fire the admin-level "a user completed onboarding" notification + webhook. */
 const notifyUserJoined = (user: {
   id: string;
+  did?: string | null;
   name?: string | null;
   email?: string | null;
+  role?: string | null;
 }) => {
   void enqueueNotification({
     eventType: "user.joined",
@@ -24,6 +28,10 @@ const notifyUserJoined = (user: {
       // who self-registers shouldn't be notified about their own arrival).
       actorDid: user.id,
     },
+  });
+  void enqueueWebhook({
+    eventType: "user.joined",
+    payload: userPayload(user as Record<string, unknown>),
   });
 };
 
@@ -97,6 +105,11 @@ const registerUser = async (contact: VaultysId, pendingUserId?: string): Promise
   const isFirstUser = (await UserDAO.list({ page: 1, pageSize: 1 })).total === 0;
   console.log(`[registerUser] creating new user isFirstUser=${isFirstUser}`);
   const user = await UserDAO.create(did, publicKey, isFirstUser ? "Owner" : "Member");
+  await WorkspaceDAO.createPersonalWorkspace(user.id);
+  void enqueueWebhook({
+    eventType: "user.created",
+    payload: userPayload(user as unknown as Record<string, unknown>),
+  });
   if (isFirstUser) {
     // The default workspace is already seeded at server startup (see server.ts).
     // Rather than spin up a personal workspace, make the first user its owner.

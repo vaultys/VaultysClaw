@@ -13,6 +13,8 @@ import {
 } from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 import { USER_ROLES, isOwnerRole, normalizeRole } from "@/lib/roles";
+import { enqueueWebhook } from "@/lib/webhook-queue";
+import { userPayload } from "@/lib/webhook-payloads";
 
 const handlers = createNextRoute(adminContract.users, {
   getOne: async ({ params }) => {
@@ -79,6 +81,10 @@ const handlers = createNextRoute(adminContract.users, {
     }
 
     await UserDAO.update(user.id, fields);
+    void enqueueWebhook({
+      eventType: "user.updated",
+      payload: userPayload({ ...user, ...fields }),
+    });
     return { status: 200, body: undefined };
   },
 
@@ -95,6 +101,10 @@ const handlers = createNextRoute(adminContract.users, {
     if (!user) throw new APIException("NOT_FOUND", "User not found");
 
     await UserDAO.delete(user.id);
+    void enqueueWebhook({
+      eventType: "user.deleted",
+      payload: userPayload(user),
+    });
     return { status: 200, body: undefined };
   },
 });

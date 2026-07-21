@@ -14,5 +14,6 @@ export { PolicyDAO } from "./policy.dao";
 export { KnowledgeDAO } from "./knowledge.dao";
 export { CredentialDAO } from "./credential.dao";
 export { ApiKeyDAO } from "./api-key.dao";
+export { WebhookDAO } from "./webhook.dao";
 export { ChannelDAO, ChannelMemberDAO, ChannelMessageDAO, ChannelBridgeDAO } from "./channel.dao";
 export { NotificationDAO, NotificationPreferenceDAO } from "./notification.dao";

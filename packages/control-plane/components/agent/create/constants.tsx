@@ -42,24 +42,23 @@ export const STEP_INDEX: Record<WizardStep, number> = {
 
 export type PkgRunner = "npx" | "pnpm" | "yarn" | "deno";
 
-export const PKG_RUNNERS: { id: PkgRunner; label: string; prefix: string }[] = [
-  { id: "npx", label: "npx", prefix: "npx @vaultysclaw/agent-controller" },
-  {
-    id: "pnpm",
-    label: "pnpm",
-    prefix: "pnpm dlx @vaultysclaw/agent-controller",
-  },
-  {
-    id: "yarn",
-    label: "yarn",
-    prefix: "yarn dlx @vaultysclaw/agent-controller",
-  },
-  {
-    id: "deno",
-    label: "deno",
-    prefix: "deno run npm:@vaultysclaw/agent-controller",
-  },
-];
+function pkgRunners(pkg: string): { id: PkgRunner; label: string; prefix: string }[] {
+  return [
+    { id: "npx", label: "npx", prefix: `npx ${pkg}` },
+    { id: "pnpm", label: "pnpm", prefix: `pnpm dlx ${pkg}` },
+    { id: "yarn", label: "yarn", prefix: `yarn dlx ${pkg}` },
+    { id: "deno", label: "deno", prefix: `deno run npm:${pkg}` },
+  ];
+}
+
+export const PKG_RUNNERS = pkgRunners("@vaultysclaw/agent-controller");
+
+/** Same runners, pointed at the MCP gateway package instead. */
+export const MCP_PKG_RUNNERS = pkgRunners("@vaultysclaw/mcp-gateway");
+
+// ── Agent kind (drives which binary/instructions the Launch step shows) ─────
+
+export type AgentKind = "cli" | "mcp-gateway";
 
 // ── Capabilities ────────────────────────────────────────────────────────────
 

@@ -9,6 +9,7 @@ import {
   Users,
   Activity,
   Key,
+  Plug,
 } from "lucide-react";
 import { SmtpPanel } from "@/components/integrations/smtp-panel";
 import { PeerjsPanel } from "@/components/integrations/peerjs-panel";
@@ -20,6 +21,7 @@ import { ServerInfoPanel } from "@/components/integrations/server-info-panel";
 import { EntraPanel } from "@/components/integrations/entra-panel";
 import { OidcPanel } from "@/components/integrations/oidc-panel";
 import { ApiKeysPanel } from "@/components/integrations/api-keys-panel";
+import { McpPanel } from "@/components/integrations/mcp-panel";
 import { useToolbar } from "@/components/layout/ToolbarContext";
 import { useBreadcrumbs } from "@/components/layout/BreadcrumbContext";
 
@@ -27,6 +29,7 @@ type Tab =
   | "communication"
   | "storage"
   | "ai"
+  | "mcp"
   | "identity"
   | "observability"
   | "api-keys";
@@ -35,6 +38,7 @@ const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
   { id: "communication", label: "Communication", icon: MessageSquare },
   { id: "storage", label: "Storage", icon: HardDrive },
   { id: "ai", label: "AI & Models", icon: Zap },
+  { id: "mcp", label: "MCP", icon: Plug },
   { id: "identity", label: "Identity", icon: Users },
   { id: "observability", label: "Observability", icon: Activity },
   { id: "api-keys", label: "API Keys", icon: Key },
@@ -96,6 +100,7 @@ export default function IntegrationsPage() {
         </>
       )}
       {activeTab === "ai" && <LiteLLMPanel />}
+      {activeTab === "mcp" && <McpPanel />}
       {activeTab === "identity" && (
         <>
           <OidcPanel />

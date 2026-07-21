@@ -10,6 +10,8 @@ import {
   Wifi,
   AlertTriangle,
   Radio,
+  Bot,
+  Plug,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CopyButton } from "@/components/shared";
@@ -17,7 +19,7 @@ import {
   userApi,
   unwrap,
 } from "@/lib/api/ts-rest/client";
-import { PKG_RUNNERS, type PkgRunner } from "./constants";
+import { PKG_RUNNERS, MCP_PKG_RUNNERS, type PkgRunner, type AgentKind } from "./constants";
 import { Workspace } from "@prisma/client";
 
 interface LaunchStepProps {
@@ -26,16 +28,23 @@ interface LaunchStepProps {
   setSelectedWorkspaces: (s: Set<string>) => void;
   /** Proceed to the waiting step with the entered agent name. */
   onContinue: (agentName: string) => void;
+  /** Preselect the MCP Gateway flow (e.g. deep-linked from Integrations). */
+  initialKind?: AgentKind;
 }
 
 export function LaunchStep({
   workspaces,
   setSelectedWorkspaces,
   onContinue,
+  initialKind = "cli",
 }: LaunchStepProps) {
+  const [kind, setKind] = useState<AgentKind>(initialKind);
   const [connMethod, setConnMethod] = useState<"ws" | "peerjs">("ws");
-  const [agentName, setAgentName] = useState("");
+  const [agentName, setAgentName] = useState(
+    initialKind === "mcp-gateway" ? "mcp-gateway" : ""
+  );
   const [wsUrl, setWsUrl] = useState("");
+  const [httpUrl, setHttpUrl] = useState("");
   const [pkgRunner, setPkgRunner] = useState<PkgRunner>("npx");
   const [selectedLaunchWorkspace, setSelectedLaunchWorkspace] = useState<string>("");
 
@@ -48,6 +57,7 @@ export function LaunchStep({
   useEffect(() => {
     const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
     setWsUrl(`${proto}//${window.location.hostname}:8080`);
+    setHttpUrl(`${window.location.protocol}//${window.location.hostname}:3000`);
 
     userApi.network
       .get({ query: {} })
@@ -71,20 +81,54 @@ export function LaunchStep({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workspaces]);
 
-  const runnerPrefix = PKG_RUNNERS.find((r) => r.id === pkgRunner)!.prefix;
+  const runners = kind === "mcp-gateway" ? MCP_PKG_RUNNERS : PKG_RUNNERS;
+  const runnerPrefix = runners.find((r) => r.id === pkgRunner)!.prefix;
   const nameArg = agentName.trim();
-  const connArg =
-    connMethod === "peerjs" && peerjsId
+
+  const cliCommand =
+    kind === "mcp-gateway"
       ? [
-          `--peerjs ${peerjsId}`,
-          ...(peerjsServerUrl ? [`--peerjs-server ${peerjsServerUrl}`] : []),
-        ]
-      : [`--ws ${wsUrl}`];
-  const cliCommand = [
-    runnerPrefix,
-    nameArg ? `--name "${nameArg}"` : "--name <required>",
-    ...connArg,
-  ].join(" \\\n  ");
+          `VC_AGENT_NAME="${nameArg || "<required>"}"`,
+          `VC_CONTROL_PLANE_URL=${httpUrl}`,
+          ...(connMethod === "peerjs" && peerjsId
+            ? [
+                `VC_PEERJS_CONTROL_PLANE_ID=${peerjsId}`,
+                ...(peerjsServerUrl ? [`VC_PEERJS_SERVER_URL=${peerjsServerUrl}`] : []),
+              ]
+            : [`VC_CONTROL_PLANE_WS_URL=${wsUrl}`]),
+          runnerPrefix,
+        ].join(" \\\n  ")
+      : [
+          runnerPrefix,
+          nameArg ? `--name "${nameArg}"` : "--name <required>",
+          ...(connMethod === "peerjs" && peerjsId
+            ? [
+                `--peerjs ${peerjsId}`,
+                ...(peerjsServerUrl ? [`--peerjs-server ${peerjsServerUrl}`] : []),
+              ]
+            : [`--ws ${wsUrl}`]),
+        ].join(" \\\n  ");
+
+  const mcpClientConfig = JSON.stringify(
+    {
+      mcpServers: {
+        vaultysclaw: {
+          command: pkgRunner === "npx" ? "npx" : runners.find((r) => r.id === pkgRunner)!.prefix.split(" ")[0],
+          args:
+            pkgRunner === "npx"
+              ? ["-y", "@vaultysclaw/mcp-gateway"]
+              : runners.find((r) => r.id === pkgRunner)!.prefix.split(" ").slice(1),
+          env: {
+            VC_AGENT_NAME: nameArg || "mcp-gateway",
+            VC_CONTROL_PLANE_URL: httpUrl,
+            VC_CONTROL_PLANE_WS_URL: wsUrl,
+          },
+        },
+      },
+    },
+    null,
+    2
+  );
 
   const workspaceNote = selectedLaunchWorkspace
     ? workspaces.find((r) => r.id === selectedLaunchWorkspace)?.name
@@ -94,16 +138,95 @@ export function LaunchStep({
     <div className="space-y-6">
       <div>
         <h2 className="text-lg font-semibold text-foreground mb-1">
-          Launch an agent
+          {kind === "mcp-gateway" ? "Connect an MCP client" : "Launch an agent"}
         </h2>
         <p className="text-sm text-foreground-500">
-          An agent runs locally using the{" "}
-          <code className="text-xs bg-background-200 border border-neutral-200 px-1 py-0.5 rounded">
-            agent-controller
-          </code>{" "}
-          CLI. It connects to this control plane over WebSocket and waits for
-          admin approval.
+          {kind === "mcp-gateway" ? (
+            <>
+              The{" "}
+              <code className="text-xs bg-background-200 border border-neutral-200 px-1 py-0.5 rounded">
+                mcp-gateway
+              </code>{" "}
+              runs locally as an MCP server over stdio and connects to this
+              control plane the same way an agent does. Once approved, your
+              peer agents become callable tools inside Claude Code, Claude
+              Desktop, or any other MCP client.
+            </>
+          ) : (
+            <>
+              An agent runs locally using the{" "}
+              <code className="text-xs bg-background-200 border border-neutral-200 px-1 py-0.5 rounded">
+                agent-controller
+              </code>{" "}
+              CLI. It connects to this control plane over WebSocket and waits
+              for admin approval.
+            </>
+          )}
         </p>
+      </div>
+
+      {/* Agent kind selector */}
+      <div className="space-y-3">
+        <label className="text-xs font-medium text-foreground-500 uppercase tracking-wide">
+          What are you connecting?
+        </label>
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={() => setKind("cli")}
+            className={`flex flex-col items-start gap-1.5 px-4 py-3 rounded-xl border text-left transition-colors ${
+              kind === "cli"
+                ? "bg-primary-50 border-primary-400"
+                : "bg-background-100 border-neutral-200 hover:bg-background-200"
+            }`}
+          >
+            <span className="flex items-center gap-2">
+              <Bot
+                size={15}
+                className={kind === "cli" ? "text-primary-600" : "text-foreground-500"}
+              />
+              <span
+                className={`text-sm font-medium ${kind === "cli" ? "text-primary-700" : "text-foreground"}`}
+              >
+                CLI agent
+              </span>
+              {kind === "cli" && <Check size={13} className="ml-auto text-primary-500" />}
+            </span>
+            <span className="text-xs text-foreground-500">
+              A standalone agent-controller process
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setKind("mcp-gateway");
+              if (!agentName.trim()) setAgentName("mcp-gateway");
+            }}
+            className={`flex flex-col items-start gap-1.5 px-4 py-3 rounded-xl border text-left transition-colors ${
+              kind === "mcp-gateway"
+                ? "bg-secondary-50 border-secondary-400"
+                : "bg-background-100 border-neutral-200 hover:bg-background-200"
+            }`}
+          >
+            <span className="flex items-center gap-2">
+              <Plug
+                size={15}
+                className={kind === "mcp-gateway" ? "text-secondary-600" : "text-foreground-500"}
+              />
+              <span
+                className={`text-sm font-medium ${kind === "mcp-gateway" ? "text-secondary-700" : "text-foreground"}`}
+              >
+                MCP Gateway
+              </span>
+              {kind === "mcp-gateway" && (
+                <Check size={13} className="ml-auto text-secondary-500" />
+              )}
+            </span>
+            <span className="text-xs text-foreground-500">
+              Claude Code / Desktop, via MCP
+            </span>
+          </button>
+        </div>
       </div>
 
       {/* Connection method selector */}
@@ -239,17 +362,29 @@ export function LaunchStep({
         <input
           value={agentName}
           onChange={(e) => setAgentName(e.target.value)}
-          placeholder="e.g. researcher"
+          placeholder={kind === "mcp-gateway" ? "mcp-gateway" : "e.g. researcher"}
           className={cn(
             "w-full px-3 py-2 bg-background-100 border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary-500",
             agentName.trim() ? "border-neutral-200" : "border-warning-400"
           )}
         />
         <p className="text-xs text-foreground-400">
-          All agent data is stored in{" "}
-          <code className="font-mono bg-background-200 px-1 rounded">
-            .vaultys/{agentName.trim() || "<name>"}/
-          </code>
+          {kind === "mcp-gateway" ? (
+            <>
+              Identity is stored at{" "}
+              <code className="font-mono bg-background-200 px-1 rounded">
+                ~/.vaultysclaw/mcp-gateway.id
+              </code>{" "}
+              (override with <code className="font-mono bg-background-200 px-1 rounded">VC_VAULTYS_ID_PATH</code>)
+            </>
+          ) : (
+            <>
+              All agent data is stored in{" "}
+              <code className="font-mono bg-background-200 px-1 rounded">
+                .vaultys/{agentName.trim() || "<name>"}/
+              </code>
+            </>
+          )}
         </p>
       </div>
 
@@ -291,11 +426,11 @@ export function LaunchStep({
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <label className="text-xs font-medium text-foreground-500 uppercase tracking-wide flex items-center gap-1.5">
-            <Terminal size={12} /> CLI command
+            <Terminal size={12} /> {kind === "mcp-gateway" ? "Run manually" : "CLI command"}
           </label>
           <div className="flex items-center gap-2">
             <div className="flex rounded-lg border border-neutral-200 overflow-hidden text-xs">
-              {PKG_RUNNERS.map((r) => (
+              {runners.map((r) => (
                 <button
                   key={r.id}
                   onClick={() => setPkgRunner(r.id)}
@@ -318,6 +453,26 @@ export function LaunchStep({
         </pre>
       </div>
 
+      {/* MCP client config — how to point Claude Code/Desktop at it directly */}
+      {kind === "mcp-gateway" && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-medium text-foreground-500 uppercase tracking-wide flex items-center gap-1.5">
+              <Plug size={12} /> MCP client config
+            </label>
+            <CopyButton text={mcpClientConfig} />
+          </div>
+          <pre className="bg-background border border-neutral-200 rounded-xl p-4 text-xs font-mono text-foreground-700 overflow-x-auto whitespace-pre leading-relaxed">
+            {mcpClientConfig}
+          </pre>
+          <p className="text-xs text-foreground-400">
+            Drop this into Claude Desktop&apos;s config (or your MCP
+            client&apos;s equivalent) so it launches the gateway for you — no
+            manual command needed.
+          </p>
+        </div>
+      )}
+
       {/* How it works */}
       <div className="bg-primary-50 border border-primary-200 rounded-xl p-4 text-sm space-y-2">
         <p className="font-medium text-primary-700 flex items-center gap-2">
@@ -327,8 +482,8 @@ export function LaunchStep({
           {connMethod === "peerjs" ? (
             <>
               <li>
-                The CLI starts, creates a local identity, and connects via
-                WebRTC using the peer ID above
+                The {kind === "mcp-gateway" ? "gateway" : "CLI"} starts, creates a
+                local identity, and connects via WebRTC using the peer ID above
               </li>
               <li>
                 A PeerJS signaling server brokers the connection — no port
@@ -340,14 +495,16 @@ export function LaunchStep({
               </li>
               <li>You approve it here — assigning capabilities and a workspace</li>
               <li>
-                The agent becomes active and starts accepting instructions
+                {kind === "mcp-gateway"
+                  ? "Peer agents become callable tools in your MCP client"
+                  : "The agent becomes active and starts accepting instructions"}
               </li>
             </>
           ) : (
             <>
               <li>
-                The CLI starts, creates a local identity, and connects via
-                WebSocket
+                The {kind === "mcp-gateway" ? "gateway" : "CLI"} starts, creates a
+                local identity, and connects via WebSocket
               </li>
               <li>
                 The control plane receives the connection and places it in a
@@ -355,7 +512,9 @@ export function LaunchStep({
               </li>
               <li>You approve it here — assigning capabilities and a workspace</li>
               <li>
-                The agent becomes active and starts accepting instructions
+                {kind === "mcp-gateway"
+                  ? "Peer agents become callable tools in your MCP client"
+                  : "The agent becomes active and starts accepting instructions"}
               </li>
             </>
           )}

@@ -30,6 +30,7 @@ export default function CreateAgentPage() {
   const searchParams = useSearchParams();
   const { registrations, connected: wsConnected } = useAdminWS();
   const regId = searchParams.get("regId");
+  const initialKind = searchParams.get("kind") === "mcp" ? "mcp-gateway" : "cli";
 
   const [step, setStep] = useState<WizardStep>(regId ? "approve" : "launch");
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
@@ -287,6 +288,7 @@ export default function CreateAgentPage() {
           workspaces={workspaces}
           setSelectedWorkspaces={setSelectedWorkspaces}
           onContinue={startWaiting}
+          initialKind={initialKind}
         />
       )}
 

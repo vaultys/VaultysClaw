@@ -21,7 +21,7 @@ and `@msgpack/msgpack`. Import via `@vaultysclaw/policy`.
 
 ## Who consumes it
 
-- `packages/agent-runtime` — `base-agent.ts` composes `PolicyEnforcer`;
+- `packages/sdk` — `base-agent.ts` composes `PolicyEnforcer`;
   `intent-verify.ts` / `peer-grant-verify.ts` are thin wrappers over the cert
   layer (construct a `VaultysId` from the server public key, then delegate).
 - `packages/control-plane` — `lib/intent-signing.ts` / `lib/delegation.ts` are

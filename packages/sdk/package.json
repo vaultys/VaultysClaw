@@ -1,7 +1,7 @@
 {
-  "name": "@vaultysclaw/agent-runtime",
+  "name": "@vaultysclaw/sdk",
   "version": "0.0.1",
-  "description": "Generic agent protocol runtime — WebSocket/WebRTC connection, auth, intent routing",
+  "description": "VaultysClaw SDK — VaultysId identity, control-plane connection (WS/WebRTC), and policy engine execution for building agents, gateways, or custom integrations",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

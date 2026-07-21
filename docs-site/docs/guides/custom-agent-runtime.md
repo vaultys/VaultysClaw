@@ -1,7 +1,7 @@
 ---
 sidebar_position: 12
 title: Custom Agent Runtime
-description: Build your own agent implementation by extending BaseAgentRuntime from @vaultysclaw/agent-runtime.
+description: Build your own agent implementation by extending BaseAgentRuntime from @vaultysclaw/sdk.
 ---
 
 # Custom Agent Runtime
@@ -13,7 +13,7 @@ VaultysClaw ships with two built-in agent implementations:
 | `@vaultysclaw/agent-controller` | Mastra + LLM provider (OpenAI, Anthropic, Ollama, …) |
 | `@vaultysclaw/mcp-gateway` | Headless `claude -p` subprocess, exposed as MCP tools |
 
-Both extend the same abstract base class from **`@vaultysclaw/agent-runtime`**. You can do the same to build an agent backed by any runtime — a custom inference engine, a rules-based system, a human-in-the-loop workflow, or another LLM framework entirely.
+Both extend the same abstract base class from **`@vaultysclaw/sdk`**. You can do the same to build an agent backed by any runtime — a custom inference engine, a rules-based system, a human-in-the-loop workflow, or another LLM framework entirely.
 
 ---
 
@@ -22,7 +22,7 @@ Both extend the same abstract base class from **`@vaultysclaw/agent-runtime`**. 
 ```
 @vaultysclaw/shared          (types, WS message shapes)
        ↓
-@vaultysclaw/agent-runtime   (BaseAgentRuntime)
+@vaultysclaw/sdk             (BaseAgentRuntime)
   ├── WebSocket / WebRTC connection & auth
   ├── Intent routing + policy enforcement
   ├── Peer-to-peer agent invocations (PeerJS)
@@ -39,7 +39,7 @@ The protocol layer — registration, auth handshake, heartbeats, capability enfo
 ## Installation
 
 ```bash
-pnpm add @vaultysclaw/agent-runtime @vaultysclaw/shared
+pnpm add @vaultysclaw/sdk @vaultysclaw/shared
 # WebRTC polyfill — required for Node.js (see WebRTC section below)
 pnpm add @roamhq/wrtc
 ```
@@ -53,7 +53,7 @@ The package re-exports `PeerManager` and `verifyIntentMessage` so you do not nee
 ```typescript
 // index.ts — polyfill must come first (see WebRTC section below)
 import "./polyfill";
-import { BaseAgentRuntime, type AgentRuntimeConfig } from "@vaultysclaw/agent-runtime";
+import { BaseAgentRuntime, type AgentRuntimeConfig } from "@vaultysclaw/sdk";
 import type { ChatMessageEntry } from "@vaultysclaw/shared";
 
 class EchoAgent extends BaseAgentRuntime {
@@ -221,7 +221,7 @@ When `peerjsControlPlaneId` is set the runtime automatically uses `connectViaPee
 
 ### Node.js WebRTC polyfill (required)
 
-`@vaultysclaw/agent-runtime` deliberately does **not** install a WebRTC polyfill — that is the caller's responsibility, so you can choose the binding that works for your platform.
+`@vaultysclaw/sdk` deliberately does **not** install a WebRTC polyfill — that is the caller's responsibility, so you can choose the binding that works for your platform.
 
 **Your entry point must polyfill the WebRTC globals before importing anything else.** The easiest way is a small module imported first:
 
@@ -278,7 +278,7 @@ An agent that forwards every intent as an HTTP request to an external API:
 ```typescript
 // Entry point — polyfill.ts imported first
 import "./polyfill";
-import { BaseAgentRuntime, type AgentRuntimeConfig } from "@vaultysclaw/agent-runtime";
+import { BaseAgentRuntime, type AgentRuntimeConfig } from "@vaultysclaw/sdk";
 import type { ChatMessageEntry } from "@vaultysclaw/shared";
 
 class HttpProxyAgent extends BaseAgentRuntime {

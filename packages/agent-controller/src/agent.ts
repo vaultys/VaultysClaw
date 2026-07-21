@@ -26,7 +26,7 @@ import {
   type AgentInfo as _BaseAgentInfo,
   type LogEntry,
   type IntentEntry,
-} from "@vaultysclaw/agent-runtime";
+} from "@vaultysclaw/sdk";
 import {
   initDb,
   storeDelegation,
@@ -334,7 +334,7 @@ export class Agent extends BaseAgentRuntime {
     this.initTaskQueue();
 
     // Initialize peer manager for agent-to-agent communication
-    const { PeerManager } = await import("@vaultysclaw/agent-runtime");
+    const { PeerManager } = await import("@vaultysclaw/sdk");
     this.peerManager = new PeerManager(this.vaultysId);
     this.peerManager.onInvoke(async (remoteDid, action, params) => {
       return this.executeIntent(action, params, remoteDid);

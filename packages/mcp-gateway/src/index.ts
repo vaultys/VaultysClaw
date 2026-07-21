@@ -27,7 +27,7 @@ if (process.env.VC_GATEWAY_BYPASS === "1") process.exit(0);
 
 // ── Stdout guard — must run before any library import ────────────────────────
 // Pino uses sonic-boom which writes via fs.write(fd) and bypasses this guard,
-// so all pino loggers in agent-runtime must be created with process.stderr as
+// so all pino loggers in the sdk package must be created with process.stderr as
 // their destination. This guard is a second layer for any library that does go
 // through process.stdout.write.
 {
@@ -60,7 +60,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import type { AgentPeerGrant, ChatMessageEntry } from "@vaultysclaw/shared";
-import { BaseAgentRuntime } from "@vaultysclaw/agent-runtime";
+import { BaseAgentRuntime } from "@vaultysclaw/sdk";
 
 // ── Logging (always stderr) ───────────────────────────────────────────────────
 

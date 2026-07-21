@@ -23,8 +23,8 @@ import type {
   ChatMessageEntry,
   ChatErrorCode,
 } from "@vaultysclaw/shared";
-import { BaseAgentRuntime } from "../packages/agent-runtime/src/base-agent";
-import { verifyIntentMessage } from "../packages/agent-runtime/src/intent-verify";
+import { BaseAgentRuntime } from "../packages/sdk/src/base-agent";
+import { verifyIntentMessage } from "../packages/sdk/src/intent-verify";
 import { encode as msgpackEncode } from "@msgpack/msgpack";
 
 const Buf = crypto.Buffer;

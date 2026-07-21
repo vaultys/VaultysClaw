@@ -1,31 +1,52 @@
 "use client";
 
 import { useSession } from "next-auth/react";
-import { useRole } from "@/hooks/useRole";
+import { Wifi, WifiOff } from "lucide-react";
+import { useToolbar } from "@/components/layout/ToolbarContext";
+import { useBreadcrumbs } from "@/components/layout/BreadcrumbContext";
 import { useDashboardData } from "@/hooks/useDashboardData";
 import { DashboardAlerts } from "./DashboardAlerts";
 import { DashboardHeader } from "./DashboardHeader";
 import { MyQueuePanel } from "./MyQueuePanel";
-import { NoWorkspaceScreen } from "./NoWorkspaceScreen";
 import { QuickActionsPanel } from "./QuickActionsPanel";
 import { RecentRunsPanel } from "./RecentRunsPanel";
 import { RenewPolicyModal } from "./RenewPolicyModal";
 
+/**
+ * Fleet-wide dashboard for admins/owners. Regular members get {@link UserDashboard}
+ * (routing lives in app/page.tsx). Admins always have workspace access.
+ */
 export function Dashboard() {
   const { data: session } = useSession();
-  const { isGlobalAdmin } = useRole();
-  const d = useDashboardData(isGlobalAdmin);
+  const d = useDashboardData(true);
 
-  // Non-admin with no workspace membership → contact screen
-  if (!isGlobalAdmin && d.userWorkspaceCount === 0) {
-    return <NoWorkspaceScreen />;
-  }
+  useBreadcrumbs([{ label: "Dashboard" }], []);
+
+  useToolbar(
+    {
+      title: "Dashboard",
+      description: "Fleet-wide overview — agents, approvals and recent activity",
+      actions: [
+        {
+          kind: "badge",
+          id: "live",
+          label: d.wsConnected ? "Live" : "Connecting…",
+          tone: d.wsConnected ? "success" : "warning",
+          icon: d.wsConnected ? (
+            <Wifi className="w-3 h-3" />
+          ) : (
+            <WifiOff className="w-3 h-3" />
+          ),
+        },
+      ],
+    },
+    [d.wsConnected]
+  );
 
   return (
     <div className="p-6 w-full max-w-7xl mx-auto space-y-5">
       <DashboardHeader
         name={session?.user?.name}
-        wsConnected={d.wsConnected}
         onlineCount={d.onlineCount}
         total={d.total}
         queueCount={d.queueCount}
@@ -33,7 +54,7 @@ export function Dashboard() {
 
       <DashboardAlerts
         wsConnected={d.wsConnected}
-        isGlobalAdmin={isGlobalAdmin}
+        isGlobalAdmin={true}
         pendingRegCount={d.pendingRegs.length}
         expiredPolicies={d.expiredPolicies}
         agents={d.agents}
@@ -44,7 +65,7 @@ export function Dashboard() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <QuickActionsPanel
-          isGlobalAdmin={isGlobalAdmin}
+          isGlobalAdmin={true}
           agents={d.agents}
           total={d.total}
           inboxBadge={d.pendingApprovals.length + d.notifications.length}

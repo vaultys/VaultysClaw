@@ -49,9 +49,12 @@ const handlers = createNextRoute(userContract.workspaces, {
   },
 
   // ── DELETE /api/workspaces/:id/skills/:skillId — remove from workspace ────────────
+  // Global admins may remove any workspace skill (they manage the org-wide skills
+  // catalog at /admin/skills); workspace-scoped access otherwise requires a
+  // workspace-admin role.
   deleteSkill: async ({ params, request }) => {
     const auth = await getAuthContext(request);
-    if (!(await auth.canAdminWorkspace(params.id))) {
+    if (!auth.isGlobalAdmin && !(await auth.canAdminWorkspace(params.id))) {
       throw new APIException("FORBIDDEN");
     }
 

@@ -4,6 +4,8 @@ import "ol/ol.css";
 import SessionProviderWrapper from "@/components/SessionProviderWrapper";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import AppShell from "@/components/layout/AppShell";
+import { ToastProvider } from "@/components/shared/ToastContext";
+import { ConfirmProvider } from "@/components/shared/ConfirmContext";
 
 export const metadata: Metadata = {
   title: "VaultysClaw Control Plane",
@@ -20,7 +22,11 @@ export default function RootLayout({
       <body>
         <ThemeProvider>
           <SessionProviderWrapper>
-            <AppShell>{children}</AppShell>
+            <ToastProvider>
+              <ConfirmProvider>
+                <AppShell>{children}</AppShell>
+              </ConfirmProvider>
+            </ToastProvider>
           </SessionProviderWrapper>
         </ThemeProvider>
       </body>

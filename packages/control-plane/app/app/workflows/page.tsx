@@ -6,6 +6,7 @@ import { useToolbar } from "@/components/layout/ToolbarContext";
 import { useBreadcrumbs } from "@/components/layout/BreadcrumbContext";
 import { WorkflowRunModal } from "@/components/workflow/WorkflowRunModal";
 import { userApi, unwrap } from "@/lib/api/ts-rest/client";
+import { useToast } from "@/components/shared/ToastContext";
 import type { WorkflowDefinition } from "@/lib/workflow-types";
 import { Workflow } from "@prisma/client";
 
@@ -17,6 +18,7 @@ import { Workflow } from "@prisma/client";
  * to the caller's workspaces.
  */
 export default function MyWorkflowsPage() {
+  const toast = useToast();
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -55,7 +57,7 @@ export default function MyWorkflowsPage() {
         definition: data.workflow.definition as unknown as WorkflowDefinition,
       });
     } catch {
-      alert("Failed to load workflow");
+      toast.error("Failed to load workflow");
     }
   };
 

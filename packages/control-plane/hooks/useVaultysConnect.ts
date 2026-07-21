@@ -2,7 +2,7 @@
 
 import { BrowserChannel } from "@vaultys/channel-browser";
 import { VaultysId, crypto } from "@vaultys/id";
-import { signIn } from "next-auth/react";
+import { getSession, signIn } from "next-auth/react";
 import { useCallback, useEffect, useState } from "react";
 import {
   SERVER_URL,
@@ -15,6 +15,7 @@ import {
 } from "@/lib/browser-connect";
 import {
   publicApi,
+  userApi,
   unwrap,
 } from "@/lib/api/ts-rest/client";
 
@@ -45,6 +46,7 @@ export type UIStep =
   | "bastion-connect" // browser-device SRP in progress
   | "qr-connect" // QR code or deep-link shown, polling server
   | "p2p-connect" // P2P relay mode (user opts in)
+  | "complete-profile" // new VaultysId user must provide name + email
   | "done";
 
 export type BastionPhase =
@@ -79,6 +81,9 @@ export interface UseVaultysConnectResult {
   connectWithoutApp: (securityType: WalletSecurityType) => void;
   retry: () => void;
   hasUsers: boolean;
+  submitProfile: (name: string, email: string) => void;
+  profileSaving: boolean;
+  profileError: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -108,6 +113,8 @@ export function useVaultysConnect(): UseVaultysConnectResult {
   const [p2pUrl, setP2PUrl] = useState<string>();
   const [devLogin, setDevLogin] = useState(false);
   const [devConnecting, setDevConnecting] = useState(false);
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
 
   // Load initial state
   useEffect(() => {
@@ -156,6 +163,44 @@ export function useVaultysConnect(): UseVaultysConnectResult {
     []
   );
 
+  const redirectAfterLogin = useCallback(() => {
+    setUIStep("done");
+    window.location.href = postLoginDestination();
+  }, []);
+
+  // Runs after a successful next-auth sign-in. A freshly-registered VaultysId
+  // user has no name/email yet — require them to complete their profile before
+  // entering the app. Existing users with a profile go straight through.
+  const completeSignIn = useCallback(async () => {
+    const session = await getSession();
+    if (!session?.user?.name || !session?.user?.email) {
+      setUIStep("complete-profile");
+      return;
+    }
+    redirectAfterLogin();
+  }, [redirectAfterLogin]);
+
+  const submitProfile = useCallback(
+    async (name: string, email: string) => {
+      setProfileSaving(true);
+      setProfileError(null);
+      try {
+        unwrap(
+          await userApi.users.updateMe({
+            body: { name: name.trim(), email: email.trim() },
+          })
+        );
+        redirectAfterLogin();
+      } catch (err) {
+        setProfileError(
+          err instanceof Error ? err.message : "Failed to save your profile"
+        );
+        setProfileSaving(false);
+      }
+    },
+    [redirectAfterLogin]
+  );
+
   const startQRConnection = useCallback(async () => {
     setUserConnectionPhase("connect");
     setUIStep("qr-connect");
@@ -177,13 +222,12 @@ export function useVaultysConnect(): UseVaultysConnectResult {
       // Sign in via next-auth credentials
       const res = await signIn("credentials", { token: key, redirect: false });
       if (res?.ok) {
-        setUIStep("done");
-        window.location.href = postLoginDestination();
+        await completeSignIn();
       }
     } else {
       setUserConnectionPhase("failure");
     }
-  }, [waitForUser, walletUrl]);
+  }, [waitForUser, walletUrl, completeSignIn]);
 
   const startP2PMode = useCallback(async () => {
     setUIStep("p2p-connect");
@@ -212,13 +256,12 @@ export function useVaultysConnect(): UseVaultysConnectResult {
         redirect: false,
       });
       if (signInRes?.ok) {
-        setUIStep("done");
-        window.location.href = postLoginDestination();
+        await completeSignIn();
       }
     } else {
       setUserConnectionPhase("failure");
     }
-  }, [waitForUser, serverDid, walletUrl]);
+  }, [waitForUser, serverDid, walletUrl, completeSignIn]);
 
   const performBastionConnect = useCallback(
     async (vid: BrowserIdData) => {
@@ -332,5 +375,8 @@ export function useVaultysConnect(): UseVaultysConnectResult {
     connectWithoutApp,
     retry,
     hasUsers,
+    submitProfile,
+    profileSaving,
+    profileError,
   };
 }

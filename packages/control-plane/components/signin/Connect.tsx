@@ -6,6 +6,7 @@ import FirstConnect from "./FirstConnect";
 import SecurityTypeSelector from "./SecurityTypeSelector";
 import BastionConnect from "./BastionConnect";
 import QRCodeScreen from "./QRCodeScreen";
+import CompleteProfile from "./CompleteProfile";
 
 interface ConnectProps {
   /** When true, renders only the card without the full-screen bg wrapper */
@@ -27,6 +28,9 @@ function ConnectCard() {
     connectWithoutApp,
     retry,
     hasUsers,
+    submitProfile,
+    profileSaving,
+    profileError,
   } = useVaultysConnect();
 
   return (
@@ -68,6 +72,14 @@ function ConnectCard() {
           subtitle="Scan with your VaultysID wallet to connect directly"
           showCopy={false}
           onRetry={retry}
+        />
+      )}
+
+      {uiStep === "complete-profile" && (
+        <CompleteProfile
+          onSubmit={submitProfile}
+          saving={profileSaving}
+          error={profileError}
         />
       )}
 

@@ -19,6 +19,7 @@ import { WorkflowToolbox } from "./WorkflowToolbox";
 import { useWorkflowStore } from "./store";
 import type { WorkflowDefinition } from "@/lib/workflow-types";
 import { needsLayout, computeLayout } from "@/lib/workflow-layout";
+import { useConfirm } from "@/components/shared/ConfirmContext";
 
 interface WorkflowEditorProps {
   initialDefinition?: WorkflowDefinition;
@@ -27,6 +28,7 @@ interface WorkflowEditorProps {
 export const WorkflowEditor: React.FC<WorkflowEditorProps> = ({
   initialDefinition,
 }) => {
+  const confirm = useConfirm();
   const {
     definition,
     setDefinition,
@@ -163,8 +165,14 @@ export const WorkflowEditor: React.FC<WorkflowEditorProps> = ({
     setNodes((nds) => [...nds, newNode]);
   };
 
-  const handleClearCanvas = () => {
-    if (confirm("Clear all nodes and edges?")) {
+  const handleClearCanvas = async () => {
+    if (
+      await confirm({
+        title: "Clear canvas",
+        message: "Clear all nodes and edges?",
+        variant: "danger",
+      })
+    ) {
       setNodes([]);
       setEdges([]);
       setDefinition({ nodes: [], edges: [] });

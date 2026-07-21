@@ -80,6 +80,19 @@ export function resolveAccess(
     return { type: "redirect", location: callbackUrl };
   }
 
+  // Authenticated user landing on the marketing root → their dashboard
+  // (or the callbackUrl they were headed to). Anonymous users fall through
+  // to the public-path check below and get the landing page.
+  if (pathname === "/" && token) {
+    if (!token.did) return { type: "redirect", location: "/claim" };
+    const callbackUrl = new URLSearchParams(search).get("callbackUrl");
+    return {
+      type: "redirect",
+      location:
+        callbackUrl && callbackUrl !== "/" ? callbackUrl : "/app/dashboard",
+    };
+  }
+
   // Public paths: allow everyone
   if (isPublicPath(pathname)) return { type: "next" };
 

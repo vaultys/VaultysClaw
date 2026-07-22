@@ -14,6 +14,8 @@ interface PendingRegistration {
   sessionId: string;
   agentName: string;
   status: string;
+  /** "agent" | "proxy" — which kind of registrant this is. */
+  kind: string;
   requestedCapabilities: unknown; // already-parsed array from Prisma JSONB
   assignedCapabilities: unknown;
   createdAt: string;

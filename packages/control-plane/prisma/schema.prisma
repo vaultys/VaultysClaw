@@ -132,6 +132,8 @@ model PendingRegistration {
   sessionId             String
   agentName             String
   status                String   @default("pending")
+  // "agent" | "proxy" — which table this registration resolves into on approval.
+  kind                  String   @default("agent")
   requestedCapabilities Json     @default("[]")
   assignedCapabilities  Json     @default("[]")
   // Set when a user initiated the agent creation via the enrollment flow
@@ -739,4 +741,85 @@ model Webhook {
 
   @@index([isActive])
   @@map("webhooks")
+}
+
+// ─── Proxies (API gateway) ─────────────────────────────────────────────────────
+// A Proxy connects to the control plane exactly like an Agent (own VaultysId,
+// WS/PeerJS, register -> pending_approval -> connected — see PendingRegistration.kind
+// and lib/ws-server.ts), then runs an HTTP reverse-proxy that locally verifies and
+// authorizes requests against the config pushed down here. Principals unify
+// "caller" and "agent" identities behind a proxy into one concept — `tag` is a
+// free-form descriptive label, not a structural split.
+
+model Proxy {
+  did          String   @id
+  name         String
+  publicKey    String?
+  defaultMode  String   @default("deny") // "passthrough" | "deny" — applied when no rule matches
+  registeredAt DateTime @default(now())
+  lastSeen     DateTime @default(now())
+
+  upstreams    ProxyUpstream[]
+  rules        ProxyRule[]
+  principals   ProxyPrincipal[]
+  activityLogs ProxyActivityLog[]
+}
+
+model ProxyUpstream {
+  id       String @id @default(cuid())
+  proxyDid String
+  proxy    Proxy  @relation(fields: [proxyDid], references: [did], onDelete: Cascade)
+  name     String
+  baseUrl  String
+
+  @@index([proxyDid])
+}
+
+model ProxyRule {
+  id                String  @id @default(cuid())
+  proxyDid          String
+  proxy             Proxy   @relation(fields: [proxyDid], references: [did], onDelete: Cascade)
+  method            String
+  urlPattern        String
+  mode              String // "no_check" | "governed"
+  governanceRule    String?
+  principalIdSource Json? // ProxyPrincipalIdSource — { from: "header"|"url"|"body", key }
+
+  @@index([proxyDid])
+}
+
+model ProxyPrincipal {
+  id                 String   @id @default(cuid())
+  proxyDid           String
+  proxy              Proxy    @relation(fields: [proxyDid], references: [did], onDelete: Cascade)
+  tag                String?
+  externalId         String?
+  did                String
+  governanceRules    String[] @default([])
+  status             String   @default("pending") // "pending" | "active" | "revoked"
+  provisionedByProxy Boolean  @default(false)
+  firstSeenAt        DateTime @default(now())
+  lastSeenAt         DateTime @default(now())
+
+  @@unique([proxyDid, did])
+  @@index([proxyDid])
+}
+
+model ProxyActivityLog {
+  id             String   @id @default(cuid())
+  proxyDid       String
+  proxy          Proxy    @relation(fields: [proxyDid], references: [did], onDelete: Cascade)
+  principalDid   String?
+  method         String
+  url            String
+  ruleId         String?
+  mode           String
+  verdict        String // "allow" | "deny"
+  reason         String?
+  identitySource String? // "self_signed" | "proxy_provisioned"
+  timestamp      DateTime @default(now())
+  latencyMs      Int?
+
+  @@index([proxyDid])
+  @@index([principalDid])
 }

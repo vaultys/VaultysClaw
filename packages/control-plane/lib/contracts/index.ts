@@ -2,6 +2,7 @@ import { c } from "./contract";
 
 // ── Admin domain contracts (lib/contracts/admin/*)
 import { adminAgentsContract } from "./admin/agents/agents.contract";
+import { adminProxiesContract } from "./admin/proxies/proxies.contract";
 import { apiKeysContract } from "./admin/api-keys/api-keys.contract";
 import { webhooksContract } from "./admin/webhooks/webhooks.contract";
 import { channelsContract } from "./user/channels/channels.contract";
@@ -62,6 +63,10 @@ export type * from "./admin/agents/agents.contract";
 export * from "./admin/agents/agents.contract";
 export * from "./admin/agents/agents.schemas";
 export * from "./admin/agents/agents.types";
+export type * from "./admin/proxies/proxies.contract";
+export * from "./admin/proxies/proxies.contract";
+export * from "./admin/proxies/proxies.schemas";
+export * from "./admin/proxies/proxies.types";
 export type * from "./admin/api-keys/api-keys.contract";
 export * from "./admin/api-keys/api-keys.contract";
 export * from "./admin/api-keys/api-keys.schemas";
@@ -217,6 +222,7 @@ export * from "./public/well-known/well-known.types";
  */
 export const adminContract = c.router({
   agents: adminAgentsContract,
+  proxies: adminProxiesContract,
   workspaces: workspacesAdminContract,
   workflows: workflowsAdminContract,
   users: usersContract,

@@ -4,8 +4,8 @@
 #
 # Sandboxes ALL environment variables, creates dedicated Docker containers
 # for PostgreSQL, Redis, MinIO, Docling and LiteLLM, then starts the control
-# plane, the notifier service (notifications) and the 30-agent simulator.
-# Nothing touches your existing .env files.
+# plane, the notifier service (notifications) and the 30-agent + 3-proxy
+# simulator. Nothing touches your existing .env files.
 #
 # Usage:
 #   chmod +x demo/simulator/demo-up.sh
@@ -17,7 +17,7 @@
 #   --skip-litellm     Don't start LiteLLM proxy
 #   --skip-obs         Don't start the Grafana observability stack
 #   --skip-seed        Skip simulator:seed (re-use existing data)
-#   --no-simulator     Start services only; don't launch the 30-agent fleet
+#   --no-simulator     Start services only; don't launch the 30-agent + 3-proxy fleet
 #   --fresh            Wipe demo DB and Docker volumes before starting
 #   --help             Print this message
 #
@@ -947,7 +947,7 @@ step "Demo seed"
 if $SKIP_SEED; then
   log "--skip-seed specified — skipping seed."
 else
-  log "Running simulator:seed (generates agent identities, workflows, users)…"
+  log "Running simulator:seed (generates agent + proxy identities, workflows, users)…"
   (
     cd "$REPO_ROOT"
     DATABASE_URL="$DATABASE_URL" pnpm simulator:seed 2>&1 | sed 's/^/  /'
@@ -962,14 +962,14 @@ $SKIP_MINIO   || configure_storage
 $SKIP_DOCLING || configure_docling
 
 # =============================================================================
-# Step 15 — Start simulator (30 fake agents)
+# Step 15 — Start simulator (30 fake agents + 3 fake proxies)
 # =============================================================================
 step "Simulator"
 
 if $NO_SIMULATOR; then
   log "--no-simulator specified — skipping simulator."
 else
-  log "Starting 30-agent simulator…"
+  log "Starting 30-agent + 3-proxy simulator…"
   (
     cd "$REPO_ROOT"
     DATABASE_URL="$DATABASE_URL" \

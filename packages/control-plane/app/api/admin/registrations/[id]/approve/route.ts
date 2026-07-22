@@ -2,7 +2,7 @@ import { getWSServer } from "@/lib/ws-server";
 import type { AgentCapability } from "@vaultysclaw/shared";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { getAuthContext } from "@/lib/auth-utils";
-import { AgentDAO, PendingRegistrationDAO, WorkspaceDAO } from "@/db";
+import { AgentDAO, PendingRegistrationDAO, ProxyDAO, WorkspaceDAO } from "@/db";
 import {
   adminContract,
 } from "@/lib/contracts";
@@ -40,7 +40,10 @@ const handlers = createNextRoute(adminContract.registrations, {
         | undefined) ?? []) as AgentCapability[];
     }
 
-    if (capabilities.length === 0) {
+    // A proxy's own connection isn't capability-gated (governance lives on
+    // its principals, configured separately) — only agents require a
+    // capability to be assigned before approval.
+    if (capabilities.length === 0 && registration.kind !== "proxy") {
       throw new APIException(
         "MALFORMED",
         "At least one capability must be assigned"
@@ -59,6 +62,21 @@ const handlers = createNextRoute(adminContract.registrations, {
     );
     if (!success) {
       throw new APIException("UNAVAILABLE", "Failed to approve registration");
+    }
+
+    // A proxy has no workspace/capability concept of its own — resolve its
+    // DID via ProxyDAO instead, and skip agent-only workspace enrollment.
+    if (registration.kind === "proxy") {
+      const proxyRow = await ProxyDAO.findByName(registration.agentName);
+      return {
+        status: 200,
+        body: {
+          success: true,
+          registrationId: params.id,
+          capabilities: [],
+          agentDid: proxyRow?.did ?? null,
+        },
+      };
     }
 
     const agentRow = await AgentDAO.findByName(registration.agentName);

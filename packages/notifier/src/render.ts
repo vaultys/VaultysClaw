@@ -87,6 +87,21 @@ export function renderNotification(
         title: "Agent awaiting approval",
         body: `${s("agentName", "An agent")} requested registration and needs approval.`,
       };
+    case "proxy.pending":
+      return {
+        title: "Proxy awaiting approval",
+        body: `${s("proxyName", "A proxy")} requested registration and needs approval.`,
+      };
+    case "proxy.created":
+      return {
+        title: "Proxy created",
+        body: `${s("proxyName", "A proxy")} was approved and connected.`,
+      };
+    case "proxy.unknown_principal":
+      return {
+        title: "Unknown proxy principal detected",
+        body: `${s("externalId", "") || s("principalDid", "An identity")} needs governance rules assigned.`,
+      };
     case "policy.updated":
       return {
         title: "Policy changed",

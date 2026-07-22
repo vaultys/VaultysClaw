@@ -14,6 +14,8 @@
     "agent:spawn": "pnpm --filter @vaultysclaw/agent-controller spawn",
     "mcp:dev": "pnpm --filter @vaultysclaw/mcp-gateway dev",
     "mcp:build": "pnpm --filter @vaultysclaw/mcp-gateway build",
+    "proxy:dev": "pnpm --filter @vaultysclaw/proxy dev",
+    "proxy:build": "pnpm --filter @vaultysclaw/proxy build",
     "notifier:dev": "pnpm --filter @vaultysclaw/notifier dev",
     "notifier:start": "pnpm --filter @vaultysclaw/notifier start",
     "notifier:build": "pnpm --filter @vaultysclaw/notifier build",

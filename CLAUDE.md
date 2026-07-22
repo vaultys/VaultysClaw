@@ -17,6 +17,7 @@ VaultysClaw is a decentralized AI agent orchestration platform. A central **cont
 | `packages/control-plane/app/api` | REST API routes (ts-rest pattern) | [→](packages/control-plane/app/api/CLAUDE.md) |
 | `packages/agent-controller` | Agent runtime CLI, tools, skills, memory | [→](packages/agent-controller/CLAUDE.md) |
 | `packages/mcp-gateway` | MCP server exposing VaultysClaw agents as tools | [→](packages/mcp-gateway/CLAUDE.md) |
+| `packages/proxy` | Governance-gated reverse proxy — onboards like an agent, verifies/authorizes API traffic locally, no agent-controller install required | [→](packages/proxy/CLAUDE.md) |
 | `packages/notifier` | Standalone worker: consumes notification events from BullMQ and delivers email / in-app / push (SSE) | [→](packages/notifier/CLAUDE.md) |
 | `packages/webhook-dispatcher` | Standalone worker: consumes webhook events from BullMQ, signs them (HMAC) and POSTs to configured endpoints | [→](packages/webhook-dispatcher/CLAUDE.md) |
 
@@ -31,9 +32,11 @@ pnpm agent:dev               # Agent controller only (headless)
 pnpm agent:web               # Agent controller with web UI (port 3002)
 pnpm agent:tui               # Agent controller with Ink TUI
 pnpm mcp:dev                 # MCP gateway (stdio, reads VC_CONTROL_PLANE_URL + VC_API_KEY)
+pnpm proxy:dev               # Proxy (reads VC_CONTROL_PLANE_URL + VC_VAULTYS_ID_PATH + PROXY_HTTP_PORT)
 pnpm notifier:dev            # Notifier worker (reads DATABASE_URL + REDIS_URL; needs Redis running)
 pnpm webhook:dev             # Webhook dispatcher worker (reads DATABASE_URL + REDIS_URL; needs Redis running)
 pnpm mcp:build               # Build MCP gateway to dist/
+pnpm proxy:build             # Build proxy to dist/
 
 # Demo / Simulator
 pnpm simulator:up            # Full demo stack: PostgreSQL + MinIO + Docling + LiteLLM + Grafana + 30 agents

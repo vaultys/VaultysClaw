@@ -48,6 +48,7 @@ import {
   type WSAgentPeerCatalogPayload,
   type AgentPeerGrant,
   type WSSkillsConfigPayload,
+  type WSProxyConfigPayload,
   type ResourceLimits,
   type ChatMessageEntry,
 } from "@vaultysclaw/shared";
@@ -229,6 +230,11 @@ export abstract class BaseAgentRuntime extends EventEmitter {
   ): Promise<void> { }
 
   protected async onKnowledgeSources(_sources: unknown[]): Promise<void> { }
+
+  /** Proxy-only: the control plane pushed the full rule/upstream/principal
+   * config. Irrelevant for a plain agent — only a ProxyRuntime subclass
+   * overrides this. */
+  protected async onProxyConfig(_payload: WSProxyConfigPayload): Promise<void> { }
 
   protected async handleGetChatSessions(_msg: WSMessage): Promise<void> { }
 
@@ -753,6 +759,11 @@ export abstract class BaseAgentRuntime extends EventEmitter {
             this.log("error", "onLlmConfig error", e)
           );
           break;
+        case "proxy_config":
+          this.onProxyConfig(message.payload as WSProxyConfigPayload).catch((e) =>
+            this.log("error", "onProxyConfig error", e)
+          );
+          break;
         case "skills_config":
           this.onSkillsConfig(
             message.payload as WSSkillsConfigPayload
@@ -848,7 +859,11 @@ export abstract class BaseAgentRuntime extends EventEmitter {
         this.send({
           messageId: `register-${Date.now()}`,
           type: "register",
-          payload: { name: this.config.name, version: "0.0.1" },
+          payload: {
+            name: this.config.name,
+            version: "0.0.1",
+            kind: this.config.kind ?? "agent",
+          },
           timestamp: new Date().toISOString(),
         });
         this.log("info", "Sent registration request");

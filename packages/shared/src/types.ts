@@ -146,7 +146,9 @@ export type WSMessageType =
   | "channel_event"
   | "channel_message_send"
   | "get_claude_models"
-  | "claude_models_response";
+  | "claude_models_response"
+  | "proxy_config"
+  | "proxy_activity_log";
 
 /**
  * LLM provider type — controls which AI SDK provider is instantiated.
@@ -320,6 +322,10 @@ export interface WSAuthFailedPayload {
 export interface WSRegisterRequestPayload {
   name: string;
   version?: string;
+  /** What kind of registrant this is. Omitted = "agent", so existing agent
+   * controllers need no change. Control plane routes "proxy" registrants
+   * through the Proxy tables instead of the Agent tables. */
+  kind?: "agent" | "proxy";
 }
 
 /**
@@ -752,4 +758,88 @@ export interface VaultysIDInfo {
   fingerprint: string;
   version: number;
   type: string;
+}
+
+// ---------------------------------------------------------------------------
+// Proxy (API gateway) — configuration push + activity log report
+// ---------------------------------------------------------------------------
+
+/** One upstream base URL a proxy is configured to front. */
+export interface ProxyUpstreamPayload {
+  id: string;
+  name: string;
+  baseUrl: string;
+}
+
+/** Where in a request a rule extracts a Principal's id string from. */
+export interface ProxyPrincipalIdSource {
+  from: "header" | "url" | "body";
+  key: string;
+}
+
+/**
+ * One admin-configured route rule. `no_check` bypasses verification entirely
+ * (whitelist); `governed` resolves a Principal (see `principalIdSource`) and
+ * checks it's been granted `governanceRule`.
+ */
+export interface ProxyRulePayload {
+  id: string;
+  method: string;
+  urlPattern: string;
+  mode: "no_check" | "governed";
+  governanceRule?: string;
+  principalIdSource?: ProxyPrincipalIdSource;
+}
+
+/**
+ * A caller or agent identity known to a proxy. `callerId`/`agentId` are
+ * unified into this single concept — `tag` is a free-form, purely
+ * descriptive label (e.g. "ai_agent", "service"), not a structural split.
+ */
+export interface ProxyPrincipalPayload {
+  id: string;
+  tag?: string;
+  externalId?: string;
+  did: string;
+  governanceRules: string[];
+  status: "pending" | "active" | "revoked";
+  /** True when this VaultysId was minted by the proxy itself (no signed
+   * header was ever presented for it), false when the principal holds and
+   * signs with its own key. */
+  provisionedByProxy: boolean;
+}
+
+/**
+ * Sent by control plane to a connected proxy — the full config it needs to
+ * make local, offline decisions. Replaces whatever the proxy cached before.
+ */
+export interface WSProxyConfigPayload {
+  defaultMode: "passthrough" | "deny";
+  upstreams: ProxyUpstreamPayload[];
+  rules: ProxyRulePayload[];
+  principals: ProxyPrincipalPayload[];
+}
+
+/** One logged request/decision, batched and sent async by the proxy. */
+export interface ProxyActivityLogEntryPayload {
+  method: string;
+  url: string;
+  ruleId?: string;
+  mode: "no_check" | "governed" | "default_passthrough" | "default_deny";
+  verdict: "allow" | "deny";
+  reason?: string;
+  principalDid?: string;
+  externalId?: string;
+  identitySource?: "self_signed" | "proxy_provisioned";
+  timestamp: string; // ISO 8601
+  latencyMs: number;
+}
+
+/**
+ * Sent by a proxy to the control plane — fire-and-forget batches of activity
+ * log entries. A `principalDid` not yet known to the control plane creates a
+ * `pending` `ProxyPrincipal` and triggers an admin notification.
+ */
+export interface WSProxyActivityLogPayload {
+  entries: ProxyActivityLogEntryPayload[];
 }

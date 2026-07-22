@@ -161,6 +161,30 @@ export const NOTIFICATION_EVENTS: NotificationEventDef[] = [
     defaultChannels: ["inApp"],
   },
   {
+    type: "proxy.pending",
+    level: "admin",
+    audience: "admins",
+    label: "Proxy awaiting approval",
+    description: "A new proxy requested registration and needs approval.",
+    defaultChannels: ["inApp"],
+  },
+  {
+    type: "proxy.created",
+    level: "admin",
+    audience: "admins",
+    label: "Proxy created",
+    description: "A new proxy was approved and connected.",
+    defaultChannels: ["inApp"],
+  },
+  {
+    type: "proxy.unknown_principal",
+    level: "admin",
+    audience: "admins",
+    label: "Unknown proxy principal detected",
+    description: "A proxy saw a caller/agent identity it doesn't recognize and needs governance rules assigned.",
+    defaultChannels: ["inApp"],
+  },
+  {
     type: "policy.updated",
     level: "admin",
     audience: "admins",
@@ -338,7 +362,16 @@ export function notificationAction(
     case "user.joined":
       return { label: "View users", path: "/admin/users" };
     case "agent.pending":
+    case "proxy.pending":
       return { label: "Review registration", path: "/admin/registrations" };
+    case "proxy.created":
+      return s("proxyDid")
+        ? { label: "View proxy", path: `/admin/proxies/${enc("proxyDid")}` }
+        : null;
+    case "proxy.unknown_principal":
+      return s("proxyDid")
+        ? { label: "Review principal", path: `/admin/proxies/${enc("proxyDid")}` }
+        : null;
     case "policy.updated":
       return { label: "View governance", path: "/admin/governance" };
     case "agent.created":

@@ -96,7 +96,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { execSync } from "child_process";
-import { DEMO_AGENTS, DEMO_API_KEY } from "./config.js";
+import { DEMO_AGENTS, DEMO_API_KEY, DEMO_PROXIES, demoPrincipalDid } from "./config.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const IDENTITIES_DIR = path.join(__dirname, "identities");
@@ -676,6 +676,80 @@ async function seedAgents(
   return didMap;
 }
 
+async function seedProxies(): Promise<void> {
+  console.log("\n▶ Seeding demo proxies…");
+
+  for (const proxyCfg of DEMO_PROXIES) {
+    // Prefixed so a proxy and an agent never collide on the same identity file.
+    const vid = await loadOrCreateIdentity(`proxy-${proxyCfg.name}`);
+    const did = vid.did;
+
+    await prisma.proxy.upsert({
+      where: { did },
+      create: {
+        did,
+        name: proxyCfg.name,
+        defaultMode: proxyCfg.defaultMode,
+        registeredAt: new Date(),
+        lastSeen: new Date(),
+      },
+      update: {
+        name: proxyCfg.name,
+        defaultMode: proxyCfg.defaultMode,
+        lastSeen: new Date(),
+      },
+    });
+
+    // Upstreams/rules/principals have no natural unique key to upsert
+    // against — delete + recreate each run keeps re-seeding idempotent.
+    await prisma.proxyUpstream.deleteMany({ where: { proxyDid: did } });
+    for (const u of proxyCfg.upstreams) {
+      await prisma.proxyUpstream.create({
+        data: { proxyDid: did, name: u.name, baseUrl: u.baseUrl },
+      });
+    }
+
+    await prisma.proxyRule.deleteMany({ where: { proxyDid: did } });
+    for (const r of proxyCfg.rules) {
+      await prisma.proxyRule.create({
+        data: {
+          proxyDid: did,
+          method: r.method,
+          urlPattern: r.urlPattern,
+          mode: r.mode,
+          governanceRule: r.governanceRule ?? null,
+          principalIdSource: r.principalIdSource ?? undefined,
+        },
+      });
+    }
+
+    await prisma.proxyPrincipal.deleteMany({ where: { proxyDid: did } });
+    for (const p of proxyCfg.principals) {
+      // Demo principals are simulated callers/agents, not real running
+      // processes — a deterministic fake DID (shared with proxy-sim.ts via
+      // demoPrincipalDid) is enough for the UI/logs.
+      const principalDid = demoPrincipalDid(proxyCfg.name, p.externalId);
+      await prisma.proxyPrincipal.create({
+        data: {
+          proxyDid: did,
+          did: principalDid,
+          externalId: p.externalId,
+          tag: p.tag ?? null,
+          governanceRules: p.governanceRules,
+          status: p.status,
+          provisionedByProxy: false,
+          firstSeenAt: new Date(),
+          lastSeenAt: new Date(),
+        },
+      });
+    }
+
+    process.stdout.write(".");
+  }
+
+  console.log(`\n  ✓ ${DEMO_PROXIES.length} proxies (upstreams, rules, principals)`);
+}
+
 async function seedWorkflows(
   workspaceSlugToId: Map<string, string>,
   agentDidMap: Map<string, string>,
@@ -1164,12 +1238,14 @@ async function main() {
   const skillMap = await seedSkills(workspaceSlugToId);
   await seedPolicies(workspaceSlugToId, makeDid("exec-cto"));
   const agentDidMap = await seedAgents(workspaceSlugToId, modelIdMap, skillMap);
+  await seedProxies();
   await seedWorkflows(workspaceSlugToId, agentDidMap, ownerDid, ownerUserId);
   await seedApiKey();
   await seedLiteLLM(cfg);
 
   const userCount = await prisma.user.count();
   const agentCount = await prisma.agent.count();
+  const proxyCount = await prisma.proxy.count();
   const workflowCount = await prisma.workflow.count();
   const channelCount = await prisma.channel.count();
 
@@ -1178,13 +1254,14 @@ async function main() {
   console.log("║                                                              ║");
   console.log(`║  Users     : ${String(userCount).padEnd(47)}║`);
   console.log(`║  Agents    : ${String(agentCount).padEnd(47)}║`);
+  console.log(`║  Proxies   : ${String(proxyCount).padEnd(47)}║`);
   console.log(`║  Workflows : ${String(workflowCount).padEnd(47)}║`);
   console.log(`║  Channels  : ${String(channelCount).padEnd(47)}║`);
   console.log("║                                                              ║");
   console.log("║  Next steps:                                                 ║");
   console.log("║    1. Add API keys to demo/demo-config.json                  ║");
-  console.log("║    2. pnpm demo:start  — connect 30 live agents              ║");
-  console.log("║    3. Open /mission-control                                  ║");
+  console.log("║    2. pnpm demo:start  — connect 30 live agents + 3 proxies  ║");
+  console.log("║    3. Open /mission-control (agents) or /admin/proxies       ║");
   console.log("╚══════════════════════════════════════════════════════════════╝\n");
 
   await prisma.$disconnect();

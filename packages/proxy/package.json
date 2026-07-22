@@ -13,11 +13,13 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.13.0",
     "@vaultys/id": "3.0.0-beta6",
     "@vaultysclaw/policy": "workspace:*",
     "@vaultysclaw/sdk": "workspace:*",
     "@vaultysclaw/shared": "workspace:*",
-    "better-sqlite3": "^12.10.0"
+    "better-sqlite3": "^12.10.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",

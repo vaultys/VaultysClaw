@@ -35,9 +35,21 @@ down. Many independent proxy instances can connect to one control plane.
   header → match rule → (`no_check`: forward; `governed`: resolve identity,
   check the governance rule is granted; no match: apply the proxy's own
   `defaultMode`) → forward or 403. Batches activity-log entries and reports
-  them async.
+  them async. The decision itself lives in the exported `evaluateRequest()`
+  and the upstream call in `forwardRequest()` — both pure functions over
+  method/path/headers/body, reused as-is by `mcp-server.ts` so there is a
+  single governance code path regardless of transport.
 - **`src/index.ts`** — CLI entry / env config, mirrors `mcp-gateway`'s
-  `buildAgentConfig()` pattern.
+  `buildAgentConfig()` pattern. Also starts the MCP front-end per
+  `PROXY_MCP_MODE`.
+- **`src/mcp-server.ts`** — MCP front-end for API-shy callers that already
+  speak MCP (e.g. Claude Desktop, or a customer's own agent/workflow tool)
+  instead of raw HTTP. Exposes one tool, `vc_proxy_request({ method, path,
+  headers?, body? })`, that runs the exact same `evaluateRequest` +
+  `forwardRequest` pipeline as `http-server.ts` — no separate governance
+  logic to keep in sync. Two transports: stdio (default, for local MCP
+  clients) or streamable HTTP (`PROXY_MCP_MODE=http`, for remote callers that
+  can't spawn a subprocess).
 
 ## Governance model
 
@@ -57,6 +69,8 @@ Principal arrived self-signed or was provisioned by this proxy.
 | `VC_PROXY_NAME` | Display name in the dashboard |
 | `VC_PEERJS_CONTROL_PLANE_ID` / `VC_PEERJS_SERVER_URL` | WebRTC transport instead of WebSocket |
 | `PROXY_HTTP_PORT` | Port the reverse-proxy listener binds to (default `8090`) |
+| `PROXY_MCP_MODE` | `stdio` \| `http` \| `off` — starts the MCP front-end alongside the HTTP listener (default `off`) |
+| `PROXY_MCP_HTTP_PORT` | Port for the MCP streamable-HTTP transport when `PROXY_MCP_MODE=http` (default `8091`) |
 
 ## Admin
 
@@ -70,8 +84,18 @@ the same WS/PeerJS channel (`pushProxyConfig` in
 
 - Request bodies are fully buffered (needed for signature-body-hash and JSON
   extraction), not streamed through — fine for typical API payloads, a real
-  constraint for large uploads.
+  constraint for large uploads. Applies to the MCP tool too (`body` is a
+  single string argument).
 - Upstream selection is by `Host` header among the proxy's configured
   upstreams (falls back to the single configured upstream if there's only
   one) — a proxy fronting multiple upstreams on divergent hostnames needs the
-  caller to address it with the real target's Host header.
+  caller to address it with the real target's Host header. Over MCP there is
+  no Host header at all, so multi-upstream proxies resolve to their single
+  upstream only — same fallback as the HTTP listener, but with no way to pick
+  a specific one yet.
+- `identity.ts`'s self-signed path (`signRequest`/`verifySelfSignedHeader`)
+  depends on `@vaultys/id`'s `crypto.Buffer` supporting `base64url` encoding,
+  which the `buffer` npm polyfill used in this environment does not — calling
+  `signRequest` throws `Unknown encoding: base64url`. Pre-existing, unrelated
+  to the MCP front-end; affects both the HTTP and MCP paths equally since
+  they share `evaluateRequest`.

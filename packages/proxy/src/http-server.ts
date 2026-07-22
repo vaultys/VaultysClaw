@@ -8,10 +8,8 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import type {
   ProxyActivityLogEntryPayload,
-  ProxyPrincipalPayload,
   ProxyRulePayload,
   ProxyUpstreamPayload,
-  WSProxyConfigPayload,
 } from "@vaultysclaw/shared";
 import { matchRule, extractPrincipalId } from "./rules";
 import { verifySelfSignedHeader, provisionIdentity } from "./identity";
@@ -47,6 +45,118 @@ async function readBody(req: IncomingMessage): Promise<Buffer> {
 function forbidden(res: ServerResponse, reason: string, extra?: Record<string, unknown>) {
   res.writeHead(403, { "content-type": "application/json" });
   res.end(JSON.stringify({ error: reason, ...extra }));
+}
+
+export interface EvaluatedRequest {
+  fullUrl: string;
+  upstream: ProxyUpstreamPayload;
+  verdict: "allow" | "deny";
+  rule: ProxyRulePayload | null;
+  mode: ProxyActivityLogEntryPayload["mode"];
+  reason?: string;
+  principalDid?: string;
+  externalId?: string;
+  identitySource?: "self_signed" | "proxy_provisioned";
+}
+
+/**
+ * The governance decision, factored out of the HTTP listener so the MCP
+ * server (`mcp-server.ts`) can run requests through the exact same
+ * allow/deny logic instead of re-implementing it against a raw socket.
+ */
+export async function evaluateRequest(
+  method: string,
+  path: string,
+  headers: Record<string, string | string[] | undefined>,
+  body: Buffer,
+  localDb: LocalDb
+): Promise<EvaluatedRequest | { error: string; status: number }> {
+  const config = localDb.loadConfig();
+  if (!config) {
+    return { error: "Proxy has no synced configuration yet — try again shortly", status: 403 };
+  }
+
+  const hostHeader = headers.host;
+  const host = Array.isArray(hostHeader) ? hostHeader[0] : hostHeader;
+  const upstream = resolveUpstream(host, config.upstreams);
+  if (!upstream) {
+    return { error: "No matching upstream configured for this host", status: 502 };
+  }
+
+  const fullUrl = new URL(path, upstream.baseUrl).toString();
+  const rule = matchRule(method, fullUrl, config.rules);
+
+  if (!rule) {
+    if (config.defaultMode === "passthrough") {
+      return { fullUrl, upstream, verdict: "allow", rule: null, mode: "default_passthrough" };
+    }
+    return {
+      fullUrl,
+      upstream,
+      verdict: "deny",
+      rule: null,
+      mode: "default_deny",
+      reason: "No rule matched this request",
+    };
+  }
+
+  if (rule.mode === "no_check") {
+    return { fullUrl, upstream, verdict: "allow", rule, mode: "no_check" };
+  }
+
+  // rule.mode === "governed"
+  const resolution = await resolveIdentity(method, headers, fullUrl, body, rule, localDb);
+
+  if (!resolution) {
+    return { fullUrl, upstream, verdict: "deny", rule, mode: "governed", reason: "Invalid or missing signature" };
+  }
+
+  const { did, externalId, identitySource } = resolution;
+  const principal = config.principals.find((p) => p.did === did);
+
+  if (!principal) {
+    return {
+      fullUrl,
+      upstream,
+      verdict: "deny",
+      rule,
+      mode: "governed",
+      reason: "Unrecognized principal",
+      principalDid: did,
+      externalId,
+      identitySource,
+    };
+  }
+
+  const governanceRule = rule.governanceRule;
+  const granted =
+    principal.status === "active" &&
+    (!governanceRule || principal.governanceRules.includes(governanceRule));
+
+  if (!granted) {
+    return {
+      fullUrl,
+      upstream,
+      verdict: "deny",
+      rule,
+      mode: "governed",
+      reason: `Governance rule '${governanceRule ?? "(none)"}' not granted`,
+      principalDid: did,
+      externalId,
+      identitySource,
+    };
+  }
+
+  return {
+    fullUrl,
+    upstream,
+    verdict: "allow",
+    rule,
+    mode: "governed",
+    principalDid: did,
+    externalId,
+    identitySource,
+  };
 }
 
 interface StartOptions {
@@ -99,100 +209,53 @@ async function handleRequest(
   queueLog: (entry: ProxyActivityLogEntryPayload) => void
 ): Promise<void> {
   const start = Date.now();
-  const config = localDb.loadConfig();
   const method = req.method ?? "GET";
   const path = req.url ?? "/";
-
-  if (!config) {
-    forbidden(res, "Proxy has no synced configuration yet — try again shortly");
-    return;
-  }
-
-  const upstream = resolveUpstream(req.headers.host, config.upstreams);
-  if (!upstream) {
-    res.writeHead(502, { "content-type": "application/json" });
-    res.end(JSON.stringify({ error: "No matching upstream configured for this host" }));
-    return;
-  }
-
-  const fullUrl = new URL(path, upstream.baseUrl).toString();
   const bodyBuffer = await readBody(req);
-  const rule = matchRule(method, fullUrl, config.rules);
 
-  const log = (verdict: "allow" | "deny", mode: ProxyActivityLogEntryPayload["mode"], extra: Partial<ProxyActivityLogEntryPayload> = {}) => {
-    queueLog({
-      method,
-      url: fullUrl,
-      ruleId: rule?.id,
-      mode,
-      verdict,
-      timestamp: new Date().toISOString(),
-      latencyMs: Date.now() - start,
-      ...extra,
-    });
-  };
+  const evaluated = await evaluateRequest(
+    method,
+    path,
+    req.headers as Record<string, string | string[] | undefined>,
+    bodyBuffer,
+    localDb
+  );
 
-  if (!rule) {
-    if (config.defaultMode === "passthrough") {
-      log("allow", "default_passthrough");
-      await forward(req, res, fullUrl, bodyBuffer);
-    } else {
-      log("deny", "default_deny", { reason: "No rule matched this request" });
-      forbidden(res, "No rule matched this request — denied by default");
+  if ("error" in evaluated) {
+    res.writeHead(evaluated.status, { "content-type": "application/json" });
+    res.end(JSON.stringify({ error: evaluated.error }));
+    return;
+  }
+
+  const { fullUrl, verdict, rule, mode, reason, principalDid, externalId, identitySource } = evaluated;
+
+  queueLog({
+    method,
+    url: fullUrl,
+    ruleId: rule?.id,
+    mode,
+    verdict,
+    reason,
+    principalDid,
+    externalId,
+    identitySource,
+    timestamp: new Date().toISOString(),
+    latencyMs: Date.now() - start,
+  });
+
+  if (verdict === "deny") {
+    if (mode === "governed" && reason === "Unrecognized principal") {
+      forbidden(
+        res,
+        "No security configured — please finish configuration for this identity in the VaultysClaw control plane",
+        { did: principalDid }
+      );
+      return;
     }
+    forbidden(res, reason ?? "Denied");
     return;
   }
 
-  if (rule.mode === "no_check") {
-    log("allow", "no_check");
-    await forward(req, res, fullUrl, bodyBuffer);
-    return;
-  }
-
-  // rule.mode === "governed"
-  const resolution = await resolveIdentity(req, fullUrl, bodyBuffer, rule, localDb);
-
-  if (!resolution) {
-    log("deny", "governed", { reason: "Invalid or missing signature" });
-    forbidden(res, "Invalid signature");
-    return;
-  }
-
-  const { did, externalId, identitySource } = resolution;
-  const principal = config.principals.find((p) => p.did === did);
-
-  if (!principal) {
-    log("deny", "governed", {
-      principalDid: did,
-      externalId,
-      identitySource,
-      reason: "Unrecognized principal",
-    });
-    forbidden(
-      res,
-      "No security configured — please finish configuration for this identity in the VaultysClaw control plane",
-      { did }
-    );
-    return;
-  }
-
-  const governanceRule = rule.governanceRule;
-  const granted =
-    principal.status === "active" &&
-    (!governanceRule || principal.governanceRules.includes(governanceRule));
-
-  if (!granted) {
-    log("deny", "governed", {
-      principalDid: did,
-      externalId,
-      identitySource,
-      reason: `Governance rule '${governanceRule ?? "(none)"}' not granted`,
-    });
-    forbidden(res, `Governance rule '${governanceRule ?? "(none)"}' not granted`);
-    return;
-  }
-
-  log("allow", "governed", { principalDid: did, externalId, identitySource });
   await forward(req, res, fullUrl, bodyBuffer);
 }
 
@@ -203,24 +266,25 @@ interface IdentityResolution {
 }
 
 async function resolveIdentity(
-  req: IncomingMessage,
+  method: string,
+  headers: Record<string, string | string[] | undefined>,
   fullUrl: string,
   body: Buffer,
   rule: ProxyRulePayload,
   localDb: LocalDb
 ): Promise<IdentityResolution | null> {
-  const header = req.headers["x-vaultysid"];
+  const header = headers["x-vaultysid"];
   const headerValue = Array.isArray(header) ? header[0] : header;
 
   if (headerValue) {
-    const did = verifySelfSignedHeader(headerValue, req.method ?? "GET", fullUrl, body);
+    const did = verifySelfSignedHeader(headerValue, method, fullUrl, body);
     if (!did) return null;
     return { did, identitySource: "self_signed" };
   }
 
   // No header — resolve (or mint) a proxy-provisioned identity.
   const externalId = extractPrincipalId(rule.principalIdSource, {
-    headers: req.headers as Record<string, string | string[] | undefined>,
+    headers,
     url: fullUrl,
     jsonBody: parseJsonBody(body),
   });
@@ -245,20 +309,27 @@ function parseJsonBody(body: Buffer): Record<string, unknown> | undefined {
   }
 }
 
-async function forward(
-  req: IncomingMessage,
-  res: ServerResponse,
+export interface ForwardedResponse {
+  status: number;
+  headers: Record<string, string>;
+  body: Buffer;
+}
+
+/** Forward a request upstream and collect the response — shared by the raw HTTP listener and the MCP tool. */
+export async function forwardRequest(
+  method: string,
   fullUrl: string,
+  requestHeaders: Record<string, string | string[] | undefined>,
   body: Buffer
-): Promise<void> {
+): Promise<ForwardedResponse> {
   const headers = new Headers();
-  for (const [key, value] of Object.entries(req.headers)) {
+  for (const [key, value] of Object.entries(requestHeaders)) {
     if (!value || key === "host" || key === "content-length") continue;
     headers.set(key, Array.isArray(value) ? value.join(", ") : value);
   }
 
   const upstreamRes = await fetch(fullUrl, {
-    method: req.method,
+    method,
     headers,
     body: body.length > 0 ? body : undefined,
   });
@@ -267,6 +338,21 @@ async function forward(
   upstreamRes.headers.forEach((value, key) => {
     responseHeaders[key] = value;
   });
-  res.writeHead(upstreamRes.status, responseHeaders);
-  res.end(Buffer.from(await upstreamRes.arrayBuffer()));
+
+  return {
+    status: upstreamRes.status,
+    headers: responseHeaders,
+    body: Buffer.from(await upstreamRes.arrayBuffer()),
+  };
+}
+
+async function forward(
+  req: IncomingMessage,
+  res: ServerResponse,
+  fullUrl: string,
+  body: Buffer
+): Promise<void> {
+  const forwarded = await forwardRequest(req.method ?? "GET", fullUrl, req.headers, body);
+  res.writeHead(forwarded.status, forwarded.headers);
+  res.end(forwarded.body);
 }

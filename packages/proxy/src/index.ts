@@ -15,6 +15,10 @@
  *   VC_PEERJS_CONTROL_PLANE_ID  PeerJS peer ID of the control plane — when set, connects via WebRTC instead of WebSocket
  *   VC_PEERJS_SERVER_URL     Custom PeerJS signaling server URL (optional)
  *   PROXY_HTTP_PORT          Port the reverse-proxy listener binds to (default: 8090)
+ *   PROXY_MCP_MODE           "stdio" | "http" | "off" — MCP front-end alongside the raw HTTP
+ *                            listener, for API-shy callers that already speak MCP (default: off)
+ *   PROXY_MCP_HTTP_PORT      Port for the MCP streamable-HTTP transport when PROXY_MCP_MODE=http
+ *                            (default: 8091)
  */
 import path from "node:path";
 import os from "node:os";
@@ -22,6 +26,7 @@ import fs from "node:fs";
 import { LocalDb } from "./local-db.js";
 import { ProxyRuntime } from "./proxy-runtime.js";
 import { startHttpServer } from "./http-server.js";
+import { startMcpStdioServer, startMcpHttpServer } from "./mcp-server.js";
 
 const log = (...args: unknown[]) =>
   process.stderr.write(`[vaultysclaw-proxy] ${args.join(" ")}\n`);
@@ -43,6 +48,8 @@ function buildConfig() {
   if (!fs.existsSync(idDir)) fs.mkdirSync(idDir, { recursive: true });
 
   const httpPort = Number(process.env.PROXY_HTTP_PORT ?? 8090);
+  const mcpMode = (process.env.PROXY_MCP_MODE ?? "off") as "stdio" | "http" | "off";
+  const mcpHttpPort = Number(process.env.PROXY_MCP_HTTP_PORT ?? 8091);
 
   return {
     name: process.env.VC_PROXY_NAME ?? "proxy",
@@ -54,6 +61,8 @@ function buildConfig() {
     requestedCapabilities: [] as any[],
     localDbPath: path.join(idDir, "proxy.db"),
     httpPort,
+    mcpMode,
+    mcpHttpPort,
   };
 }
 
@@ -84,9 +93,19 @@ async function main() {
 
   const http = startHttpServer({ port: config.httpPort, localDb, runtime });
 
+  let mcpHttp: { stop: () => void } | null = null;
+  if (config.mcpMode === "stdio") {
+    log("MCP front-end: stdio");
+    await startMcpStdioServer(localDb, runtime);
+  } else if (config.mcpMode === "http") {
+    log(`MCP front-end: streamable HTTP on port ${config.mcpHttpPort}`);
+    mcpHttp = startMcpHttpServer(config.mcpHttpPort, localDb, runtime);
+  }
+
   const shutdown = () => {
     log("Shutting down...");
     http.stop();
+    mcpHttp?.stop();
     localDb.close();
     runtime.stop();
     process.exit(0);

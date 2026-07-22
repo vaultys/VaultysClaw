@@ -13,11 +13,16 @@
  * Both reuse @vaultysclaw/policy's existing signed-cert envelope
  * (signCert/openCert over packCert) rather than inventing a new wire format.
  */
-import { VaultysId, crypto } from "@vaultys/id";
+import { VaultysId } from "@vaultys/id";
 import { signCert, openCert } from "@vaultysclaw/policy";
 import { createHash } from "node:crypto";
 
-const Buf = crypto.Buffer;
+/**
+ * Node's own Buffer, not @vaultys/id's `crypto.Buffer` (the `buffer` npm
+ * polyfill) — the polyfill's `toString`/`from` don't support the
+ * `base64url` encoding used for the X-VAULTYSID header's id segment.
+ */
+const Buf = Buffer;
 
 /** Reject a signed request whose timestamp has drifted more than this. */
 const MAX_SKEW_MS = 5 * 60_000;

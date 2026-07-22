@@ -9,7 +9,9 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { VaultysId } from "@vaultys/id";
 import { evaluateRequest } from "../packages/proxy/src/http-server";
+import { signRequest } from "../packages/proxy/src/identity";
 import { LocalDb } from "../packages/proxy/src/local-db";
 import type { WSProxyConfigPayload } from "@vaultysclaw/shared";
 
@@ -202,9 +204,56 @@ describe("proxy evaluateRequest", () => {
     expect(result).toMatchObject({ verdict: "allow", mode: "governed", principalDid: did });
   });
 
-  // Note: self-signed (X-VAULTYSID header) scenarios are covered indirectly by
-  // packages/proxy/src/identity.ts's own contract; not exercised here because
-  // signRequest() currently throws in this environment (crypto.Buffer's
-  // polyfill doesn't support "base64url") — a pre-existing issue unrelated to
-  // evaluateRequest, tracked separately.
+  it("allows a governed rule for a self-signed caller holding its own VaultysId", async () => {
+    const callerVid = (await VaultysId.generateMachine()).toVersion(1);
+    const method = "POST";
+    const reqPath = "/orders";
+    const fullUrl = new URL(reqPath, UPSTREAM.baseUrl).toString();
+    const body = Buffer.from(JSON.stringify({ item: "widget" }));
+    const header = await signRequest(callerVid, method, fullUrl, body);
+
+    saveConfig({
+      rules: [{ id: "r1", method: "POST", urlPattern: "*", mode: "governed", governanceRule: "internet_access" }],
+      principals: [
+        {
+          id: "p1",
+          did: callerVid.did,
+          governanceRules: ["internet_access"],
+          status: "active",
+          provisionedByProxy: false,
+        },
+      ],
+    });
+
+    const result = await evaluateRequest(method, reqPath, { "x-vaultysid": header }, body, localDb);
+    expect(result).toMatchObject({
+      verdict: "allow",
+      mode: "governed",
+      principalDid: callerVid.did,
+      identitySource: "self_signed",
+    });
+  });
+
+  it("denies a self-signed request whose signature doesn't match the actual request", async () => {
+    const callerVid = (await VaultysId.generateMachine()).toVersion(1);
+    const fullUrl = new URL("/orders", UPSTREAM.baseUrl).toString();
+    // Sign for a different path than the one actually requested.
+    const header = await signRequest(callerVid, "POST", fullUrl, Buffer.alloc(0));
+
+    saveConfig({
+      rules: [{ id: "r1", method: "POST", urlPattern: "*", mode: "governed", governanceRule: "internet_access" }],
+      principals: [
+        { id: "p1", did: callerVid.did, governanceRules: ["internet_access"], status: "active", provisionedByProxy: false },
+      ],
+    });
+
+    const result = await evaluateRequest(
+      "POST",
+      "/different-path",
+      { "x-vaultysid": header },
+      Buffer.alloc(0),
+      localDb
+    );
+    expect(result).toMatchObject({ verdict: "deny", mode: "governed", reason: "Invalid or missing signature" });
+  });
 });

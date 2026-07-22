@@ -93,9 +93,3 @@ the same WS/PeerJS channel (`pushProxyConfig` in
   no Host header at all, so multi-upstream proxies resolve to their single
   upstream only — same fallback as the HTTP listener, but with no way to pick
   a specific one yet.
-- `identity.ts`'s self-signed path (`signRequest`/`verifySelfSignedHeader`)
-  depends on `@vaultys/id`'s `crypto.Buffer` supporting `base64url` encoding,
-  which the `buffer` npm polyfill used in this environment does not — calling
-  `signRequest` throws `Unknown encoding: base64url`. Pre-existing, unrelated
-  to the MCP front-end; affects both the HTTP and MCP paths equally since
-  they share `evaluateRequest`.

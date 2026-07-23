@@ -1,14 +1,12 @@
 /**
- * MCP front-end for the proxy — lets an MCP client (Claude Code, Claude
- * Desktop, or any customer workflow tool that already speaks MCP) call
- * through the same governance pipeline as the raw HTTP listener
- * (`http-server.ts`), without needing to embed an HTTP client at all.
+ * MCP front-end exposing the VaultysClaw governance pipeline (shared verbatim
+ * with @vaultysclaw/proxy's raw HTTP listener via evaluateRequest/forwardRequest)
+ * as a single tool, for callers that already speak MCP instead of raw HTTP —
+ * Claude Code, Claude Desktop, or a customer's own agent/workflow tool.
  *
- * Exposes a single tool, `vc_proxy_request`, that runs `evaluateRequest`
- * (identity resolution + rule matching, shared verbatim with the HTTP path)
- * and forwards on allow. Two transports:
+ * Two transports:
  *   - stdio (default): for local MCP clients (Claude Desktop config, etc).
- *   - streamable HTTP: when `MCP_HTTP_PORT` is set, for remote/customer
+ *   - streamable HTTP: when MCP_PROXY_MODE=http, for remote/customer
  *     workflow tools that can't spawn a subprocess.
  */
 import { createServer as createHttpServer, type IncomingMessage, type ServerResponse } from "node:http";
@@ -17,9 +15,8 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
-import { evaluateRequest, forwardRequest } from "./http-server.js";
-import type { LocalDb } from "./local-db.js";
-import type { ProxyRuntime } from "./proxy-runtime.js";
+import { evaluateRequest, forwardRequest, type LocalDb } from "@vaultysclaw/proxy";
+import type { McpProxyRuntime } from "./mcp-proxy-runtime.js";
 
 const ProxyRequestSchema = z.object({
   method: z.string().describe("HTTP method, e.g. GET, POST"),
@@ -28,9 +25,14 @@ const ProxyRequestSchema = z.object({
   body: z.string().optional().describe("Request body as a raw string (JSON should be pre-serialized)"),
 });
 
-function buildServer(localDb: LocalDb, runtime: ProxyRuntime): Server {
+/** Exported for tests only — production code should use the start*Server functions below. */
+export function buildServerForTest(localDb: LocalDb, runtime: McpProxyRuntime): Server {
+  return buildServer(localDb, runtime);
+}
+
+function buildServer(localDb: LocalDb, runtime: McpProxyRuntime): Server {
   const server = new Server(
-    { name: "vaultysclaw-proxy", version: "0.0.1" },
+    { name: "vaultysclaw-mcp-proxy", version: "0.0.1" },
     { capabilities: { tools: {} } }
   );
 
@@ -39,7 +41,7 @@ function buildServer(localDb: LocalDb, runtime: ProxyRuntime): Server {
       {
         name: "vc_proxy_request",
         description:
-          "Make an HTTP request through this VaultysClaw proxy's governance rules. " +
+          "Make an HTTP request through this VaultysClaw MCP proxy's governance rules. " +
           "The request is matched against the proxy's configured rules exactly like the raw " +
           "HTTP listener: no_check rules pass straight through, governed rules require a " +
           "recognized, authorized Principal, and unmatched requests follow the proxy's default " +
@@ -123,18 +125,18 @@ function buildServer(localDb: LocalDb, runtime: ProxyRuntime): Server {
   return server;
 }
 
-/** Start the MCP front-end over stdio (default). */
-export async function startMcpStdioServer(localDb: LocalDb, runtime: ProxyRuntime): Promise<void> {
+/** Start the MCP proxy over stdio (default). */
+export async function startMcpStdioServer(localDb: LocalDb, runtime: McpProxyRuntime): Promise<void> {
   const server = buildServer(localDb, runtime);
   const transport = new StdioServerTransport();
   await server.connect(transport);
 }
 
-/** Start the MCP front-end over streamable HTTP, for clients that can't spawn a subprocess. */
+/** Start the MCP proxy over streamable HTTP, for clients that can't spawn a subprocess. */
 export function startMcpHttpServer(
   port: number,
   localDb: LocalDb,
-  runtime: ProxyRuntime
+  runtime: McpProxyRuntime
 ): { stop: () => void } {
   const server = buildServer(localDb, runtime);
   const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });

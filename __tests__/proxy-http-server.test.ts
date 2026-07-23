@@ -1,7 +1,7 @@
 /**
  * Unit tests for the proxy's governance decision, `evaluateRequest`
  * (packages/proxy/src/http-server.ts) — factored out of the raw HTTP
- * listener so the MCP front-end (mcp-server.ts) can reuse it. Exercises the
+ * listener so @vaultysclaw/mcp-proxy can reuse it. Exercises the
  * decision logic directly against a real (temp-file) LocalDb, without a
  * socket or control-plane connection.
  */

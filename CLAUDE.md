@@ -18,6 +18,7 @@ VaultysClaw is a decentralized AI agent orchestration platform. A central **cont
 | `packages/agent-controller` | Agent runtime CLI, tools, skills, memory | [→](packages/agent-controller/CLAUDE.md) |
 | `packages/mcp-gateway` | MCP server exposing VaultysClaw agents as tools | [→](packages/mcp-gateway/CLAUDE.md) |
 | `packages/proxy` | Governance-gated reverse proxy — onboards like an agent, verifies/authorizes API traffic locally, no agent-controller install required | [→](packages/proxy/CLAUDE.md) |
+| `packages/mcp-proxy` | Standalone MCP front-end for the proxy's governance pipeline (stdio/streamable HTTP) — own VaultysId, own onboarding, depends on `@vaultysclaw/proxy` | [→](packages/mcp-proxy/CLAUDE.md) |
 | `packages/notifier` | Standalone worker: consumes notification events from BullMQ and delivers email / in-app / push (SSE) | [→](packages/notifier/CLAUDE.md) |
 | `packages/webhook-dispatcher` | Standalone worker: consumes webhook events from BullMQ, signs them (HMAC) and POSTs to configured endpoints | [→](packages/webhook-dispatcher/CLAUDE.md) |
 

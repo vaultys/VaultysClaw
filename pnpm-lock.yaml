@@ -561,6 +561,34 @@ importers:
         specifier: ^5.9.3
         version: 5.9.3
 
+  packages/mcp-proxy:
+    dependencies:
+      '@modelcontextprotocol/sdk':
+        specifier: ^1.13.0
+        version: 1.29.0(zod@4.4.3)
+      '@vaultysclaw/proxy':
+        specifier: workspace:*
+        version: link:../proxy
+      '@vaultysclaw/sdk':
+        specifier: workspace:*
+        version: link:../sdk
+      '@vaultysclaw/shared':
+        specifier: workspace:*
+        version: link:../shared
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
+    devDependencies:
+      '@types/node':
+        specifier: ^22.19.19
+        version: 22.19.21
+      tsx:
+        specifier: ^4.22.4
+        version: 4.22.4
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+
   packages/notifier:
     dependencies:
       '@prisma/adapter-pg':
@@ -625,9 +653,6 @@ importers:
 
   packages/proxy:
     dependencies:
-      '@modelcontextprotocol/sdk':
-        specifier: ^1.13.0
-        version: 1.29.0(zod@4.4.3)
       '@vaultys/id':
         specifier: 3.0.0-beta6
         version: 3.0.0-beta6
@@ -643,9 +668,6 @@ importers:
       better-sqlite3:
         specifier: ^12.10.0
         version: 12.10.1
-      zod:
-        specifier: ^4.4.3
-        version: 4.4.3
     devDependencies:
       '@types/better-sqlite3':
         specifier: ^7.6.13

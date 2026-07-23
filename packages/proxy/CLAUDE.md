@@ -40,16 +40,17 @@ down. Many independent proxy instances can connect to one control plane.
   method/path/headers/body, reused as-is by `mcp-server.ts` so there is a
   single governance code path regardless of transport.
 - **`src/index.ts`** — CLI entry / env config, mirrors `mcp-gateway`'s
-  `buildAgentConfig()` pattern. Also starts the MCP front-end per
-  `PROXY_MCP_MODE`.
-- **`src/mcp-server.ts`** — MCP front-end for API-shy callers that already
-  speak MCP (e.g. Claude Desktop, or a customer's own agent/workflow tool)
-  instead of raw HTTP. Exposes one tool, `vc_proxy_request({ method, path,
-  headers?, body? })`, that runs the exact same `evaluateRequest` +
-  `forwardRequest` pipeline as `http-server.ts` — no separate governance
-  logic to keep in sync. Two transports: stdio (default, for local MCP
-  clients) or streamable HTTP (`PROXY_MCP_MODE=http`, for remote callers that
-  can't spawn a subprocess).
+  `buildAgentConfig()` pattern.
+- **`src/public.ts`** — the package's importable surface (`main`/`types` in
+  `package.json` point here): re-exports `evaluateRequest`, `forwardRequest`,
+  `LocalDb`, `matchRule`, identity helpers, etc. Consumed by
+  `@vaultysclaw/mcp-proxy` so the MCP front-end reuses the exact same
+  governance decision instead of a duplicated implementation.
+
+MCP access to this governance pipeline is a **separate package**,
+[`packages/mcp-proxy`](../mcp-proxy/CLAUDE.md) — split out (issue #46) because
+the stdio/streamable-HTTP architecture warrants its own identity/onboarding
+lifecycle rather than being a mode of this HTTP proxy's process.
 
 ## Governance model
 
@@ -69,8 +70,6 @@ Principal arrived self-signed or was provisioned by this proxy.
 | `VC_PROXY_NAME` | Display name in the dashboard |
 | `VC_PEERJS_CONTROL_PLANE_ID` / `VC_PEERJS_SERVER_URL` | WebRTC transport instead of WebSocket |
 | `PROXY_HTTP_PORT` | Port the reverse-proxy listener binds to (default `8090`) |
-| `PROXY_MCP_MODE` | `stdio` \| `http` \| `off` — starts the MCP front-end alongside the HTTP listener (default `off`) |
-| `PROXY_MCP_HTTP_PORT` | Port for the MCP streamable-HTTP transport when `PROXY_MCP_MODE=http` (default `8091`) |
 
 ## Admin
 
@@ -92,4 +91,4 @@ the same WS/PeerJS channel (`pushProxyConfig` in
   caller to address it with the real target's Host header. Over MCP there is
   no Host header at all, so multi-upstream proxies resolve to their single
   upstream only — same fallback as the HTTP listener, but with no way to pick
-  a specific one yet.
+  a specific one yet (see [`packages/mcp-proxy`](../mcp-proxy/CLAUDE.md)).

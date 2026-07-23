@@ -3,6 +3,8 @@
   "version": "0.0.1",
   "description": "VaultysClaw proxy — a governance-gated reverse proxy that connects to the control plane like an agent, verifies and authorizes API traffic locally, and reports activity async",
   "type": "module",
+  "main": "./src/public.ts",
+  "types": "./src/public.ts",
   "bin": {
     "vaultysclaw-proxy": "./dist/index.js"
   },
@@ -13,13 +15,11 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.13.0",
     "@vaultys/id": "3.0.0-beta6",
     "@vaultysclaw/policy": "workspace:*",
     "@vaultysclaw/sdk": "workspace:*",
     "@vaultysclaw/shared": "workspace:*",
-    "better-sqlite3": "^12.10.0",
-    "zod": "^4.4.3"
+    "better-sqlite3": "^12.10.0"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",

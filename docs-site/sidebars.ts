@@ -58,6 +58,7 @@ const sidebars: SidebarsConfig = {
         "guides/user-invitations",
         "guides/notifications",
         "guides/webhooks",
+        "guides/proxy",
         "guides/custom-agent-runtime",
       ],
     },

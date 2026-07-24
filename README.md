@@ -127,6 +127,8 @@ Three principles, built in from day one:
 - **SMTP** — configurable email notifications
 - **Docker Compose** — pre-built dev + production stacks
 - **LiteLLM proxy** — route requests to any model provider
+- **API proxy** — governance-gated reverse proxy fronts any HTTP API or MCP client without an agent-controller install ([guide](docs-site/docs/guides/proxy.md))
+- **Webhooks** — signed HTTP callouts to your own services on platform events, with retries and a dead-letter queue
 
 ---
 

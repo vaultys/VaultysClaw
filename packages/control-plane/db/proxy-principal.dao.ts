@@ -33,6 +33,27 @@ export class ProxyPrincipalDAO {
     });
   }
 
+  /** Count of principals still awaiting admin review for one proxy. */
+  static async countPending(proxyDid: string): Promise<number> {
+    return prisma.proxyPrincipal.count({ where: { proxyDid, status: "pending" } });
+  }
+
+  /** Pending-principal count for every proxy at once, keyed by proxyDid — one
+   * query for the proxies list page instead of N. */
+  static async countPendingByProxy(): Promise<Map<string, number>> {
+    const rows = await prisma.proxyPrincipal.groupBy({
+      by: ["proxyDid"],
+      where: { status: "pending" },
+      _count: { _all: true },
+    });
+    return new Map(rows.map((r) => [r.proxyDid, r._count._all]));
+  }
+
+  /** Total pending-principal count across every proxy — drives the sidebar/nav badge. */
+  static async countPendingAll(): Promise<number> {
+    return prisma.proxyPrincipal.count({ where: { status: "pending" } });
+  }
+
   static async findByProxyAndDid(
     proxyDid: string,
     did: string

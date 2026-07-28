@@ -35,6 +35,7 @@ import { cn } from "@/lib/utils";
 import { useRole } from "@/hooks/useRole";
 import {
   userApi,
+  adminApi,
   unwrap,
 } from "@/lib/api/ts-rest/client";
 
@@ -169,6 +170,29 @@ function usePendingCount() {
   return count;
 }
 
+/** Total principals across every proxy still awaiting admin review — the
+ * "something needs your attention" badge on the Proxies nav item. */
+function usePendingProxyPrincipals(enabled: boolean) {
+  const { status } = useSession();
+  const [count, setCount] = useState(0);
+
+  useEffect(() => {
+    if (status !== "authenticated" || !enabled) return;
+    const fetch_ = () =>
+      adminApi.proxies
+        .list()
+        .then((res) =>
+          setCount(unwrap(res).reduce((sum, p) => sum + p.pendingPrincipalsCount, 0))
+        )
+        .catch(() => {});
+    fetch_();
+    const id = setInterval(fetch_, 30_000);
+    return () => clearInterval(id);
+  }, [status, enabled]);
+
+  return count;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Rail — narrow icon column with tooltips
 // ─────────────────────────────────────────────────────────────────────────────
@@ -284,6 +308,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const pathname = usePathname();
   const pendingCount = usePendingCount();
   const { isGlobalAdmin } = useRole();
+  const pendingProxyPrincipals = usePendingProxyPrincipals(isGlobalAdmin);
 
   const visibleSections = useMemo(
     () => SECTIONS.filter((s) => !s.adminOnly || isGlobalAdmin),
@@ -363,7 +388,13 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
                 icon={item.icon}
                 label={item.label}
                 active={itemActive(item, pathname)}
-                badge={item.href === "/app/inbox" ? pendingCount : undefined}
+                badge={
+                  item.href === "/app/inbox"
+                    ? pendingCount
+                    : item.href === "/admin/proxies"
+                      ? pendingProxyPrincipals
+                      : undefined
+                }
               />
             ))}
           </nav>

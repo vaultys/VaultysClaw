@@ -25,6 +25,9 @@ export type ProxyInfo = Proxy & {
   connectedAt: Date | null;
   lastHeartbeat: Date | null;
   transport: "ws" | "peerjs" | null;
+  /** Principals discovered by this proxy still awaiting admin review — the
+   * "something needs your attention" signal surfaced across the UI. */
+  pendingPrincipalsCount: number;
 };
 
 export type ListProxyLogsQuery = z.infer<typeof ListProxyLogsQuerySchema>;

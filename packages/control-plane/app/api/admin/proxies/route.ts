@@ -1,5 +1,5 @@
 import { getWSServer } from "@/lib/ws-server";
-import { ProxyDAO } from "@/db";
+import { ProxyDAO, ProxyPrincipalDAO } from "@/db";
 import { adminContract } from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 import type { ProxyInfo } from "@/lib/contracts";
@@ -7,7 +7,10 @@ import type { ProxyInfo } from "@/lib/contracts";
 const handlers = createNextRoute(adminContract.proxies, {
   // ── GET /api/admin/proxies ──────────────────────────────────────────────
   list: async () => {
-    const proxies = await ProxyDAO.findAll();
+    const [proxies, pendingByProxy] = await Promise.all([
+      ProxyDAO.findAll(),
+      ProxyPrincipalDAO.countPendingByProxy(),
+    ]);
     const wsServer = getWSServer();
 
     const body: ProxyInfo[] = proxies.map((proxy) => {
@@ -18,6 +21,7 @@ const handlers = createNextRoute(adminContract.proxies, {
         connectedAt: connected?.connectedAt ?? null,
         lastHeartbeat: connected?.lastHeartbeat ?? null,
         transport: connected ? connected.transport : null,
+        pendingPrincipalsCount: pendingByProxy.get(proxy.did) ?? 0,
       };
     });
 

@@ -1,5 +1,5 @@
 import { getWSServer } from "@/lib/ws-server";
-import { ProxyDAO } from "@/db";
+import { ProxyDAO, ProxyPrincipalDAO } from "@/db";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { adminContract } from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
@@ -17,12 +17,14 @@ const handlers = createNextRoute(adminContract.proxies, {
     if (!proxy) throw new APIException("NOT_FOUND", "Proxy not found");
 
     const connected = getWSServer()?.getProxy(params.did);
+    const pendingPrincipalsCount = await ProxyPrincipalDAO.countPending(params.did);
     const body: ProxyInfo = {
       ...proxy,
       online: !!connected,
       connectedAt: connected?.connectedAt ?? null,
       lastHeartbeat: connected?.lastHeartbeat ?? null,
       transport: connected ? connected.transport : null,
+      pendingPrincipalsCount,
     };
     return { status: 200, body };
   },
@@ -43,6 +45,7 @@ const handlers = createNextRoute(adminContract.proxies, {
 
     const updated = await ProxyDAO.findByDid(params.did);
     const connected = getWSServer()?.getProxy(params.did);
+    const pendingPrincipalsCount = await ProxyPrincipalDAO.countPending(params.did);
     return {
       status: 200,
       body: {
@@ -51,6 +54,7 @@ const handlers = createNextRoute(adminContract.proxies, {
         connectedAt: connected?.connectedAt ?? null,
         lastHeartbeat: connected?.lastHeartbeat ?? null,
         transport: connected ? connected.transport : null,
+        pendingPrincipalsCount,
       },
     };
   },

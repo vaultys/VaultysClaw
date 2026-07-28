@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Waypoints, CircleDot, Circle, Plus } from "lucide-react";
+import { Waypoints, CircleDot, Circle, Plus, AlertTriangle } from "lucide-react";
 import { useToolbar } from "@/components/layout/ToolbarContext";
 import { useBreadcrumbs } from "@/components/layout/BreadcrumbContext";
 import { adminApi, unwrap } from "@/lib/api/ts-rest/client";
@@ -30,12 +30,17 @@ export default function ProxiesPage() {
   }, [fetchProxies]);
 
   const onlineCount = proxies.filter((p) => p.online).length;
+  const pendingTotal = proxies.reduce((sum, p) => sum + p.pendingPrincipalsCount, 0);
 
   useBreadcrumbs([{ label: "Proxies" }], []);
   useToolbar(
     {
       title: "Proxies",
-      description: `${proxies.length} registered · ${onlineCount} online`,
+      description:
+        `${proxies.length} registered · ${onlineCount} online` +
+        (pendingTotal > 0
+          ? ` · ${pendingTotal} principal${pendingTotal !== 1 ? "s" : ""} need review`
+          : ""),
       actions: [
         {
           kind: "button",
@@ -47,7 +52,7 @@ export default function ProxiesPage() {
         },
       ],
     },
-    [proxies.length, onlineCount, router]
+    [proxies.length, onlineCount, pendingTotal, router]
   );
 
   return (
@@ -76,15 +81,24 @@ export default function ProxiesPage() {
                   <th className="px-5 py-3">DID</th>
                   <th className="px-5 py-3">Default mode</th>
                   <th className="px-5 py-3">Last seen</th>
+                  <th className="px-5 py-3" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-200">
                 {proxies.map((proxy) => (
                   <tr
                     key={proxy.did}
-                    className="hover:bg-background-200/40 transition-colors cursor-pointer"
+                    className={`transition-colors cursor-pointer ${
+                      proxy.pendingPrincipalsCount > 0
+                        ? "bg-warning-50/60 hover:bg-warning-50"
+                        : "hover:bg-background-200/40"
+                    }`}
                     onClick={() =>
-                      router.push(`/admin/proxies/${encodeURIComponent(proxy.did)}`)
+                      router.push(
+                        proxy.pendingPrincipalsCount > 0
+                          ? `/admin/proxies/${encodeURIComponent(proxy.did)}?tab=principals`
+                          : `/admin/proxies/${encodeURIComponent(proxy.did)}`
+                      )
                     }
                   >
                     <td className="px-5 py-3.5">
@@ -117,6 +131,14 @@ export default function ProxiesPage() {
                     </td>
                     <td className="px-5 py-3.5 text-foreground-500 text-xs">
                       {timeAgo(proxy.lastSeen)}
+                    </td>
+                    <td className="px-5 py-3.5">
+                      {proxy.pendingPrincipalsCount > 0 && (
+                        <span className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full font-medium bg-warning-100 text-warning-700 border border-warning-300">
+                          <AlertTriangle className="w-3 h-3" />
+                          {proxy.pendingPrincipalsCount} pending
+                        </span>
+                      )}
                     </td>
                   </tr>
                 ))}

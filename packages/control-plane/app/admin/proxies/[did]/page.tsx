@@ -1,6 +1,6 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import {
   Trash2,
   Loader2,
@@ -10,6 +10,8 @@ import {
   Users,
   ScrollText,
   Plus,
+  AlertTriangle,
+  ClipboardCheck,
 } from "lucide-react";
 import { timeAgo } from "@vaultysclaw/shared";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
@@ -19,6 +21,7 @@ import {
 } from "@/components/layout/ToolbarContext";
 import { useBreadcrumbs } from "@/components/layout/BreadcrumbContext";
 import { adminApi, unwrap } from "@/lib/api/ts-rest/client";
+import { ChipMultiSelect } from "@/components/proxy/ChipMultiSelect";
 import type {
   ProxyInfo,
   ProxyUpstream,
@@ -27,14 +30,36 @@ import type {
   ProxyActivityLog,
 } from "@/lib/contracts";
 
-type Tab = "overview" | "upstreams" | "rules" | "principals" | "logs";
+type Tab = "overview" | "upstreams" | "rules" | "principals" | "pending" | "logs";
+
+const ALL_TABS: Tab[] = ["overview", "upstreams", "rules", "principals", "pending", "logs"];
+
+// Seed vocabulary offered alongside whatever's already in use on this proxy —
+// mirrors the platform's built-in agent capability names, since a governance
+// rule is the same idea applied to proxied traffic instead of an agent.
+const SEED_GOVERNANCE_RULES = [
+  "file_access",
+  "internet_access",
+  "browser_control",
+  "api_call",
+  "mail_send",
+  "code_execution",
+  "system_command",
+  "agent_communication",
+  "knowledge_search",
+];
+const SEED_TAGS = ["ai_agent", "service"];
 
 export default function ProxyDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const did = decodeURIComponent(params.did as string);
 
-  const [activeTab, setActiveTab] = useState<Tab>("overview");
+  const tabParam = searchParams.get("tab") as Tab | null;
+  const [activeTab, setActiveTab] = useState<Tab>(
+    tabParam && ALL_TABS.includes(tabParam) ? tabParam : "overview"
+  );
   const [proxy, setProxy] = useState<ProxyInfo | null>(null);
   const [upstreams, setUpstreams] = useState<ProxyUpstream[]>([]);
   const [rules, setRules] = useState<ProxyRule[]>([]);
@@ -68,6 +93,18 @@ export default function ProxyDetailPage() {
     fetchAll();
   }, [fetchAll]);
 
+  // Autocomplete vocabulary for the tag/governance-rule editors — whatever's
+  // already in use on this proxy, plus a seed list of common names, shared
+  // between the Principals and Pending tabs so suggestions stay consistent.
+  const tagSuggestions = useMemo(() => {
+    const used = principals.map((p) => p.tag).filter((t): t is string => !!t);
+    return Array.from(new Set([...SEED_TAGS, ...used])).sort();
+  }, [principals]);
+  const governanceRuleSuggestions = useMemo(() => {
+    const used = principals.flatMap((p) => p.governanceRules);
+    return Array.from(new Set([...SEED_GOVERNANCE_RULES, ...used])).sort();
+  }, [principals]);
+
   const handleDelete = async () => {
     setDeleting(true);
     try {
@@ -93,6 +130,17 @@ export default function ProxyDetailPage() {
           { value: "upstreams", label: "Upstreams", icon: <Server size={15} /> },
           { value: "rules", label: "Rules", icon: <ListFilter size={15} /> },
           { value: "principals", label: "Principals", icon: <Users size={15} /> },
+          {
+            value: "pending",
+            label: "Pending",
+            icon: <ClipboardCheck size={15} />,
+            badge:
+              proxy.pendingPrincipalsCount > 0 ? (
+                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-warning-100 text-warning-700 border border-warning-300 leading-none">
+                  {proxy.pendingPrincipalsCount}
+                </span>
+              ) : undefined,
+          },
           { value: "logs", label: "Logs", icon: <ScrollText size={15} /> },
         ],
       },
@@ -168,7 +216,22 @@ export default function ProxyDetailPage() {
           )}
           {activeTab === "rules" && <RulesTab did={did} rules={rules} onChanged={fetchAll} />}
           {activeTab === "principals" && (
-            <PrincipalsTab did={did} principals={principals} onChanged={fetchAll} />
+            <PrincipalsTab
+              did={did}
+              principals={principals}
+              tagSuggestions={tagSuggestions}
+              governanceRuleSuggestions={governanceRuleSuggestions}
+              onChanged={fetchAll}
+            />
+          )}
+          {activeTab === "pending" && (
+            <PendingPrincipalsTab
+              did={did}
+              principals={principals}
+              tagSuggestions={tagSuggestions}
+              governanceRuleSuggestions={governanceRuleSuggestions}
+              onChanged={fetchAll}
+            />
           )}
           {activeTab === "logs" && <LogsTab did={did} />}
         </div>
@@ -496,130 +559,238 @@ function RulesTab({
 
 // ── Principals ───────────────────────────────────────────────────────────────
 
+/** What each status actually means for enforcement — shown inline, not hidden behind a hover. */
+const STATUS_HELP: Record<string, string> = {
+  pending:
+    "Newly discovered, not yet reviewed. Governed rules deny this principal until you set it to active.",
+  active:
+    "Reviewed and authorized. Governed rules are granted whenever their governance rule is in the list below.",
+  revoked:
+    "Reviewed and explicitly denied. Same effect as pending (governed rules still deny it) — revoked just records that this was a deliberate decision, not an oversight.",
+};
+
+interface PrincipalEdits {
+  tag: string;
+  governanceRules: string[];
+  status: string;
+}
+
+function PrincipalCard({
+  did,
+  principal,
+  tagSuggestions,
+  governanceRuleSuggestions,
+  onChanged,
+}: {
+  did: string;
+  principal: ProxyPrincipal;
+  tagSuggestions: string[];
+  governanceRuleSuggestions: string[];
+  onChanged: () => void;
+}) {
+  const [edit, setEdit] = useState<PrincipalEdits>({
+    tag: principal.tag ?? "",
+    governanceRules: principal.governanceRules,
+    status: principal.status,
+  });
+  const [saving, setSaving] = useState(false);
+
+  const patch = (p: Partial<PrincipalEdits>) => setEdit((prev) => ({ ...prev, ...p }));
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      await adminApi.proxies.updatePrincipal({
+        params: { did, id: principal.id },
+        body: {
+          tag: edit.tag || null,
+          governanceRules: edit.governanceRules,
+          status: edit.status as "pending" | "active" | "revoked",
+        },
+      });
+      onChanged();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const remove = async () => {
+    await adminApi.proxies.deletePrincipal({ params: { did, id: principal.id } });
+    onChanged();
+  };
+
+  const pending = principal.status === "pending";
+  const tagListId = `tag-options-${principal.id}`;
+
+  return (
+    <div
+      className={`rounded-lg p-3 space-y-2.5 border ${
+        pending ? "border-warning-300 bg-warning-50/50" : "border-neutral-200"
+      }`}
+    >
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-center gap-2">
+          {pending && <AlertTriangle size={13} className="text-warning-600 shrink-0" />}
+          <span className="font-mono text-xs text-foreground-500" title={principal.did}>
+            {principal.did.slice(0, 24)}…
+          </span>
+          {principal.externalId && (
+            <span className="text-xs text-foreground-400">({principal.externalId})</span>
+          )}
+          {principal.provisionedByProxy && (
+            <span className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded font-medium border bg-secondary-100 text-secondary-700 border-secondary-300">
+              proxy-provisioned
+            </span>
+          )}
+        </div>
+        <button onClick={remove} className="text-foreground-400 hover:text-danger-500">
+          <Trash2 size={14} />
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-[160px_1fr] gap-2.5 items-start">
+        <div>
+          <label className="text-[10px] font-medium text-foreground-400 uppercase tracking-wide block mb-1">
+            Tag
+          </label>
+          <input
+            list={tagListId}
+            value={edit.tag}
+            onChange={(e) => patch({ tag: e.target.value })}
+            placeholder="ai_agent, service…"
+            className="w-full px-2 py-1.5 rounded-lg border border-neutral-300 bg-background-100 text-xs"
+          />
+          <datalist id={tagListId}>
+            {tagSuggestions.map((t) => (
+              <option key={t} value={t} />
+            ))}
+          </datalist>
+          <p className="text-[10px] text-foreground-400 mt-1">
+            Just a label to organize/filter — pick an existing one or type a new one.
+          </p>
+        </div>
+
+        <div>
+          <label className="text-[10px] font-medium text-foreground-400 uppercase tracking-wide block mb-1">
+            Governance rules
+          </label>
+          <ChipMultiSelect
+            values={edit.governanceRules}
+            suggestions={governanceRuleSuggestions}
+            placeholder="Add a governance rule…"
+            onChange={(governanceRules) => patch({ governanceRules })}
+          />
+        </div>
+      </div>
+
+      <div className="flex items-end gap-2.5 flex-wrap">
+        <div className="flex-1 min-w-[220px]">
+          <label className="text-[10px] font-medium text-foreground-400 uppercase tracking-wide block mb-1">
+            Status
+          </label>
+          <select
+            value={edit.status}
+            onChange={(e) => patch({ status: e.target.value })}
+            className="w-full px-2 py-1.5 rounded-lg border border-neutral-300 bg-background-100 text-xs"
+          >
+            <option value="pending">pending</option>
+            <option value="active">active</option>
+            <option value="revoked">revoked</option>
+          </select>
+          <p className="text-[10px] text-foreground-400 mt-1">{STATUS_HELP[edit.status]}</p>
+        </div>
+        <button
+          onClick={save}
+          disabled={saving}
+          className="px-3 py-1.5 rounded-lg bg-primary-500 text-white text-xs disabled:opacity-50 shrink-0"
+        >
+          {saving ? "Saving…" : "Save"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function PrincipalsTab({
   did,
   principals,
+  tagSuggestions,
+  governanceRuleSuggestions,
   onChanged,
 }: {
   did: string;
   principals: ProxyPrincipal[];
+  tagSuggestions: string[];
+  governanceRuleSuggestions: string[];
   onChanged: () => void;
 }) {
-  const [edits, setEdits] = useState<
-    Record<string, { tag: string; governanceRules: string; status: string }>
-  >({});
-
-  const editFor = (p: ProxyPrincipal) =>
-    edits[p.id] ?? {
-      tag: p.tag ?? "",
-      governanceRules: p.governanceRules.join(", "),
-      status: p.status,
-    };
-
-  const setEdit = (p: ProxyPrincipal, patch: Partial<{ tag: string; governanceRules: string; status: string }>) => {
-    setEdits((prev) => ({ ...prev, [p.id]: { ...editFor(p), ...patch } }));
-  };
-
-  const save = async (p: ProxyPrincipal) => {
-    const edit = editFor(p);
-    await adminApi.proxies.updatePrincipal({
-      params: { did, id: p.id },
-      body: {
-        tag: edit.tag || null,
-        governanceRules: edit.governanceRules
-          .split(",")
-          .map((s) => s.trim())
-          .filter(Boolean),
-        status: edit.status as "pending" | "active" | "revoked",
-      },
-    });
-    onChanged();
-  };
-
-  const remove = async (id: string) => {
-    await adminApi.proxies.deletePrincipal({ params: { did, id } });
-    onChanged();
-  };
+  if (principals.length === 0) {
+    return (
+      <p className="text-foreground-400 text-sm py-6 text-center">
+        No principals seen yet — they appear here automatically the first time this proxy
+        sees a caller or agent identity.
+      </p>
+    );
+  }
 
   return (
     <div className="space-y-3">
-      {principals.length === 0 && (
-        <p className="text-foreground-400 text-sm py-6 text-center">
-          No principals seen yet — they appear here automatically the first time this
-          proxy sees a caller or agent identity.
-        </p>
-      )}
-      {principals.map((p) => {
-        const edit = editFor(p);
-        return (
-          <div
-            key={p.id}
-            className="border border-neutral-200 rounded-lg p-3 space-y-2"
-          >
-            <div className="flex items-center justify-between gap-2 flex-wrap">
-              <div className="flex items-center gap-2">
-                <span className="font-mono text-xs text-foreground-500" title={p.did}>
-                  {p.did.slice(0, 24)}…
-                </span>
-                {p.externalId && (
-                  <span className="text-xs text-foreground-400">({p.externalId})</span>
-                )}
-                {p.provisionedByProxy && (
-                  <span className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded font-medium border bg-secondary-100 text-secondary-700 border-secondary-300">
-                    proxy-provisioned
-                  </span>
-                )}
-                <span
-                  className={`inline-flex items-center text-[10px] px-1.5 py-0.5 rounded font-medium border ${
-                    p.status === "active"
-                      ? "bg-success-100 text-success-700 border-success-300"
-                      : p.status === "revoked"
-                        ? "bg-danger-100 text-danger-700 border-danger-300"
-                        : "bg-warning-100 text-warning-700 border-warning-300"
-                  }`}
-                >
-                  {p.status}
-                </span>
-              </div>
-              <button
-                onClick={() => remove(p.id)}
-                className="text-foreground-400 hover:text-danger-500"
-              >
-                <Trash2 size={14} />
-              </button>
-            </div>
-            <div className="flex gap-2 items-center flex-wrap">
-              <input
-                value={edit.tag}
-                onChange={(e) => setEdit(p, { tag: e.target.value })}
-                placeholder="Tag (e.g. ai_agent, service)"
-                className="px-2 py-1 rounded-lg border border-neutral-300 bg-background-100 text-xs w-48"
-              />
-              <input
-                value={edit.governanceRules}
-                onChange={(e) => setEdit(p, { governanceRules: e.target.value })}
-                placeholder="Governance rules, comma-separated"
-                className="flex-1 px-2 py-1 rounded-lg border border-neutral-300 bg-background-100 text-xs"
-              />
-              <select
-                value={edit.status}
-                onChange={(e) => setEdit(p, { status: e.target.value })}
-                className="px-2 py-1 rounded-lg border border-neutral-300 bg-background-100 text-xs"
-              >
-                <option value="pending">pending</option>
-                <option value="active">active</option>
-                <option value="revoked">revoked</option>
-              </select>
-              <button
-                onClick={() => save(p)}
-                className="px-2.5 py-1 rounded-lg bg-primary-500 text-white text-xs"
-              >
-                Save
-              </button>
-            </div>
-          </div>
-        );
-      })}
+      {principals.map((p) => (
+        <PrincipalCard
+          key={p.id}
+          did={did}
+          principal={p}
+          tagSuggestions={tagSuggestions}
+          governanceRuleSuggestions={governanceRuleSuggestions}
+          onChanged={onChanged}
+        />
+      ))}
+    </div>
+  );
+}
+
+// ── Pending principals (dedicated review queue) ───────────────────────────────
+
+function PendingPrincipalsTab({
+  did,
+  principals,
+  tagSuggestions,
+  governanceRuleSuggestions,
+  onChanged,
+}: {
+  did: string;
+  principals: ProxyPrincipal[];
+  tagSuggestions: string[];
+  governanceRuleSuggestions: string[];
+  onChanged: () => void;
+}) {
+  const pending = principals.filter((p) => p.status === "pending");
+
+  if (pending.length === 0) {
+    return (
+      <p className="text-foreground-400 text-sm py-6 text-center">
+        Nothing awaiting review — every known principal has been reviewed.
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2 bg-warning-50 border border-warning-300 rounded-lg px-3 py-2 text-xs text-warning-700">
+        <AlertTriangle size={13} className="shrink-0" />
+        {pending.length} principal{pending.length !== 1 ? "s" : ""} awaiting review — grant
+        governance rules and set status to active to authorize them.
+      </div>
+      {pending.map((p) => (
+        <PrincipalCard
+          key={p.id}
+          did={did}
+          principal={p}
+          tagSuggestions={tagSuggestions}
+          governanceRuleSuggestions={governanceRuleSuggestions}
+          onChanged={onChanged}
+        />
+      ))}
     </div>
   );
 }

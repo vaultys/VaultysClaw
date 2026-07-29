@@ -16,6 +16,7 @@ VaultysClaw is a decentralized AI agent orchestration platform. A central **cont
 | `packages/control-plane` | Next.js App Router dashboard + WebSocket server (port 3000 / WS 8080) | [→](packages/control-plane/CLAUDE.md) |
 | `packages/control-plane/app/api` | REST API routes (ts-rest pattern) | [→](packages/control-plane/app/api/CLAUDE.md) |
 | `packages/agent-controller` | Agent runtime CLI, tools, skills, memory | [→](packages/agent-controller/CLAUDE.md) |
+| `packages/agent-controller-go` | Minimal Go port of the agent-controller protocol (identity + WS handshake + intent dispatch, no LLM/tools) — compiles to a static few-MB binary instead of requiring Node.js | [→](packages/agent-controller-go/CLAUDE.md) |
 | `packages/mcp-gateway` | MCP server exposing VaultysClaw agents as tools | [→](packages/mcp-gateway/CLAUDE.md) |
 | `packages/proxy` | Governance-gated reverse proxy — onboards like an agent, verifies/authorizes API traffic locally, no agent-controller install required | [→](packages/proxy/CLAUDE.md) |
 | `packages/mcp-proxy` | Standalone MCP front-end for the proxy's governance pipeline (stdio/streamable HTTP) — own VaultysId, own onboarding, depends on `@vaultysclaw/proxy` | [→](packages/mcp-proxy/CLAUDE.md) |

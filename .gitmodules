@@ -1,0 +1,4 @@
+[submodule "packages/agent-controller-go/third_party-vaultysid"]
+	path = packages/agent-controller-go/third_party-vaultysid
+	url = https://github.com/vaultys/vaultysid.git
+	branch = go_implementation

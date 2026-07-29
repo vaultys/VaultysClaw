@@ -12,10 +12,14 @@ VaultysClaw is a decentralized AI agent orchestration platform. A central **cont
 |---|---|---|
 | `packages/shared` | Types, security utils, channel protocol definitions | [→](packages/shared/CLAUDE.md) |
 | `packages/policy` | Policy engine: capability/resource-limit types, cert signing/verification, runtime enforcement gates | [→](packages/policy/CLAUDE.md) |
+| `packages/sdk` | VaultysClaw SDK: VaultysId identity, control-plane connection (WS/WebRTC), policy engine execution — base for agent-controller, mcp-gateway, and custom integrations | [→](packages/sdk/CLAUDE.md) |
 | `packages/control-plane` | Next.js App Router dashboard + WebSocket server (port 3000 / WS 8080) | [→](packages/control-plane/CLAUDE.md) |
 | `packages/control-plane/app/api` | REST API routes (ts-rest pattern) | [→](packages/control-plane/app/api/CLAUDE.md) |
 | `packages/agent-controller` | Agent runtime CLI, tools, skills, memory | [→](packages/agent-controller/CLAUDE.md) |
+| `packages/agent-controller-go` | Minimal Go port of the agent-controller protocol (identity + WS handshake + intent dispatch, no LLM/tools) — compiles to a static few-MB binary instead of requiring Node.js | [→](packages/agent-controller-go/CLAUDE.md) |
 | `packages/mcp-gateway` | MCP server exposing VaultysClaw agents as tools | [→](packages/mcp-gateway/CLAUDE.md) |
+| `packages/proxy` | Governance-gated reverse proxy — onboards like an agent, verifies/authorizes API traffic locally, no agent-controller install required | [→](packages/proxy/CLAUDE.md) |
+| `packages/mcp-proxy` | Standalone MCP front-end for the proxy's governance pipeline (stdio/streamable HTTP) — own VaultysId, own onboarding, depends on `@vaultysclaw/proxy` | [→](packages/mcp-proxy/CLAUDE.md) |
 | `packages/notifier` | Standalone worker: consumes notification events from BullMQ and delivers email / in-app / push (SSE) | [→](packages/notifier/CLAUDE.md) |
 | `packages/webhook-dispatcher` | Standalone worker: consumes webhook events from BullMQ, signs them (HMAC) and POSTs to configured endpoints | [→](packages/webhook-dispatcher/CLAUDE.md) |
 
@@ -30,9 +34,11 @@ pnpm agent:dev               # Agent controller only (headless)
 pnpm agent:web               # Agent controller with web UI (port 3002)
 pnpm agent:tui               # Agent controller with Ink TUI
 pnpm mcp:dev                 # MCP gateway (stdio, reads VC_CONTROL_PLANE_URL + VC_API_KEY)
+pnpm proxy:dev               # Proxy (reads VC_CONTROL_PLANE_URL + VC_VAULTYS_ID_PATH + PROXY_HTTP_PORT)
 pnpm notifier:dev            # Notifier worker (reads DATABASE_URL + REDIS_URL; needs Redis running)
 pnpm webhook:dev             # Webhook dispatcher worker (reads DATABASE_URL + REDIS_URL; needs Redis running)
 pnpm mcp:build               # Build MCP gateway to dist/
+pnpm proxy:build             # Build proxy to dist/
 
 # Demo / Simulator
 pnpm simulator:up            # Full demo stack: PostgreSQL + MinIO + Docling + LiteLLM + Grafana + 30 agents

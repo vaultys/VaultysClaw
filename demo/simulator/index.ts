@@ -2,8 +2,9 @@
 /**
  * VaultysClaw Demo Simulator
  *
- * Starts 30 fake agents that connect to the control plane via WebSocket
- * with real VaultysId cryptography, then fires demo workflows on a schedule.
+ * Starts 30 fake agents and a few fake proxies that connect to the control
+ * plane via WebSocket with real VaultysId cryptography, then fires demo
+ * workflows on a schedule and simulates realistic proxy traffic/logs.
  *
  * Prerequisites:
  *   1. Control plane running  (pnpm vaultysclaw:dev)
@@ -16,8 +17,9 @@
 import path from "path";
 import { fileURLToPath } from "url";
 import { AgentSimulator, loadOrCreateIdentity } from "./agent-sim.js";
+import { ProxySimulator } from "./proxy-sim.js";
 import { ScenarioRunner } from "./scenario-runner.js";
-import { DEMO_AGENTS, WS_URL, BASE_URL } from "./config.js";
+import { DEMO_AGENTS, DEMO_PROXIES, WS_URL, BASE_URL } from "./config.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const IDENTITIES_DIR = path.join(__dirname, "identities");
@@ -28,6 +30,7 @@ async function main() {
   console.log(`│  Control Plane : ${BASE_URL.padEnd(44)}│`);
   console.log(`│  WebSocket     : ${WS_URL.padEnd(44)}│`);
   console.log(`│  Agents        : ${String(DEMO_AGENTS.length).padEnd(44)}│`);
+  console.log(`│  Proxies       : ${String(DEMO_PROXIES.length).padEnd(44)}│`);
   console.log("└─────────────────────────────────────────────────────────────┘");
   console.log();
 
@@ -72,6 +75,41 @@ async function main() {
     await sleep(300);
   }
 
+  // ── Load + connect proxies ────────────────────────────────────────
+  console.log("Loading proxy identities…");
+  const proxySimulators: ProxySimulator[] = [];
+
+  for (const proxyConfig of DEMO_PROXIES) {
+    const identityPath = path.join(IDENTITIES_DIR, `proxy-${proxyConfig.name}.txt`);
+    try {
+      const vid = await loadOrCreateIdentity(identityPath);
+      const sim = new ProxySimulator(vid, proxyConfig, WS_URL);
+
+      // Same idea as agents: seed-demo.ts pre-creates the Proxy record for
+      // this identity's DID, so the server auto-approves on connect.
+      sim.on("registration_pending", (registrationId: string) => {
+        console.log(`\n  ⚠  ${proxyConfig.name}: registration pending (${registrationId})`);
+        console.log(`     Run 'pnpm demo:seed' first, or approve manually in the UI.\n`);
+      });
+
+      proxySimulators.push(sim);
+    } catch (err) {
+      console.error(`  ✗ Failed to load identity for ${proxyConfig.name}: ${err}`);
+    }
+  }
+
+  console.log(`  ${proxySimulators.length} proxy identities ready\n`);
+
+  console.log("Connecting proxies…");
+  let proxyOnlineCount = 0;
+  for (const sim of proxySimulators) {
+    sim.on("online", () => {
+      proxyOnlineCount++;
+    });
+    sim.connect();
+    await sleep(300);
+  }
+
   // ── Scenario runner ─────────────────────────────────────────────
   let runner: ScenarioRunner;
 
@@ -85,6 +123,7 @@ async function main() {
     console.log("\n  Shutting down simulator…");
     runner?.stop();
     simulators.forEach((s) => s.stop());
+    proxySimulators.forEach((s) => s.stop());
     process.exit(0);
   }
 
@@ -94,7 +133,10 @@ async function main() {
   // ── Status line every 60 s ───────────────────────────────────────
   setInterval(() => {
     const now = new Date().toISOString().slice(11, 19);
-    console.log(`  [${now}] Simulator running — ${onlineCount}/${simulators.length} agents online`);
+    console.log(
+      `  [${now}] Simulator running — ${onlineCount}/${simulators.length} agents online, ` +
+        `${proxyOnlineCount}/${proxySimulators.length} proxies online`
+    );
   }, 60_000);
 }
 

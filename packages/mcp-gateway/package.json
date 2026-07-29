@@ -15,7 +15,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.13.0",
     "@roamhq/wrtc": "^0.10.0",
-    "@vaultysclaw/agent-runtime": "workspace:*",
+    "@vaultysclaw/sdk": "workspace:*",
     "@vaultysclaw/shared": "workspace:*",
     "zod": "^4.4.3"
   },

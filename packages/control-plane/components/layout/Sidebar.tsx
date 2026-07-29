@@ -29,6 +29,7 @@ import {
   Plug,
   Info,
   Home,
+  Waypoints,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRole } from "@/hooks/useRole";
@@ -99,6 +100,7 @@ const SECTIONS: NavSection[] = [
     items: [
       { href: "/admin/mission-control", icon: SatelliteDish, label: "Mission Control", exact: true },
       { href: "/admin/agents", icon: Bot, label: "Agents", exact: false },
+      { href: "/admin/proxies", icon: Waypoints, label: "Proxies", exact: false },
       { href: "/admin/workflows", icon: Workflow, label: "Workflows", exact: false },
       { href: "/admin/models", icon: Cpu, label: "Models", exact: false },
       { href: "/admin/knowledge", icon: BookOpen, label: "Knowledge", exact: false },

@@ -1,7 +1,7 @@
 /**
- * Re-export verifyPeerGrant from the agent-runtime package.
+ * Re-export verifyPeerGrant from the sdk package.
  * This file is kept for backward compatibility with any code that imported
  * verifyPeerGrant directly from agent-controller.
  */
-export { verifyPeerGrant } from "@vaultysclaw/agent-runtime";
-export type { PeerGrantPayload } from "@vaultysclaw/agent-runtime";
+export { verifyPeerGrant } from "@vaultysclaw/sdk";
+export type { PeerGrantPayload } from "@vaultysclaw/sdk";

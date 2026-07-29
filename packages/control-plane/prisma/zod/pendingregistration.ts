@@ -11,6 +11,7 @@ export const PendingRegistrationModel = z.object({
   sessionId: z.string(),
   agentName: z.string(),
   status: z.string(),
+  kind: z.string(),
   requestedCapabilities: jsonSchema,
   assignedCapabilities: jsonSchema,
   initiatedByUserId: z.string().nullish(),

@@ -10,4 +10,8 @@ export interface AgentRuntimeConfig {
   vaultysIdPath: string;
   requestedCapabilities: AgentCapability[];
   workspaceRoot?: string;
+  /** What kind of registrant this is. Defaults to "agent" — set to "proxy"
+   * for a Proxy runtime so the control plane routes registration through the
+   * Proxy tables instead of the Agent tables. */
+  kind?: "agent" | "proxy";
 }

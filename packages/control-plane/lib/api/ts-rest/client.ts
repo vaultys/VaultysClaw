@@ -2,6 +2,7 @@ import { initClient } from "@ts-rest/core";
 import {
   aboutContract,
   adminAgentsContract,
+  adminProxiesContract,
   userAgentsContract,
   apiKeysContract,
   webhooksContract,
@@ -66,6 +67,7 @@ const clientOptions = {
  */
 export const aboutClient = initClient(aboutContract, clientOptions);
 export const adminAgentsClient = initClient(adminAgentsContract, clientOptions);
+export const adminProxiesClient = initClient(adminProxiesContract, clientOptions);
 export const userAgentsClient = initClient(userAgentsContract, clientOptions);
 export const apiKeysClient = initClient(apiKeysContract, clientOptions);
 export const webhooksClient = initClient(webhooksContract, clientOptions);
@@ -156,6 +158,7 @@ export const workflowsAdminClient = initClient(
  */
 export const adminApi = {
   agents: adminAgentsClient,
+  proxies: adminProxiesClient,
   workspaces: workspacesAdminClient,
   workflows: workflowsAdminClient,
   users: usersClient,

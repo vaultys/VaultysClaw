@@ -7,7 +7,7 @@
  * counter it owns, and takes its clock and token-usage source as injected
  * dependencies so it can be unit-tested without a running agent.
  */
-import type { AgentCapability, ResourceLimits } from "../types";
+import type { ResourceLimits } from "../types";
 
 /** Today's token usage, as read from the agent's local accounting. */
 export interface DailyTokenUsage {
@@ -24,7 +24,9 @@ export interface PolicyEnforcerDeps {
 
 /** Snapshot of the active policy an intent is checked against. */
 export interface PolicyContext {
-  capabilities: AgentCapability[];
+  /** Governance rule / capability strings — the built-in `AgentCapability` set,
+   * or any custom governance rule string (e.g. for proxy-fronted routes). */
+  capabilities: string[];
   resourceLimits: ResourceLimits | null;
   policyId: string | null;
   policyExpiresAt: string | null;
@@ -64,10 +66,10 @@ export class PolicyEnforcer {
     this.checkHourlyRequestRate(ctx.resourceLimits);
   }
 
-  /** Reject if the action's capability is not granted. */
-  checkCapability(action: string, capabilities: AgentCapability[]): void {
+  /** Reject if the action's capability/governance rule is not granted. */
+  checkCapability(action: string, capabilities: string[]): void {
     const effectiveAction = resolveEffectiveAction(action);
-    if (!capabilities.includes(effectiveAction as AgentCapability)) {
+    if (!capabilities.includes(effectiveAction)) {
       throw new Error(`Capability '${action}' not granted`);
     }
   }

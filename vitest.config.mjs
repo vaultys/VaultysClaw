@@ -17,9 +17,9 @@ export default defineConfig({
       // to their TS source so tests run from source (CI parity with local).
       "@vaultysclaw/shared": resolve(__dirname, "packages/shared/src/index.ts"),
       "@vaultysclaw/policy": resolve(__dirname, "packages/policy/src/index.ts"),
-      "@vaultysclaw/agent-runtime": resolve(
+      "@vaultysclaw/sdk": resolve(
         __dirname,
-        "packages/agent-runtime/src/index.ts"
+        "packages/sdk/src/index.ts"
       ),
       // @msgpack/msgpack — pnpm hoists it to the workspace root node_modules.
       "@msgpack/msgpack": resolve(__dirname, "node_modules/@msgpack/msgpack"),

@@ -17,3 +17,8 @@ export { ApiKeyDAO } from "./api-key.dao";
 export { WebhookDAO } from "./webhook.dao";
 export { ChannelDAO, ChannelMemberDAO, ChannelMessageDAO, ChannelBridgeDAO } from "./channel.dao";
 export { NotificationDAO, NotificationPreferenceDAO } from "./notification.dao";
+export { ProxyDAO } from "./proxy.dao";
+export { ProxyUpstreamDAO } from "./proxy-upstream.dao";
+export { ProxyRuleDAO } from "./proxy-rule.dao";
+export { ProxyPrincipalDAO } from "./proxy-principal.dao";
+export { ProxyActivityLogDAO } from "./proxy-activity-log.dao";

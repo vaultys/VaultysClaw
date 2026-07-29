@@ -2,7 +2,7 @@
 
 An [MCP](https://modelcontextprotocol.io) server that exposes VaultysClaw peer
 agents as tools for Claude Code and other MCP clients. It connects to a control
-plane as an agent (via `@vaultysclaw/agent-runtime`) and bridges peer agents into
+plane as an agent (via `@vaultysclaw/sdk`) and bridges peer agents into
 the MCP tool namespace.
 
 ## Usage
@@ -36,5 +36,5 @@ plane then appear as callable tools.
 
 ## Related
 
-- [`@vaultysclaw/agent-runtime`](../agent-runtime) — connection/auth layer this is built on
+- [`@vaultysclaw/sdk`](../sdk) — connection/auth layer this is built on
 - [`@vaultysclaw/shared`](../shared) — protocol types

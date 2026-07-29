@@ -197,6 +197,16 @@ export function buildEmail(
     case "agent.deleted":
       details = [{ label: "Agent", value: s("agentName") }];
       break;
+    case "proxy.pending":
+    case "proxy.created":
+      details = [{ label: "Proxy", value: s("proxyName") }];
+      break;
+    case "proxy.unknown_principal":
+      details = [
+        { label: "Proxy", value: s("proxyDid") },
+        { label: "Identity", value: s("externalId") || s("principalDid") },
+      ];
+      break;
     case "policy.updated":
       details = [
         { label: "Action", value: s("action") },

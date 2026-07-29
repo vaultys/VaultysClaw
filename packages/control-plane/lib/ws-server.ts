@@ -22,6 +22,11 @@ import {
   PolicyDAO,
   WorkspaceDAO,
   SkillOverrideDAO,
+  ProxyDAO,
+  ProxyUpstreamDAO,
+  ProxyRuleDAO,
+  ProxyPrincipalDAO,
+  ProxyActivityLogDAO,
 } from "@/db";
 import {
   type WSMessage,
@@ -45,6 +50,11 @@ import {
   type LlmConfig,
   type WSSkillsConfigPayload,
   type WSChannelMessageSendPayload,
+  type WSProxyConfigPayload,
+  type WSProxyActivityLogPayload,
+  type ProxyUpstreamPayload,
+  type ProxyRulePayload,
+  type ProxyPrincipalPayload,
   ResourceLimits,
 } from "@vaultysclaw/shared";
 import {
@@ -118,6 +128,9 @@ interface PendingConnection {
   enrollUserId?: string;
   /** Personal workspace to enroll the agent into on approval (from a valid enrollment token). */
   enrollWorkspaceId?: string;
+  /** What kind of registrant this is. Defaults to "agent" when the register
+   * payload omits it. Determines which tables/pushes this connection uses. */
+  kind?: "agent" | "proxy";
   timer: ReturnType<typeof setTimeout>;
 }
 
@@ -146,12 +159,27 @@ interface ConnectedAgent {
 }
 
 /**
+ * Represents a fully authenticated Proxy connection. Much lighter than
+ * ConnectedAgent — a proxy's own connection isn't capability-gated (its
+ * principals are); it exists to receive config pushes and report activity.
+ */
+interface ConnectedProxy {
+  id: string; // DID
+  name: string;
+  sender: AgentSender;
+  connectedAt: Date;
+  lastHeartbeat: Date;
+  transport: "ws" | "peerjs";
+}
+
+/**
  * WebSocket Server Manager with VaultysId authentication
  */
 export class AgentWSServer {
   private wss: WebSocketServer;
   private httpServer: HttpServer;
   private agents: Map<string, ConnectedAgent> = new Map();
+  private proxies: Map<string, ConnectedProxy> = new Map();
   private pending: Map<AgentSender, PendingConnection> = new Map();
   /** Map from raw WebSocket to its WsSender wrapper — for event handler lookups */
   private wsSenders: Map<WebSocket, WsSender> = new Map();
@@ -508,6 +536,10 @@ export class AgentWSServer {
           this.handleChannelMessageSend(message);
           break;
 
+        case "proxy_activity_log":
+          this.handleProxyActivityLog(message);
+          break;
+
         default:
           logger.warn({ type: message.type }, "Unknown message type");
       }
@@ -527,15 +559,20 @@ export class AgentWSServer {
     pending: PendingConnection,
     message: WSMessage
   ): void {
-    const payload = message.payload as { name?: string; version?: string };
+    const payload = message.payload as {
+      name?: string;
+      version?: string;
+      kind?: "agent" | "proxy";
+    };
     const agentName = payload.name ?? "unknown";
 
     pending.agentName = agentName;
+    pending.kind = payload.kind ?? "agent";
     pending.phase = "authenticating";
 
     logger.info(
-      { agentName },
-      "Agent registering — starting auth to verify identity"
+      { agentName, kind: pending.kind },
+      "Registering — starting auth to verify identity"
     );
 
     // Send auth_challenge to start VaultysId handshake
@@ -576,6 +613,11 @@ export class AgentWSServer {
       if (result.done && result.success) {
         // Auth succeeded — identity verified via certificate
         const agentDid = result.agentDid!;
+
+        if (pending.kind === "proxy") {
+          await this.handleProxyAuthSuccess(pending, agentDid, result);
+          return;
+        }
 
         // Check if this DID is already registered in the DB.
         // This is the secure auto-approve: the DID is derived from the
@@ -842,6 +884,148 @@ export class AgentWSServer {
     }
   }
 
+  /**
+   * Auth succeeded for a `kind: "proxy"` registrant. Mirrors the agent auth
+   * flow in `handleAuthChallenge` above, but resolves through `ProxyDAO`
+   * instead of `AgentDAO` and pushes proxy config instead of capability
+   * certs — a proxy's own connection isn't capability-gated, its principals
+   * are (see `pushProxyConfig`).
+   */
+  private async handleProxyAuthSuccess(
+    pending: PendingConnection,
+    proxyDid: string,
+    result: { agentName?: string; certificateData?: string }
+  ): Promise<void> {
+    const knownProxy = await ProxyDAO.findByDid(proxyDid);
+
+    if (knownProxy) {
+      // Known proxy — auto-approve
+      clearTimeout(pending.timer);
+      this.pending.delete(pending.sender);
+
+      const existing = this.proxies.get(proxyDid);
+      if (existing && existing.sender !== pending.sender) {
+        logger.info(
+          { proxyDid },
+          "Proxy reconnecting with verified certificate — replacing old connection"
+        );
+        existing.sender.close();
+      }
+
+      const proxyConn: ConnectedProxy = {
+        id: proxyDid,
+        name: result.agentName ?? knownProxy.name,
+        sender: pending.sender,
+        connectedAt: new Date(),
+        lastHeartbeat: new Date(),
+        transport: pending.sender.transport,
+      };
+      this.proxies.set(proxyDid, proxyConn);
+
+      await ProxyDAO.upsert({ did: proxyDid, name: proxyConn.name });
+
+      this.appendLog(
+        pending.sender.transport,
+        "info",
+        "auth_complete",
+        proxyConn.name
+      );
+      this.broadcastAdminUpdate("proxy_reconnected");
+
+      this.sendMessage(pending.sender, {
+        messageId: `auth-complete-${Date.now()}`,
+        type: "auth_complete",
+        agentId: proxyDid,
+        payload: {
+          agentId: proxyDid,
+          did: proxyDid,
+          capabilities: [],
+        } satisfies WSAuthCompletePayload,
+        timestamp: new Date().toISOString(),
+      });
+
+      logger.info(
+        { proxyDid, name: proxyConn.name },
+        "Known proxy authenticated — auto-approved by DID"
+      );
+
+      await this.pushProxyConfig(proxyDid);
+    } else {
+      // Unknown proxy DID — require admin approval, same shape as the agent path
+      const registrationId = crypto.randomBytes(16).toString("hex");
+      pending.phase = "awaiting_approval";
+      pending.registrationId = registrationId;
+      pending.agentDid = proxyDid;
+      pending.certificateData = result.certificateData;
+
+      clearTimeout(pending.timer);
+      pending.timer = setTimeout(async () => {
+        logger.warn(
+          { registrationId },
+          "Proxy registration approval timeout — closing connection"
+        );
+        this.sendMessage(pending.sender, {
+          messageId: `auth-fail-${Date.now()}`,
+          type: "auth_failed",
+          payload: {
+            reason: "Registration approval timeout",
+          } satisfies WSAuthFailedPayload,
+          timestamp: new Date().toISOString(),
+        });
+        pending.sender.close();
+        this.pending.delete(pending.sender);
+        await PendingRegistrationDAO.delete(registrationId);
+      }, REGISTRATION_TIMEOUT_MS);
+
+      await PendingRegistrationDAO.create(
+        registrationId,
+        pending.sessionId,
+        pending.agentName ?? "unknown",
+        [],
+        undefined,
+        "proxy"
+      );
+
+      await ActivityLogDAO.log(
+        "registration_requested",
+        proxyDid,
+        pending.agentName,
+        JSON.stringify({ registrationId, did: proxyDid, kind: "proxy" })
+      );
+      this.appendLog(
+        pending.sender.transport,
+        "info",
+        "registration_pending",
+        pending.agentName ?? proxyDid.slice(0, 16)
+      );
+      this.broadcastAdminUpdate("registration_requested");
+
+      void enqueueNotification({
+        eventType: "proxy.pending",
+        data: {
+          proxyDid,
+          proxyName: pending.agentName ?? "unknown",
+          registrationId,
+        },
+      });
+
+      this.sendMessage(pending.sender, {
+        messageId: `reg-pending-${Date.now()}`,
+        type: "registration_pending",
+        payload: {
+          registrationId,
+          message: "Identity verified. Registration pending admin approval.",
+        } satisfies WSRegistrationPendingPayload,
+        timestamp: new Date().toISOString(),
+      });
+
+      logger.info(
+        { registrationId, proxyDid, agentName: pending.agentName },
+        "Unknown proxy DID — registration pending admin approval"
+      );
+    }
+  }
+
   private async handleResult(message: WSMessage): Promise<void> {
     try {
       const { agentId, payload } = message;
@@ -988,6 +1172,14 @@ export class AgentWSServer {
 
   private async handleHeartbeat(message: WSMessage): Promise<void> {
     const { agentId } = message;
+
+    // Proxies have a much lighter heartbeat — no token/LLM accounting.
+    const proxyConn = agentId ? this.proxies.get(agentId) : undefined;
+    if (proxyConn && agentId) {
+      proxyConn.lastHeartbeat = new Date();
+      await ProxyDAO.updateLastSeen(agentId);
+      return;
+    }
 
     const agent = agentId ? this.agents.get(agentId) : undefined;
     if (agent && agentId) {
@@ -1182,6 +1374,58 @@ export class AgentWSServer {
     } catch (err) {
       logger.error(err, "Error posting channel message from agent");
     }
+  }
+
+  /**
+   * A connected proxy reported a batch of activity-log entries. Persist them,
+   * and for any `principalDid` this proxy hasn't seen before, register it as
+   * `pending` and notify admins so they can review and grant governance rules.
+   */
+  private handleProxyActivityLog(message: WSMessage): void {
+    (async () => {
+      try {
+        const proxyDid = message.agentId ?? "";
+        const payload = message.payload as WSProxyActivityLogPayload;
+        if (!proxyDid || !payload?.entries?.length) return;
+
+        await ProxyActivityLogDAO.createMany(proxyDid, payload.entries);
+
+        const seenDids = new Set<string>();
+        for (const entry of payload.entries) {
+          if (!entry.principalDid || seenDids.has(entry.principalDid)) continue;
+          seenDids.add(entry.principalDid);
+
+          const existing = await ProxyPrincipalDAO.findByProxyAndDid(
+            proxyDid,
+            entry.principalDid
+          );
+          if (existing) {
+            await ProxyPrincipalDAO.upsertPending(proxyDid, entry.principalDid);
+            continue;
+          }
+
+          await ProxyPrincipalDAO.upsertPending(proxyDid, entry.principalDid, {
+            externalId: entry.externalId,
+            provisionedByProxy: entry.identitySource === "proxy_provisioned",
+          });
+
+          logger.info(
+            { proxyDid, principalDid: entry.principalDid },
+            "New proxy principal discovered — pending admin review"
+          );
+          void enqueueNotification({
+            eventType: "proxy.unknown_principal",
+            data: {
+              proxyDid,
+              principalDid: entry.principalDid,
+              externalId: entry.externalId ?? null,
+            },
+          });
+        }
+      } catch (err) {
+        logger.error(err, "Error handling proxy activity log batch");
+      }
+    })();
   }
 
   /** Request the list of chat sessions from an agent. Resolves when the agent responds (10 s timeout). */
@@ -1593,6 +1837,10 @@ export class AgentWSServer {
 
     const agentDid = target.agentDid;
 
+    if (target.kind === "proxy") {
+      return this.approveProxyRegistration(registrationId, target, agentDid, actorDid);
+    }
+
     // Remove from pending_registrations — activity_log keeps the approval record
     await PendingRegistrationDAO.delete(registrationId);
 
@@ -1730,6 +1978,86 @@ export class AgentWSServer {
     // Push any stored LLM config now that the agent is registered and connected.
     await this.pushStoredLlmConfig(agentDid);
     await this.pushSkillsConfig(agentDid);
+
+    return true;
+  }
+
+  /**
+   * Approve a pending `kind: "proxy"` registration. Mirrors
+   * `approveRegistration` above but much lighter — no capabilities, no
+   * LiteLLM/cert provisioning: a proxy's own connection isn't
+   * capability-gated, its principals are (configured separately, later,
+   * from the proxy's admin page).
+   */
+  private async approveProxyRegistration(
+    registrationId: string,
+    target: PendingConnection,
+    proxyDid: string,
+    actorDid?: string
+  ): Promise<boolean> {
+    await PendingRegistrationDAO.delete(registrationId);
+
+    await ProxyDAO.upsert({
+      did: proxyDid,
+      name: target.agentName ?? "unknown",
+    });
+
+    void enqueueNotification({
+      eventType: "proxy.created",
+      data: { proxyDid, proxyName: target.agentName ?? "unknown", actorDid },
+    });
+
+    clearTimeout(target.timer);
+    this.pending.delete(target.sender);
+
+    const proxyConn: ConnectedProxy = {
+      id: proxyDid,
+      name: target.agentName ?? "unknown",
+      sender: target.sender,
+      connectedAt: new Date(),
+      lastHeartbeat: new Date(),
+      transport: target.sender.transport,
+    };
+    this.proxies.set(proxyDid, proxyConn);
+    agentsConnected.add(1);
+
+    await ActivityLogDAO.log(
+      "registration_approved",
+      proxyDid,
+      proxyConn.name,
+      JSON.stringify({ registrationId, kind: "proxy" })
+    );
+    this.appendLog(target.sender.transport, "info", "approved", proxyConn.name);
+    this.broadcastAdminUpdate("registration_approved");
+
+    this.sendMessage(target.sender, {
+      messageId: `reg-approved-${Date.now()}`,
+      type: "registration_approved",
+      payload: {
+        registrationId,
+        capabilities: [],
+      } satisfies WSRegistrationApprovedPayload,
+      timestamp: new Date().toISOString(),
+    });
+
+    this.sendMessage(target.sender, {
+      messageId: `auth-complete-${Date.now()}`,
+      type: "auth_complete",
+      agentId: proxyDid,
+      payload: {
+        agentId: proxyDid,
+        did: proxyDid,
+        capabilities: [],
+      } satisfies WSAuthCompletePayload,
+      timestamp: new Date().toISOString(),
+    });
+
+    logger.info(
+      { registrationId, proxyDid },
+      "Proxy registration approved — connected"
+    );
+
+    await this.pushProxyConfig(proxyDid);
 
     return true;
   }
@@ -2010,6 +2338,10 @@ export class AgentWSServer {
     return this.agents.get(agentId);
   }
 
+  getProxy(proxyDid: string): ConnectedProxy | undefined {
+    return this.proxies.get(proxyDid);
+  }
+
   getNetworkStats() {
     const agents = Array.from(this.agents.values());
     const pending = Array.from(this.pending.values());
@@ -2042,6 +2374,13 @@ export class AgentWSServer {
     const agent = this.agents.get(agentId);
     if (agent && agent.sender.isOpen()) {
       agent.sender.close(1000, "Agent deleted");
+    }
+  }
+
+  disconnectProxy(proxyDid: string): void {
+    const proxy = this.proxies.get(proxyDid);
+    if (proxy && proxy.sender.isOpen()) {
+      proxy.sender.close(1000, "Proxy deleted");
     }
   }
 
@@ -2444,6 +2783,71 @@ export class AgentWSServer {
     logger.info(
       { agentDid, count: skills.length },
       "Pushed skills config to agent"
+    );
+  }
+
+  /**
+   * Push the full config (upstreams, rules, principals + governance grants)
+   * to a connected proxy. Called on connect and whenever an admin edits any
+   * of a proxy's config — the proxy replaces whatever it cached before.
+   */
+  async pushProxyConfig(proxyDid: string): Promise<void> {
+    const proxyConn = this.proxies.get(proxyDid);
+    if (!proxyConn) return;
+
+    const [proxy, upstreams, rules, principals] = await Promise.all([
+      ProxyDAO.findByDid(proxyDid),
+      ProxyUpstreamDAO.listByProxy(proxyDid),
+      ProxyRuleDAO.listByProxy(proxyDid),
+      ProxyPrincipalDAO.listByProxy(proxyDid),
+    ]);
+    if (!proxy) return;
+
+    const payload: WSProxyConfigPayload = {
+      defaultMode: proxy.defaultMode as "passthrough" | "deny",
+      upstreams: upstreams.map(
+        (u): ProxyUpstreamPayload => ({
+          id: u.id,
+          name: u.name,
+          baseUrl: u.baseUrl,
+        })
+      ),
+      rules: rules.map(
+        (r): ProxyRulePayload => ({
+          id: r.id,
+          method: r.method,
+          urlPattern: r.urlPattern,
+          mode: r.mode as "no_check" | "governed",
+          governanceRule: r.governanceRule ?? undefined,
+          principalIdSource: (r.principalIdSource ?? undefined) as unknown as
+            | ProxyRulePayload["principalIdSource"]
+            | undefined,
+        })
+      ),
+      principals: principals.map(
+        (p): ProxyPrincipalPayload => ({
+          id: p.id,
+          tag: p.tag ?? undefined,
+          externalId: p.externalId ?? undefined,
+          did: p.did,
+          governanceRules: p.governanceRules,
+          status: p.status as "pending" | "active" | "revoked",
+          provisionedByProxy: p.provisionedByProxy,
+        })
+      ),
+    };
+
+    this.sendMessage(proxyConn.sender, {
+      messageId: `proxy-config-${Date.now()}`,
+      type: "proxy_config",
+      agentId: proxyDid,
+      payload,
+      timestamp: new Date().toISOString(),
+    });
+
+    logger.info(
+      { proxyDid, upstreams: upstreams.length, rules: rules.length, principals: principals.length },
+      "Pushed proxy config"
     );
   }
 

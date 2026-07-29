@@ -84,6 +84,29 @@ export default function RegistrationsPage() {
     }
   }
 
+  async function handleApprove(reg: PendingRegistration) {
+    // Proxies have no capabilities to pick — approve directly rather than
+    // sending the admin to the agent-creation capability wizard.
+    if (reg.kind === "proxy") {
+      setRejectError(null);
+      try {
+        const data = unwrap(
+          await adminApi.registrations.approve({
+            params: { id: reg.id },
+            body: { capabilities: [] },
+          })
+        );
+        if (data.agentDid) {
+          router.push(`/admin/proxies/${encodeURIComponent(data.agentDid)}`);
+        }
+      } catch (err) {
+        setRejectError(err instanceof ApiError ? err.message : "Network error");
+      }
+      return;
+    }
+    router.push(`/admin/agents/create?regId=${reg.id}`);
+  }
+
   async function handleClearDisconnected() {
     if (bulkWorking || disconnectedRegs.length === 0) return;
     if (
@@ -201,7 +224,7 @@ export default function RegistrationsPage() {
           bulkWorking={bulkWorking}
           onToggleAll={toggleAll}
           onToggleOne={toggleOne}
-          onApprove={(reg) => router.push(`/admin/agents/create?regId=${reg.id}`)}
+          onApprove={handleApprove}
           onReject={(reg) => handleReject(reg)}
         />
       )}

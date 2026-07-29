@@ -3,6 +3,8 @@
  * 30 agents across all 8 workspaces, spread geographically.
  */
 
+import crypto from "crypto";
+
 export type LlmProvider = "openai" | "anthropic" | "google" | "ollama";
 
 export interface AgentConfig {
@@ -333,6 +335,126 @@ export const DEMO_AGENTS: AgentConfig[] = [
     location: { lat: 1.3521, lon: 103.8198, label: "Singapore" },
     inputPrice: 0.15,
     outputPrice: 0.6,
+  },
+];
+
+// ── Proxies ───────────────────────────────────────────────────────────────────
+// A handful of demo proxies — each fronts a fake upstream, has a mix of
+// no_check/governed rules, and a roster of principals in different states
+// (active/pending) so the /admin/proxies pages have realistic, non-empty data.
+
+export interface ProxyUpstreamConfig {
+  name: string;
+  baseUrl: string;
+}
+
+export interface ProxyPrincipalIdSourceConfig {
+  from: "header" | "url" | "body";
+  key: string;
+}
+
+export interface ProxyRuleConfig {
+  method: string;
+  urlPattern: string;
+  mode: "no_check" | "governed";
+  governanceRule?: string;
+  principalIdSource?: ProxyPrincipalIdSourceConfig;
+}
+
+export interface ProxyPrincipalConfig {
+  externalId: string;
+  tag?: string;
+  governanceRules: string[];
+  status: "pending" | "active" | "revoked";
+}
+
+export interface ProxyConfig {
+  name: string;
+  defaultMode: "passthrough" | "deny";
+  upstreams: ProxyUpstreamConfig[];
+  rules: ProxyRuleConfig[];
+  principals: ProxyPrincipalConfig[];
+}
+
+/**
+ * Deterministic fake DID for a demo proxy's principal. Demo principals are
+ * simulated callers/agents, not real running processes with their own
+ * VaultysId — a stable hash-derived DID is enough to keep seed-demo.ts and
+ * proxy-sim.ts in agreement without needing real keypairs for entities that
+ * never actually sign anything.
+ */
+export function demoPrincipalDid(proxyName: string, externalId: string): string {
+  const hex = crypto
+    .createHash("sha1")
+    .update(`proxy-principal:${proxyName}:${externalId}`)
+    .digest("hex")
+    .slice(0, 32);
+  return `did:vaultys:${hex}`;
+}
+
+export const DEMO_PROXIES: ProxyConfig[] = [
+  {
+    name: "acme-crm-proxy",
+    defaultMode: "deny",
+    upstreams: [{ name: "acme-crm", baseUrl: "https://crm.acme-demo.internal" }],
+    rules: [
+      {
+        method: "GET",
+        urlPattern: "https://crm.acme-demo.internal/health",
+        mode: "no_check",
+      },
+      {
+        method: "POST",
+        urlPattern: "https://crm.acme-demo.internal/api/*",
+        mode: "governed",
+        governanceRule: "crm_write",
+        principalIdSource: { from: "header", key: "X-Agent-Id" },
+      },
+    ],
+    principals: [
+      { externalId: "sales-assistant-agent", tag: "ai_agent", governanceRules: ["crm_write"], status: "active" },
+      { externalId: "billing-sync-service", tag: "service", governanceRules: [], status: "pending" },
+    ],
+  },
+  {
+    name: "partner-api-proxy",
+    defaultMode: "deny",
+    upstreams: [{ name: "partner-integrations", baseUrl: "https://partner-api.demo.internal" }],
+    rules: [
+      {
+        method: "GET",
+        urlPattern: "https://partner-api.demo.internal/v1/*",
+        mode: "governed",
+        governanceRule: "partner_read",
+        principalIdSource: { from: "header", key: "X-Partner-Id" },
+      },
+    ],
+    principals: [
+      { externalId: "partner-widget-co", tag: "service", governanceRules: ["partner_read"], status: "active" },
+      { externalId: "partner-newco", tag: "service", governanceRules: [], status: "pending" },
+    ],
+  },
+  {
+    name: "internal-tools-proxy",
+    defaultMode: "passthrough",
+    upstreams: [{ name: "internal-wiki", baseUrl: "https://wiki.demo.internal" }],
+    rules: [
+      {
+        method: "GET",
+        urlPattern: "https://wiki.demo.internal/public/*",
+        mode: "no_check",
+      },
+      {
+        method: "POST",
+        urlPattern: "https://wiki.demo.internal/api/edit",
+        mode: "governed",
+        governanceRule: "wiki_edit",
+        principalIdSource: { from: "header", key: "X-Agent-Id" },
+      },
+    ],
+    principals: [
+      { externalId: "docs-writer-bangalore", tag: "ai_agent", governanceRules: ["wiki_edit"], status: "active" },
+    ],
   },
 ];
 

@@ -77,6 +77,11 @@ export function RegistrationList({
             >
               <div className="flex items-center gap-2 flex-wrap">
                 <p className="font-semibold text-foreground">{reg.agentName}</p>
+                {reg.kind === "proxy" && (
+                  <span className="inline-flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-secondary-100 text-secondary-700 border border-secondary-300">
+                    Proxy
+                  </span>
+                )}
                 {/* Connected / disconnected badge */}
                 {reg.connected ? (
                   <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-success-100 text-success-700 border border-success-300">

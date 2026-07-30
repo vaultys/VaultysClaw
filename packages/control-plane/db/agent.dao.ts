@@ -34,6 +34,20 @@ export class AgentDAO {
     });
   }
 
+  /**
+   * Given a set of DIDs (sensor-reported `identityEvidence` values), returns
+   * the subset that are registered Agents — used to derive sensor workload
+   * "managed" status by correlation, never by sensor self-report.
+   */
+  static async filterKnownDids(dids: string[]): Promise<Set<string>> {
+    if (dids.length === 0) return new Set();
+    const agents = await prisma.agent.findMany({
+      where: { did: { in: dids } },
+      select: { did: true },
+    });
+    return new Set(agents.map((a) => a.did));
+  }
+
   static async findByDid(did: string): Promise<AgentWithInfo | null> {
     return prisma.agent.findUnique({
       where: { did },

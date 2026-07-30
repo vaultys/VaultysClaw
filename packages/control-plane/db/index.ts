@@ -20,3 +20,4 @@ export { NotificationDAO, NotificationPreferenceDAO } from "./notification.dao";
 export { SensorDeviceDAO, SHADOW_THRESHOLD } from "./sensor-device.dao";
 export type { SensorDeviceWithCounts } from "./sensor-device.dao";
 export { SensorWorkloadDAO } from "./sensor-workload.dao";
+export type { SensorWorkloadStatus, SensorWorkloadWithStatus } from "./sensor-workload.dao";

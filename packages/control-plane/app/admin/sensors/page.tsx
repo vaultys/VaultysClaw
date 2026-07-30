@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Wifi, WifiOff, Monitor, Shield, Cpu, Users2 } from "lucide-react";
+import { Wifi, WifiOff, Monitor, Shield, ShieldCheck, Cpu, Users2 } from "lucide-react";
 import { useToolbar } from "@/components/layout/ToolbarContext";
 import { useBreadcrumbs } from "@/components/layout/BreadcrumbContext";
 import { StatCard } from "@/components/governance/StatCard";
@@ -133,7 +133,7 @@ export default function SensorsPage() {
   return (
     <div className="p-6 w-full max-w-7xl mx-auto space-y-6">
       {stats && (
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
           <StatCard
             icon={<Monitor className="w-4 h-4" />}
             label="Sensors"
@@ -149,6 +149,12 @@ export default function SensorsPage() {
             icon={<Cpu className="w-4 h-4" />}
             label="AI workloads"
             value={stats.totalWorkloads}
+          />
+          <StatCard
+            icon={<ShieldCheck className="w-4 h-4" />}
+            label="Managed"
+            value={stats.managedWorkloads}
+            tone="ok"
           />
           <StatCard
             icon={<Shield className="w-4 h-4" />}

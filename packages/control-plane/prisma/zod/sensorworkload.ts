@@ -23,6 +23,7 @@ export const SensorWorkloadModel = z.object({
   isMcp: z.boolean(),
   mcpServers: jsonSchema,
   isLocalRuntime: z.boolean(),
+  identityEvidence: z.string().nullish(),
   lastEventType: z.string().nullish(),
   firstSeen: z.date(),
   lastSeen: z.date(),

@@ -9,11 +9,6 @@ import { adminApi, unwrap, ApiError } from "@/lib/api/ts-rest/client";
 import type { SensorDeviceDetail } from "@/lib/contracts";
 import { timeAgo, shortDid } from "@vaultysclaw/shared";
 
-// Mirrors db/sensor-device.dao.ts's SHADOW_THRESHOLD — duplicated as a plain
-// constant rather than imported, since that module pulls in the (server-only)
-// Prisma client and must not end up in a client bundle.
-const SHADOW_THRESHOLD = 0.75;
-
 export default function SensorDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -150,7 +145,11 @@ export default function SensorDetailPage() {
                   {w.agentConfidence.toFixed(2)}
                 </td>
                 <td className="px-5 py-3.5">
-                  {w.agentConfidence >= SHADOW_THRESHOLD ? (
+                  {w.status === "managed" ? (
+                    <span className="inline-flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-success-100 text-success-700 border border-success-300">
+                      Managed
+                    </span>
+                  ) : w.status === "shadow" ? (
                     <span className="inline-flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-danger-100 text-danger-700 border border-danger-300">
                       Shadow
                     </span>

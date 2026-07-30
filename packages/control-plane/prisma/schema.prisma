@@ -189,6 +189,11 @@ model SensorWorkload {
   isMcp           Boolean  @default(false)
   mcpServers      Json?
   isLocalRuntime  Boolean  @default(false)
+  // Locally-observed VaultysClaw identity (DID) the sensor found evidence of
+  // on the endpoint — e.g. an agent-controller identity file. Used to derive
+  // "managed" status by correlating against Agent.did; the sensor itself
+  // never self-reports "managed".
+  identityEvidence String?
   lastEventType   String?
   firstSeen       DateTime @default(now())
   lastSeen        DateTime @default(now())

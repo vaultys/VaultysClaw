@@ -1,6 +1,5 @@
 import { z } from "zod";
-import type { SensorDeviceWithCounts } from "@/db";
-import type { SensorWorkload } from "@prisma/client";
+import type { SensorDeviceWithCounts, SensorWorkloadWithStatus } from "@/db";
 import { ListSensorsQuerySchema } from "./sensors.schemas";
 
 /** A sensor device row as returned by the list/detail endpoints — the DAO's
@@ -14,7 +13,7 @@ export type SensorDeviceInfo = SensorDeviceWithCounts & {
 };
 
 export type SensorDeviceDetail = SensorDeviceInfo & {
-  workloads: SensorWorkload[];
+  workloads: SensorWorkloadWithStatus[];
 };
 
 export interface SensorStats {
@@ -22,6 +21,7 @@ export interface SensorStats {
   onlineSensors: number;
   unassignedSensors: number;
   totalWorkloads: number;
+  managedWorkloads: number;
   shadowWorkloads: number;
   byProvider: Array<{ provider: string; count: number }>;
 }

@@ -15,7 +15,7 @@ const handlers = createNextRoute(adminContract.sensors, {
     const device = await SensorDeviceDAO.findByDid(params.did);
     if (!device) throw new APIException("NOT_FOUND", "Sensor not found");
 
-    const workloads = await SensorWorkloadDAO.listByDevice(params.did);
+    const workloads = await SensorWorkloadDAO.listByDeviceWithStatus(params.did);
 
     const body: SensorDeviceDetail = {
       ...device,

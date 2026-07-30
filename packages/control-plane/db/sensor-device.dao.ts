@@ -136,22 +136,31 @@ export class SensorDeviceDAO {
     totalSensors: number;
     unassignedSensors: number;
     totalWorkloads: number;
+    managedWorkloads: number;
     shadowWorkloads: number;
     byProvider: Array<{ provider: string; count: number }>;
   }> {
+    // "managed" = identityEvidence correlates to a registered Agent — the
+    // sensor never self-reports this, so it's computed via a join here
+    // rather than persisted (see docs/vaultysclaw-integration.md §4).
+    // "shadow" is agentConfidence >= threshold among the rest.
     const [
       totalSensors,
       unassignedSensors,
       totalWorkloads,
-      shadowWorkloads,
+      statusCountsRaw,
       byProviderRaw,
     ] = await Promise.all([
       prisma.sensorDevice.count(),
       prisma.sensorDevice.count({ where: { assignedUserId: null } }),
       prisma.sensorWorkload.count(),
-      prisma.sensorWorkload.count({
-        where: { agentConfidence: { gte: SHADOW_THRESHOLD } },
-      }),
+      prisma.$queryRaw<[{ managed: bigint; shadow: bigint }]>`
+        SELECT
+          COUNT(*) FILTER (WHERE a.did IS NOT NULL)::bigint AS managed,
+          COUNT(*) FILTER (WHERE a.did IS NULL AND sw."agentConfidence" >= ${SHADOW_THRESHOLD})::bigint AS shadow
+        FROM "SensorWorkload" sw
+        LEFT JOIN "Agent" a ON a.did = sw."identityEvidence"
+      `,
       prisma.sensorWorkload.groupBy({
         by: ["provider"],
         _count: { _all: true },
@@ -163,7 +172,8 @@ export class SensorDeviceDAO {
       totalSensors,
       unassignedSensors,
       totalWorkloads,
-      shadowWorkloads,
+      managedWorkloads: Number(statusCountsRaw[0]?.managed ?? 0),
+      shadowWorkloads: Number(statusCountsRaw[0]?.shadow ?? 0),
       byProvider: byProviderRaw
         .map((r: { provider: string | null; _count: { _all: number } }) => ({
           provider: r.provider ?? "unknown",

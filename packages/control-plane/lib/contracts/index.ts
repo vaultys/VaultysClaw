@@ -12,6 +12,7 @@ import { orgSkillsAdminContract } from "./admin/org-skills/org-skills.contract";
 import { skillsAdminContract } from "./admin/skills/skills.contract";
 import { policiesContract } from "./admin/policies/policies.contract";
 import { registrationsContract } from "./admin/registrations/registrations.contract";
+import { sensorsContract } from "./admin/sensors/sensors.contract";
 import { serverContract } from "./admin/server/server.contract";
 import { settingsContract } from "./admin/settings/settings.contract";
 import { statsContract } from "./admin/stats/stats.contract";
@@ -98,6 +99,10 @@ export type * from "./admin/registrations/registrations.contract";
 export * from "./admin/registrations/registrations.contract";
 export * from "./admin/registrations/registrations.schemas";
 export * from "./admin/registrations/registrations.types";
+export type * from "./admin/sensors/sensors.contract";
+export * from "./admin/sensors/sensors.contract";
+export * from "./admin/sensors/sensors.schemas";
+export * from "./admin/sensors/sensors.types";
 export type * from "./admin/server/server.contract";
 export * from "./admin/server/server.contract";
 export * from "./admin/server/server.schemas";
@@ -230,6 +235,7 @@ export const adminContract = c.router({
   apiKeys: apiKeysContract,
   webhooks: webhooksContract,
   registrations: registrationsContract,
+  sensors: sensorsContract,
   network: networkControlContract,
   stats: statsContract,
   orgSkills: orgSkillsAdminContract,

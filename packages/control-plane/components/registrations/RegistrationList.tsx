@@ -51,8 +51,8 @@ export function RegistrationList({
         />
         <Clock className="w-4 h-4 text-warning-600" />
         <h2 className="text-sm font-semibold text-warning-700 flex-1">
-          {registrations.length} agent{registrations.length !== 1 ? "s" : ""}{" "}
-          awaiting review
+          {registrations.length} registration
+          {registrations.length !== 1 ? "s" : ""} awaiting review
         </h2>
       </div>
       <div className="divide-y divide-warning-200">
@@ -77,6 +77,11 @@ export function RegistrationList({
             >
               <div className="flex items-center gap-2 flex-wrap">
                 <p className="font-semibold text-foreground">{reg.agentName}</p>
+                {reg.kind === "sensor" && (
+                  <span className="inline-flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-primary-100 text-primary-700 border border-primary-300">
+                    Sensor
+                  </span>
+                )}
                 {/* Connected / disconnected badge */}
                 {reg.connected ? (
                   <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-success-100 text-success-700 border border-success-300">

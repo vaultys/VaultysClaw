@@ -84,6 +84,25 @@ export default function RegistrationsPage() {
     }
   }
 
+  async function handleApprove(reg: PendingRegistration) {
+    if (reg.kind === "sensor") {
+      // Sensors have no capability concept — approve directly rather than
+      // routing through the agent-creation wizard.
+      try {
+        unwrap(
+          await adminApi.registrations.approve({
+            params: { id: reg.id },
+            body: {},
+          })
+        );
+      } catch (err) {
+        setRejectError(err instanceof ApiError ? err.message : "Network error");
+      }
+      return;
+    }
+    router.push(`/admin/agents/create?regId=${reg.id}`);
+  }
+
   async function handleClearDisconnected() {
     if (bulkWorking || disconnectedRegs.length === 0) return;
     if (
@@ -201,7 +220,7 @@ export default function RegistrationsPage() {
           bulkWorking={bulkWorking}
           onToggleAll={toggleAll}
           onToggleOne={toggleOne}
-          onApprove={(reg) => router.push(`/admin/agents/create?regId=${reg.id}`)}
+          onApprove={handleApprove}
           onReject={(reg) => handleReject(reg)}
         />
       )}

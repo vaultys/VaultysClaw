@@ -28,11 +28,14 @@ const handlers = createNextRoute(adminContract.registrations, {
       throw new APIException("UNAVAILABLE", "WebSocket server not available");
     }
 
-    const success = await wsServer.rejectRegistration(params.id, reason);
+    const success =
+      registration.kind === "sensor"
+        ? await wsServer.rejectSensorRegistration(params.id, reason)
+        : await wsServer.rejectRegistration(params.id, reason);
     if (!success) {
       throw new APIException(
         "UNAVAILABLE",
-        "Agent connection no longer available"
+        "Connection no longer available"
       );
     }
 

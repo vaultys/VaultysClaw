@@ -79,7 +79,8 @@ export class PendingRegistrationDAO {
     sessionId: string,
     agentName: string,
     requestedCapabilities: string[] = [],
-    enrollment?: { initiatedByUserId: string; targetWorkspaceId: string }
+    enrollment?: { initiatedByUserId: string; targetWorkspaceId: string },
+    kind: "agent" | "sensor" = "agent"
   ): Promise<void> {
     await prisma.pendingRegistration.create({
       data: {
@@ -89,6 +90,7 @@ export class PendingRegistrationDAO {
         requestedCapabilities,
         initiatedByUserId: enrollment?.initiatedByUserId,
         targetWorkspaceId: enrollment?.targetWorkspaceId,
+        kind,
       },
     });
   }

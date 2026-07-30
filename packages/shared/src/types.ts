@@ -146,7 +146,8 @@ export type WSMessageType =
   | "channel_event"
   | "channel_message_send"
   | "get_claude_models"
-  | "claude_models_response";
+  | "claude_models_response"
+  | "sensor_telemetry";
 
 /**
  * LLM provider type — controls which AI SDK provider is instantiated.
@@ -298,6 +299,15 @@ export interface WSAuthChallengePayload {
 }
 
 /**
+ * What kind of entity is registering — decides which DAO/connection map the
+ * control plane uses post-handshake (AgentDAO + `agents` map, vs
+ * SensorDeviceDAO + `sensors` map). Defaults to "agent" when absent, so
+ * existing agent-controller/proxy clients that don't send this need no
+ * changes.
+ */
+export type ConnectionKind = "agent" | "sensor";
+
+/**
  * Sent by control plane when authentication succeeds
  */
 export interface WSAuthCompletePayload {
@@ -320,6 +330,8 @@ export interface WSAuthFailedPayload {
 export interface WSRegisterRequestPayload {
   name: string;
   version?: string;
+  /** "sensor" for vaultysclaw-sensor connections; omitted/"agent" otherwise. */
+  kind?: ConnectionKind;
 }
 
 /**
@@ -752,4 +764,64 @@ export interface VaultysIDInfo {
   fingerprint: string;
   version: number;
   type: string;
+}
+
+// ---------------------------------------------------------------------------
+// Sensor telemetry (vaultysclaw-sensor → control plane)
+// ---------------------------------------------------------------------------
+
+/**
+ * Metadata-only wire shape reported by vaultysclaw-sensor — mirrors
+ * `vaultysclaw-sensor/internal/telemetry/event.go` exactly (schemaVersion 1).
+ * No prompts, model responses, document contents, or file contents ever
+ * appear here — only process/network metadata and a deterministic
+ * classification.
+ */
+export type SensorEventType =
+  | "ai_workload_detected"
+  | "ai_workload_updated"
+  | "ai_workload_stopped"
+  | "mcp_server_detected"
+  | "local_model_runtime_detected"
+  | "provider_detected";
+
+export interface SensorDeviceInfo {
+  id: string; // real VaultysId DID
+  hostname: string;
+  os: string;
+}
+
+export interface SensorProcessInfo {
+  name: string;
+  pid: number;
+  executable?: string;
+  command?: string;
+  user?: string;
+}
+
+export interface SensorWorkloadInfo {
+  fingerprint: string;
+  process: SensorProcessInfo;
+  provider?: string;
+  model?: string;
+  aiConfidence: number;
+  agentConfidence: number;
+  reasons: string[];
+  isMcp?: boolean;
+  mcpServers?: string[];
+  isLocalRuntime?: boolean;
+  identityEvidence?: string;
+}
+
+export interface SensorTelemetryEvent {
+  schemaVersion: number;
+  type: SensorEventType;
+  timestamp: string; // ISO 8601
+  device: SensorDeviceInfo;
+  workload: SensorWorkloadInfo;
+}
+
+/** Sent by a connected sensor with a batch of telemetry events. */
+export interface WSSensorTelemetryPayload {
+  events: SensorTelemetryEvent[];
 }

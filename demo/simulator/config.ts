@@ -336,6 +336,210 @@ export const DEMO_AGENTS: AgentConfig[] = [
   },
 ];
 
+/**
+ * Demo simulator — sensor fleet configuration.
+ *
+ * Mirrors DEMO_AGENTS above but for vaultysclaw-sensor devices: each entry
+ * is a fake endpoint (laptop/workstation) reporting a fixed set of AI
+ * workload observations, mixing sanctioned "Observed" usage (aiConfidence
+ * high, agentConfidence low — e.g. someone using ChatGPT/Claude in a
+ * browser) with unsanctioned "Shadow" usage (agentConfidence ≥ 0.75 — an
+ * agent framework or MCP server running unattended, outside the managed
+ * fleet) so the /admin/sensors page shows a realistic mix on first load.
+ */
+export interface SensorWorkloadScenario {
+  /** Stable per-device fingerprint — mirrors state.ComputeFingerprint in the real sensor. */
+  fingerprint: string;
+  processName: string;
+  executable: string;
+  command: string;
+  provider?: string;
+  model?: string;
+  aiConfidence: number;
+  agentConfidence: number;
+  reasons: string[];
+  isMcp?: boolean;
+  mcpServers?: string[];
+  isLocalRuntime?: boolean;
+}
+
+export interface SensorConfig {
+  name: string;
+  hostname: string;
+  os: "darwin" | "linux" | "windows";
+  workspace: string; // slug
+  /** Index into EXECUTIVES (seed-demo.ts) to pre-assign this device to, or undefined to leave unassigned. */
+  assignExecIndex?: number;
+  workloads: SensorWorkloadScenario[];
+}
+
+export const DEMO_SENSORS: SensorConfig[] = [
+  {
+    name: "sensor-eng-macbook-alice",
+    hostname: "alice-macbook-pro.local",
+    os: "darwin",
+    workspace: "engineering",
+    assignExecIndex: 0, // CTO
+    workloads: [
+      {
+        fingerprint: "eng-alice-chatgpt-browser",
+        processName: "Google Chrome",
+        executable: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+        command: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome --type=renderer",
+        provider: "openai",
+        aiConfidence: 0.9,
+        agentConfidence: 0.1,
+        reasons: ["connection to api.openai.com", "known AI provider network destination"],
+      },
+      {
+        fingerprint: "eng-alice-crewai-filesystem",
+        processName: "python3",
+        executable: "/usr/local/bin/python3",
+        command: "python3 nightly_release_notes.py --crewai",
+        provider: "openai",
+        aiConfidence: 0.65,
+        agentConfidence: 0.85,
+        reasons: ["known agent framework detected (crewai)", "spawned MCP filesystem server child process"],
+        isMcp: true,
+        mcpServers: ["mcp-server-filesystem"],
+      },
+    ],
+  },
+  {
+    name: "sensor-eng-linux-bob",
+    hostname: "bob-devbox",
+    os: "linux",
+    workspace: "engineering",
+    workloads: [
+      {
+        fingerprint: "eng-bob-ollama-runtime",
+        processName: "ollama",
+        executable: "/usr/local/bin/ollama",
+        command: "ollama serve",
+        provider: "ollama",
+        aiConfidence: 0.7,
+        agentConfidence: 0.2,
+        reasons: ["known local model runtime detected (ollama)", "long-running AI-connected process"],
+        isLocalRuntime: true,
+      },
+      {
+        fingerprint: "eng-bob-langchain-script",
+        processName: "python3",
+        executable: "/usr/bin/python3",
+        command: "python3 auto_triage.py --langchain --loop",
+        aiConfidence: 0.6,
+        agentConfidence: 0.82,
+        reasons: ["known agent framework detected (langchain)", "unattended long-running loop"],
+      },
+    ],
+  },
+  {
+    name: "sensor-secops-carol",
+    hostname: "carol-sec-laptop",
+    os: "darwin",
+    workspace: "security-ops",
+    assignExecIndex: 1, // CISO
+    workloads: [
+      {
+        fingerprint: "secops-carol-claude-desktop",
+        processName: "Claude",
+        executable: "/Applications/Claude.app/Contents/MacOS/Claude",
+        command: "/Applications/Claude.app/Contents/MacOS/Claude",
+        provider: "anthropic",
+        aiConfidence: 0.88,
+        agentConfidence: 0.3,
+        reasons: ["connection to claude.ai", "Claude desktop app detected"],
+        isMcp: true,
+        mcpServers: ["claude_desktop"],
+      },
+      {
+        fingerprint: "secops-carol-autogen-github",
+        processName: "python3",
+        executable: "/usr/local/bin/python3",
+        command: "python3 incident_bot.py --autogen",
+        aiConfidence: 0.7,
+        agentConfidence: 0.91,
+        reasons: ["known agent framework detected (autogen)", "spawned MCP GitHub server child process", "unattended long-running loop"],
+        isMcp: true,
+        mcpServers: ["server-github"],
+      },
+    ],
+  },
+  {
+    name: "sensor-devops-dave",
+    hostname: "dave-ops-macbook",
+    os: "darwin",
+    workspace: "devops",
+    workloads: [
+      {
+        fingerprint: "devops-dave-bedrock-script",
+        processName: "python3",
+        executable: "/usr/local/bin/python3",
+        command: "python3 deploy_notes_summary.py --bedrock",
+        provider: "aws_bedrock",
+        aiConfidence: 0.75,
+        agentConfidence: 0.25,
+        reasons: ["connection to bedrock-runtime endpoint", "known AI provider network destination"],
+      },
+      {
+        fingerprint: "devops-dave-shadow-agent-controller",
+        processName: "node",
+        executable: "/usr/local/bin/node",
+        command: "node agent-controller.js --config ./shadow.env",
+        aiConfidence: 0.8,
+        agentConfidence: 0.95,
+        reasons: ["matches vaultysclaw agent-controller pattern", "unauthorized instance — not in the managed agent fleet"],
+      },
+    ],
+  },
+  {
+    name: "sensor-finance-erin",
+    hostname: "erin-finance-win",
+    os: "windows",
+    workspace: "finance",
+    assignExecIndex: 2, // CFO
+    workloads: [
+      {
+        fingerprint: "finance-erin-chatgpt-browser",
+        processName: "chrome.exe",
+        executable: "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+        command: "chrome.exe --type=renderer",
+        provider: "openai",
+        aiConfidence: 0.8,
+        agentConfidence: 0.15,
+        reasons: ["connection to chatgpt.com", "known AI provider network destination"],
+      },
+      {
+        fingerprint: "finance-erin-mastra-script",
+        processName: "node.exe",
+        executable: "C:\\Users\\erin\\AppData\\Local\\node\\node.exe",
+        command: "node.exe forecast-agent.js --mastra",
+        aiConfidence: 0.68,
+        agentConfidence: 0.87,
+        reasons: ["known agent framework detected (mastra)", "unattended long-running loop"],
+      },
+    ],
+  },
+  {
+    name: "sensor-legal-frank",
+    hostname: "frank-legal-mbp",
+    os: "darwin",
+    workspace: "legal",
+    workloads: [
+      {
+        fingerprint: "legal-frank-gemini-browser",
+        processName: "Google Chrome",
+        executable: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+        command: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome --type=renderer",
+        provider: "google_gemini",
+        aiConfidence: 0.82,
+        agentConfidence: 0.2,
+        reasons: ["connection to generativelanguage.googleapis.com", "known AI provider network destination"],
+      },
+    ],
+  },
+];
+
 /** The plaintext demo API key — hashed in seed, sent as x-api-key header by runner */
 export const DEMO_API_KEY = "vc-demo-0000-0000-0000-000000000001";
 

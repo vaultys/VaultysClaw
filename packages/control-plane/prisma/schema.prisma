@@ -139,7 +139,64 @@ model PendingRegistration {
   // (personal) workspace on approval instead of the global default.
   initiatedByUserId     String?
   targetWorkspaceId     String?
+  // Discriminates what this registration becomes on approval: an Agent
+  // (AI orchestration worker) or a SensorDevice (endpoint monitoring
+  // device). Only "agent" registrations use requestedCapabilities/
+  // assignedCapabilities — sensors have no capability concept.
+  kind                  String   @default("agent")
   createdAt             DateTime @default(now())
+}
+
+// ─── Sensors ──────────────────────────────────────────────────────────────────
+// Endpoint monitoring devices (vaultysclaw-sensor) that connect via the same
+// real VaultysId handshake Agents use (see lib/ws-server.ts), reporting
+// metadata-only AI-usage telemetry. A distinct entity from Agent — a sensor
+// is not an AI orchestration worker and has no capability concept.
+
+model SensorDevice {
+  did            String   @id // real VaultysId DID
+  name           String?
+  hostname       String?
+  os             String?
+  assignedUserId String?
+  workspaceId    String?
+  firstSeen      DateTime @default(now())
+  lastSeen       DateTime @default(now())
+
+  assignedUser User?            @relation(fields: [assignedUserId], references: [id], onDelete: SetNull)
+  workspace    Workspace?       @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  workloads    SensorWorkload[]
+
+  @@index([assignedUserId])
+  @@index([workspaceId])
+}
+
+model SensorWorkload {
+  id              String   @id @default(cuid())
+  deviceDid       String
+  fingerprint     String
+  processName     String?
+  executable      String?
+  command         String?
+  // OS account the process ran as on the endpoint — distinct from
+  // SensorDevice.assignedUserId (the org member the device is assigned to).
+  osUser          String?
+  provider        String?
+  model           String?
+  aiConfidence    Float
+  agentConfidence Float
+  reasons         Json     @default("[]")
+  isMcp           Boolean  @default(false)
+  mcpServers      Json?
+  isLocalRuntime  Boolean  @default(false)
+  lastEventType   String?
+  firstSeen       DateTime @default(now())
+  lastSeen        DateTime @default(now())
+
+  device SensorDevice @relation(fields: [deviceDid], references: [did], onDelete: Cascade)
+
+  @@unique([deviceDid, fingerprint])
+  @@index([deviceDid])
 }
 
 // ─── Users ───────────────────────────────────────────────────────────────────
@@ -170,6 +227,7 @@ model User {
   invitations             UserInvitation[]
   notificationPreferences NotificationPreference[]
   notifications           Notification[]
+  assignedSensors         SensorDevice[]
 
   @@index([did])
   @@index([entraId])
@@ -308,6 +366,7 @@ model Workspace {
   routerKey        WorkspaceRouterKey?
   policies         Policy[]
   workflows        Workflow[]
+  sensorDevices    SensorDevice[]
 }
 
 model WorkspaceTokenUsage {

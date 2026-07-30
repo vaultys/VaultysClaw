@@ -22,6 +22,8 @@ import {
   PolicyDAO,
   WorkspaceDAO,
   SkillOverrideDAO,
+  SensorDeviceDAO,
+  SensorWorkloadDAO,
 } from "@/db";
 import {
   type WSMessage,
@@ -45,12 +47,15 @@ import {
   type LlmConfig,
   type WSSkillsConfigPayload,
   type WSChannelMessageSendPayload,
+  type WSSensorTelemetryPayload,
+  type ConnectionKind,
   ResourceLimits,
 } from "@vaultysclaw/shared";
 import {
   createAuthSession,
   processChallenge,
   type PolicyMeta,
+  type AuthResult,
 } from "./auth-handler";
 import { geolocateIp } from "./geoip";
 import {
@@ -108,6 +113,8 @@ interface PendingConnection {
   agentDid?: string;
   certificateData?: string;
   capabilities?: string[];
+  /** "sensor" for vaultysclaw-sensor connections; "agent" (default) otherwise. */
+  kind?: ConnectionKind;
   /** Raw client IP captured at connection time, used for auto-geolocation. */
   clientIp?: string;
   /** Governance metadata to embed in the certificate alongside capabilities. */
@@ -146,12 +153,27 @@ interface ConnectedAgent {
 }
 
 /**
+ * Represents a fully authenticated vaultysclaw-sensor connection — a
+ * distinct entity from ConnectedAgent (no capabilities, no LLM/token
+ * concepts; it only reports metadata-only AI-usage telemetry).
+ */
+interface ConnectedSensor {
+  id: string; // DID
+  name?: string;
+  sender: AgentSender;
+  connectedAt: Date;
+  lastSeen: Date;
+  transport: "ws" | "peerjs";
+}
+
+/**
  * WebSocket Server Manager with VaultysId authentication
  */
 export class AgentWSServer {
   private wss: WebSocketServer;
   private httpServer: HttpServer;
   private agents: Map<string, ConnectedAgent> = new Map();
+  private sensors: Map<string, ConnectedSensor> = new Map();
   private pending: Map<AgentSender, PendingConnection> = new Map();
   /** Map from raw WebSocket to its WsSender wrapper — for event handler lookups */
   private wsSenders: Map<WebSocket, WsSender> = new Map();
@@ -508,6 +530,10 @@ export class AgentWSServer {
           this.handleChannelMessageSend(message);
           break;
 
+        case "sensor_telemetry":
+          this.handleSensorTelemetry(message);
+          break;
+
         default:
           logger.warn({ type: message.type }, "Unknown message type");
       }
@@ -527,15 +553,20 @@ export class AgentWSServer {
     pending: PendingConnection,
     message: WSMessage
   ): void {
-    const payload = message.payload as { name?: string; version?: string };
+    const payload = message.payload as {
+      name?: string;
+      version?: string;
+      kind?: ConnectionKind;
+    };
     const agentName = payload.name ?? "unknown";
 
     pending.agentName = agentName;
+    pending.kind = payload.kind === "sensor" ? "sensor" : "agent";
     pending.phase = "authenticating";
 
     logger.info(
-      { agentName },
-      "Agent registering — starting auth to verify identity"
+      { agentName, kind: pending.kind },
+      "Connection registering — starting auth to verify identity"
     );
 
     // Send auth_challenge to start VaultysId handshake
@@ -576,6 +607,11 @@ export class AgentWSServer {
       if (result.done && result.success) {
         // Auth succeeded — identity verified via certificate
         const agentDid = result.agentDid!;
+
+        if (pending.kind === "sensor") {
+          await this.handleSensorAuthSuccess(pending, agentDid, result);
+          return;
+        }
 
         // Check if this DID is already registered in the DB.
         // This is the secure auto-approve: the DID is derived from the
@@ -839,6 +875,202 @@ export class AgentWSServer {
       pending.sender.close();
       clearTimeout(pending.timer);
       this.pending.delete(pending.sender);
+    }
+  }
+
+  /**
+   * Sensor counterpart of the known/unknown-DID branches in
+   * handleAuthChallenge — forked into its own method (rather than
+   * parametrizing the agent code above) to keep the verified agent auth
+   * path completely untouched. Sensors have no capability concept.
+   */
+  private async handleSensorAuthSuccess(
+    pending: PendingConnection,
+    deviceDid: string,
+    result: AuthResult
+  ): Promise<void> {
+    const knownDevice = await SensorDeviceDAO.findByDid(deviceDid);
+
+    if (knownDevice) {
+      // Known sensor — auto-approve, mirroring the known-agent path.
+      clearTimeout(pending.timer);
+      this.pending.delete(pending.sender);
+
+      const existing = this.sensors.get(deviceDid);
+      if (existing && existing.sender !== pending.sender) {
+        logger.info(
+          { deviceDid },
+          "Sensor reconnecting with verified certificate — replacing old connection"
+        );
+        existing.sender.close();
+      }
+
+      const sensor: ConnectedSensor = {
+        id: deviceDid,
+        name: pending.agentName,
+        sender: pending.sender,
+        connectedAt: new Date(),
+        lastSeen: new Date(),
+        transport: pending.sender.transport,
+      };
+      this.sensors.set(deviceDid, sensor);
+
+      await SensorDeviceDAO.upsert({ did: deviceDid, name: pending.agentName });
+
+      await ActivityLogDAO.log(
+        "sensor_reconnected",
+        deviceDid,
+        pending.agentName
+      );
+      this.appendLog(
+        pending.sender.transport,
+        "info",
+        "sensor_auth_complete",
+        pending.agentName ?? deviceDid.slice(0, 16)
+      );
+      this.broadcastAdminUpdate("sensor_reconnected");
+
+      this.sendMessage(pending.sender, {
+        messageId: `auth-complete-${Date.now()}`,
+        type: "auth_complete",
+        agentId: deviceDid,
+        payload: {
+          agentId: deviceDid,
+          did: deviceDid,
+          capabilities: [],
+        } satisfies WSAuthCompletePayload,
+        timestamp: new Date().toISOString(),
+      });
+
+      if (result.responseData) {
+        this.sendMessage(pending.sender, {
+          messageId: `auth-data-${Date.now()}`,
+          type: "auth_challenge",
+          payload: {
+            sessionId: pending.sessionId,
+            data: result.responseData,
+          } satisfies WSAuthChallengePayload,
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      logger.info(
+        { deviceDid },
+        "Known sensor authenticated — auto-approved by DID"
+      );
+      return;
+    }
+
+    // Unknown DID, no prior approval — require admin approval, mirroring
+    // the unknown-agent branch but creating a "sensor"-kind registration.
+    const registrationId = crypto.randomBytes(16).toString("hex");
+    pending.phase = "awaiting_approval";
+    pending.registrationId = registrationId;
+    pending.agentDid = deviceDid;
+    pending.certificateData = result.certificateData;
+
+    clearTimeout(pending.timer);
+    pending.timer = setTimeout(async () => {
+      logger.warn(
+        { registrationId },
+        "Sensor registration approval timeout — closing connection"
+      );
+      this.sendMessage(pending.sender, {
+        messageId: `auth-fail-${Date.now()}`,
+        type: "auth_failed",
+        payload: {
+          reason: "Registration approval timeout",
+        } satisfies WSAuthFailedPayload,
+        timestamp: new Date().toISOString(),
+      });
+      pending.sender.close();
+      this.pending.delete(pending.sender);
+      await PendingRegistrationDAO.delete(registrationId);
+    }, REGISTRATION_TIMEOUT_MS);
+
+    await PendingRegistrationDAO.create(
+      registrationId,
+      pending.sessionId,
+      pending.agentName ?? "unknown",
+      [],
+      undefined,
+      "sensor"
+    );
+
+    await ActivityLogDAO.log(
+      "sensor_registration_requested",
+      deviceDid,
+      pending.agentName,
+      JSON.stringify({ registrationId, did: deviceDid })
+    );
+    this.appendLog(
+      pending.sender.transport,
+      "info",
+      "sensor_registration_pending",
+      pending.agentName ?? deviceDid.slice(0, 16)
+    );
+    this.broadcastAdminUpdate("registration_requested");
+
+    this.sendMessage(pending.sender, {
+      messageId: `reg-pending-${Date.now()}`,
+      type: "registration_pending",
+      payload: {
+        registrationId,
+        message: "Identity verified. Sensor registration pending admin approval.",
+      } satisfies WSRegistrationPendingPayload,
+      timestamp: new Date().toISOString(),
+    });
+
+    logger.info(
+      { registrationId, deviceDid, agentName: pending.agentName },
+      "Unknown sensor DID — registration pending admin approval"
+    );
+  }
+
+  /**
+   * Handle a batch of telemetry events from a connected sensor. Metadata
+   * only (process/network observations + a deterministic classification) —
+   * see vaultysclaw-sensor/internal/telemetry/event.go for the schema this
+   * mirrors.
+   */
+  private async handleSensorTelemetry(message: WSMessage): Promise<void> {
+    try {
+      const { agentId } = message;
+      if (!agentId) return;
+
+      const sensor = this.sensors.get(agentId);
+      if (!sensor) {
+        logger.warn(
+          { agentId },
+          "sensor_telemetry from an unknown/unauthenticated sensor"
+        );
+        return;
+      }
+      sensor.lastSeen = new Date();
+
+      const payload = message.payload as WSSensorTelemetryPayload | undefined;
+      const events = payload?.events ?? [];
+      let accepted = 0;
+      for (const event of events) {
+        if (event.schemaVersion !== 1) {
+          logger.warn(
+            { version: event.schemaVersion },
+            "Skipping sensor event with unsupported schema version"
+          );
+          continue;
+        }
+        await SensorDeviceDAO.updateLastSeen(agentId, {
+          hostname: event.device.hostname,
+          os: event.device.os,
+        });
+        await SensorWorkloadDAO.upsert(agentId, event);
+        accepted++;
+      }
+      if (accepted > 0) {
+        this.broadcastAdminUpdate("sensor_telemetry");
+      }
+    } catch (error) {
+      logger.error(error, "Error handling sensor_telemetry");
     }
   }
 
@@ -1788,6 +2020,161 @@ export class AgentWSServer {
     }
 
     logger.info({ registrationId, reason }, "Registration rejected");
+    return true;
+  }
+
+  /** DIDs of currently connected sensors — used by the sensors list route to
+   * compute "online" without needing a DB round-trip. */
+  listConnectedSensorDids(): string[] {
+    return Array.from(this.sensors.keys());
+  }
+
+  /**
+   * Approve a pending sensor registration. Mirrors approveRegistration but
+   * upserts SensorDeviceDAO instead of AgentDAO — sensors have no
+   * capability concept.
+   */
+  async approveSensorRegistration(
+    registrationId: string,
+    actorDid?: string
+  ): Promise<string | null> {
+    let target: PendingConnection | undefined;
+    for (const pending of this.pending.values()) {
+      if (
+        pending.registrationId === registrationId &&
+        pending.phase === "awaiting_approval" &&
+        pending.kind === "sensor"
+      ) {
+        target = pending;
+        break;
+      }
+    }
+
+    if (!target) {
+      logger.warn(
+        { registrationId },
+        "No pending sensor connection found for registration"
+      );
+      return null;
+    }
+    if (!target.agentDid) {
+      logger.warn(
+        { registrationId },
+        "Pending sensor connection has no verified DID — cannot approve"
+      );
+      return null;
+    }
+
+    const deviceDid = target.agentDid;
+
+    await PendingRegistrationDAO.delete(registrationId);
+    await SensorDeviceDAO.upsert({ did: deviceDid, name: target.agentName });
+
+    clearTimeout(target.timer);
+    this.pending.delete(target.sender);
+
+    const sensor: ConnectedSensor = {
+      id: deviceDid,
+      name: target.agentName,
+      sender: target.sender,
+      connectedAt: new Date(),
+      lastSeen: new Date(),
+      transport: target.sender.transport,
+    };
+    this.sensors.set(deviceDid, sensor);
+
+    await ActivityLogDAO.log(
+      "sensor_registration_approved",
+      deviceDid,
+      sensor.name,
+      JSON.stringify({ registrationId, actorDid })
+    );
+    this.appendLog(
+      target.sender.transport,
+      "info",
+      "sensor_approved",
+      sensor.name ?? deviceDid.slice(0, 16)
+    );
+    this.broadcastAdminUpdate("registration_approved");
+
+    this.sendMessage(target.sender, {
+      messageId: `reg-approved-${Date.now()}`,
+      type: "registration_approved",
+      payload: {
+        registrationId,
+        capabilities: [],
+      } satisfies WSRegistrationApprovedPayload,
+      timestamp: new Date().toISOString(),
+    });
+
+    this.sendMessage(target.sender, {
+      messageId: `auth-complete-${Date.now()}`,
+      type: "auth_complete",
+      agentId: deviceDid,
+      payload: {
+        agentId: deviceDid,
+        did: deviceDid,
+        capabilities: [],
+      } satisfies WSAuthCompletePayload,
+      timestamp: new Date().toISOString(),
+    });
+
+    logger.info(
+      { registrationId, deviceDid },
+      "Sensor registration approved — connected"
+    );
+    return deviceDid;
+  }
+
+  /** Reject a pending sensor registration. Mirrors rejectRegistration. */
+  async rejectSensorRegistration(
+    registrationId: string,
+    reason: string = "Registration rejected"
+  ): Promise<boolean> {
+    let target: PendingConnection | undefined;
+    for (const pending of this.pending.values()) {
+      if (
+        pending.registrationId === registrationId &&
+        pending.phase === "awaiting_approval" &&
+        pending.kind === "sensor"
+      ) {
+        target = pending;
+        break;
+      }
+    }
+
+    const reg = await PendingRegistrationDAO.findById(registrationId);
+    if (!reg) {
+      logger.warn({ registrationId }, "Sensor registration not found");
+      return false;
+    }
+
+    await PendingRegistrationDAO.delete(registrationId);
+    await ActivityLogDAO.log(
+      "sensor_registration_rejected",
+      undefined,
+      reg.agentName,
+      JSON.stringify({ registrationId, reason })
+    );
+    this.broadcastAdminUpdate("registration_rejected");
+
+    if (target) {
+      this.sendMessage(target.sender, {
+        messageId: `reg-rejected-${Date.now()}`,
+        type: "registration_rejected",
+        payload: {
+          registrationId,
+          reason,
+        } satisfies WSRegistrationRejectedPayload,
+        timestamp: new Date().toISOString(),
+      });
+
+      clearTimeout(target.timer);
+      target.sender.close();
+      this.pending.delete(target.sender);
+    }
+
+    logger.info({ registrationId, reason }, "Sensor registration rejected");
     return true;
   }
 

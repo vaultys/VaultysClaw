@@ -19,6 +19,8 @@ interface PendingRegistration {
   createdAt: string;
   connected: boolean;
   agentDid: string | null;
+  /** "agent" (default) or "sensor" — decides the approval UI/flow. */
+  kind: "agent" | "sensor";
 }
 
 interface AdminWSState {

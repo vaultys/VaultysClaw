@@ -17,3 +17,6 @@ export { ApiKeyDAO } from "./api-key.dao";
 export { WebhookDAO } from "./webhook.dao";
 export { ChannelDAO, ChannelMemberDAO, ChannelMessageDAO, ChannelBridgeDAO } from "./channel.dao";
 export { NotificationDAO, NotificationPreferenceDAO } from "./notification.dao";
+export { SensorDeviceDAO, SHADOW_THRESHOLD } from "./sensor-device.dao";
+export type { SensorDeviceWithCounts } from "./sensor-device.dao";
+export { SensorWorkloadDAO } from "./sensor-workload.dao";

@@ -43,7 +43,7 @@
     "geoip-lite": "^2.0.2",
     "ioredis": "^5.11.1",
     "lucide-react": "^1.14.0",
-    "next": "^16.2.6",
+    "next": "^16.2.12",
     "next-auth": "^4.24.14",
     "nodemailer": "^8.0.7",
     "ol": "^10.9.0",

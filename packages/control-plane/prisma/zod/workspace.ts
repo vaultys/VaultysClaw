@@ -1,5 +1,5 @@
 import * as z from "zod"
-import { CompleteWorkspaceTokenUsage, RelatedWorkspaceTokenUsageModel, CompleteAgentWorkspace, RelatedAgentWorkspaceModel, CompleteUserWorkspace, RelatedUserWorkspaceModel, CompleteWorkspaceSkill, RelatedWorkspaceSkillModel, CompleteKnowledgeSource, RelatedKnowledgeSourceModel, CompleteChannel, RelatedChannelModel, CompleteCredential, RelatedCredentialModel, CompleteModelWorkspaceAccess, RelatedModelWorkspaceAccessModel, CompleteWorkspaceRouterKey, RelatedWorkspaceRouterKeyModel, CompletePolicy, RelatedPolicyModel, CompleteWorkflow, RelatedWorkflowModel } from "./index"
+import { CompleteWorkspaceTokenUsage, RelatedWorkspaceTokenUsageModel, CompleteAgentWorkspace, RelatedAgentWorkspaceModel, CompleteUserWorkspace, RelatedUserWorkspaceModel, CompleteWorkspaceSkill, RelatedWorkspaceSkillModel, CompleteKnowledgeSource, RelatedKnowledgeSourceModel, CompleteChannel, RelatedChannelModel, CompleteCredential, RelatedCredentialModel, CompleteModelWorkspaceAccess, RelatedModelWorkspaceAccessModel, CompleteWorkspaceRouterKey, RelatedWorkspaceRouterKeyModel, CompletePolicy, RelatedPolicyModel, CompleteWorkflow, RelatedWorkflowModel, CompleteSensorDevice, RelatedSensorDeviceModel } from "./index"
 
 // Helper schema for JSON fields
 type Literal = boolean | number | string
@@ -34,6 +34,7 @@ export interface CompleteWorkspace extends z.infer<typeof WorkspaceModel> {
   routerKey?: CompleteWorkspaceRouterKey | null
   policies: CompletePolicy[]
   workflows: CompleteWorkflow[]
+  sensorDevices: CompleteSensorDevice[]
 }
 
 /**
@@ -53,4 +54,5 @@ export const RelatedWorkspaceModel: z.ZodSchema<CompleteWorkspace> = z.lazy(() =
   routerKey: RelatedWorkspaceRouterKeyModel.nullish(),
   policies: RelatedPolicyModel.array(),
   workflows: RelatedWorkflowModel.array(),
+  sensorDevices: RelatedSensorDeviceModel.array(),
 }))

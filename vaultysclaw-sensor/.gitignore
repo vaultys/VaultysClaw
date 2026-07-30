@@ -1,0 +1,8 @@
+# quickstart.sh's self-contained run data: built binaries, generated
+# collector token, device identity private key, and collector state
+# snapshot. Never commit these.
+.quickstart/
+
+# Stray local builds (e.g. `go build -o sensor ./cmd/sensor` run from repo root)
+/sensor
+/collector

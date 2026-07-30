@@ -26,6 +26,34 @@ const handlers = createNextRoute(adminContract.registrations, {
       );
     }
 
+    // Sensors have no capability/workspace-enrollment concept — a much
+    // simpler approval than an agent's.
+    if (registration.kind === "sensor") {
+      const wsServer = getWSServer();
+      if (!wsServer) {
+        throw new APIException("UNAVAILABLE", "WebSocket server not available");
+      }
+      const deviceDid = await wsServer.approveSensorRegistration(
+        params.id,
+        auth.did
+      );
+      if (!deviceDid) {
+        throw new APIException(
+          "UNAVAILABLE",
+          "Failed to approve sensor registration"
+        );
+      }
+      return {
+        status: 200,
+        body: {
+          success: true,
+          registrationId: params.id,
+          capabilities: [],
+          agentDid: deviceDid,
+        },
+      };
+    }
+
     let capabilities = (body.capabilities ?? []) as AgentCapability[];
 
     // For user-initiated (enrollment) agents where the admin didn't pick any

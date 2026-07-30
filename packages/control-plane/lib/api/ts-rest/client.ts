@@ -25,6 +25,7 @@ import {
   workspacesContract,
   workspacesAdminContract,
   registrationsContract,
+  sensorsContract,
   serverContract,
   serverPublicContract,
   settingsContract,
@@ -104,6 +105,7 @@ export const registrationsClient = initClient(
   registrationsContract,
   clientOptions
 );
+export const sensorsClient = initClient(sensorsContract, clientOptions);
 export const serverClient = initClient(serverContract, clientOptions);
 export const serverPublicClient = initClient(
   serverPublicContract,
@@ -168,6 +170,7 @@ export const adminApi = {
   apiKeys: apiKeysClient,
   webhooks: webhooksClient,
   registrations: registrationsClient,
+  sensors: sensorsClient,
   network: networkControlClient,
   stats: statsClient,
   orgSkills: orgSkillsAdminClient,

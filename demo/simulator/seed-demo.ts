@@ -96,7 +96,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { execSync } from "child_process";
-import { DEMO_AGENTS, DEMO_API_KEY } from "./config.js";
+import { DEMO_AGENTS, DEMO_API_KEY, DEMO_SENSORS } from "./config.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const IDENTITIES_DIR = path.join(__dirname, "identities");
@@ -676,6 +676,99 @@ async function seedAgents(
   return didMap;
 }
 
+/**
+ * Pre-create SensorDevice + SensorWorkload rows for DEMO_SENSORS so
+ * /admin/sensors already shows a realistic fleet (mixed Observed/Shadow
+ * workloads, a couple of devices pre-assigned to executives) immediately
+ * after `pnpm simulator:seed` — before `pnpm simulator:start` ever connects
+ * a live sensor. Identities are the same ones SensorSimulator (sensor-sim.ts)
+ * loads, so once the simulator connects it reconnects as these exact
+ * already-known, already-approved DIDs (no manual registration-approval
+ * step needed for the demo).
+ */
+async function seedSensors(
+  workspaceSlugToId: Map<string, string>,
+  execUserIds: string[],
+): Promise<void> {
+  console.log("\n▶ Seeding demo sensors…");
+  let workloadCount = 0;
+
+  for (const sensorCfg of DEMO_SENSORS) {
+    const vid = await loadOrCreateIdentity(sensorCfg.name);
+    const did = vid.did;
+
+    const workspaceId = workspaceSlugToId.get(sensorCfg.workspace) ?? null;
+    const assignedUserId =
+      sensorCfg.assignExecIndex != null ? execUserIds[sensorCfg.assignExecIndex] ?? null : null;
+
+    await prisma.sensorDevice.upsert({
+      where: { did },
+      create: {
+        did,
+        name: sensorCfg.name,
+        hostname: sensorCfg.hostname,
+        os: sensorCfg.os,
+        assignedUserId,
+        workspaceId,
+        firstSeen: new Date(),
+        lastSeen: new Date(),
+      },
+      update: {
+        name: sensorCfg.name,
+        hostname: sensorCfg.hostname,
+        os: sensorCfg.os,
+        assignedUserId,
+        workspaceId,
+        lastSeen: new Date(),
+      },
+    });
+
+    for (const w of sensorCfg.workloads) {
+      await prisma.sensorWorkload.upsert({
+        where: { deviceDid_fingerprint: { deviceDid: did, fingerprint: w.fingerprint } },
+        create: {
+          deviceDid: did,
+          fingerprint: w.fingerprint,
+          processName: w.processName,
+          executable: w.executable,
+          command: w.command,
+          provider: w.provider ?? null,
+          model: w.model ?? null,
+          aiConfidence: w.aiConfidence,
+          agentConfidence: w.agentConfidence,
+          reasons: w.reasons,
+          isMcp: w.isMcp ?? false,
+          mcpServers: w.mcpServers ?? undefined,
+          isLocalRuntime: w.isLocalRuntime ?? false,
+          lastEventType: "ai_workload_detected",
+          firstSeen: new Date(),
+          lastSeen: new Date(),
+        },
+        update: {
+          processName: w.processName,
+          executable: w.executable,
+          command: w.command,
+          provider: w.provider ?? null,
+          model: w.model ?? null,
+          aiConfidence: w.aiConfidence,
+          agentConfidence: w.agentConfidence,
+          reasons: w.reasons,
+          isMcp: w.isMcp ?? false,
+          mcpServers: w.mcpServers ?? undefined,
+          isLocalRuntime: w.isLocalRuntime ?? false,
+          lastEventType: "ai_workload_detected",
+          lastSeen: new Date(),
+        },
+      });
+      workloadCount++;
+    }
+
+    process.stdout.write(".");
+  }
+
+  console.log(`\n  ✓ ${DEMO_SENSORS.length} sensors, ${workloadCount} workloads (mixed observed/shadow)`);
+}
+
 async function seedWorkflows(
   workspaceSlugToId: Map<string, string>,
   agentDidMap: Map<string, string>,
@@ -1164,6 +1257,7 @@ async function main() {
   const skillMap = await seedSkills(workspaceSlugToId);
   await seedPolicies(workspaceSlugToId, makeDid("exec-cto"));
   const agentDidMap = await seedAgents(workspaceSlugToId, modelIdMap, skillMap);
+  await seedSensors(workspaceSlugToId, execUserIds);
   await seedWorkflows(workspaceSlugToId, agentDidMap, ownerDid, ownerUserId);
   await seedApiKey();
   await seedLiteLLM(cfg);
@@ -1172,19 +1266,21 @@ async function main() {
   const agentCount = await prisma.agent.count();
   const workflowCount = await prisma.workflow.count();
   const channelCount = await prisma.channel.count();
+  const sensorCount = await prisma.sensorDevice.count();
 
   console.log("\n╔══════════════════════════════════════════════════════════════╗");
   console.log("║  ✓ Demo seed complete!                                       ║");
   console.log("║                                                              ║");
   console.log(`║  Users     : ${String(userCount).padEnd(47)}║`);
   console.log(`║  Agents    : ${String(agentCount).padEnd(47)}║`);
+  console.log(`║  Sensors   : ${String(sensorCount).padEnd(47)}║`);
   console.log(`║  Workflows : ${String(workflowCount).padEnd(47)}║`);
   console.log(`║  Channels  : ${String(channelCount).padEnd(47)}║`);
   console.log("║                                                              ║");
   console.log("║  Next steps:                                                 ║");
   console.log("║    1. Add API keys to demo/demo-config.json                  ║");
-  console.log("║    2. pnpm demo:start  — connect 30 live agents              ║");
-  console.log("║    3. Open /mission-control                                  ║");
+  console.log("║    2. pnpm simulator:start — connect 30 agents + 6 sensors   ║");
+  console.log("║    3. Open /mission-control or /admin/sensors                ║");
   console.log("╚══════════════════════════════════════════════════════════════╝\n");
 
   await prisma.$disconnect();

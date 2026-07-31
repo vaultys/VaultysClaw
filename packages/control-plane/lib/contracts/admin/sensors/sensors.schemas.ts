@@ -18,5 +18,6 @@ export const ListSensorsQuerySchema = z.object({
 // ─────────────────────────────────────────────
 
 export const AssignSensorUserBodySchema = z.object({
-  assignedUserId: z.string().nullable(),
+  assignedUserId: z.string().nullable().optional(),
+  workspaceId: z.string().nullable().optional(),
 });

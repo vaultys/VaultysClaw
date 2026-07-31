@@ -105,3 +105,30 @@ describe("SensorDeviceDAO.stats", () => {
     expect(stats.totalWorkloads).toBeGreaterThanOrEqual(3);
   });
 });
+
+describe("SensorDeviceDAO.assignWorkspace", () => {
+  const WORKSPACE_ID = "test-sensor-status-workspace";
+
+  beforeAll(async () => {
+    await prisma.workspace.deleteMany({ where: { id: WORKSPACE_ID } });
+    await prisma.workspace.create({
+      data: {
+        id: WORKSPACE_ID,
+        name: "Sensor Status Test WS",
+        slug: "sensor-status-test-ws",
+      },
+    });
+  });
+
+  afterAll(async () => {
+    await prisma.workspace.deleteMany({ where: { id: WORKSPACE_ID } });
+  });
+
+  it("assigns and clears a device's workspace", async () => {
+    const assigned = await SensorDeviceDAO.assignWorkspace(DEVICE_DID, WORKSPACE_ID);
+    expect(assigned.workspaceId).toBe(WORKSPACE_ID);
+
+    const cleared = await SensorDeviceDAO.assignWorkspace(DEVICE_DID, null);
+    expect(cleared.workspaceId).toBeNull();
+  });
+});

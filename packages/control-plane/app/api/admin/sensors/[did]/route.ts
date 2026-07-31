@@ -25,12 +25,17 @@ const handlers = createNextRoute(adminContract.sensors, {
     return { status: 200, body };
   },
 
-  // ── PATCH /api/admin/sensors/:did — assign (or unassign) a user ─────────────
+  // ── PATCH /api/admin/sensors/:did — assign (or unassign) a user/workspace ───
   assignUser: async ({ params, body }) => {
     const device = await SensorDeviceDAO.findByDid(params.did);
     if (!device) throw new APIException("NOT_FOUND", "Sensor not found");
 
-    await SensorDeviceDAO.assignUser(params.did, body.assignedUserId);
+    if (body.assignedUserId !== undefined) {
+      await SensorDeviceDAO.assignUser(params.did, body.assignedUserId);
+    }
+    if (body.workspaceId !== undefined) {
+      await SensorDeviceDAO.assignWorkspace(params.did, body.workspaceId);
+    }
 
     const updated = await SensorDeviceDAO.findByDid(params.did);
     if (!updated) throw new APIException("NOT_FOUND", "Sensor not found");

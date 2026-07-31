@@ -8,7 +8,7 @@ import { useBreadcrumbs } from "@/components/layout/BreadcrumbContext";
 import { StatCard } from "@/components/governance/StatCard";
 import { SensorsTable } from "@/components/sensors/SensorsTable";
 import { UsersPagination } from "@/components/users/UsersPagination";
-import { adminApi, unwrap, ApiError } from "@/lib/api/ts-rest/client";
+import { adminApi, userApi, unwrap, ApiError } from "@/lib/api/ts-rest/client";
 import type {
   SensorDeviceInfo,
   SensorStats,
@@ -24,6 +24,7 @@ export default function SensorsPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [stats, setStats] = useState<SensorStats | null>(null);
   const [users, setUsers] = useState<UserListItem[]>([]);
+  const [workspaces, setWorkspaces] = useState<Array<{ id: string; name: string }>>([]);
   const [loading, setLoading] = useState(true);
   const [assigningDid, setAssigningDid] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -62,6 +63,10 @@ export default function SensorsPage() {
       .list({ query: { pageSize: 500 } })
       .then((r) => setUsers(unwrap(r).users))
       .catch(() => setUsers([]));
+    userApi.workspaces
+      .list()
+      .then((r) => setWorkspaces(unwrap(r).workspaces))
+      .catch(() => setWorkspaces([]));
   }, []);
 
   useEffect(() => {
@@ -95,6 +100,24 @@ export default function SensorsPage() {
       setSensors((prev) => prev.map((s) => (s.did === did ? updated : s)));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to assign sensor");
+    } finally {
+      setAssigningDid(null);
+    }
+  }
+
+  async function handleAssignWorkspace(did: string, workspaceId: string | null) {
+    setAssigningDid(did);
+    setError(null);
+    try {
+      const updated = unwrap(
+        await adminApi.sensors.assignUser({
+          params: { did },
+          body: { workspaceId },
+        })
+      );
+      setSensors((prev) => prev.map((s) => (s.did === did ? updated : s)));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to assign workspace");
     } finally {
       setAssigningDid(null);
     }
@@ -191,8 +214,10 @@ export default function SensorsPage() {
           <SensorsTable
             sensors={sensors}
             users={users}
+            workspaces={workspaces}
             assigningDid={assigningDid}
             onAssign={handleAssign}
+            onAssignWorkspace={handleAssignWorkspace}
             onRowClick={(s) => router.push(`/admin/sensors/${s.did}`)}
           />
           <UsersPagination

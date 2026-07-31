@@ -68,6 +68,16 @@ export class SensorDeviceDAO {
     });
   }
 
+  static async assignWorkspace(
+    did: string,
+    workspaceId: string | null
+  ): Promise<SensorDevice> {
+    return prisma.sensorDevice.update({
+      where: { did },
+      data: { workspaceId },
+    });
+  }
+
   static async query(opts: {
     search?: string;
     assignedUserId?: string; // "unassigned" for devices with no assignment

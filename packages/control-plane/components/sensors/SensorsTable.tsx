@@ -7,14 +7,18 @@ import type { UserListItem } from "@/lib/contracts";
 export function SensorsTable({
   sensors,
   users,
+  workspaces,
   assigningDid,
   onAssign,
+  onAssignWorkspace,
   onRowClick,
 }: {
   sensors: SensorDeviceInfo[];
   users: UserListItem[];
+  workspaces: Array<{ id: string; name: string }>;
   assigningDid: string | null;
   onAssign: (did: string, userId: string | null) => void;
+  onAssignWorkspace: (did: string, workspaceId: string | null) => void;
   onRowClick: (sensor: SensorDeviceInfo) => void;
 }) {
   return (
@@ -71,12 +75,20 @@ export function SensorsTable({
                 ))}
               </select>
             </td>
-            <td className="px-5 py-3.5 text-foreground-500 text-xs">
-              {s.workspace ? (
-                s.workspace.name
-              ) : (
-                <span className="text-foreground-400">—</span>
-              )}
+            <td className="px-5 py-3.5" onClick={(e) => e.stopPropagation()}>
+              <select
+                value={s.workspaceId ?? ""}
+                disabled={assigningDid === s.did}
+                onChange={(e) => onAssignWorkspace(s.did, e.target.value || null)}
+                className="px-2 py-1 bg-background-100 text-foreground border border-neutral-200 rounded-md text-xs focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:opacity-50"
+              >
+                <option value="">— No workspace —</option>
+                {workspaces.map((w) => (
+                  <option key={w.id} value={w.id}>
+                    {w.name}
+                  </option>
+                ))}
+              </select>
             </td>
             <td
               className="px-5 py-3.5 text-foreground-500 text-xs cursor-pointer"

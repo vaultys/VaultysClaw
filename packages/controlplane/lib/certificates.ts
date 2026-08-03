@@ -67,19 +67,59 @@ export async function issueCapabilityGrant(
 }
 
 /**
+ * Self-signs the "request" half of a grant on behalf of the control plane
+ * itself, for the cases where nobody actually asked for this grant — an
+ * admin approving a pending registration, or the bootstrap exception below.
+ * An inspector of the ledger can see both halves of the co-signature were
+ * signed by the same key, which is itself the audit signal that this was a
+ * system-issued grant, not a normal agent-requested one (trust doc §3.2).
+ */
+async function signSystemRequestCert(
+  agentDid: string,
+  capabilities: AgentCapability[],
+  nonce: string
+): Promise<string> {
+  const vid = await ServerIdentityDAO.getServerVaultysId();
+  return signCapabilityRequestCert(vid, { agentDid, requestedCapabilities: capabilities, nonce });
+}
+
+/**
+ * An admin (or the system) vouching for a Principal's capabilities directly —
+ * used to approve a `PendingRegistration` into a real grant. Agents don't yet
+ * send a signed `capability_request` over the wire (deferred, see
+ * packages/controlplane/CLAUDE.md), so this is the only issuance path for a
+ * new agent's *initial* grant; a future agent-requested top-up would use
+ * {@link issueCapabilityGrant} directly with the agent's own signed request.
+ */
+export async function issueAdminGrant(input: {
+  agentDid: string;
+  workspaceId?: string | null;
+  capabilities: AgentCapability[];
+  expiresAt: number | null;
+  issuedBy: string;
+}): Promise<CapabilityCertificate> {
+  const requestCert = await signSystemRequestCert(
+    input.agentDid,
+    input.capabilities,
+    `admin-grant-${Date.now()}`
+  );
+  return issueCapabilityGrant({
+    agentDid: input.agentDid,
+    workspaceId: input.workspaceId,
+    capabilities: input.capabilities,
+    requestCert,
+    expiresAt: input.expiresAt,
+    issuedBy: input.issuedBy,
+  });
+}
+
+/**
  * The bootstrap exception (docs/REBUILD_ARCHITECTURE.md §4.5): on the first
  * human to reach this check when no `admin_console_access` certificate exists
  * anywhere yet, mint one — no approval step, standing (`expiresAt: null`),
  * tagged `system:bootstrap`. Idempotent and safe to call on every human login;
  * it only ever acts once per deployment, guarded by the existence check.
  *
- * The embedded "request" half of the co-signature is self-authored by the
- * control plane rather than the human (nobody asked for this grant — the
- * system decided to make it) — an inspector of the ledger can see both halves
- * were signed by the same key, which is itself the audit signal that this was
- * a system-issued exception, not a normal agent-requested grant.
- */
-/**
  * Fixed, deterministic id for the bootstrap grant — not `randomUUID()`. Two
  * humans racing to be "first" both pass the existence check before either
  * commits; the second `create()` then collides on this id (Prisma P2002) and
@@ -98,12 +138,11 @@ export async function ensureBootstrapAdmin(
   );
   if (alreadyExists) return null;
 
-  const vid = await ServerIdentityDAO.getServerVaultysId();
-  const requestCert = await signCapabilityRequestCert(vid, {
-    agentDid: humanDid,
-    requestedCapabilities: ["admin_console_access"],
-    nonce: "bootstrap",
-  });
+  const requestCert = await signSystemRequestCert(
+    humanDid,
+    ["admin_console_access"],
+    "bootstrap"
+  );
 
   try {
     return await issueCapabilityGrant({

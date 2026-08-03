@@ -50,4 +50,9 @@ export class PrincipalDAO {
   static async count(filter?: { kind?: string }): Promise<number> {
     return prisma.principal.count({ where: { kind: filter?.kind } });
   }
+
+  static async countByKind(): Promise<Record<string, number>> {
+    const rows = await prisma.principal.groupBy({ by: ["kind"], _count: { kind: true } });
+    return Object.fromEntries(rows.map((r) => [r.kind, r._count.kind]));
+  }
 }

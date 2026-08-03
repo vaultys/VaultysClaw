@@ -4,6 +4,7 @@ import type { PendingRegistration } from "@prisma/client";
 export class PendingRegistrationDAO {
   static async create(input: {
     id: string;
+    did: string;
     sessionId: string;
     name: string;
     kind: string;
@@ -12,6 +13,7 @@ export class PendingRegistrationDAO {
     return prisma.pendingRegistration.create({
       data: {
         id: input.id,
+        did: input.did,
         sessionId: input.sessionId,
         name: input.name,
         kind: input.kind,
@@ -22,6 +24,10 @@ export class PendingRegistrationDAO {
 
   static async findById(id: string): Promise<PendingRegistration | null> {
     return prisma.pendingRegistration.findUnique({ where: { id } });
+  }
+
+  static async findPendingByDid(did: string): Promise<PendingRegistration | null> {
+    return prisma.pendingRegistration.findFirst({ where: { did, status: "pending" } });
   }
 
   static async listPending(): Promise<PendingRegistration[]> {

@@ -227,14 +227,20 @@ export class ControlPlaneWSServer {
         return;
       }
 
-      const registrationId = randomUUID();
-      await PendingRegistrationDAO.create({
-        id: registrationId,
-        sessionId: pending.sessionId,
-        name: pending.name,
-        kind: pending.kind,
-        requestedCapabilities: [],
-      });
+      // A pending agent is expected to retry/reconnect while awaiting approval —
+      // reuse the existing row instead of piling up a duplicate per attempt.
+      const existingPending = await PendingRegistrationDAO.findPendingByDid(did);
+      const registrationId = existingPending?.id ?? randomUUID();
+      if (!existingPending) {
+        await PendingRegistrationDAO.create({
+          id: registrationId,
+          did,
+          sessionId: pending.sessionId,
+          name: pending.name,
+          kind: pending.kind,
+          requestedCapabilities: [],
+        });
+      }
 
       this.sendMessage(sender, "registration_pending", {
         registrationId,

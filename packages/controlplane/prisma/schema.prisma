@@ -103,6 +103,7 @@ model CapabilityCertificate {
 
 model PendingRegistration {
   id                    String   @id
+  did                   String
   sessionId             String
   name                  String
   kind                  String
@@ -112,6 +113,8 @@ model PendingRegistration {
   initiatedByUserId     String?
   targetWorkspaceId     String?
   createdAt             DateTime @default(now())
+
+  @@index([did])
 }
 
 // ─── Auth certificates ────────────────────────────────────────────────────────

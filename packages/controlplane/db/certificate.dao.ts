@@ -99,4 +99,8 @@ export class CapabilityCertificateDAO {
       orderBy: { issuedAt: "desc" },
     });
   }
+
+  static async countActive(): Promise<number> {
+    return prisma.capabilityCertificate.count({ where: { status: "active" } });
+  }
 }

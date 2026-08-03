@@ -3,33 +3,29 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { signIn } from "next-auth/react";
+import { connectWithoutApp } from "@/lib/browser-connect";
 
 const WALLET_URL = process.env.NEXT_PUBLIC_WALLET_URL || "https://wallet.vaultys.net";
+// process.env.NODE_ENV is inlined at build time by Next.js, including in client bundles —
+// this is never a runtime env lookup, so it's safe to gate UI on it directly.
+const DEV_LOGIN_ENABLED = process.env.NODE_ENV !== "production";
 
-type Phase = "loading" | "waiting" | "success" | "failure";
+type Phase = "loading" | "waiting" | "dev-connecting" | "success" | "failure";
 
 /**
- * Passwordless VaultysId QR login — the only login mechanism
- * (docs/REBUILD_ARCHITECTURE.md §1: no username/password fallback).
- * Scan with the VaultysId wallet app; this page just displays the QR and
- * polls for completion.
+ * Passwordless VaultysId login. The QR/wallet flow is the only mechanism in
+ * production (docs/REBUILD_ARCHITECTURE.md §1: no username/password
+ * fallback); in dev mode only, a second option lets the browser perform the
+ * SRP handshake itself with a locally generated software identity — no
+ * physical wallet needed. Same Challenger primitive either way, just a
+ * different transport (lib/browser-connect.ts, HTTP instead of WebRTC).
  */
 export default function LoginPage() {
   const [phase, setPhase] = useState<Phase>("loading");
   const [qrUrl, setQrUrl] = useState<string>();
   const cancelled = useRef(false);
 
-  const start = useCallback(async () => {
-    setPhase("loading");
-    cancelled.current = false;
-
-    const res = await fetch("/api/public/user/p2p-connect");
-    const { connectionString, token, key, serverDid } = await res.json();
-
-    const didParam = serverDid ? `&did=${encodeURIComponent(serverDid)}` : "";
-    setQrUrl(`${WALLET_URL}/#${connectionString}&protocol=p2p&service=auth${didParam}`);
-    setPhase("waiting");
-
+  const pollAndSignIn = useCallback(async (token: string, key: string) => {
     for (let i = 0; i < 180 && !cancelled.current; i++) {
       const pollRes = await fetch(`/api/public/user/listen/${token}`);
       const { status } = await pollRes.json();
@@ -51,6 +47,34 @@ export default function LoginPage() {
     }
     if (!cancelled.current) setPhase("failure");
   }, []);
+
+  const start = useCallback(async () => {
+    setPhase("loading");
+    cancelled.current = false;
+
+    const res = await fetch("/api/public/user/p2p-connect");
+    const { connectionString, token, key, serverDid } = await res.json();
+
+    const didParam = serverDid ? `&did=${encodeURIComponent(serverDid)}` : "";
+    setQrUrl(`${WALLET_URL}/#${connectionString}&protocol=p2p&service=auth${didParam}`);
+    setPhase("waiting");
+
+    await pollAndSignIn(token, key);
+  }, [pollAndSignIn]);
+
+  const startDevLogin = useCallback(async () => {
+    setPhase("dev-connecting");
+    cancelled.current = false;
+
+    const res = await fetch("/api/public/user/connect");
+    const { token, key } = await res.json();
+
+    // Errors here surface through the poll below (the server marks the cert
+    // failed), so a rejection is intentionally swallowed rather than shown
+    // directly — same behavior as the QR flow's failure path.
+    void connectWithoutApp(key).catch(() => {});
+    await pollAndSignIn(token, key);
+  }, [pollAndSignIn]);
 
   useEffect(() => {
     start();
@@ -74,17 +98,27 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <div className="flex justify-center">
-          {qrUrl ? (
-            <div className="bg-white p-4 rounded-xl border border-neutral-200 shadow-sm">
-              <QRCodeSVG value={qrUrl} size={200} />
-            </div>
-          ) : (
-            <div className="w-52 h-52 rounded-xl border border-neutral-200 bg-background-100 flex items-center justify-center">
-              <div className="w-8 h-8 border-4 border-primary-400 border-t-transparent rounded-full animate-spin" />
-            </div>
-          )}
-        </div>
+        {phase === "dev-connecting" ? (
+          <div className="flex flex-col items-center gap-3 py-8">
+            <div className="w-8 h-8 border-4 border-primary-400 border-t-transparent rounded-full animate-spin" />
+            <p className="text-sm text-foreground-700 font-medium">Connecting via this browser…</p>
+            <p className="text-xs text-foreground-400">
+              Authenticating with a software identity stored in this browser.
+            </p>
+          </div>
+        ) : (
+          <div className="flex justify-center">
+            {qrUrl ? (
+              <div className="bg-white p-4 rounded-xl border border-neutral-200 shadow-sm">
+                <QRCodeSVG value={qrUrl} size={200} />
+              </div>
+            ) : (
+              <div className="w-52 h-52 rounded-xl border border-neutral-200 bg-background-100 flex items-center justify-center">
+                <div className="w-8 h-8 border-4 border-primary-400 border-t-transparent rounded-full animate-spin" />
+              </div>
+            )}
+          </div>
+        )}
 
         {phase === "waiting" && (
           <div className="flex items-center justify-center gap-2 text-sm text-foreground-500">
@@ -102,6 +136,15 @@ export default function LoginPage() {
               Try again
             </button>
           </div>
+        )}
+
+        {DEV_LOGIN_ENABLED && (phase === "waiting" || phase === "loading") && (
+          <button
+            onClick={startDevLogin}
+            className="text-xs text-foreground-400 hover:text-foreground-600 transition-colors underline underline-offset-2"
+          >
+            Connect without the app (dev mode)
+          </button>
         )}
       </div>
     </main>

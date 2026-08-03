@@ -584,6 +584,9 @@ importers:
       '@roamhq/wrtc':
         specifier: ^0.10.0
         version: 0.10.0
+      '@vaultys/channel-browser':
+        specifier: ^2.4.2
+        version: 2.4.2(@vaultys/id@3.0.0-beta6)
       '@vaultys/channel-peerjs':
         specifier: ^2.4.3
         version: 2.4.3(@vaultys/id@3.0.0-beta6)

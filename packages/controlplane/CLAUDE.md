@@ -42,6 +42,23 @@ design system (ported from `packages/control-plane`) are built.
   Agents, placeholder — needs the per-kind "connect" mechanism, deferred).
 - `app/page.tsx` now routes a signed-in human to `/admin` or `/portal` based on which capability
   they actually hold, instead of a bare "logged in" placeholder.
+- **Dev-mode login without a physical wallet** — `lib/browser-connect.ts` (client, trimmed from
+  `packages/control-plane`'s SOFTWARE-identity path only, no PASSKEY/HARDWARE), plus
+  `UserLoginChannel.handleRequest` and two new routes (`app/api/public/user/connect`,
+  `app/api/public/user/request/[token]`) implementing the *classic* Challenger exchange relayed
+  over plain HTTP POSTs instead of PeerJS/WebRTC — no native bindings needed at all. The login
+  page's "Connect without the app (dev mode)" link is gated on `process.env.NODE_ENV !==
+  "production"` (inlined at build time by Next.js, safe to check directly in a Client Component).
+  The browser generates a software VaultysId once and persists it in `localStorage`, so repeat
+  visits reuse the same identity. **This only ever registers/logs in as a genuinely new or
+  previously-dev-registered identity** — exactly like a real wallet, it cannot log in as an
+  unrelated existing Principal it has no key for. The useful case is a fresh, empty database:
+  there, the first dev-mode click registers the browser's identity and runs
+  `ensureBootstrapAdmin`, giving instant admin access with no wallet at all. On a database that
+  already has people in it, a *new* browser identity correctly fails to log in (verified: the
+  Challenger handshake completes successfully — proving the crypto/transport is correct — and
+  `loginHuman` correctly rejects the unknown DID) — that's not a limitation to fix, it's the same
+  security property the wallet-based flow has.
 
 - `prisma/schema.prisma` — `Setting`, `Principal` (one entity for every DID-holder, human or not —
   §4/§4.5), `User` (1:1 human-profile extension of a `kind: "human"` Principal),

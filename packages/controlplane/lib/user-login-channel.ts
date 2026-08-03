@@ -12,7 +12,7 @@
  * the first successful handshake ever also runs the bootstrap-admin check
  * (lib/certificates.ts `ensureBootstrapAdmin`).
  */
-import { Challenger, VaultysId, crypto } from "@vaultys/id";
+import { Challenger, CryptoChannel, VaultysId, crypto } from "@vaultys/id";
 import pino from "pino";
 import { AuthCertificateDAO, PrincipalDAO, UserDAO } from "@/db";
 import { ServerIdentityDAO } from "@/db/settings.dao";
@@ -185,6 +185,73 @@ export class UserLoginChannel {
     })();
 
     return connectionString;
+  }
+
+  /**
+   * Handles one round of the classic (non-WebRTC) Challenger protocol, relayed
+   * over plain HTTP POSTs instead of a PeerJS data channel. This is what
+   * powers "connect without the app" in dev mode
+   * (docs/REBUILD_ARCHITECTURE.md §1 note: dev convenience, not a redesign of
+   * the login primitive) — the browser generates its own software VaultysId
+   * and runs the SRP itself, so no physical wallet or WebRTC/native bindings
+   * are needed at all. `token` is the sha256("vaultys-{key}-server")
+   * registration hash; `data` is base64 CryptoChannel-encrypted cert bytes.
+   */
+  static async handleRequest(token: string, data: string): Promise<Uint8Array> {
+    if (!token) return new Uint8Array([0]);
+
+    const cert = await AuthCertificateDAO.findByRegistration(token);
+    if (!cert) return new Uint8Array([0]);
+
+    const mutableCert: MutableCert = { ...cert };
+    const uintkey = Buffer.from(cert.key, "hex");
+
+    const vid = await ServerIdentityDAO.getServerVaultysId();
+    const challenger = new Challenger(vid);
+
+    if (cert.data) {
+      try {
+        await challenger.init(Buffer.from(cert.data, "base64"));
+      } catch (err) {
+        logger.warn({ err }, "Challenger.init failed");
+        await AuthCertificateDAO.update(cert.id, { status: -2 });
+        return new Uint8Array([0]);
+      }
+    }
+
+    const decoded = CryptoChannel.decrypt(Buffer.from(data, "base64"), uintkey);
+
+    try {
+      await challenger.update(decoded);
+    } catch (err) {
+      logger.warn({ err }, "Challenger.update failed");
+      await AuthCertificateDAO.update(cert.id, { status: -2 });
+      return new Uint8Array([0]);
+    }
+
+    const certificate = challenger.getCertificate();
+    mutableCert.data = certificate.toString("base64");
+    mutableCert.status = challenger.state;
+
+    if (challenger.hasFailed() || !verifyProtocol(challenger)) {
+      await AuthCertificateDAO.update(cert.id, { status: -2, data: mutableCert.data });
+      return new Uint8Array([0]);
+    }
+
+    if (challenger.isComplete()) {
+      const ok = await handleSuccess(mutableCert, challenger);
+      if (!ok) {
+        await AuthCertificateDAO.update(cert.id, { status: -2, data: mutableCert.data });
+        return new Uint8Array([0]);
+      }
+    }
+
+    await AuthCertificateDAO.update(cert.id, {
+      status: mutableCert.status,
+      data: mutableCert.data,
+      metadata: mutableCert.metadata ?? undefined,
+    });
+    return CryptoChannel.encrypt(certificate, uintkey);
   }
 
   static async connecting(key: string): Promise<AuthCertificate | null> {

@@ -114,6 +114,26 @@ model PendingRegistration {
   createdAt             DateTime @default(now())
 }
 
+// ─── Auth certificates ────────────────────────────────────────────────────────
+// The raw VaultysId Challenger handshake artifact for a *human login attempt*
+// (QR-code P2P pairing) — distinct from CapabilityCertificate, which is the
+// domain-level "what is this Principal allowed to do" ledger. This is just the
+// low-level, short-lived crypto exchange state for one login/registration
+// attempt, mirroring packages/control-plane's `Certificate` model (renamed
+// here to avoid any ambiguity with CapabilityCertificate).
+
+model AuthCertificate {
+  id           String   @id
+  key          String
+  registration String?  @unique
+  connection   String?  @unique
+  register     Int      @default(1)
+  data         String   @default("")
+  status       Int      @default(-1)
+  metadata     String?
+  startedAt    DateTime @default(now())
+}
+
 // ─── Workspaces ───────────────────────────────────────────────────────────────
 
 model Workspace {

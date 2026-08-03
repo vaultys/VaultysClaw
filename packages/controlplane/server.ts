@@ -1,11 +1,13 @@
 /**
- * Entry point. Currently starts only the WebSocket server + DB bootstrap —
- * no Next.js HTTP serving yet, since no admin pages exist to serve
- * (packages/controlplane/CLAUDE.md tracks what's built vs. deferred).
- *
- * Runs on a different default port than packages/control-plane's WS server
- * (8080) so the two can run side by side during the rebuild.
+ * Custom Next.js server — combines HTTP (Next.js pages/API, including the
+ * VaultysId QR login flow) and the WebSocket connection lifecycle for
+ * Principals in one process, on separate ports, mirroring
+ * packages/control-plane's server.ts pattern.
  */
+import "./lib/webrtc-polyfill";
+import { createServer } from "node:http";
+import { parse } from "node:url";
+import next from "next";
 import { WebSocketServer } from "ws";
 import pino from "pino";
 import { ServerIdentityDAO, WorkspaceDAO } from "./db";
@@ -13,18 +15,31 @@ import { ControlPlaneWSServer } from "./lib/ws-server";
 
 const logger = pino({ name: "controlplane" });
 
-const WS_PORT = process.env.CONTROLPLANE_WS_PORT
-  ? parseInt(process.env.CONTROLPLANE_WS_PORT, 10)
-  : 8081;
+const dev = process.env.NODE_ENV !== "production";
+const PORT = process.env.CONTROLPLANE_PORT ? parseInt(process.env.CONTROLPLANE_PORT, 10) : 3001;
+const WS_PORT = process.env.CONTROLPLANE_WS_PORT ? parseInt(process.env.CONTROLPLANE_WS_PORT, 10) : 8081;
+
+const app = next({ dev, port: PORT });
+const handle = app.getRequestHandler();
 
 async function main() {
+  await app.prepare();
+
   await ServerIdentityDAO.ensureServerIdentity();
   const workspace = await WorkspaceDAO.ensureDefault();
   logger.info({ workspace: workspace.slug }, "Default workspace ready");
 
+  const httpServer = createServer((req, res) => {
+    handle(req, res, parse(req.url!, true)).catch((err) => {
+      logger.error({ err }, "Error handling HTTP request");
+      res.statusCode = 500;
+      res.end("internal server error");
+    });
+  });
+  httpServer.listen(PORT, () => logger.info({ port: PORT }, "HTTP server listening"));
+
   const wss = new WebSocketServer({ port: WS_PORT });
   new ControlPlaneWSServer(wss);
-
   logger.info({ port: WS_PORT }, "Control plane WebSocket server listening");
 }
 

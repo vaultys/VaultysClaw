@@ -60,34 +60,44 @@ export default function LoginPage() {
   }, [start]);
 
   return (
-    <main className="min-h-screen flex items-center justify-center p-6">
+    <main className="min-h-screen flex items-center justify-center p-6 bg-background">
       <div className="max-w-sm w-full text-center space-y-6">
-        <div>
-          <h1 className="text-xl font-semibold">Sign in with VaultysID</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Open your VaultysID app and scan the QR code below
-          </p>
+        <div className="flex flex-col items-center gap-3">
+          <span className="w-11 h-11 bg-primary-600 rounded-xl flex items-center justify-center shadow-lg shadow-primary-600/20 text-white text-lg font-bold">
+            V
+          </span>
+          <div>
+            <h1 className="text-xl font-semibold text-foreground">Sign in with VaultysID</h1>
+            <p className="text-sm text-foreground-500 mt-1">
+              Open your VaultysID app and scan the QR code below
+            </p>
+          </div>
         </div>
 
         <div className="flex justify-center">
           {qrUrl ? (
-            <div className="bg-white p-4 rounded-xl border">
+            <div className="bg-white p-4 rounded-xl border border-neutral-200 shadow-sm">
               <QRCodeSVG value={qrUrl} size={200} />
             </div>
           ) : (
-            <div className="w-52 h-52 rounded-xl border flex items-center justify-center">
-              <div className="w-8 h-8 border-4 border-gray-300 border-t-transparent rounded-full animate-spin" />
+            <div className="w-52 h-52 rounded-xl border border-neutral-200 bg-background-100 flex items-center justify-center">
+              <div className="w-8 h-8 border-4 border-primary-400 border-t-transparent rounded-full animate-spin" />
             </div>
           )}
         </div>
 
-        {phase === "waiting" && <p className="text-sm text-gray-500">Waiting for scan…</p>}
+        {phase === "waiting" && (
+          <div className="flex items-center justify-center gap-2 text-sm text-foreground-500">
+            <div className="w-3 h-3 border-2 border-primary-400 border-t-transparent rounded-full animate-spin" />
+            Waiting for scan…
+          </div>
+        )}
         {phase === "failure" && (
           <div className="space-y-3">
-            <p className="text-sm text-red-600">Connection failed or timed out.</p>
+            <p className="text-sm text-danger-600">Connection failed or timed out.</p>
             <button
               onClick={start}
-              className="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm"
+              className="px-4 py-2 bg-primary-600 hover:bg-primary-500 text-white rounded-lg text-sm font-medium transition-colors"
             >
               Try again
             </button>

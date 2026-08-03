@@ -1,4 +1,5 @@
 import { PrincipalDAO, PendingRegistrationDAO } from "@/db";
+import PageChrome from "@/components/layout/PageChrome";
 import { approveRegistrationAction, denyRegistrationAction } from "./actions";
 
 /** Capabilities an agent-kind Principal can be granted — admin_console_access/portal_access are human-only (§4.5). */
@@ -14,6 +15,23 @@ const AGENT_CAPABILITIES = [
   "knowledge_search",
 ] as const;
 
+const KIND_BADGE: Record<string, string> = {
+  openclaw: "bg-primary-100 text-primary-700 border-primary-200",
+  mcp: "bg-secondary-100 text-secondary-700 border-secondary-200",
+  sensor: "bg-neutral-100 text-foreground-600 border-neutral-200",
+  human: "bg-success-100 text-success-700 border-success-200",
+};
+
+function KindBadge({ kind }: { kind: string }) {
+  return (
+    <span
+      className={`text-xs px-2 py-0.5 rounded-full border ${KIND_BADGE[kind] ?? "bg-neutral-100 text-foreground-600 border-neutral-200"}`}
+    >
+      {kind}
+    </span>
+  );
+}
+
 /**
  * Principals (docs/PAGE_DESIGN.md §1.3) — unified list + the onboarding
  * approval flow (docs/REBUILD_ARCHITECTURE.md §4.2): approving a pending
@@ -27,47 +45,52 @@ export default async function PrincipalsPage() {
   ]);
 
   return (
-    <div className="space-y-10">
+    <div className="p-6 space-y-10">
+      <PageChrome
+        toolbar={{
+          title: "Principals",
+          description: `${principals.length} registered · ${pending.length} pending approval`,
+        }}
+        breadcrumbs={[{ label: "Principals" }]}
+      />
+
       <section>
-        <h2 className="text-sm font-semibold text-gray-700 mb-3">
+        <h2 className="text-sm font-semibold text-foreground-700 mb-3">
           Pending approval ({pending.length})
         </h2>
-        {pending.length === 0 && <p className="text-sm text-gray-400">Nothing pending.</p>}
+        {pending.length === 0 && <p className="text-sm text-foreground-400">Nothing pending.</p>}
         <div className="space-y-3">
           {pending.map((reg) => (
             <form
               key={reg.id}
-              className="border rounded-lg bg-white p-4 flex flex-col gap-3"
+              className="border border-neutral-200/60 rounded-xl bg-background-100 p-4 flex flex-col gap-3"
               action={approveRegistrationAction}
             >
               <input type="hidden" name="registrationId" value={reg.id} />
-              <div className="flex justify-between items-start">
-                <div>
-                  <div className="font-medium">{reg.name}</div>
-                  <div className="text-xs text-gray-500">
-                    {reg.kind} · {reg.did}
-                  </div>
-                </div>
+              <div className="flex items-center gap-2">
+                <div className="font-medium text-foreground">{reg.name}</div>
+                <KindBadge kind={reg.kind} />
               </div>
-              <div className="flex flex-wrap gap-3 text-sm">
+              <div className="text-xs text-foreground-500 font-mono">{reg.did}</div>
+              <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm">
                 {AGENT_CAPABILITIES.map((cap) => (
-                  <label key={cap} className="flex items-center gap-1">
-                    <input type="checkbox" name="capabilities" value={cap} />
+                  <label key={cap} className="flex items-center gap-1.5 text-foreground-700">
+                    <input type="checkbox" name="capabilities" value={cap} className="accent-primary-600" />
                     {cap}
                   </label>
                 ))}
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 pt-1">
                 <button
                   type="submit"
-                  className="px-3 py-1.5 bg-gray-900 text-white text-sm rounded-lg"
+                  className="px-3 py-1.5 bg-primary-600 hover:bg-primary-500 text-white text-sm font-medium rounded-lg transition-colors"
                 >
                   Approve
                 </button>
                 <button
                   type="submit"
                   formAction={denyRegistrationAction}
-                  className="px-3 py-1.5 border text-sm rounded-lg"
+                  className="px-3 py-1.5 border border-neutral-200 text-foreground text-sm font-medium rounded-lg hover:bg-background-200 transition-colors"
                 >
                   Deny
                 </button>
@@ -78,31 +101,35 @@ export default async function PrincipalsPage() {
       </section>
 
       <section>
-        <h2 className="text-sm font-semibold text-gray-700 mb-3">
+        <h2 className="text-sm font-semibold text-foreground-700 mb-3">
           Principals ({principals.length})
         </h2>
-        <table className="w-full text-sm bg-white border rounded-lg overflow-hidden">
-          <thead className="bg-gray-50 text-left text-xs text-gray-500 uppercase">
+        <div className="overflow-x-auto border border-neutral-200/60 rounded-xl">
+        <table className="w-full text-sm bg-background-100">
+          <thead className="bg-background-200/40 text-left text-xs text-foreground-500 uppercase">
             <tr>
-              <th className="px-4 py-2">Name</th>
-              <th className="px-4 py-2">Kind</th>
-              <th className="px-4 py-2">DID</th>
-              <th className="px-4 py-2">Registered</th>
+              <th className="px-4 py-2 font-medium">Name</th>
+              <th className="px-4 py-2 font-medium">Kind</th>
+              <th className="px-4 py-2 font-medium">DID</th>
+              <th className="px-4 py-2 font-medium">Registered</th>
             </tr>
           </thead>
           <tbody>
             {principals.map((p) => (
-              <tr key={p.did} className="border-t">
-                <td className="px-4 py-2">{p.name}</td>
-                <td className="px-4 py-2">{p.kind}</td>
-                <td className="px-4 py-2 text-xs text-gray-500">{p.did}</td>
-                <td className="px-4 py-2 text-xs text-gray-500">
+              <tr key={p.did} className="border-t border-neutral-200/60">
+                <td className="px-4 py-2.5 text-foreground">{p.name}</td>
+                <td className="px-4 py-2.5">
+                  <KindBadge kind={p.kind} />
+                </td>
+                <td className="px-4 py-2.5 text-xs text-foreground-500 font-mono">{p.did}</td>
+                <td className="px-4 py-2.5 text-xs text-foreground-500">
                   {p.registeredAt.toISOString()}
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
+        </div>
       </section>
     </div>
   );

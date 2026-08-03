@@ -95,6 +95,7 @@ export async function issueAdminGrant(input: {
   agentDid: string;
   workspaceId?: string | null;
   capabilities: AgentCapability[];
+  scope?: CertScope | null;
   expiresAt: number | null;
   issuedBy: string;
 }): Promise<CapabilityCertificate> {
@@ -107,6 +108,7 @@ export async function issueAdminGrant(input: {
     agentDid: input.agentDid,
     workspaceId: input.workspaceId,
     capabilities: input.capabilities,
+    scope: input.scope,
     requestCert,
     expiresAt: input.expiresAt,
     issuedBy: input.issuedBy,

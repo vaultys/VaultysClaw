@@ -1,8 +1,8 @@
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { authOptions } from "@/lib/auth-config";
 import { hasCapability } from "@/lib/access-control";
+import AppShell from "@/components/layout/AppShell";
 
 /**
  * The admin console's capability gate (docs/PAGE_DESIGN.md §0): a route
@@ -21,10 +21,10 @@ export default async function AdminLayout({
   const authorized = await hasCapability(session.user.did, "admin_console_access");
   if (!authorized) {
     return (
-      <main className="min-h-screen flex items-center justify-center p-6">
+      <main className="min-h-screen flex items-center justify-center p-6 bg-background">
         <div className="max-w-md text-center space-y-2">
-          <h1 className="text-lg font-semibold">Access denied</h1>
-          <p className="text-sm text-gray-500">
+          <h1 className="text-lg font-semibold text-foreground">Access denied</h1>
+          <p className="text-sm text-foreground-500">
             Your account does not hold an <code>admin_console_access</code> certificate.
           </p>
         </div>
@@ -32,20 +32,5 @@ export default async function AdminLayout({
     );
   }
 
-  return (
-    <div className="min-h-screen">
-      <header className="border-b bg-white px-6 py-3 flex items-center gap-6">
-        <span className="font-semibold">VaultysClaw Admin</span>
-        <nav className="flex gap-4 text-sm text-gray-600">
-          <Link href="/admin" className="hover:text-gray-900">
-            Overview
-          </Link>
-          <Link href="/admin/principals" className="hover:text-gray-900">
-            Principals
-          </Link>
-        </nav>
-      </header>
-      <main className="p-6">{children}</main>
-    </div>
-  );
+  return <AppShell>{children}</AppShell>;
 }

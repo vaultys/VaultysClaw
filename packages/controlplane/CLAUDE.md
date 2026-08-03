@@ -8,8 +8,40 @@ production traffic here until the cutover is deliberate.
 
 ## Status
 
-Backend core, the WebSocket connection lifecycle, VaultysId QR login, and the first admin pages
-(Overview + Principals, including onboarding approval) are built.
+Backend core, the WebSocket connection lifecycle, VaultysId QR login, the full admin navigation
+shape (real + placeholder pages), a real Certificates page, the Access Portal shell, and the
+design system (ported from `packages/control-plane`) are built.
+
+- **Design system**: `app/theme.css` (the adaptive CSS-variable palette, light/dark via `.dark`),
+  `tailwind.config.js` (semantic color tokens — `bg-primary-600`, `text-foreground-500`, etc.,
+  never raw Tailwind grays), `components/ThemeProvider.tsx`, and the layout chrome —
+  `components/layout/{Sidebar,TopBar,AppShell,Toolbar,ToolbarContext,ToolbarSearch,ToolbarSteps,
+  BreadcrumbContext}.tsx` — copied verbatim where they were already framework-only (Toolbar*,
+  BreadcrumbContext, ThemeProvider, theme.css), rewritten trimmed where they were coupled to
+  features this rebuild cuts (Sidebar: 3→7 flat nav items instead of the rail+panel two-tier
+  design; TopBar: no notifications bell, no owner/admin role badge, no ts-rest profile fetch —
+  `session.user.name` is already available).
+- **`components/layout/PageChrome.tsx`** (new, no original equivalent) — bridges a Server
+  Component page's data into the `useToolbar`/`useBreadcrumbs` client hooks. Necessary because
+  these pages fetch directly via DAOs in an async Server Component, which can't call client hooks
+  itself. Toolbar button actions are described as `{ href }` (serializable), not `{ onClick }` — a
+  plain closure can't cross the Server→Client Component boundary, only a Server Action or
+  serializable data can; `PageChrome` converts `href` into a `router.push` client-side.
+- **Full nav shape** (`components/layout/Sidebar.tsx`): Overview, Principals, Certificates —
+  fully built — plus Audit Log, Workspaces, Integrations, Settings as real routes rendering
+  `components/layout/ComingSoon.tsx` with a description of what's planned, so the product reads as
+  complete rather than missing pages.
+- **`app/admin/certificates/`** — the real Certificates page (docs/PAGE_DESIGN.md §1.5): list with
+  status badges, scope, and the "Never" expiry rendered in warning-amber (never neutral, per the
+  "loud, not silent" rule); an issuance form (`new/page.tsx`) with the explicit no-expiry
+  confirmation checkbox; inline revoke (reason required) via Server Actions in `actions.ts`.
+  `lib/certificates.ts`'s `issueAdminGrant` gained an optional `scope` param to support this.
+- **`app/portal/`** — the Access Portal shell (docs/PAGE_DESIGN.md §2), gated on `portal_access`
+  instead of `admin_console_access`: `page.tsx` (My Certificates, real data — the one portal page
+  built for real, since it's a direct `CapabilityCertificateDAO` query) and `agents/page.tsx` (My
+  Agents, placeholder — needs the per-kind "connect" mechanism, deferred).
+- `app/page.tsx` now routes a signed-in human to `/admin` or `/portal` based on which capability
+  they actually hold, instead of a bare "logged in" placeholder.
 
 - `prisma/schema.prisma` — `Setting`, `Principal` (one entity for every DID-holder, human or not —
   §4/§4.5), `User` (1:1 human-profile extension of a `kind: "human"` Principal),
@@ -90,12 +122,21 @@ repeatable tests (see deferred).
   the `Principal`, issues a real certificate (1-year expiry, not indefinite — the "no expiry"
   exception stays reserved for bootstrap), and the Principals page reflects it on reload (pending
   count → 0, new Principal listed).
+- **Design system + full nav, end to end in a real browser** (not curl — Server Actions and
+  client-side navigation need a real DOM): the admin console renders with the ported theme/sidebar/
+  topbar; issuing a certificate through the real form (Principal select, capability checkboxes,
+  scope, expiry preset) creates a real cert and redirects back to the list; revoking it through the
+  real button flips its status, drops the active count, and removes its own revoke form from the
+  row; granting a human `portal_access` through that same flow immediately unlocks `/portal` for
+  them, and their **My Certificates** page correctly shows both that grant and their
+  `system:bootstrap`-issued `admin_console_access` grant with correct `issuedBy` provenance.
 - **Caveat, not verified**: the actual PeerJS/WebRTC wire exchange with a real VaultysId wallet
   app (no physical wallet in this environment — the Challenger crypto itself is already proven via
-  the WS-agent path), and the Server Actions' framework-level wiring (`approveRegistrationAction`/
-  `denyRegistrationAction` — Next.js's own `<form action={...}>` mechanism, not curl-able; the
-  business logic they call, `approvePendingRegistration`/`denyPendingRegistration`, is verified
-  directly).
+  the WS-agent path). One incidental observation from testing against the public PeerJS relay: an
+  unidentified external peer attempted a connection mid-session (logged as a FIDO2/WebAuthn parse
+  error) — a reminder that a public broker means the listening peer ID is reachable by anyone who
+  guesses or observes it, not just the intended wallet; worth keeping in mind if/when this moves
+  toward a real deployment.
 
 ## Explicitly deferred (next slices, not started)
 
@@ -105,9 +146,12 @@ repeatable tests (see deferred).
   admin-facing way to approve/deny the request.
 - **WebRTC/PeerJS transport for agents** (trust doc §4.4) — `AgentSender` is shaped for it; not
   implemented. (The login flow's own PeerJS/WebRTC usage is separate and already built.)
-- The rest of `docs/PAGE_DESIGN.md`: Certificates page (issue/revoke/inspect scope, status-check
-  history), Audit Log, Workspaces, Integrations, Settings, and the Access Portal. `/` is a bare
-  placeholder, not the real landing page.
+- Everything the placeholder pages describe: Audit Log (unified signed IntentLog/ActivityLog),
+  Workspaces (principals/budgets/model access, workspace-scoped admin via `CertScope`),
+  Integrations (OIDC/Entra, API Keys, Webhooks, Notification Channels, Model Registry), Settings
+  (server identity display, org-wide trust policy). Also: the Certificates page's per-cert detail
+  drawer (signature chain, status-check history) from `docs/PAGE_DESIGN.md` §1.5 isn't built —
+  today's page is list + issue + revoke only.
 - A human's `name`/`email` profile — a freshly registered human gets `name: "Unnamed"` and no
   email; there's no profile-completion step yet.
 - Notification Channels/Apprise, Webhooks, Model Registry, OIDC/Entra — added to the schema and

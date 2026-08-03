@@ -1,0 +1,36 @@
+{
+  "name": "@vaultysclaw/trust",
+  "version": "0.0.1",
+  "description": "VaultysClaw trust ledger engine — ABAC/multi-certificate permission resolution over the CapabilityCertificate ledger",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "tsx": "./src/index.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc && node ../../scripts/fix-esm-extensions.mjs dist",
+    "type-check": "tsc --noEmit",
+    "test": "vitest run",
+    "lint": "eslint src --ext .ts"
+  },
+  "dependencies": {
+    "@vaultysclaw/policy": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.9"
+  }
+}

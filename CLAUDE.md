@@ -12,7 +12,9 @@ VaultysClaw is a decentralized AI agent orchestration platform. A central **cont
 |---|---|---|
 | `packages/shared` | Types, security utils, channel protocol definitions | [→](packages/shared/CLAUDE.md) |
 | `packages/policy` | Policy engine: capability/resource-limit types, cert signing/verification, runtime enforcement gates | [→](packages/policy/CLAUDE.md) |
+| `packages/trust` | Trust ledger engine: ABAC/multi-certificate permission resolution over the `CapabilityCertificate` ledger | [→](packages/trust/CLAUDE.md) |
 | `packages/control-plane` | Next.js App Router dashboard + WebSocket server (port 3000 / WS 8080) | [→](packages/control-plane/CLAUDE.md) |
+| `packages/controlplane` | **In progress** — rebuilt control plane per `docs/REBUILD_ARCHITECTURE.md`; lives alongside `packages/control-plane`, not a replacement yet | [→](packages/controlplane/CLAUDE.md) |
 | `packages/control-plane/app/api` | REST API routes (ts-rest pattern) | [→](packages/control-plane/app/api/CLAUDE.md) |
 | `packages/agent-controller` | Agent runtime CLI, tools, skills, memory | [→](packages/agent-controller/CLAUDE.md) |
 | `packages/mcp-gateway` | MCP server exposing VaultysClaw agents as tools | [→](packages/mcp-gateway/CLAUDE.md) |

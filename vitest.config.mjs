@@ -17,6 +17,7 @@ export default defineConfig({
       // to their TS source so tests run from source (CI parity with local).
       "@vaultysclaw/shared": resolve(__dirname, "packages/shared/src/index.ts"),
       "@vaultysclaw/policy": resolve(__dirname, "packages/policy/src/index.ts"),
+      "@vaultysclaw/trust": resolve(__dirname, "packages/trust/src/index.ts"),
       "@vaultysclaw/agent-runtime": resolve(
         __dirname,
         "packages/agent-runtime/src/index.ts"

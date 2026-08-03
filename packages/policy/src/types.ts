@@ -8,6 +8,14 @@
 
 /**
  * Agent capability/permission grant.
+ *
+ * `admin_console_access` and `portal_access` are not agent behaviors — they're
+ * *interface* access rights for human Principals (docs/REBUILD_ARCHITECTURE.md
+ * §4.5: "access to any interface is itself just a capability, not a parallel
+ * RBAC layer"). They live in the same enum deliberately, so the exact same
+ * certificate/ledger/`resolvePermission` machinery gates both "can this agent
+ * read this file" and "can this human open the admin console" — no separate
+ * role system to keep in sync.
  */
 export type AgentCapability =
   | "file_access"
@@ -18,7 +26,9 @@ export type AgentCapability =
   | "code_execution"
   | "system_command"
   | "agent_communication"
-  | "knowledge_search";
+  | "knowledge_search"
+  | "admin_console_access"
+  | "portal_access";
 
 /**
  * Runtime constraints embedded in the agent certificate alongside capabilities.
@@ -52,4 +62,26 @@ export interface PolicyEntry {
   expiresAt: string | null;
   createdBy: string | null;
   createdAt: string;
+}
+
+/**
+ * Attribute-based scoping for a capability certificate
+ * (docs/CERTIFICATE_WEB_OF_TRUST.md §3.6). Embedded in the signed
+ * {@link CapabilityGrantBody} payload, so it lives here rather than in
+ * `@vaultysclaw/trust` — it's part of the wire format, not the decision logic.
+ * `@vaultysclaw/trust` imports this type rather than redeclaring it.
+ *
+ * Omitting every field makes a certificate "standing" — it authorizes its
+ * capabilities against any resource. Deliberately a small structured shape,
+ * not an expression language.
+ */
+export interface CertScope {
+  /** Exact resource identifier this grant applies to, e.g. "file:///reports/q3.pdf". */
+  resource?: string;
+  /** Glob pattern (single trailing "*" wildcard) for the resource. */
+  resourcePattern?: string;
+  /** Maximum number of times this certificate may authorize an action. */
+  maxUses?: number;
+  /** Free-text audit tag, e.g. "quarterly-report-export". */
+  purpose?: string;
 }

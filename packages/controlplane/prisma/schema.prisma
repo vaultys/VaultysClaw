@@ -1,0 +1,130 @@
+// VaultysClaw rebuilt control plane — schema.
+//
+// Deliberately minimal: only the models the current build slice actually uses.
+// See docs/REBUILD_ARCHITECTURE.md for the full target model list (Notification
+// Channels, Webhooks, Model Registry, etc.) — those get added to this schema as
+// each feature is actually built, not speculatively ahead of time.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Settings ──────────────────────────────────────────────────────────────
+// Key/value store for control-plane-level config, notably `serverSecret` — the
+// VaultysId secret that makes the control plane itself a Principal and the
+// root issuer for the whole certificate ledger (docs/REBUILD_ARCHITECTURE.md
+// §4.5).
+
+model Setting {
+  key   String @id
+  value String
+}
+
+// ─── Principals ──────────────────────────────────────────────────────────────
+// One entity for every DID-holder, human or not (docs/REBUILD_ARCHITECTURE.md
+// §4, §4.5: "Humans are Principals too... not only operators who use the admin
+// console"). Replaces the old Agent/SensorDevice split *and* keeps humans out
+// of a separate identity table — `kind: "human"` is just another kind, so a
+// human's certificates reference the same `Principal.did` an agent's do. A
+// human's access — including whether they can open the admin console or the
+// Access Portal at all — is never a role on this row, only whatever
+// CapabilityCertificate rows name their `did` as the subject (§4.5).
+
+model Principal {
+  did          String   @id
+  name         String
+  kind         String
+  workspaceId  String?
+  kindConfig   Json     @default("{}")
+  registeredAt DateTime @default(now())
+  lastSeen     DateTime @default(now())
+
+  workspace    Workspace?               @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  certificates CapabilityCertificate[]
+  humanProfile User?
+
+  @@index([kind])
+  @@index([workspaceId])
+}
+
+// ─── Human profile ────────────────────────────────────────────────────────────
+// 1:1 extension of a `kind: "human"` Principal — profile fields that don't
+// apply to any other kind (email for notifications, OIDC/Entra linking later).
+// Deliberately not the identity/permission table; that's Principal + the cert
+// ledger.
+
+model User {
+  did       String   @id
+  email     String?  @unique
+  createdAt DateTime @default(now())
+
+  principal Principal @relation(fields: [did], references: [did], onDelete: Cascade)
+}
+
+// ─── Capability certificate ledger ──────────────────────────────────────────
+// The single source of truth for what any Principal — agent or human — is
+// currently allowed to do (docs/CERTIFICATE_WEB_OF_TRUST.md §3.3). Append-only:
+// rows are never deleted or mutated after `active`, only flipped to
+// revoked/superseded/expired.
+
+model CapabilityCertificate {
+  id                 String    @id
+  agentDid           String
+  workspaceId        String?
+  capabilities       Json      @default("[]")
+  resourceLimits     Json?
+  scope              Json?
+  certificate        String
+  requestCertificate String
+  status             String    @default("active")
+  // DID of the issuer, or "system:bootstrap" for the first-admin exception (§4.5).
+  issuedBy           String?
+  issuedAt           DateTime  @default(now())
+  expiresAt          DateTime?
+  revokedAt          DateTime?
+  revokedBy          String?
+  revokedReason      String?
+  supersededByCertId String?
+
+  agent     Principal  @relation(fields: [agentDid], references: [did], onDelete: Cascade)
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+
+  @@index([agentDid, status])
+  @@index([expiresAt])
+}
+
+// ─── Pending registrations ───────────────────────────────────────────────────
+// One onboarding flow for every kind (docs/REBUILD_ARCHITECTURE.md §4.2) —
+// `kind` is now open-ended, not a two-value discriminator.
+
+model PendingRegistration {
+  id                    String   @id
+  sessionId             String
+  name                  String
+  kind                  String
+  status                String   @default("pending")
+  requestedCapabilities Json     @default("[]")
+  assignedCapabilities  Json     @default("[]")
+  initiatedByUserId     String?
+  targetWorkspaceId     String?
+  createdAt             DateTime @default(now())
+}
+
+// ─── Workspaces ───────────────────────────────────────────────────────────────
+
+model Workspace {
+  id          String   @id
+  name        String
+  slug        String   @unique
+  description String?
+  color       String   @default("#6366f1")
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  principals   Principal[]
+  certificates CapabilityCertificate[]
+}

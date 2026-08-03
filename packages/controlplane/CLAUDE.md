@@ -59,14 +59,25 @@ design system (ported from `packages/control-plane`) are built.
   Challenger handshake completes successfully — proving the crypto/transport is correct — and
   `loginHuman` correctly rejects the unknown DID) — that's not a limitation to fix, it's the same
   security property the wallet-based flow has.
+- **`app/admin/certificates/[id]/page.tsx`** — the certificate detail page (docs/PAGE_DESIGN.md
+  §1.5's signature-chain view): full raw + decoded payload for both the grant and the embedded
+  request, using `packages/policy`'s new `decodeCertUnsafe` (decode without verifying — display
+  only), plus independent re-verification via `lib/cert-inspect.ts`'s `inspectCertificate`. Shows
+  which key actually verifies the embedded request — the concrete, inspectable version of the
+  "an inspector of the ledger can see both halves were signed by the same key" audit signal from
+  the trust doc. Requires `Principal.publicKey` (new column — see below) to verify an
+  agent-signed request; falls back to trying the control plane's own key (covers admin-issued/
+  bootstrap grants) and shows "could not verify" gracefully for older rows with no key on record.
 
 - `prisma/schema.prisma` — `Setting`, `Principal` (one entity for every DID-holder, human or not —
-  §4/§4.5), `User` (1:1 human-profile extension of a `kind: "human"` Principal),
+  §4/§4.5; now also carries `publicKey`, the base64 raw key captured at registration from the
+  completed Challenger handshake, enabling independent re-verification later with no live
+  connection), `User` (1:1 human-profile extension of a `kind: "human"` Principal),
   `CapabilityCertificate` (the ledger, nullable `expiresAt`), `PendingRegistration` (carries the
-  Principal's `did`, captured during the WS handshake), `AuthCertificate` (the raw VaultysId
-  handshake artifact for a *login* attempt — distinct from `CapabilityCertificate`), `Workspace`.
-  Deliberately minimal — models get added here as each subsequent feature is actually built, not
-  ahead of time.
+  Principal's `did` and `publicKey`, captured during the WS handshake, carried onto `Principal` at
+  approval), `AuthCertificate` (the raw VaultysId handshake artifact for a *login* attempt —
+  distinct from `CapabilityCertificate`), `Workspace`. Deliberately minimal — models get added here
+  as each subsequent feature is actually built, not ahead of time.
 - `db/` — DAOs over the schema above (`client.ts` uses the same `@prisma/adapter-pg` + `pg.Pool`
   pattern as `packages/control-plane`).
 - `lib/vault.ts` — reused unchanged (VaultysId signcrypt-to-self), per the "kept" list in the

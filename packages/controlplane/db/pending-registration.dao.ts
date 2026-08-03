@@ -5,6 +5,7 @@ export class PendingRegistrationDAO {
   static async create(input: {
     id: string;
     did: string;
+    publicKey?: string | null;
     sessionId: string;
     name: string;
     kind: string;
@@ -14,6 +15,7 @@ export class PendingRegistrationDAO {
       data: {
         id: input.id,
         did: input.did,
+        publicKey: input.publicKey ?? null,
         sessionId: input.sessionId,
         name: input.name,
         kind: input.kind,

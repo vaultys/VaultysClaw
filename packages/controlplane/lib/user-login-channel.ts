@@ -39,7 +39,8 @@ type MutableCert = {
 
 async function registerHuman(contact: VaultysId): Promise<boolean> {
   const did = contact.toVersion(1).did;
-  await UserDAO.ensureExists(did, "Unnamed");
+  const publicKey = Buffer.from(contact.id).toString("base64");
+  await UserDAO.ensureExists(did, "Unnamed", null, publicKey);
   await ensureBootstrapAdmin(did);
   logger.info({ did }, "New human Principal registered via QR login");
   return true;

@@ -66,9 +66,12 @@ export default async function CertificatesPage() {
             return (
               <tr key={cert.id} className="border-t border-neutral-200/60 align-top">
                 <td className="px-4 py-2.5">
-                  <div className="text-foreground font-medium">
+                  <Link
+                    href={`/admin/certificates/${cert.id}`}
+                    className="text-foreground font-medium hover:text-primary-600 hover:underline"
+                  >
                     {principal?.name ?? cert.agentDid}
-                  </div>
+                  </Link>
                   <div className="text-xs text-foreground-500 font-mono">{cert.agentDid}</div>
                 </td>
                 <td className="px-4 py-2.5 text-foreground-700">

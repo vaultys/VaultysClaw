@@ -52,3 +52,20 @@ export function openCert(vid: VaultysId, token: string): unknown | null {
     return null;
   }
 }
+
+/**
+ * Decode a cert token's payload WITHOUT verifying its signature — for
+ * display/audit/inspection UIs only (e.g. a certificate detail page showing
+ * "here's what this token claims"). Never use this to make an authorization
+ * decision; use {@link openCert} (or a typed `verify*Cert` wrapper) for that.
+ * Returns `null` on any malformed token.
+ */
+export function decodeCertUnsafe(token: string): unknown | null {
+  try {
+    const parts = unpackCert(token);
+    if (!parts) return null;
+    return msgpackDecode(parts.body);
+  } catch {
+    return null;
+  }
+}

@@ -13,6 +13,7 @@ import {
   unpackCert,
   signCert,
   openCert,
+  decodeCertUnsafe,
   signIntentCert,
   verifyIntentCert,
   signDelegationCert,
@@ -86,6 +87,30 @@ describe("signCert / openCert", () => {
 
   it("returns null on malformed input", () => {
     expect(openCert(verifier, "not-base64-cert")).toBeNull();
+  });
+});
+
+describe("decodeCertUnsafe", () => {
+  it("decodes a payload without needing any key at all", async () => {
+    const payload = { hello: "world", n: 42 };
+    const token = await signCert(signer, payload);
+    expect(decodeCertUnsafe(token)).toEqual(payload);
+  });
+
+  it("still decodes a tampered body — it does not check the signature", async () => {
+    const token = await signCert(signer, { a: 1 });
+    const parts = unpackCert(token)!;
+    const badBody = Buf.from(parts.body);
+    badBody[badBody.length - 1] ^= 0xff;
+    const tampered = packCert(badBody, parts.signature);
+    // Tampering the last byte of a msgpack-encoded single-field object corrupts
+    // the value, not the structure, so this still decodes — deliberately: the
+    // whole point is "show me what this claims," not "prove this is valid."
+    expect(decodeCertUnsafe(tampered)).not.toBeNull();
+  });
+
+  it("returns null on malformed input", () => {
+    expect(decodeCertUnsafe("not-base64-cert")).toBeNull();
   });
 });
 

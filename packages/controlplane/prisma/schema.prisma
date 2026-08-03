@@ -38,6 +38,11 @@ model Principal {
   did          String   @id
   name         String
   kind         String
+  // Base64 raw public key, captured at registration from the completed
+  // Challenger handshake — enables independently re-verifying any certificate
+  // this Principal co-signed later (e.g. from the certificate detail page),
+  // without a live connection. Nullable only for rows that predate this field.
+  publicKey    String?
   workspaceId  String?
   kindConfig   Json     @default("{}")
   registeredAt DateTime @default(now())
@@ -104,6 +109,9 @@ model CapabilityCertificate {
 model PendingRegistration {
   id                    String   @id
   did                   String
+  // Base64 raw public key, captured from the Challenger handshake — carried
+  // into Principal.publicKey on approval (lib/registrations.ts).
+  publicKey             String?
   sessionId             String
   name                  String
   kind                  String

@@ -235,6 +235,7 @@ export class ControlPlaneWSServer {
         await PendingRegistrationDAO.create({
           id: registrationId,
           did,
+          publicKey: Buf.from(contact.id).toString("base64"),
           sessionId: pending.sessionId,
           name: pending.name,
           kind: pending.kind,

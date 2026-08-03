@@ -6,12 +6,14 @@ export class PrincipalDAO {
     did: string;
     name: string;
     kind: string;
+    publicKey?: string | null;
     workspaceId?: string | null;
     kindConfig?: unknown;
   }): Promise<Principal> {
     const data = {
       name: principal.name,
       kind: principal.kind,
+      publicKey: principal.publicKey ?? undefined,
       workspaceId: principal.workspaceId ?? null,
       kindConfig: (principal.kindConfig ?? {}) as never,
       lastSeen: new Date(),

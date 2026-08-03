@@ -17,7 +17,12 @@ export class UserDAO {
   }
 
   /** Creates the Principal + User rows for a human's first login, if they don't exist yet. */
-  static async ensureExists(did: string, name: string, email?: string | null): Promise<Principal> {
+  static async ensureExists(
+    did: string,
+    name: string,
+    email?: string | null,
+    publicKey?: string | null
+  ): Promise<Principal> {
     const existing = await prisma.principal.findUnique({ where: { did } });
     if (existing) {
       return prisma.principal.update({ where: { did }, data: { lastSeen: new Date() } });
@@ -27,6 +32,7 @@ export class UserDAO {
         did,
         name,
         kind: "human",
+        publicKey: publicKey ?? null,
         humanProfile: { create: { email: email ?? null } },
       },
     });

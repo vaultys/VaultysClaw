@@ -12,9 +12,19 @@ and `@msgpack/msgpack`. Import via `@vaultysclaw/policy`.
 - **`src/certs/`** — the single implementation of the signed-cert wire format
   `base64( 4-byte-LE len | msgpack(body) | signature )`:
   - `codec.ts` — `packCert` / `unpackCert`
-  - `sign.ts` — generic `signCert(vid, payload)` / `openCert(vid, token)`
+  - `sign.ts` — generic `signCert(vid, payload)` / `openCert(vid, token)`, plus
+    `decodeCertUnsafe(token)` — decodes a payload **without** verifying its
+    signature, for display/audit UIs only (e.g. a certificate detail page).
+    Never use it to make an authorization decision.
   - `intent.ts`, `delegation.ts`, `peer-grant.ts` — typed wrappers
     (`sign*Cert` / `verify*Cert`)
+  - `capability-grant.ts` — the co-signed request/grant pair
+    (docs/CERTIFICATE_WEB_OF_TRUST.md §3.2): `signCapabilityRequestCert` (agent
+    or system self-signs the "ask"), `signCapabilityGrantCert` (control plane
+    signs the grant, embedding the request verbatim as the co-signature).
+  - `cert-status.ts` — the OCSP-style status-check protocol (trust doc §4.1):
+    `signCertStatusRequestCert`/`signCertStatusResponseCert`, the latter
+    supporting a `maxAgeMs` staple-TTL check on verification.
 - **`src/enforcement/`** — `PolicyEnforcer`: runtime gates (capability, policy
   expiry, daily token budget, hourly request rate) plus `resolveEffectiveAction`.
   Clock and token-usage source are injected so it unit-tests without an agent.
@@ -49,5 +59,7 @@ pnpm --filter @vaultysclaw/policy type-check
 ```
 
 `__tests__/enforcer.test.ts` covers the gates against the real `PolicyEnforcer`;
-`__tests__/certs.test.ts` covers the cert round-trip against a generated
-`VaultysId`. The repo-root `pnpm test` also picks these up.
+`__tests__/certs.test.ts` covers the codec/intent/delegation/peer-grant cert
+round-trips plus `decodeCertUnsafe`; `__tests__/capability-certs.test.ts` covers
+the capability request/grant co-signature and the cert-status protocol. The
+repo-root `pnpm test` also picks these up.

@@ -23,6 +23,7 @@ export async function approvePendingRegistration(
     did: registration.did,
     name: registration.name,
     kind: registration.kind,
+    publicKey: registration.publicKey,
     workspaceId: registration.targetWorkspaceId,
   });
 

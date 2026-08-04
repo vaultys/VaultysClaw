@@ -29,9 +29,15 @@ export async function approvePendingRegistration(
     workspaceId: registration.targetWorkspaceId,
   });
 
+  // Sensors have no capability concept and the sensor binary doesn't speak the
+  // service:"certificate" sub-protocol at all — granting one anyway would start an
+  // interactive exchange the sensor silently ignores, leaving the registration stuck in
+  // "approved, awaiting delivery" forever (ws-server.ts never gets a reply to complete it).
+  const grantedCapabilities = registration.kind === "sensor" ? [] : capabilities;
+
   await PendingRegistrationDAO.approve(
     registrationId,
-    capabilities,
+    grantedCapabilities,
     approverDid,
     registration.targetWorkspaceId
   );

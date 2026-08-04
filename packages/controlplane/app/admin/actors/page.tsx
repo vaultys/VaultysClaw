@@ -77,24 +77,35 @@ export default async function ActorsPage() {
                 <KindBadge kind={reg.kind} />
               </div>
               <div className="text-xs text-foreground-500 font-mono">{reg.did}</div>
-              <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm">
-                {AGENT_CAPABILITIES.map((cap) => (
-                  <label key={cap} className="flex items-center gap-1.5 text-foreground-700">
-                    <input
-                      type="checkbox"
-                      name="capabilities"
-                      value={cap}
-                      defaultChecked={(reg.requestedCapabilities as string[]).includes(cap)}
-                      className="accent-primary-600"
-                    />
-                    {cap}
-                  </label>
-                ))}
-              </div>
-              {(reg.requestedCapabilities as string[]).length === 0 && (
+              {reg.kind === "sensor" ? (
                 <p className="text-xs text-foreground-400">
-                  No capabilities requested yet — approving now grants none unless checked below.
+                  Sensors have no capability concept — approving just connects it, no certificate
+                  exchange follows. (Checking a capability below for a sensor would leave this stuck
+                  in "awaiting delivery" forever: the sensor binary doesn't speak the certificate
+                  sub-protocol needed to complete one.)
                 </p>
+              ) : (
+                <>
+                  <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm">
+                    {AGENT_CAPABILITIES.map((cap) => (
+                      <label key={cap} className="flex items-center gap-1.5 text-foreground-700">
+                        <input
+                          type="checkbox"
+                          name="capabilities"
+                          value={cap}
+                          defaultChecked={(reg.requestedCapabilities as string[]).includes(cap)}
+                          className="accent-primary-600"
+                        />
+                        {cap}
+                      </label>
+                    ))}
+                  </div>
+                  {(reg.requestedCapabilities as string[]).length === 0 && (
+                    <p className="text-xs text-foreground-400">
+                      No capabilities requested yet — approving now grants none unless checked below.
+                    </p>
+                  )}
+                </>
               )}
               <div className="flex gap-2 pt-1">
                 <button

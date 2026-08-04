@@ -14,11 +14,16 @@ import {
   buildDeliveryRequest,
   deliverOne,
   processWebhookJob,
+  processNotificationJob,
   selectTargets,
+  selectNotificationTargets,
   shouldDeadLetter,
   type ProcessDeps,
+  type NotificationDeps,
   type WebhookSubscription,
+  type NotificationChannelSubscription,
 } from "../packages/webhook-dispatcher/src/delivery";
+import { renderNotification } from "../packages/webhook-dispatcher/src/render";
 
 const SECRET = "whsec_test_123";
 
@@ -32,9 +37,23 @@ function sub(id: string, events: string[]): WebhookSubscription {
   return { id, url: `https://hook.example/${id}`, secret: SECRET, events };
 }
 
+function chan(id: string, events: string[]): NotificationChannelSubscription {
+  return { id, appriseKey: `key-${id}`, events };
+}
+
 /** A fetch stub that resolves with a given status. */
 function okFetch(status = 200): typeof fetch {
   return vi.fn(async () => ({ ok: status >= 200 && status < 300, status })) as unknown as typeof fetch;
+}
+
+/** A fetch stub matching Apprise's actual response shape ({ error: null | string }), needed since
+ *  notifyApprise always calls res.json() regardless of status. */
+function okAppriseFetch(status = 200): typeof fetch {
+  return vi.fn(async () => ({
+    ok: status >= 200 && status < 300,
+    status,
+    json: async () => ({ error: null }),
+  })) as unknown as typeof fetch;
 }
 
 // ── sign ────────────────────────────────────────────────────────────────────
@@ -213,6 +232,114 @@ describe("processWebhookJob", () => {
     // only "b" was re-attempted, "a" was not re-delivered
     expect((spy as any).mock.calls).toHaveLength(1);
     expect((spy as any).mock.calls[0][0]).toBe("https://hook.example/b");
+  });
+});
+
+// ── Notification Channels ───────────────────────────────────────────────────
+
+describe("renderNotification", () => {
+  it("renders a template for a known event with matching payload fields", () => {
+    const r = renderNotification(JOB);
+    expect(r).not.toBeNull();
+    expect(r!.title).toMatch(/workspace/i);
+    expect(r!.body).toContain("Marketing");
+    expect(["info", "success", "warning", "failure"]).toContain(r!.type);
+  });
+
+  it("returns null for an event type with no template", () => {
+    expect(renderNotification({ ...JOB, eventType: "does.not.exist" })).toBeNull();
+  });
+});
+
+describe("selectNotificationTargets", () => {
+  it("matches only channels subscribed to the event", () => {
+    const targets = selectNotificationTargets(
+      [chan("a", ["workspace.created"]), chan("b", ["actor.approved"])],
+      "workspace.created"
+    );
+    expect(targets.map((t) => t.id)).toEqual(["a"]);
+  });
+
+  it("tolerates a non-array events column instead of throwing", () => {
+    const targets = selectNotificationTargets(
+      [{ id: "a", appriseKey: "key-a", events: null }],
+      "workspace.created"
+    );
+    expect(targets).toEqual([]);
+  });
+});
+
+describe("processNotificationJob", () => {
+  function deps(channels: NotificationChannelSubscription[], fetchImpl: typeof fetch): NotificationDeps {
+    return {
+      fetch: fetchImpl,
+      appriseApiUrl: "http://apprise.internal:8000",
+      loadActiveNotificationChannels: async () => channels,
+    };
+  }
+
+  it("skips when Apprise isn't configured, without touching the DB dependency", async () => {
+    const spy = okAppriseFetch();
+    const loadActiveNotificationChannels = vi.fn(async () => [chan("a", ["workspace.created"])]);
+    const r = await processNotificationJob(
+      { fetch: spy, appriseApiUrl: undefined, loadActiveNotificationChannels },
+      JOB
+    );
+    expect(r.skipped).toBe("apprise-not-configured");
+    expect(loadActiveNotificationChannels).not.toHaveBeenCalled();
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("skips an unknown event without any notification", async () => {
+    const spy = okAppriseFetch();
+    const r = await processNotificationJob(deps([chan("a", ["does.not.exist"])], spy), {
+      ...JOB,
+      eventType: "does.not.exist",
+    });
+    expect(r.skipped).toBe("unknown-event");
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("fans out to every matching channel with the rendered notification", async () => {
+    const spy = okAppriseFetch();
+    const r = await processNotificationJob(
+      deps([chan("a", ["workspace.created"]), chan("b", ["workspace.created"]), chan("c", ["actor.approved"])], spy),
+      JOB
+    );
+    expect(r.targets).toBe(2);
+    expect(r.delivered.sort()).toEqual(["a", "b"]);
+    expect(spy).toHaveBeenCalledTimes(2);
+    const [url, init] = (spy as any).mock.calls[0];
+    expect(url).toBe("http://apprise.internal:8000/notify/key-a");
+    const body = JSON.parse(init.body);
+    expect(body).toMatchObject({ title: expect.any(String), body: expect.any(String) });
+  });
+
+  it("separates delivered from failed channels on a mixed run", async () => {
+    const fetchImpl = vi.fn(async (url: string) => ({
+      ok: url.endsWith("/key-a"),
+      status: url.endsWith("/key-a") ? 200 : 500,
+      json: async () => ({ error: null }),
+    })) as unknown as typeof fetch;
+    const r = await processNotificationJob(
+      deps([chan("a", ["workspace.created"]), chan("b", ["workspace.created"])], fetchImpl),
+      JOB
+    );
+    expect(r.delivered).toEqual(["a"]);
+    expect(r.failures.map((f) => f.channelId)).toEqual(["b"]);
+  });
+
+  it("skips channels already notified on a prior attempt (retry safety)", async () => {
+    const spy = vi.fn(async () => ({ ok: false, status: 500, json: async () => ({ error: null }) })) as unknown as typeof fetch;
+    const r = await processNotificationJob(
+      deps([chan("a", ["workspace.created"]), chan("b", ["workspace.created"])], spy),
+      JOB,
+      ["a"] // "a" already succeeded on a previous attempt
+    );
+    expect(r.targets).toBe(1);
+    expect(r.failures.map((f) => f.channelId)).toEqual(["b"]);
+    expect((spy as any).mock.calls).toHaveLength(1);
+    expect((spy as any).mock.calls[0][0]).toBe("http://apprise.internal:8000/notify/key-b");
   });
 });
 

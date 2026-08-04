@@ -5,6 +5,8 @@ import {
   type WebhookJob,
 } from "@vaultysclaw/shared";
 import { sign } from "./sign";
+import { notifyApprise } from "./apprise";
+import { renderNotification } from "./render";
 
 /**
  * Pure / injectable delivery logic for the webhook dispatcher. Everything here
@@ -182,6 +184,97 @@ export async function processWebhookJob(
     targets: targets.length,
     outcomes,
     delivered: outcomes.filter((o) => o.ok).map((o) => o.endpointId),
+    failures: outcomes.filter((o) => !o.ok),
+  };
+}
+
+// ── Notification Channels ───────────────────────────────────────────────────
+// The other half of the same event pipeline Webhooks use (docs/REBUILD_ARCHITECTURE.md §5.1:
+// "one event pipeline, not two"), fanned out by this same worker per job — just a different
+// delivery mechanism (render + POST to Apprise's fixed API shape, no per-endpoint signing).
+
+/** A single active Notification Channel subscription (a row of the `notification_channels`
+ *  table). Deliberately never carries `serviceUrls` — Apprise already has them from `/add`
+ *  (packages/controlplane's own `lib/apprise.ts`, admin-CRUD-time only), so this only needs
+ *  enough to decide whether and where to call `/notify`. */
+export interface NotificationChannelSubscription {
+  id: string;
+  appriseKey: string;
+  /** Prisma `Json` column — expected to be a `string[]` of subscribed events. */
+  events: unknown;
+}
+
+export interface NotificationOutcome {
+  channelId: string;
+  ok: boolean;
+  error?: string;
+}
+
+export interface NotificationDeps {
+  fetch: typeof fetch;
+  /** Empty/undefined means Apprise isn't configured for this deployment — every job is skipped,
+   *  not silently attempted against an empty URL. */
+  appriseApiUrl: string | undefined;
+  loadActiveNotificationChannels: () => Promise<NotificationChannelSubscription[]>;
+}
+
+export interface ProcessNotificationResult {
+  skipped?: "unknown-event" | "no-template" | "apprise-not-configured";
+  targets: number;
+  outcomes: NotificationOutcome[];
+  delivered: string[];
+  failures: NotificationOutcome[];
+}
+
+/** The channel subscriptions subscribed to `eventType`. Tolerant of a non-array column. */
+export function selectNotificationTargets(
+  channels: NotificationChannelSubscription[],
+  eventType: string
+): NotificationChannelSubscription[] {
+  return channels.filter((c) =>
+    (Array.isArray(c.events) ? (c.events as string[]) : []).includes(eventType)
+  );
+}
+
+/**
+ * Process a webhook job for the Notification Channel side: skip unknown events and events with no
+ * rendered template, load active channels, and notify every one subscribed that hasn't already
+ * succeeded on a previous attempt (`alreadyNotified`) — same retry-skip shape as
+ * `processWebhookJob`, tracked separately since the two delivery mechanisms have independent
+ * per-target identifiers (endpoint id vs. channel id).
+ */
+export async function processNotificationJob(
+  deps: NotificationDeps,
+  job: WebhookJob,
+  alreadyNotified: string[] = []
+): Promise<ProcessNotificationResult> {
+  if (!deps.appriseApiUrl) {
+    return { skipped: "apprise-not-configured", targets: 0, outcomes: [], delivered: [], failures: [] };
+  }
+  if (!getWebhookEvent(job.eventType)) {
+    return { skipped: "unknown-event", targets: 0, outcomes: [], delivered: [], failures: [] };
+  }
+  const notification = renderNotification(job);
+  if (!notification) {
+    return { skipped: "no-template", targets: 0, outcomes: [], delivered: [], failures: [] };
+  }
+
+  const active = await deps.loadActiveNotificationChannels();
+  const targets = selectNotificationTargets(active, job.eventType).filter(
+    (c) => !alreadyNotified.includes(c.id)
+  );
+
+  const outcomes = await Promise.all(
+    targets.map(async (c) => {
+      const result = await notifyApprise(deps.fetch, deps.appriseApiUrl as string, c.appriseKey, notification);
+      return { channelId: c.id, ok: result.ok, error: result.error };
+    })
+  );
+
+  return {
+    targets: targets.length,
+    outcomes,
+    delivered: outcomes.filter((o) => o.ok).map((o) => o.channelId),
     failures: outcomes.filter((o) => !o.ok),
   };
 }

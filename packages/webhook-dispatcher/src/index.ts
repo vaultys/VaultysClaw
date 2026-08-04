@@ -9,8 +9,10 @@ import { prisma } from "./prisma";
 import {
   buildDeadLetter,
   processWebhookJob,
+  processNotificationJob,
   shouldDeadLetter,
   type WebhookSubscription,
+  type NotificationChannelSubscription,
 } from "./delivery";
 
 const log = pino({ name: "webhook-dispatcher" });
@@ -19,6 +21,14 @@ const REDIS_URL = process.env.REDIS_URL || "redis://localhost:6379";
 
 /** Per-endpoint delivery timeout. */
 const DELIVERY_TIMEOUT_MS = Number(process.env.WEBHOOK_TIMEOUT_MS || 10_000);
+
+/**
+ * Notification Channels (docs/REBUILD_ARCHITECTURE.md §5) — unset by default, so an existing
+ * deployment against a schema with no `NotificationChannel` model (e.g. packages/control-plane's,
+ * until its own step-4 migration adds one) never touches that table at all: the whole code path
+ * below is gated on this being set, not just on the table happening to exist.
+ */
+const APPRISE_API_URL = process.env.APPRISE_API_URL || undefined;
 
 /**
  * Namespaces every BullMQ key this process touches. Unset by default (current
@@ -31,11 +41,12 @@ const DELIVERY_TIMEOUT_MS = Number(process.env.WEBHOOK_TIMEOUT_MS || 10_000);
 const BULLMQ_PREFIX = process.env.BULLMQ_PREFIX || undefined;
 
 /**
- * Job data as stored on the queue. `_delivered` is bookkeeping the worker adds
- * across retries: the endpoint ids that already succeeded, so the whole-job
- * retry only re-hits the endpoints that actually failed.
+ * Job data as stored on the queue. `_delivered`/`_notifiedChannels` are bookkeeping the worker
+ * adds across retries: the webhook endpoint ids / notification channel ids that already
+ * succeeded, so the whole-job retry only re-hits the targets that actually failed. Tracked
+ * separately since the two delivery mechanisms have independent id namespaces.
  */
-type QueuedWebhookJob = WebhookJob & { _delivered?: string[] };
+type QueuedWebhookJob = WebhookJob & { _delivered?: string[]; _notifiedChannels?: string[] };
 
 /** Parse REDIS_URL into BullMQ connection options (BullMQ owns its ioredis). */
 function connectionFromUrl(url: string): RedisOptions {
@@ -65,59 +76,77 @@ async function loadActiveWebhooks(): Promise<WebhookSubscription[]> {
   }));
 }
 
+/** Load active subscriptions from the `NotificationChannel` table — never selects `serviceUrls`,
+ *  encrypted or otherwise; this process has no way to decrypt it and doesn't need to. */
+async function loadActiveNotificationChannels(): Promise<NotificationChannelSubscription[]> {
+  const active = await prisma.notificationChannel.findMany({
+    where: { isActive: true },
+    select: { id: true, appriseKey: true, events: true },
+  });
+  return active;
+}
+
 // ── Worker ────────────────────────────────────────────────────────────────────
 
 const worker = new Worker<QueuedWebhookJob>(
   WEBHOOK_QUEUE_NAME,
   async (job) => {
     const alreadyDelivered = job.data._delivered ?? [];
-    const result = await processWebhookJob(
-      { fetch, timeoutMs: DELIVERY_TIMEOUT_MS, loadActiveWebhooks },
-      job.data,
-      alreadyDelivered
-    );
+    const alreadyNotified = job.data._notifiedChannels ?? [];
 
-    if (result.skipped) {
-      log.warn(
-        { eventType: job.data.eventType },
-        "unknown event type — skipped"
-      );
+    const [webhookResult, notificationResult] = await Promise.all([
+      processWebhookJob({ fetch, timeoutMs: DELIVERY_TIMEOUT_MS, loadActiveWebhooks }, job.data, alreadyDelivered),
+      processNotificationJob(
+        { fetch, appriseApiUrl: APPRISE_API_URL, loadActiveNotificationChannels },
+        job.data,
+        alreadyNotified
+      ),
+    ]);
+
+    if (webhookResult.skipped && notificationResult.skipped) {
+      log.warn({ eventType: job.data.eventType }, "unknown event type — skipped entirely");
       return;
     }
 
     log.info(
-      { eventType: job.data.eventType, targets: result.targets },
-      "processing webhook event"
+      { eventType: job.data.eventType, webhookTargets: webhookResult.targets, notificationTargets: notificationResult.targets },
+      "processing event"
     );
 
-    // Persist the endpoints delivered this run so a retry (triggered below) does
-    // not re-deliver to endpoints that already succeeded.
-    if (result.delivered.length > 0) {
-      await job.updateData({
-        ...job.data,
-        _delivered: [...alreadyDelivered, ...result.delivered],
-      });
+    // Persist what succeeded this run so a retry (triggered below) doesn't re-deliver to targets
+    // that already succeeded — tracked separately per delivery mechanism.
+    const newDataFields: Partial<QueuedWebhookJob> = {};
+    if (webhookResult.delivered.length > 0) {
+      newDataFields._delivered = [...alreadyDelivered, ...webhookResult.delivered];
+    }
+    if (notificationResult.delivered.length > 0) {
+      newDataFields._notifiedChannels = [...alreadyNotified, ...notificationResult.delivered];
+    }
+    if (Object.keys(newDataFields).length > 0) {
+      await job.updateData({ ...job.data, ...newDataFields });
     }
 
-    for (const o of result.outcomes) {
+    for (const o of webhookResult.outcomes) {
       if (o.ok) {
-        log.info(
-          { webhookId: o.endpointId, event: job.data.eventType, status: o.status },
-          "delivered"
-        );
+        log.info({ webhookId: o.endpointId, event: job.data.eventType, status: o.status }, "delivered");
       } else {
-        log.warn(
-          { webhookId: o.endpointId, event: job.data.eventType, err: o.error },
-          "delivery failed"
-        );
+        log.warn({ webhookId: o.endpointId, event: job.data.eventType, err: o.error }, "delivery failed");
+      }
+    }
+    for (const o of notificationResult.outcomes) {
+      if (o.ok) {
+        log.info({ channelId: o.channelId, event: job.data.eventType }, "notified");
+      } else {
+        log.warn({ channelId: o.channelId, event: job.data.eventType, err: o.error }, "notification failed");
       }
     }
 
-    // Throw so BullMQ retries the whole job; the retry skips endpoints already
-    // marked in `_delivered`.
-    if (result.failures.length > 0) {
+    // Throw so BullMQ retries the whole job; the retry skips targets already marked delivered/notified.
+    const totalFailures = webhookResult.failures.length + notificationResult.failures.length;
+    if (totalFailures > 0) {
       throw new Error(
-        `${result.failures.length}/${result.targets} webhook deliveries failed`
+        `${webhookResult.failures.length}/${webhookResult.targets} webhook deliveries and ` +
+          `${notificationResult.failures.length}/${notificationResult.targets} notifications failed`
       );
     }
   },

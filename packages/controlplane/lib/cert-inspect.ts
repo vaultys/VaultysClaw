@@ -7,6 +7,7 @@
 import { VaultysId } from "@vaultys/id";
 import {
   decodeCertUnsafe,
+  unpackCert,
   verifyCapabilityGrantCert,
   verifyCapabilityRequestCert,
 } from "@vaultysclaw/policy";
@@ -15,6 +16,16 @@ import { ServerIdentityDAO } from "@/db";
 export interface DecodedToken {
   raw: string;
   decoded: unknown;
+  /**
+   * Base64 of the exact bytes the signature covers — `packCert`'s
+   * `msgpack(body)` segment, i.e. what you'd feed back into a signature
+   * verifier alongside the signature below. Distinct from `decoded`: this is
+   * the literal signed artifact, `decoded` is it made human-readable.
+   */
+  signedBodyBase64: string | null;
+  /** Base64 of the raw signature bytes, plus their length for a quick sanity check. */
+  signatureBase64: string | null;
+  signatureByteLength: number | null;
 }
 
 export type VerifiedBy = "control-plane" | "principal" | null;
@@ -27,6 +38,17 @@ export interface InspectedCertificate {
    *  (trust doc §3.2): "control-plane" means this was a system/admin-issued grant, nobody
    *  outside asked for it; "principal" means the agent itself signed the request. */
   requestVerifiedBy: VerifiedBy;
+}
+
+function decodeToken(token: string): DecodedToken {
+  const parts = unpackCert(token);
+  return {
+    raw: token,
+    decoded: decodeCertUnsafe(token),
+    signedBodyBase64: parts ? Buffer.from(parts.body).toString("base64") : null,
+    signatureBase64: parts ? Buffer.from(parts.signature).toString("base64") : null,
+    signatureByteLength: parts ? parts.signature.length : null,
+  };
 }
 
 export async function inspectCertificate(
@@ -52,9 +74,9 @@ export async function inspectCertificate(
   }
 
   return {
-    grant: { raw: certificate, decoded: decodeCertUnsafe(certificate) },
+    grant: decodeToken(certificate),
     grantVerified,
-    request: { raw: requestCertificate, decoded: decodeCertUnsafe(requestCertificate) },
+    request: decodeToken(requestCertificate),
     requestVerifiedBy,
   };
 }

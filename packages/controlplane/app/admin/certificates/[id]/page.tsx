@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, ShieldCheck, ShieldAlert, ShieldQuestion } from "lucide-react";
 import { CapabilityCertificateDAO, PrincipalDAO } from "@/db";
 import PageChrome from "@/components/layout/PageChrome";
-import { inspectCertificate } from "@/lib/cert-inspect";
+import { inspectCertificate, type DecodedToken } from "@/lib/cert-inspect";
 import type { CertScope, ResourceLimits } from "@vaultysclaw/policy";
 
 const STATUS_BADGE: Record<string, string> = {
@@ -26,6 +26,40 @@ function RawToken({ token }: { token: string }) {
     <pre className="text-[11px] font-mono bg-background-200/40 border border-neutral-200/60 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap break-all text-foreground-500">
       {token}
     </pre>
+  );
+}
+
+/**
+ * The two pieces a signature verifier actually consumes: the exact bytes that
+ * were signed (not the human-readable decoded JSON — the literal
+ * msgpack-encoded body) and the signature bytes over it. Shown separately
+ * from "decoded payload" so "what is exactly signed" isn't left implicit.
+ */
+function SignatureAnatomy({ token }: { token: DecodedToken }) {
+  return (
+    <div className="grid grid-cols-1 gap-3">
+      <div>
+        <div className="text-xs text-foreground-500 mb-1">
+          Signed body (exact bytes the signature covers — msgpack-encoded, base64)
+        </div>
+        {token.signedBodyBase64 ? (
+          <RawToken token={token.signedBodyBase64} />
+        ) : (
+          <p className="text-xs text-danger-600">Could not unpack — malformed token.</p>
+        )}
+      </div>
+      <div>
+        <div className="text-xs text-foreground-500 mb-1">
+          Signature (raw bytes, base64
+          {token.signatureByteLength !== null ? ` — ${token.signatureByteLength} bytes` : ""})
+        </div>
+        {token.signatureBase64 ? (
+          <RawToken token={token.signatureBase64} />
+        ) : (
+          <p className="text-xs text-danger-600">Could not unpack — malformed token.</p>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -159,8 +193,9 @@ export default async function CertificateDetailPage({
           <div className="text-xs text-foreground-500 mb-1">Decoded payload</div>
           <JsonBlock value={inspected.grant.decoded} />
         </div>
+        <SignatureAnatomy token={inspected.grant} />
         <div>
-          <div className="text-xs text-foreground-500 mb-1">Raw token</div>
+          <div className="text-xs text-foreground-500 mb-1">Raw token (wire format — length-prefixed body + signature)</div>
           <RawToken token={inspected.grant.raw} />
         </div>
       </section>
@@ -192,8 +227,9 @@ export default async function CertificateDetailPage({
           <div className="text-xs text-foreground-500 mb-1">Decoded payload</div>
           <JsonBlock value={inspected.request.decoded} />
         </div>
+        <SignatureAnatomy token={inspected.request} />
         <div>
-          <div className="text-xs text-foreground-500 mb-1">Raw token</div>
+          <div className="text-xs text-foreground-500 mb-1">Raw token (wire format — length-prefixed body + signature)</div>
           <RawToken token={inspected.request.raw} />
         </div>
       </section>

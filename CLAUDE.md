@@ -133,6 +133,8 @@ The docs are only auto-generated from data you must keep current. Whenever you *
 | `DATABASE_URL` | control-plane, notifier, webhook-dispatcher | PostgreSQL connection string (Prisma) |
 | `REDIS_URL` | control-plane, controlplane, notifier, webhook-dispatcher | Redis URL for the BullMQ notification + webhook queues + pub/sub. `controlplane`'s webhook queue uses BullMQ `prefix: "vaultysclaw-controlplane"` so its jobs never mix with control-plane's on a shared Redis. |
 | `WEBHOOK_TIMEOUT_MS` | webhook-dispatcher | Per-endpoint delivery timeout (default 10000) |
+| `APPRISE_API_URL` | controlplane, webhook-dispatcher | Base URL of the self-hosted Apprise API container (`caronc/apprise`) backing `controlplane`'s Notification Channels (docs/REBUILD_ARCHITECTURE.md §5). Unset means the feature is off — `controlplane` can't push/delete Apprise config, and the dispatcher skips notification fan-out entirely (webhook delivery is unaffected either way). Not used by `control-plane` (no `NotificationChannel` model there yet). |
+| `BULLMQ_PREFIX` | webhook-dispatcher | Namespaces every BullMQ key this process touches. Unset for the existing `control-plane` deployment; a dispatcher instance serving `controlplane`'s schema sets this to `"vaultysclaw-controlplane"` (matching its producer, see `controlplane/lib/webhook-queue.ts`) so a shared Redis never mixes the two apps' jobs. |
 | `NEXTAUTH_URL` / `APP_URL` | control-plane, notifier | Browser-facing base URL; the notifier uses it to build deep-link buttons in emails (`APP_URL` overrides `NEXTAUTH_URL`) |
 | `NOTIFICATION_RETENTION_DAYS` | control-plane | Days after which **read** notifications are pruned (default 30) |
 | `PORT` / `WS_PORT` | control-plane | HTTP + WebSocket ports (default 3000/8080) |

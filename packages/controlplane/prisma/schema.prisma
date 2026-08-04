@@ -287,3 +287,32 @@ model Webhook {
   @@index([isActive])
   @@map("webhooks")
 }
+
+// ─── Notification Channels ──────────────────────────────────────────────────
+// Human-facing alerts, fanned out through a self-hosted Apprise API container
+// (docs/REBUILD_ARCHITECTURE.md §5) — the other half of the same event
+// pipeline Webhooks uses, not a separate one: `packages/webhook-dispatcher`'s
+// single worker fans out to both subscription kinds per event. Unlike a
+// Webhook's `url`, `serviceUrls` never needs to be read back by the
+// dispatcher at delivery time — Apprise itself stores what an `appriseKey`
+// points at (pushed once via `POST {APPRISE_API_URL}/add/<appriseKey>` at
+// create/update time), so the dispatcher only ever needs `appriseKey` +
+// `events` + `isActive`, never the encrypted column itself.
+
+model NotificationChannel {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  appriseKey  String   @unique // the Apprise config key/tag this channel is pushed under
+  // One or more apprise:// service URLs (mailto://, slack://, pagerduty://, ...), newline-separated,
+  // encrypted via lib/vault.ts — these often embed credentials (e.g. mailto://user:pass@host), so
+  // never stored or logged in plaintext, and never re-displayed in full by the admin UI after entry.
+  serviceUrls String
+  events      Json     @default("[]") // string[] of subscribed event types, same catalog Webhooks use
+  isActive    Boolean  @default(true)
+  createdBy   String // DID of the admin who created it
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isActive])
+}

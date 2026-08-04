@@ -92,8 +92,9 @@ the Access Portal shell, and the design system (ported from `packages/control-pl
   `certId`, `requesterDid`, `status`, `checkedAt` — surfaced on the certificate detail page),
   `SensorWorkload` (a `kind: "sensor"` Actor's classified AI/agent process observations — no
   separate device table, the sensor's own connection already makes it an `Actor`; upserted by
-  `(deviceDid, fingerprint)`, current-state not a log), `Workspace`. Deliberately minimal — models
-  get added here as each subsequent feature is actually built, not ahead of time.
+  `(deviceDid, fingerprint)`, current-state not a log), `Workspace`, `Webhook`, `NotificationChannel`
+  (see Webhooks / Notification Channels below). Deliberately minimal — models get added here as
+  each subsequent feature is actually built, not ahead of time.
 - `db/` — DAOs over the schema above (`client.ts` uses the same `@prisma/adapter-pg` + `pg.Pool`
   pattern as `packages/control-plane`).
 - `lib/vault.ts` — reused unchanged (VaultysId signcrypt-to-self), per the "kept" list in the
@@ -318,6 +319,55 @@ pattern everywhere else.
   collapsible event list used client-side `useState`; this one uses plain `<details>`, no JS needed
   for that interaction.
 
+## Notification Channels
+
+Human-facing alerts fanned out through a self-hosted Apprise API container (docs/
+REBUILD_ARCHITECTURE.md §5) — the other half of the same event pipeline Webhooks use, not a
+separate one (§5.1): `packages/webhook-dispatcher`'s single worker fans every job out to both
+subscription kinds. `app/admin/integrations` gained a second tab (`?tab=channels`, `TabLink`
+mirroring `app/admin/workspaces/[id]/page.tsx`'s own `?tab=` pattern) now that Integrations has two
+real sections, not one.
+
+- **Schema**: `NotificationChannel` (`prisma/schema.prisma`) — `appriseKey` (unique, plain, the
+  identifier Apprise stores config under), `serviceUrls` (one or more `apprise://` URLs,
+  newline-separated, **encrypted via `lib/vault.ts`** since they often embed credentials, e.g.
+  `mailto://user:pass@host`), `events` (same catalog as Webhooks), `isActive`, `createdBy`. Unlike
+  a Webhook's `url`, the dispatcher never needs `serviceUrls` back — Apprise itself stores what an
+  `appriseKey` points at, pushed once via `/add` at create/update time — so `db/notification-
+  channel.dao.ts` and the dispatcher's own query both only ever touch `id`/`appriseKey`/`events`/
+  `isActive`, never the encrypted column, keeping the decrypt capability confined to this
+  package's own process (the only one holding the server's VaultysId).
+- **Admin-CRUD-time Apprise client** (`lib/apprise.ts`): `pushAppriseConfig`/`deleteAppriseConfig`
+  call `POST {APPRISE_API_URL}/add|del/<appriseKey>` — confirmed empirically against the real
+  `caronc/apprise` image that **both are POST**, including `/del` (a bare `DELETE` returns 405),
+  contradicting docs/REBUILD_ARCHITECTURE.md's description of that endpoint as `DELETE`. Both
+  throw on failure rather than swallowing errors — create/update need the admin to see immediately
+  if Apprise rejected the URLs or is unreachable, not discover a channel that silently never
+  delivers anything; delete is more lenient (`app/admin/integrations/actions.ts`'s
+  `deleteChannelAction` catches and logs a failed Apprise cleanup but still removes the local row,
+  since an unreachable Apprise shouldn't permanently block an admin from clearing their own list).
+- **Encryption**: `lib/vault.ts`'s existing `encryptSecret`/`decryptSecret` (VaultysId
+  signcrypt-to-self) — the same primitive already used elsewhere in this package, no new
+  secret-handling path introduced. The service-URLs field is treated as **write-only** in the edit
+  form (`channels/[id]/page.tsx`): never decrypted back into the page, blank means "keep the
+  existing value," matching how a webhook's HMAC secret is handled (shown once, not re-displayed)
+  even though the underlying reason differs slightly (these are admin-entered credentials, not a
+  system-generated token).
+- **Admin UI** (`app/admin/integrations/{page.tsx,actions.ts,channels/*}`): list, create, edit,
+  toggle active, delete — no "reveal" flow needed here (unlike a webhook's generated secret, the
+  admin supplies these values directly), so `channels/new/page.tsx` is a plain
+  `<form action={createChannelAction}>` + redirect, no client-component wrapper.
+- **Dispatcher extension** (`packages/webhook-dispatcher`): `src/render.ts` (`renderNotification`
+  — `{title, body, type}` templates for this package's actor/certificate/workspace events, `null`
+  for anything else so an event with no template is skipped, not sent blank), `src/apprise.ts`
+  (`notifyApprise`, delivery-time only — never needs `serviceUrls`), and `delivery.ts`'s
+  `processNotificationJob`/`selectNotificationTargets` (same fan-out/retry-skip shape as
+  `processWebhookJob`, tracked separately as `_notifiedChannels` since channel ids and webhook
+  endpoint ids are different namespaces). Gated on `APPRISE_API_URL` being set — unset means the
+  whole notification-channel path is skipped, webhook delivery is unaffected either way. See that
+  package's own CLAUDE.md for the full picture, including the real, documented limitation that
+  Notification Channel failures aren't currently dead-lettered (only webhook failures are).
+
 ## Verified
 
 Everything below was exercised against a real (throwaway, Docker) Postgres and, where noted, a
@@ -355,6 +405,15 @@ repeatable tests (see deferred).
   rather than false-positiving as managed. `vaultysclaw-sensor`'s half (an operator-configured
   `agentIdentityPath` attached as evidence only on workloads matching a known agent framework) is
   covered by real Go unit tests in that repo (`internal/detector`, `internal/state`).
+- **Notification Channels / Apprise**, end to end against a real `caronc/apprise` container and a
+  local HTTP listener, no mocks: pushed a channel's service URL via the real `pushAppriseConfig`
+  (`/add`), created the row with the service URL encrypted via the real `lib/vault.ts`, confirmed
+  the decrypt round-trip matches the original plaintext, then ran the actual
+  `packages/webhook-dispatcher` `processNotificationJob` code path (not a simulation of it) —
+  the listener received the exact rendered `{title, body, type}` for a real event (`actor.approved`
+  for the real sensor Actor already in the dev database), byte-for-byte matching `render.ts`'s
+  template. Also confirmed the real image's `/del` is POST-only (a bare `DELETE` 405s), correcting
+  docs/REBUILD_ARCHITECTURE.md's description of that endpoint.
 - **WS connection lifecycle**: a real WS client running the actual Challenger crypto handshake
   against a live `ControlPlaneWSServer` — unknown DID → `registration_pending` (now carrying the
   real DID); an Actor upserted + granted a certificate → reconnects and gets `auth_complete`;
@@ -425,18 +484,19 @@ repeatable tests (see deferred).
   separate: `vaultysclaw-sensor` connecting is plain WS, not WebRTC — that's the one kind of remote
   agent actually wired end to end today, see Verified above.)
 - Everything the remaining placeholder pages describe: Audit Log (unified signed IntentLog/
-  ActivityLog), the rest of Integrations (OIDC/Entra, API Keys, Notification Channels, Model
-  Registry — Webhooks is now real, see above). Actors, Sensors, Map, Certificates, Workspaces
-  (Overview/Actors/Access tabs — Budgets & Model Access still a stub), Settings, and Integrations'
-  Webhooks tab are real. The certificate detail page (§1.5's signature-chain view) is built
+  ActivityLog), the rest of Integrations (OIDC/Entra, API Keys, Model Registry — Webhooks and
+  Notification Channels are now real, see above). Actors, Sensors, Map, Certificates, Workspaces
+  (Overview/Actors/Access tabs — Budgets & Model Access still a stub), Settings, and both
+  Integrations tabs are real. The certificate detail page (§1.5's signature-chain view) is built
   (`app/admin/certificates/[id]/page.tsx`) and its status-check-history section is real too — see
   `CertStatusCheckDAO` below.
 - **A dispatcher instance for this schema isn't part of this repo's deployment yet** — verified by
-  running a throwaway one (own `DATABASE_URL`, own BullMQ `prefix`) against a real Postgres, not by
-  anything checked into `docker/docker-compose.yml` or a Dockerfile. Wiring a real one up (its own
-  compose entry, its own `Dockerfile.webhook-dispatcher` variant pointed at this package's
-  `prisma/schema.prisma`) is a deployment-time decision for whenever this package actually ships,
-  not a code gap in `packages/webhook-dispatcher` itself.
+  running throwaway ones (own `DATABASE_URL`, own BullMQ `prefix`, and for Notification Channels a
+  real throwaway Apprise container too) against a real Postgres, not by anything checked into
+  `docker/docker-compose.yml` or a Dockerfile. Wiring a real one up (its own compose entry, its own
+  `Dockerfile.webhook-dispatcher` variant pointed at this package's `prisma/schema.prisma`, an
+  actual `caronc/apprise` service) is a deployment-time decision for whenever this package actually
+  ships, not a code gap in `packages/webhook-dispatcher` itself.
 - **Trust policy enforcement.** `/admin/settings` genuinely persists `trust.failMode`/
   `trust.stapleTtlSeconds` (trust doc §5.3), but nothing reads them yet — no verifier in this
   rebuild consumes `packages/policy`'s `verifyCertStatusResponseCert(vid, token, maxAgeMs)` with a
@@ -447,8 +507,8 @@ repeatable tests (see deferred).
 - A human's `name`/email is now editable from the Actor detail page (`updateActorAction`), but a
   freshly registered human still starts as `name: "Unnamed"` with no email — no first-login
   profile-completion prompt yet, it's admin-driven only.
-- Notification Channels/Apprise, Webhooks, Model Registry, OIDC/Entra — added to the schema and
-  this package only once each is actually being built.
+- Model Registry, OIDC/Entra — added to the schema and this package only once each is actually
+  being built (Webhooks and Notification Channels already are, see above).
 - A Docker-gated integration test suite (mirroring the root project's `vitest.config.docker.mjs`
   pattern) covering the DB layer, the WS handshake, and the admin flows.
 

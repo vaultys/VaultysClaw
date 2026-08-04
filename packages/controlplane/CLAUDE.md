@@ -85,6 +85,8 @@ shell, and the design system (ported from `packages/control-plane`) are built.
   + `deliveredAt` track the interactive-issuance lifecycle — `deliveredAt: null` after approval
   means "waiting for the agent to be connected", not "not yet granted"), `AuthCertificate` (the raw
   VaultysId handshake artifact for a *login* attempt — distinct from `CapabilityCertificate`),
+  `CertStatusCheck` (write-only audit row per `cert_status_request`/`cert_status_response` round —
+  `certId`, `requesterDid`, `status`, `checkedAt` — surfaced on the certificate detail page),
   `Workspace`. Deliberately minimal — models get added here as each subsequent feature is actually
   built, not ahead of time.
 - `db/` — DAOs over the schema above (`client.ts` uses the same `@prisma/adapter-pg` + `pg.Pool`
@@ -115,7 +117,9 @@ shell, and the design system (ported from `packages/control-plane`) are built.
   process, not a stateless API route) → known Actor auto-connects, unknown Actor gets a
   `PendingRegistration` row (reused across reconnect attempts, not duplicated). Also implements
   `heartbeat`/`pong`, the full `cert_status_request`/`cert_status_response` protocol (trust doc
-  §4.1), and the interactive issuance flow (trust doc §3.2b): a connected Actor's plain
+  §4.1 — every request is also recorded via `CertStatusCheckDAO.record`, the audit trail behind the
+  certificate detail page's status-check-history table), and the interactive issuance flow (trust
+  doc §3.2b): a connected Actor's plain
   `capability_request` message updates its `PendingRegistration` row (whether still
   `awaitingApproval` on a fresh registration, or an already-known Actor asking for more); once
   an admin approves (`lib/registrations.ts`), `deliverApprovedCapabilities(did)` proactively starts
@@ -204,9 +208,11 @@ repeatable tests (see deferred).
   co-signed certificate.
 - **WS connection lifecycle**: a real WS client running the actual Challenger crypto handshake
   against a live `ControlPlaneWSServer` — unknown DID → `registration_pending` (now carrying the
-  real DID); a Actor upserted + granted a certificate → reconnects and gets `auth_complete`;
+  real DID); an Actor upserted + granted a certificate → reconnects and gets `auth_complete`;
   `heartbeat` → `pong`; a self-signed `cert_status_request` → a verified, signed
-  `cert_status_response`.
+  `cert_status_response` whose issuance is also correctly persisted as a `CertStatusCheck` row
+  (`requesterDid`, `status`, `checkedAt`), readable back via `CertStatusCheckDAO.listForCert` and
+  rendered on the certificate detail page.
 - **Dev-mode double-SRP bootstrap**, both at the protocol layer (calling `UserLoginChannel.
   handleRequest` directly, driving both Challenger rounds by hand) and end to end in a real
   browser against a live dev server on a freshly reset database: clicking "Connect without the app"
@@ -267,8 +273,8 @@ repeatable tests (see deferred).
   Registry), Settings (server identity display, org-wide trust policy). Actors, Certificates, and
   Workspaces (Overview/Actors/Access tabs — Budgets & Model Access still a stub) are real. The
   certificate detail page (§1.5's signature-chain view) is built
-  (`app/admin/certificates/[id]/page.tsx`); its status-check-history section is still a static
-  note — no query log is persisted yet (would need a table + a write in `handleCertStatusRequest`).
+  (`app/admin/certificates/[id]/page.tsx`) and its status-check-history section is real too — see
+  `CertStatusCheckDAO` below.
 - A human's `name`/email is now editable from the Actor detail page (`updateActorAction`), but a
   freshly registered human still starts as `name: "Unnamed"` with no email — no first-login
   profile-completion prompt yet, it's admin-driven only.

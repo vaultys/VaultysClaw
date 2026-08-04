@@ -102,9 +102,29 @@ model CapabilityCertificate {
 
   agent     Actor  @relation(fields: [agentDid], references: [did], onDelete: Cascade)
   workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  statusChecks CertStatusCheck[]
 
   @@index([agentDid, status])
   @@index([expiresAt])
+}
+
+// ─── Certificate status-check history ────────────────────────────────────────
+// One row per `cert_status_request`/`cert_status_response` round
+// (docs/CERTIFICATE_WEB_OF_TRUST.md §4.1) — the audit trail for "who has
+// queried this certificate's live status, and when," surfaced on the
+// certificate detail page. Write-only from `ws-server.ts`'s
+// `handleCertStatusRequest`; never mutated.
+
+model CertStatusCheck {
+  id           String   @id
+  certId       String
+  requesterDid String
+  status       String
+  checkedAt    DateTime @default(now())
+
+  cert CapabilityCertificate @relation(fields: [certId], references: [id], onDelete: Cascade)
+
+  @@index([certId, checkedAt])
 }
 
 // ─── Pending registrations ───────────────────────────────────────────────────

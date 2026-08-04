@@ -28,7 +28,13 @@ import {
   type AgentCapability,
   type CertificateStatus,
 } from "@vaultysclaw/policy";
-import { ActorDAO, PendingRegistrationDAO, CapabilityCertificateDAO, ServerIdentityDAO } from "@/db";
+import {
+  ActorDAO,
+  PendingRegistrationDAO,
+  CapabilityCertificateDAO,
+  CertStatusCheckDAO,
+  ServerIdentityDAO,
+} from "@/db";
 import { persistChallengerCertificate } from "./certificates";
 import { WsSender, type AgentSender } from "./agent-sender";
 import type {
@@ -574,6 +580,8 @@ export class ControlPlaneWSServer {
       scope: cert.scope as never,
       expiresAt: cert.expiresAt ? cert.expiresAt.getTime() : null,
     });
+
+    void CertStatusCheckDAO.record({ certId: cert.id, requesterDid, status });
 
     this.sendMessage(sender, "cert_status_response", {
       certToken: responseToken,

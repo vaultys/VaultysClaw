@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, ShieldCheck, ShieldAlert, ShieldQuestion } from "lucide-react";
-import { CapabilityCertificateDAO, ActorDAO } from "@/db";
+import { CapabilityCertificateDAO, ActorDAO, CertStatusCheckDAO } from "@/db";
+import { encodeDidParam } from "@/lib/actor-route";
 import PageChrome from "@/components/layout/PageChrome";
 import { inspectCertificate, type DecodedToken } from "@/lib/cert-inspect";
 import type { CertScope, ResourceLimits } from "@vaultysclaw/policy";
@@ -80,7 +81,10 @@ export default async function CertificateDetailPage({
   const cert = await CapabilityCertificateDAO.findById(id);
   if (!cert) notFound();
 
-  const actor = await ActorDAO.findByDid(cert.agentDid);
+  const [actor, statusChecks] = await Promise.all([
+    ActorDAO.findByDid(cert.agentDid),
+    CertStatusCheckDAO.listForCert(cert.id),
+  ]);
   const inspected = await inspectCertificate(
     cert.certFormat as "packcert" | "challenger",
     cert.certificate,
@@ -259,10 +263,58 @@ export default async function CertificateDetailPage({
         </p>
       )}
 
-      <p className="text-xs text-foreground-400">
-        Status-check history (who has queried this certificate&apos;s live status, and when) isn&apos;t
-        persisted yet — see packages/controlplane/CLAUDE.md.
-      </p>
+      <section className="space-y-3">
+        <h2 className="text-sm font-semibold text-foreground-700">
+          Status-check history ({statusChecks.length})
+        </h2>
+        <p className="text-xs text-foreground-400">
+          Every <code className="font-mono">cert_status_request</code> a connected Actor has made
+          against this certificate (docs/CERTIFICATE_WEB_OF_TRUST.md §4.1) — who asked, when, and
+          what status the control plane returned at that moment.
+        </p>
+        <div className="overflow-x-auto border border-neutral-200/60 rounded-xl">
+          <table className="w-full text-sm bg-background-100">
+            <thead className="bg-background-200/40 text-left text-xs text-foreground-500 uppercase">
+              <tr>
+                <th className="px-4 py-2 font-medium">Requested by</th>
+                <th className="px-4 py-2 font-medium">Status returned</th>
+                <th className="px-4 py-2 font-medium">When</th>
+              </tr>
+            </thead>
+            <tbody>
+              {statusChecks.map((check) => (
+                <tr key={check.id} className="border-t border-neutral-200/60">
+                  <td className="px-4 py-2.5 text-xs font-mono">
+                    <Link
+                      href={`/admin/actors/${encodeDidParam(check.requesterDid)}`}
+                      className="text-foreground-600 hover:text-primary-600 hover:underline"
+                    >
+                      {check.requesterDid}
+                    </Link>
+                  </td>
+                  <td className="px-4 py-2.5">
+                    <span
+                      className={`text-xs px-2 py-0.5 rounded-full border ${STATUS_BADGE[check.status] ?? STATUS_BADGE.expired}`}
+                    >
+                      {check.status}
+                    </span>
+                  </td>
+                  <td className="px-4 py-2.5 text-xs text-foreground-500">
+                    {check.checkedAt.toISOString()}
+                  </td>
+                </tr>
+              ))}
+              {statusChecks.length === 0 && (
+                <tr>
+                  <td colSpan={3} className="px-4 py-6 text-center text-foreground-400">
+                    No status checks recorded yet.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
     </div>
   );
 }

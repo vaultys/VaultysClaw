@@ -21,6 +21,16 @@ const REDIS_URL = process.env.REDIS_URL || "redis://localhost:6379";
 const DELIVERY_TIMEOUT_MS = Number(process.env.WEBHOOK_TIMEOUT_MS || 10_000);
 
 /**
+ * Namespaces every BullMQ key this process touches. Unset by default (current
+ * control-plane deployment: unchanged). A second control-plane-family app
+ * pointed at the same Redis (e.g. packages/controlplane, a separate Postgres
+ * database) needs its own dispatcher instance with this set to a distinct
+ * value, so the two apps' queues never collide even on shared infrastructure —
+ * see packages/controlplane/CLAUDE.md's Webhooks section.
+ */
+const BULLMQ_PREFIX = process.env.BULLMQ_PREFIX || undefined;
+
+/**
  * Job data as stored on the queue. `_delivered` is bookkeeping the worker adds
  * across retries: the endpoint ids that already succeeded, so the whole-job
  * retry only re-hits the endpoints that actually failed.
@@ -42,7 +52,7 @@ function connectionFromUrl(url: string): RedisOptions {
 const connection = connectionFromUrl(REDIS_URL);
 
 /** Dead-letter queue: jobs that exhaust their retries land here for inspection. */
-const deadQueue = new Queue(WEBHOOK_DLQ_NAME, { connection });
+const deadQueue = new Queue(WEBHOOK_DLQ_NAME, { connection, prefix: BULLMQ_PREFIX });
 
 /** Load active subscriptions from the `webhooks` table. */
 async function loadActiveWebhooks(): Promise<WebhookSubscription[]> {
@@ -111,7 +121,7 @@ const worker = new Worker<QueuedWebhookJob>(
       );
     }
   },
-  { connection }
+  { connection, prefix: BULLMQ_PREFIX }
 );
 
 // ── Dead-letter on final failure ────────────────────────────────────────────

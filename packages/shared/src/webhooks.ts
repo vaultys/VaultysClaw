@@ -221,6 +221,46 @@ export const WEBHOOK_EVENTS: WebhookEventDef[] = [
     description: "A workflow run failed.",
     group: "Workflows",
   },
+  // ── Actors (packages/controlplane's Actor model — replaces Agent/SensorDevice,
+  // docs/REBUILD_ARCHITECTURE.md §4) ──────────────────────────────────────────
+  {
+    type: "actor.registration_requested",
+    label: "Actor registration requested",
+    description: "An Actor (human, openclaw, mcp, or sensor) connected and is awaiting admin approval.",
+    group: "Actors",
+  },
+  {
+    type: "actor.approved",
+    label: "Actor approved",
+    description: "An Actor's registration was approved.",
+    group: "Actors",
+  },
+  {
+    type: "actor.denied",
+    label: "Actor denied",
+    description: "An Actor's registration was denied.",
+    group: "Actors",
+  },
+  {
+    type: "actor.updated",
+    label: "Actor updated",
+    description: "An Actor's name, workspace, or profile was modified.",
+    group: "Actors",
+  },
+  // ── Certificates (the CapabilityCertificate ledger,
+  // docs/CERTIFICATE_WEB_OF_TRUST.md) ─────────────────────────────────────────
+  {
+    type: "certificate.issued",
+    label: "Certificate issued",
+    description: "A capability certificate was issued to an Actor.",
+    group: "Certificates",
+  },
+  {
+    type: "certificate.revoked",
+    label: "Certificate revoked",
+    description: "A capability certificate was revoked.",
+    group: "Certificates",
+  },
 ];
 
 /** Look up an event definition by its type key. */

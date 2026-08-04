@@ -14,11 +14,13 @@ import (
 
 // TestClient_RealControlPlaneProtocol drives internal/vconn/client.go
 // against a minimal hand-rolled mock of the real control plane's exact
-// wire sequence (packages/control-plane/lib/ws-server.ts: hello →
-// register → ack → real handshake → registration_pending → auth_complete)
-// rather than the standalone collector's server.go. This proves the
-// sensor's register/kind step is compatible with the real system, not
-// just the reference collector used by the other tests in this package.
+// wire sequence (packages/controlplane/lib/ws-server.ts: nothing until
+// register → ack → real handshake → registration_pending → auth_complete —
+// there is no proactive greeting; the real server sends nothing at all
+// until it receives "register") rather than the standalone collector's
+// server.go. This proves the sensor's register/kind step is compatible
+// with the real system, not just the reference collector used by the
+// other tests in this package.
 func TestClient_RealControlPlaneProtocol(t *testing.T) {
 	serverID := newTestIdentity(t)
 	sensorID := newTestIdentity(t)
@@ -35,11 +37,6 @@ func TestClient_RealControlPlaneProtocol(t *testing.T) {
 		defer conn.Close()
 
 		sessionID := "test-session"
-		hello, _ := NewEnvelope(MsgAuthChallenge, AuthChallengePayload{SessionID: sessionID, Data: ""})
-		if err := conn.WriteJSON(hello); err != nil {
-			t.Errorf("write hello: %v", err)
-			return
-		}
 
 		var reg Envelope
 		if err := conn.ReadJSON(&reg); err != nil {

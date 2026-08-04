@@ -88,17 +88,18 @@ func (s *Server) run(conn *websocket.Conn) error {
 	sessionID := newMessageID()
 	hs := NewHandshake(s.identity.VaultysID())
 
-	// Proactive "hello" with an empty challenge, just to hand the client a
-	// session id to correlate — mirrors the real control plane's opening
-	// message.
-	hello, err := NewEnvelope(MsgAuthChallenge, AuthChallengePayload{SessionID: sessionID, Data: ""})
-	if err != nil {
-		return err
-	}
-	if err := conn.WriteJSON(hello); err != nil {
-		return fmt.Errorf("sending hello: %w", err)
-	}
-
+	// No proactive greeting: packages/controlplane's real ws-server.ts sends
+	// nothing at all until it receives "register" (handleConnection just
+	// registers message listeners; handleRegister is what replies with the
+	// session id) — a client waiting for an unsolicited first message would
+	// hang forever against it. This used to write an empty auth_challenge
+	// here before reading anything, which raced against the register-ack
+	// this same session id is also carried on below: whichever arrived
+	// first at the client was harmless on its own (same session id either
+	// way), but the *other* one was then left unread in the socket and
+	// corrupted the very next handshake round. One message, sent only once
+	// the client has actually said something, matches the real server and
+	// removes the race entirely.
 	first, err := s.readFirstHandshakeMessage(conn, sessionID)
 	if err != nil {
 		return err
@@ -132,23 +133,19 @@ func (s *Server) run(conn *websocket.Conn) error {
 	return s.receiveTelemetry(conn, did)
 }
 
-// readFirstHandshakeMessage reads the client's first post-hello message. A
-// sensor built against the updated internal/vconn/client.go sends a
-// "register" message here first — matching the real control plane's
-// protocol (packages/control-plane/lib/ws-server.ts handleRegisterRequest)
-// so the same binary can register directly against it. This standalone
-// collector doesn't need the declared name/kind for anything, but
-// acknowledges it the same way (an empty auth_challenge) and returns the
-// *next* message as the first handshake envelope. An older client that
-// skips straight to auth_challenge is also supported: its first message is
-// returned unchanged.
+// readFirstHandshakeMessage reads the client's opening message, which must
+// be "register" — matching the real control plane's protocol
+// (packages/controlplane/lib/ws-server.ts's handleRegister: nothing is
+// sent, and no other message type is accepted, until register arrives).
+// Acknowledges it with the session id and returns the *next* message as
+// the first handshake envelope.
 func (s *Server) readFirstHandshakeMessage(conn *websocket.Conn, sessionID string) (Envelope, error) {
 	var env Envelope
 	if err := conn.ReadJSON(&env); err != nil {
 		return Envelope{}, fmt.Errorf("reading first message: %w", err)
 	}
 	if env.Type != MsgRegister {
-		return env, nil
+		return Envelope{}, fmt.Errorf("expected register as the first message, got %q", env.Type)
 	}
 
 	var payload RegisterPayload

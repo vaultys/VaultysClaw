@@ -161,22 +161,15 @@ func (c *ClientConn) connectAndServe(ctx context.Context) (everConnected bool, e
 	}
 	defer conn.Close()
 
-	var hello Envelope
-	if err := conn.ReadJSON(&hello); err != nil {
-		return false, fmt.Errorf("reading hello: %w", err)
-	}
-	var helloPayload AuthChallengePayload
-	if err := hello.Decode(&helloPayload); err != nil {
-		return false, fmt.Errorf("decoding hello: %w", err)
-	}
-	sessionID := helloPayload.SessionID
-
-	// Declare ourselves before the real handshake starts — required by the
-	// real control plane (packages/control-plane/lib/ws-server.ts
-	// handleRegisterRequest expects a leading "register" message while the
-	// connection is in its "awaiting_register" phase); the standalone
-	// collector (internal/vconn/server.go) tolerates and acknowledges it
-	// too, so this works unmodified against either target.
+	// Declare ourselves first and wait for the server's reply — this is
+	// packages/controlplane's actual protocol (lib/ws-server.ts's
+	// handleConnection sends nothing at all until it receives "register";
+	// handleRegister is what replies with the session id). Earlier this
+	// unconditionally read an unsolicited "hello" before sending register,
+	// which only the now-superseded standalone reference collector
+	// (internal/vconn/server.go) ever sent — against the real control
+	// plane that first read simply hung forever, since nothing arrives
+	// until the server has something to react to.
 	regEnv, err := NewEnvelope(MsgRegister, RegisterPayload{Name: c.cfg.Name, Version: c.cfg.Version, Kind: "sensor"})
 	if err != nil {
 		return false, err
@@ -191,6 +184,11 @@ func (c *ClientConn) connectAndServe(ctx context.Context) (everConnected bool, e
 	if regAck.Type != MsgAuthChallenge {
 		return false, fmt.Errorf("unexpected message type %q after register", regAck.Type)
 	}
+	var ackPayload AuthChallengePayload
+	if err := regAck.Decode(&ackPayload); err != nil {
+		return false, fmt.Errorf("decoding register ack: %w", err)
+	}
+	sessionID := ackPayload.SessionID
 
 	hs := NewHandshake(c.cfg.Identity.VaultysID())
 	initB64, err := hs.Start()

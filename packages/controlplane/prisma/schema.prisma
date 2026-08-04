@@ -48,9 +48,10 @@ model Actor {
   registeredAt DateTime @default(now())
   lastSeen     DateTime @default(now())
 
-  workspace    Workspace?               @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
-  certificates CapabilityCertificate[]
-  humanProfile User?
+  workspace       Workspace?               @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  certificates    CapabilityCertificate[]
+  humanProfile    User?
+  sensorWorkloads SensorWorkload[]
 
   @@index([kind])
   @@index([workspaceId])
@@ -190,4 +191,43 @@ model Workspace {
 
   actors       Actor[]
   certificates CapabilityCertificate[]
+}
+
+// ─── Sensor telemetry ─────────────────────────────────────────────────────────
+// A `kind: "sensor"` Actor's classified AI/agent process observations
+// (vaultysclaw-sensor's `sensor_telemetry` WS message —
+// vaultysclaw-sensor/docs/vaultysclaw-integration.md §1/§5). Current-state,
+// not a log: upserted by (deviceDid, fingerprint) as the sensor reports
+// deltas, not re-inserted per event. No separate `SensorDevice` table —
+// the reporting sensor already *is* an `Actor` (its own DID), so the device
+// row is just `Actor` itself.
+
+model SensorWorkload {
+  id                String   @id
+  deviceDid         String
+  fingerprint       String
+  processName       String
+  processExecutable String?
+  processCommand    String?
+  processUser       String?
+  provider          String?
+  model             String?
+  aiConfidence      Float    @default(0)
+  agentConfidence   Float    @default(0)
+  reasons           Json     @default("[]")
+  isMcp             Boolean  @default(false)
+  mcpServers        Json     @default("[]")
+  isLocalRuntime    Boolean  @default(false)
+  // A locally-observed VaultysClaw identity file/path near the process, if any — the raw
+  // evidence the control plane (never the sensor itself) would use to decide "managed" status;
+  // that correlation isn't implemented yet (integration doc §4), so this is stored, not read.
+  identityEvidence  String?
+  lastEventType     String
+  firstSeen         DateTime @default(now())
+  lastSeen          DateTime @default(now())
+
+  device Actor @relation(fields: [deviceDid], references: [did], onDelete: Cascade)
+
+  @@unique([deviceDid, fingerprint])
+  @@index([deviceDid])
 }

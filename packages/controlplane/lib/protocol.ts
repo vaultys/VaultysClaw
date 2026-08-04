@@ -26,6 +26,12 @@ export type ProtocolMessageType =
   | "cert_challenge"
   | "cert_issued"
   | "cert_failed"
+  // A kind:"sensor" Actor's classified AI/agent process observations
+  // (vaultysclaw-sensor/docs/vaultysclaw-integration.md §3) — the one
+  // kind-specific message type in this file, because "report telemetry" has
+  // no equivalent in the kind-agnostic core and doesn't warrant inventing
+  // one just to avoid a single exception.
+  | "sensor_telemetry"
   | "error";
 
 export interface ProtocolMessage {
@@ -98,4 +104,30 @@ export interface CertIssuedPayload {
 
 export interface CertFailedPayload {
   reason: string;
+}
+
+/** Mirrors vaultysclaw-sensor's `internal/telemetry.Event`/`Workload`/`Device`/`ProcessInfo`
+ *  structs field-for-field (JSON tag names) — see that repo for the authoritative shape. */
+export interface SensorTelemetryEvent {
+  schemaVersion: number;
+  type: string;
+  timestamp: string;
+  device: { id: string; hostname: string; os: string };
+  workload: {
+    fingerprint: string;
+    process: { name: string; pid: number; executable?: string; command?: string; user?: string };
+    provider?: string;
+    model?: string;
+    aiConfidence: number;
+    agentConfidence: number;
+    reasons: string[];
+    isMcp?: boolean;
+    mcpServers?: string[];
+    isLocalRuntime?: boolean;
+    identityEvidence?: string;
+  };
+}
+
+export interface SensorTelemetryPayload {
+  events: SensorTelemetryEvent[];
 }

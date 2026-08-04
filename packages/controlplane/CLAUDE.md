@@ -87,8 +87,10 @@ shell, and the design system (ported from `packages/control-plane`) are built.
   VaultysId handshake artifact for a *login* attempt — distinct from `CapabilityCertificate`),
   `CertStatusCheck` (write-only audit row per `cert_status_request`/`cert_status_response` round —
   `certId`, `requesterDid`, `status`, `checkedAt` — surfaced on the certificate detail page),
-  `Workspace`. Deliberately minimal — models get added here as each subsequent feature is actually
-  built, not ahead of time.
+  `SensorWorkload` (a `kind: "sensor"` Actor's classified AI/agent process observations — no
+  separate device table, the sensor's own connection already makes it an `Actor`; upserted by
+  `(deviceDid, fingerprint)`, current-state not a log), `Workspace`. Deliberately minimal — models
+  get added here as each subsequent feature is actually built, not ahead of time.
 - `db/` — DAOs over the schema above (`client.ts` uses the same `@prisma/adapter-pg` + `pg.Pool`
   pattern as `packages/control-plane`).
 - `lib/vault.ts` — reused unchanged (VaultysId signcrypt-to-self), per the "kept" list in the
@@ -130,7 +132,21 @@ shell, and the design system (ported from `packages/control-plane`) are built.
   Actor reconnect" branch of the auth handshake, so it's picked up on the agent's next
   successful `auth`. A module-level singleton (`setWSServerInstance`/`getWSServerInstance`, wired
   up in `server.ts`) is what lets a Server Action (`lib/registrations.ts`, running in the same
-  Next.js custom-server process) reach the live connection map at all.
+  Next.js custom-server process) reach the live connection map at all. `deliverApprovedCapabilities`
+  always sends `auth_complete` the moment it promotes a still-connected pending sender into
+  `connected`, *before* deciding whether to start the certificate exchange — a `kind: "sensor"`
+  Actor has no capability concept at all (approved with `capabilities: []`), so for it this is the
+  *only* signal that it's connected; skipping straight to `cert_challenge` without it left a real
+  Go sensor client waiting forever for a message the old code path never sent (found wiring
+  `vaultysclaw-sensor` against this server for real — see below).
+- **`handleSensorTelemetry`** (also in `lib/ws-server.ts`) — the one kind-specific message this
+  file handles: a connected `kind: "sensor"` Actor's classified AI/agent process observations
+  (`vaultysclaw-sensor/docs/vaultysclaw-integration.md`). Upserts into `SensorWorkload` by
+  `(deviceDid, fingerprint)` — current-state, not an append-only log, matching the sensor's own
+  "report deltas" model — via `SensorWorkloadDAO`. `deviceDid` is always the connection's own
+  authenticated identity (`connectedBySender`), never the client-claimed `agentId` field the Go
+  sensor also sets on the envelope. No `/admin/sensors` dashboard yet — `SensorWorkload` rows are
+  real and queryable, just not surfaced in the admin UI (see deferred).
 - `lib/user-login-channel.ts` + `lib/auth-config.ts` + `app/login/page.tsx` — the passwordless
   QR-code login (reused in spirit from `packages/control-plane`'s `UserServerChannel`/
   `useVaultysConnect`, trimmed to only the P2P wallet-pairing flow — the browser-extension
@@ -214,6 +230,17 @@ repeatable tests (see deferred).
   `resolvePermission` correctly authorizes/denies against the persisted ledger; a
   `capability_request` → `capability_grant` round-trip produces a real, independently-verifiable
   co-signed certificate.
+- **`vaultysclaw-sensor` end to end, for real** — not a simulated client: a freshly built Go sensor
+  binary (real machine, real `github.com/vaultys/vaultysid/go` identity) connects to this control
+  plane's actual WS server, completes the real handshake, lands in `registration_pending`, gets
+  approved with zero capabilities via `approvePendingRegistration`, reconnects, and reaches
+  `auth_complete` (confirmed by the sensor's own log line, `vconn: connected`) — then sends real
+  `sensor_telemetry` (Ollama and a local MCP-pattern process detected on the actual test machine)
+  that lands correctly in `SensorWorkload`, keyed by the connection's authenticated DID. Found and
+  fixed two real protocol bugs in `vaultysclaw-sensor/internal/vconn` in the process (the client
+  expected an unsolicited "hello" this server never sends; the reference collector's own version
+  of that same hello then raced with the fix) — see
+  `vaultysclaw-sensor/docs/vaultysclaw-integration.md` for detail.
 - **WS connection lifecycle**: a real WS client running the actual Challenger crypto handshake
   against a live `ControlPlaneWSServer` — unknown DID → `registration_pending` (now carrying the
   real DID); an Actor upserted + granted a certificate → reconnects and gets `auth_complete`;
@@ -280,7 +307,14 @@ repeatable tests (see deferred).
 ## Explicitly deferred (next slices, not started)
 
 - **WebRTC/PeerJS transport for agents** (trust doc §4.4) — `AgentSender` is shaped for it; not
-  implemented. (The login flow's own PeerJS/WebRTC usage is separate and already built.)
+  implemented. (The login flow's own PeerJS/WebRTC usage is separate and already built. Also
+  separate: `vaultysclaw-sensor` connecting is plain WS, not WebRTC — that's the one kind of remote
+  agent actually wired end to end today, see Verified above.)
+- **`/admin/sensors` dashboard + `managed`/`observed`/`shadow` correlation**
+  (`vaultysclaw-sensor/docs/vaultysclaw-integration.md` §4/§5 step 6) — `SensorWorkload` rows are
+  real, persisted, and queryable (`SensorWorkloadDAO`), just not surfaced anywhere in the admin UI
+  yet, and nothing correlates a workload's `identityEvidence` against the `Actor` table to decide
+  "managed" vs. merely "observed."
 - Everything the remaining placeholder pages describe: Audit Log (unified signed IntentLog/
   ActivityLog), Integrations (OIDC/Entra, API Keys, Webhooks, Notification Channels, Model
   Registry). Actors, Certificates, Workspaces (Overview/Actors/Access tabs — Budgets & Model

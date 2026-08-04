@@ -33,6 +33,7 @@ import {
   PendingRegistrationDAO,
   CapabilityCertificateDAO,
   CertStatusCheckDAO,
+  SensorWorkloadDAO,
   ServerIdentityDAO,
 } from "@/db";
 import { persistChallengerCertificate } from "./certificates";
@@ -52,6 +53,7 @@ import type {
   ProtocolMessageType,
   RegisterPayload,
   RegistrationPendingPayload,
+  SensorTelemetryPayload,
 } from "./protocol";
 
 const logger = pino({ name: "ws-server" });
@@ -170,13 +172,27 @@ export class ControlPlaneWSServer {
         });
         this.connectedBySender.set(sender, did);
       }
-      this.startCertificateIssuance(sender, approved.id, capabilities);
+      // This connection has never received auth_complete — it went straight from the
+      // handshake into registration_pending, and now approval, without ever being told
+      // "you're connected." Every client (not just ones that also understand the
+      // capability sub-protocol — e.g. vaultysclaw-sensor, which has no capability
+      // concept at all) needs this before anything else, cert_challenge included.
+      this.sendMessage(sender, "auth_complete", { did } satisfies AuthCompletePayload);
+      if (capabilities.length === 0) {
+        await PendingRegistrationDAO.markDelivered(approved.id);
+      } else {
+        this.startCertificateIssuance(sender, approved.id, capabilities);
+      }
       return true;
     }
 
     const actor = this.connected.get(did);
     if (!actor) return false;
-    this.startCertificateIssuance(actor.sender, approved.id, capabilities);
+    if (capabilities.length === 0) {
+      await PendingRegistrationDAO.markDelivered(approved.id);
+    } else {
+      this.startCertificateIssuance(actor.sender, approved.id, capabilities);
+    }
     return true;
   }
 
@@ -228,6 +244,9 @@ export class ControlPlaneWSServer {
         return;
       case "cert_challenge":
         void this.handleCertChallenge(sender, message.payload as CertChallengePayload);
+        return;
+      case "sensor_telemetry":
+        void this.handleSensorTelemetry(sender, message.payload as SensorTelemetryPayload);
         return;
       default:
         this.sendError(sender, `Unhandled message type: ${message.type}`);
@@ -586,6 +605,54 @@ export class ControlPlaneWSServer {
     this.sendMessage(sender, "cert_status_response", {
       certToken: responseToken,
     } satisfies CertStatusResponsePayload);
+  }
+
+  /**
+   * A `kind: "sensor"` Actor's classified AI/agent process observations
+   * (vaultysclaw-sensor/docs/vaultysclaw-integration.md §3). Current-state
+   * upsert by (deviceDid, fingerprint), not an append-only log — the sensor
+   * reports deltas for the same workload repeatedly. `deviceDid` is the
+   * connection's own authenticated identity (`connectedBySender`), never a
+   * client-claimed field, even though the sensor also sets one on the wire.
+   */
+  private async handleSensorTelemetry(
+    sender: AgentSender,
+    payload: SensorTelemetryPayload
+  ): Promise<void> {
+    const deviceDid = this.connectedBySender.get(sender);
+    if (!deviceDid) {
+      this.sendError(sender, "Not authenticated");
+      return;
+    }
+
+    let accepted = 0;
+    for (const event of payload.events ?? []) {
+      if (event.schemaVersion !== 1) {
+        logger.warn({ deviceDid, schemaVersion: event.schemaVersion }, "Skipping sensor event with unsupported schema version");
+        continue;
+      }
+      await SensorWorkloadDAO.upsert(deviceDid, {
+        fingerprint: event.workload.fingerprint,
+        eventType: event.type,
+        process: {
+          name: event.workload.process.name,
+          executable: event.workload.process.executable,
+          command: event.workload.process.command,
+          user: event.workload.process.user,
+        },
+        provider: event.workload.provider,
+        model: event.workload.model,
+        aiConfidence: event.workload.aiConfidence,
+        agentConfidence: event.workload.agentConfidence,
+        reasons: event.workload.reasons ?? [],
+        isMcp: event.workload.isMcp ?? false,
+        mcpServers: event.workload.mcpServers ?? [],
+        isLocalRuntime: event.workload.isLocalRuntime ?? false,
+        identityEvidence: event.workload.identityEvidence,
+      });
+      accepted++;
+    }
+    logger.info({ deviceDid, accepted }, "Sensor telemetry accepted");
   }
 
   // ─── Send helpers ────────────────────────────────────────────────────────

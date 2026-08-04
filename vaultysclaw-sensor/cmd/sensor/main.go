@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"runtime"
 	"sync"
 	"syscall"
@@ -83,11 +84,14 @@ func run(configPath string) error {
 
 	var client *vconn.ClientConn
 	if cfg.TelemetryEnabled {
+		// Lives alongside the identity secret — both are per-device, private state.
+		capStatePath := filepath.Join(filepath.Dir(cfg.IdentityPath), "capabilities.json")
 		client = vconn.NewClientConn(vconn.ClientConfig{
-			CollectorURL: cfg.CollectorURL,
-			Identity:     id,
-			Name:         deviceName,
-			Logger:       logger,
+			CollectorURL:        cfg.CollectorURL,
+			Identity:            id,
+			Name:                deviceName,
+			Logger:              logger,
+			CapabilityStatePath: capStatePath,
 		})
 	} else {
 		logger.Warn("sensor: telemetry disabled by config; running in local-detection-only mode")

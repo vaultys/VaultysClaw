@@ -32,6 +32,16 @@ type ClientConfig struct {
 	ReconnectBaseDelay time.Duration
 	ReconnectMaxDelay  time.Duration
 
+	// CapabilityStatePath persists the most recently granted capabilities (see
+	// CapabilityState) so a process restart doesn't lose them. Empty disables
+	// persistence entirely — capabilities then reset to ungranted on every run.
+	CapabilityStatePath string
+	// RequestedCapabilities is what to ask for via capability_request
+	// (docs/CERTIFICATE_WEB_OF_TRUST.md §3.2b) whenever this client has none
+	// granted yet, locally or from the control plane. Defaults to
+	// ["process_read"], the only capability the sensor currently acts on.
+	RequestedCapabilities []string
+
 	Logger *slog.Logger
 }
 
@@ -57,6 +67,9 @@ func (c *ClientConfig) setDefaults() {
 	if c.ReconnectMaxDelay <= 0 {
 		c.ReconnectMaxDelay = 30 * time.Second
 	}
+	if len(c.RequestedCapabilities) == 0 {
+		c.RequestedCapabilities = []string{"process_read"}
+	}
 	if c.Logger == nil {
 		c.Logger = slog.Default()
 	}
@@ -73,9 +86,11 @@ type ClientConn struct {
 	queue []telemetry.Event
 
 	// capMu/capabilities track what the control plane has actually granted via a completed
-	// service:"certificate" exchange (docs/CERTIFICATE_WEB_OF_TRUST.md §3.2b) — reset on every
-	// reconnect (a fresh connection starts ungranted; nothing here is persisted to disk, so a
-	// process restart also loses it until an admin re-triggers delivery — see HasCapability).
+	// service:"certificate" exchange (docs/CERTIFICATE_WEB_OF_TRUST.md §3.2b). Loaded from
+	// cfg.CapabilityStatePath at construction and re-persisted on every cert_issued, so it
+	// survives both reconnects and process restarts (see HasCapability) — it's a durable,
+	// independently verifiable certificate, not a session-bound grant, so there's no need to
+	// forget it just because the connection dropped.
 	capMu        sync.Mutex
 	capabilities map[string]bool
 
@@ -87,7 +102,15 @@ type ClientConn struct {
 
 func NewClientConn(cfg ClientConfig) *ClientConn {
 	cfg.setDefaults()
-	return &ClientConn{cfg: cfg}
+	c := &ClientConn{cfg: cfg}
+	state, err := loadCapabilityState(cfg.CapabilityStatePath)
+	if err != nil {
+		cfg.Logger.Warn("vconn: failed to load persisted capability state — starting ungranted", "error", err)
+	} else if state != nil {
+		c.setCapabilities(state.Capabilities)
+		cfg.Logger.Info("vconn: restored persisted capabilities", "capabilities", state.Capabilities)
+	}
+	return c
 }
 
 // Enqueue adds an event to the bounded local queue, dropping the oldest
@@ -141,6 +164,15 @@ func (c *ClientConn) setCapabilities(names []string) {
 	for _, n := range names {
 		c.capabilities[n] = true
 	}
+}
+
+// hasAnyCapability reports whether anything at all has been granted yet —
+// used to decide whether to proactively ask the control plane for
+// RequestedCapabilities rather than silently waiting on an admin.
+func (c *ClientConn) hasAnyCapability() bool {
+	c.capMu.Lock()
+	defer c.capMu.Unlock()
+	return len(c.capabilities) > 0
 }
 
 func (c *ClientConn) writeJSON(conn *websocket.Conn, v any) error {
@@ -197,7 +229,6 @@ func (c *ClientConn) connectAndServe(ctx context.Context) (everConnected bool, e
 		return false, fmt.Errorf("dial: %w", err)
 	}
 	defer conn.Close()
-	c.setCapabilities(nil) // a fresh connection starts ungranted, regardless of any prior one
 
 	// Declare ourselves first and wait for the server's reply — this is
 	// packages/controlplane's actual protocol (lib/ws-server.ts's
@@ -241,6 +272,29 @@ func (c *ClientConn) connectAndServe(ctx context.Context) (everConnected bool, e
 		return false, fmt.Errorf("sending init: %w", err)
 	}
 
+	// Ask for RequestedCapabilities the moment there's an authenticated channel to ask over —
+	// as soon as registration is merely pending (so an admin sees what's wanted while deciding)
+	// if nothing's granted yet, or right after auth_complete for a known Actor that still has
+	// none. Sent at most once per connection attempt; a no-op once something's already granted,
+	// whether restored from disk or from an earlier round on this same connection.
+	requestedCaps := false
+	sendCapabilityRequest := func() {
+		if requestedCaps || c.hasAnyCapability() {
+			return
+		}
+		requestedCaps = true
+		req, err := NewEnvelope(MsgCapabilityRequest, CapabilityRequestPayload{RequestedCapabilities: c.cfg.RequestedCapabilities})
+		if err != nil {
+			c.cfg.Logger.Warn("vconn: encoding capability_request failed", "error", err)
+			return
+		}
+		if err := conn.WriteJSON(req); err != nil {
+			c.cfg.Logger.Warn("vconn: sending capability_request failed", "error", err)
+			return
+		}
+		c.cfg.Logger.Info("vconn: requested capabilities — none granted yet", "requested", c.cfg.RequestedCapabilities)
+	}
+
 handshakeLoop:
 	for {
 		var env Envelope
@@ -272,12 +326,14 @@ handshakeLoop:
 			c.cfg.Logger.Info("vconn: awaiting operator approval", "did", payload.DID)
 			// keep waiting — the collector holds this connection open and
 			// will send auth_complete or auth_failed once decided.
+			sendCapabilityRequest()
 		case MsgRegistrationPending:
 			var payload RegistrationPendingPayload
 			_ = env.Decode(&payload)
 			c.cfg.Logger.Info("vconn: awaiting operator approval", "registrationId", payload.RegistrationID, "message", payload.Message)
 			// same as MsgPendingApproval, above — the real control plane's
 			// naming for the same "handshake ok, awaiting admin" state.
+			sendCapabilityRequest()
 		case MsgRegistrationApproved:
 			var payload RegistrationApprovedPayload
 			_ = env.Decode(&payload)
@@ -288,6 +344,11 @@ handshakeLoop:
 			var payload AuthCompletePayload
 			_ = env.Decode(&payload)
 			c.cfg.Logger.Info("vconn: connected", "did", payload.DID)
+			// A known Actor reconnecting lands here directly, skipping the pending-approval
+			// cases above entirely — if it still has nothing granted (e.g. its very first
+			// registration was approved with no capabilities), ask now rather than staying
+			// silent forever.
+			sendCapabilityRequest()
 			break handshakeLoop
 		case MsgAuthFailed:
 			var payload AuthFailedPayload
@@ -324,6 +385,13 @@ func (c *ClientConn) sendLoop(ctx context.Context, conn *websocket.Conn) error {
 				var payload CertIssuedPayload
 				_ = env.Decode(&payload)
 				c.setCapabilities(payload.Capabilities)
+				if err := saveCapabilityState(c.cfg.CapabilityStatePath, CapabilityState{
+					CertID:       payload.CertID,
+					Certificate:  payload.Certificate,
+					Capabilities: payload.Capabilities,
+				}); err != nil {
+					c.cfg.Logger.Warn("vconn: failed to persist capability state", "error", err)
+				}
 				c.cfg.Logger.Info("vconn: certificate delivered", "certId", payload.CertID, "capabilities", payload.Capabilities)
 				certHS = nil
 			case MsgCertFailed:

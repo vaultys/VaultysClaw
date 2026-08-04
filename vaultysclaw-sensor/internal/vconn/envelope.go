@@ -79,6 +79,13 @@ const (
 	MsgCertIssued MessageType = "cert_issued"
 	// MsgCertFailed explains why the certificate round didn't complete.
 	MsgCertFailed MessageType = "cert_failed"
+	// MsgCapabilityRequest is a plain, unsigned request the client sends over its already-
+	// authenticated connection to ask for capabilities — either while still waiting out
+	// registration approval, or later as a known, connected Actor with none yet (docs/
+	// CERTIFICATE_WEB_OF_TRUST.md §3.2b step 1). The control plane already handles this for
+	// every agent kind (packages/controlplane/lib/ws-server.ts handleCapabilityRequest); the
+	// sensor just never sent one before, relying entirely on an admin proactively granting it.
+	MsgCapabilityRequest MessageType = "capability_request"
 )
 
 // Envelope is the JSON message wrapper exchanged over the WebSocket
@@ -176,6 +183,13 @@ type CertIssuedPayload struct {
 // CertFailedPayload explains why the certificate round didn't complete.
 type CertFailedPayload struct {
 	Reason string `json:"reason"`
+}
+
+// CapabilityRequestPayload mirrors packages/controlplane/lib/protocol.ts's
+// CapabilityRequestPayload exactly — no signature needed, the connection
+// itself already proved identity.
+type CapabilityRequestPayload struct {
+	RequestedCapabilities []string `json:"requestedCapabilities"`
 }
 
 // NewEnvelope builds an Envelope with a fresh message ID and the current

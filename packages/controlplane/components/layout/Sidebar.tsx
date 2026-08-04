@@ -5,6 +5,8 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   Users,
+  Radio,
+  Map,
   KeyRound,
   ScrollText,
   Globe2,
@@ -26,6 +28,8 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { href: "/admin", icon: LayoutDashboard, label: "Overview", exact: true },
   { href: "/admin/actors", icon: Users, label: "Actors", exact: false },
+  { href: "/admin/sensors", icon: Radio, label: "Sensors", exact: false },
+  { href: "/admin/map", icon: Map, label: "Map", exact: false },
   { href: "/admin/certificates", icon: KeyRound, label: "Certificates", exact: false },
   { href: "/admin/audit", icon: ScrollText, label: "Audit Log", exact: false },
   { href: "/admin/workspaces", icon: Globe2, label: "Workspaces", exact: false },

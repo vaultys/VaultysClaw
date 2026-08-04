@@ -625,6 +625,14 @@ export class ControlPlaneWSServer {
       return;
     }
 
+    // Device-level fields (hostname/os) aren't Actor columns — they're kind-specific, so they live
+    // in kindConfig (docs/REBUILD_ARCHITECTURE.md §4.3) rather than growing the shared model. Every
+    // event repeats the same Device block, so the first one in the batch is enough.
+    const device = payload.events?.[0]?.device;
+    if (device) {
+      void ActorDAO.mergeKindConfig(deviceDid, { hostname: device.hostname, os: device.os });
+    }
+
     let accepted = 0;
     for (const event of payload.events ?? []) {
       if (event.schemaVersion !== 1) {

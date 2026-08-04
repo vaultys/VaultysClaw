@@ -50,6 +50,33 @@ export class ActorDAO {
     });
   }
 
+  /** `null` clears the location entirely (all three columns), matching the map/detail page's
+   *  "Clear" action — there's no such thing as a lat/lon with no label or vice versa. */
+  static async updateLocation(
+    did: string,
+    location: { lat: number; lon: number; label: string } | null
+  ): Promise<void> {
+    await prisma.actor.update({
+      where: { did },
+      data: {
+        locationLat: location?.lat ?? null,
+        locationLon: location?.lon ?? null,
+        locationLabel: location?.label ?? null,
+      },
+    });
+  }
+
+  /** Merges into the existing `kindConfig` JSON rather than replacing it — kind-specific fields
+   *  (e.g. a sensor's `hostname`/`os`, set from telemetry) shouldn't clobber unrelated ones. */
+  static async mergeKindConfig(did: string, patch: Record<string, unknown>): Promise<void> {
+    const actor = await prisma.actor.findUnique({ where: { did }, select: { kindConfig: true } });
+    const current = (actor?.kindConfig ?? {}) as Record<string, unknown>;
+    await prisma.actor.update({
+      where: { did },
+      data: { kindConfig: { ...current, ...patch } as never },
+    });
+  }
+
   static async list(filter?: {
     kind?: string;
     workspaceId?: string;
@@ -60,6 +87,13 @@ export class ActorDAO {
         workspaceId: filter?.workspaceId,
       },
       orderBy: { registeredAt: "desc" },
+    });
+  }
+
+  /** Every Actor with a location set — the map page's marker source. */
+  static async listLocated(): Promise<Actor[]> {
+    return prisma.actor.findMany({
+      where: { locationLat: { not: null }, locationLon: { not: null } },
     });
   }
 

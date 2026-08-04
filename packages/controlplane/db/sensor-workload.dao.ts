@@ -2,6 +2,10 @@ import { randomUUID } from "crypto";
 import { prisma } from "./client";
 import type { SensorWorkload } from "@prisma/client";
 
+/** A workload at or above this agentConfidence is a "shadow agent" — a real AI agent running
+ *  without ever having registered/connected itself, only ever observed by a sensor. */
+export const SHADOW_THRESHOLD = 0.75;
+
 /** A single classified AI/agent process observation reported by a `kind: "sensor"` Actor
  *  (vaultysclaw-sensor/docs/vaultysclaw-integration.md). Mirrors that repo's `telemetry.Workload`. */
 export interface SensorWorkloadInput {

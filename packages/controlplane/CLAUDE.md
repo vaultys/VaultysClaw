@@ -9,8 +9,8 @@ production traffic here until the cutover is deliberate.
 ## Status
 
 Backend core, the WebSocket connection lifecycle, VaultysId QR login, the full admin navigation
-shape (real + placeholder pages), real Actors/Certificates/Workspaces/Settings pages, the Access Portal
-shell, and the design system (ported from `packages/control-plane`) are built.
+shape (real + placeholder pages), real Actors/Sensors/Map/Certificates/Workspaces/Settings pages,
+the Access Portal shell, and the design system (ported from `packages/control-plane`) are built.
 
 - **Design system**: `app/theme.css` (the adaptive CSS-variable palette, light/dark via `.dark`),
   `tailwind.config.js` (semantic color tokens — `bg-primary-600`, `text-foreground-500`, etc.,
@@ -76,7 +76,10 @@ shell, and the design system (ported from `packages/control-plane`) are built.
 - `prisma/schema.prisma` — `Setting`, `Actor` (one entity for every DID-holder, human or not —
   §4/§4.5; now also carries `publicKey`, the base64 raw key captured at registration from the
   completed Challenger handshake, enabling independent re-verification later with no live
-  connection), `User` (1:1 human-profile extension of a `kind: "human"` Actor),
+  connection; plus `locationLat`/`locationLon`/`locationLabel`, ported from the old app's identical
+  `Agent`/`User` fields — see `/admin/map` below), `ActorLink` (a directed, freely-labeled edge
+  between any two Actors — "reports to", "belongs to", ... — deliberately generic, not a fixed
+  relation type), `User` (1:1 human-profile extension of a `kind: "human"` Actor),
   `CapabilityCertificate` (the ledger, nullable `expiresAt`; `certFormat` discriminates
   `"packcert"` — two nested `packages/policy` tokens, `requestCertificate` populated — from
   `"challenger"` — the library's native dual-signature certificate, trust doc §3.2b,
@@ -157,8 +160,29 @@ shell, and the design system (ported from `packages/control-plane`) are built.
   `(deviceDid, fingerprint)` — current-state, not an append-only log, matching the sensor's own
   "report deltas" model — via `SensorWorkloadDAO`. `deviceDid` is always the connection's own
   authenticated identity (`connectedBySender`), never the client-claimed `agentId` field the Go
-  sensor also sets on the envelope. No `/admin/sensors` dashboard yet — `SensorWorkload` rows are
-  real and queryable, just not surfaced in the admin UI (see deferred).
+  sensor also sets on the envelope. Also merges the batch's `Device.hostname`/`os` into the Actor's
+  `kindConfig` (`ActorDAO.mergeKindConfig`) — kind-specific fields don't get their own columns.
+- **`app/admin/sensors/{page.tsx,[did]/page.tsx}`** (ported from `packages/control-plane`'s
+  fleet-monitoring page) — a list (stat cards: sensor count, online now via
+  `getWSServerInstance().isConnected`, total/shadow workloads via `SHADOW_THRESHOLD =
+  0.75` in `db/sensor-workload.dao.ts`) and a per-device detail page (workloads table, Shadow/
+  Observed pill per row). No "assigned user" column like the old app had — that concept doesn't
+  exist in this rebuild's schema at all; a sensor's owner/relationship is just an `ActorLink` (see
+  below), shown read-only here and edited from the Actor detail page.
+- **Actor location** (`Actor.locationLat`/`locationLon`/`locationLabel`, ported from the old app's
+  identical `Agent`/`User` fields) — set from the Actor detail page (`lib/geocode.ts`'s server-side
+  Nominatim lookup by city name, or exact coordinates) or from `/admin/map` directly (click a pin →
+  `components/map/world-map/LocationEditor.tsx`, same modal, calling the same
+  `setActorLocationAction`). `/admin/map` is `packages/control-plane`'s OpenLayers world map
+  (`components/map/world-map/*`), ported near-verbatim — clustering, pin styling, tile source, all
+  unchanged — with `MapMarker.type` now an Actor `kind` (openclaw/human/sensor/mcp) instead of the
+  old app's agent/user/docling/s3, and `online` read from the same live WS connection map every
+  other "online" indicator in this app uses, not a stored field.
+- **`ActorLink`** (`db/actor-link.dao.ts`) — a directed, freely-labeled edge between any two Actors
+  ("reports to", "belongs to", "manages", ...), deliberately generic rather than a fixed relation
+  type like the old app's sensor-only "assigned user". Edited from the Actor detail page's
+  Relationships section; shown (read-only) on the Sensors list as a stand-in for what "assigned
+  user" used to show.
 - `lib/user-login-channel.ts` + `lib/auth-config.ts` + `app/login/page.tsx` — the passwordless
   QR-code login (reused in spirit from `packages/control-plane`'s `UserServerChannel`/
   `useVaultysConnect`, trimmed to only the P2P wallet-pairing flow — the browser-extension
@@ -330,17 +354,17 @@ repeatable tests (see deferred).
   implemented. (The login flow's own PeerJS/WebRTC usage is separate and already built. Also
   separate: `vaultysclaw-sensor` connecting is plain WS, not WebRTC — that's the one kind of remote
   agent actually wired end to end today, see Verified above.)
-- **`/admin/sensors` dashboard + `managed`/`observed`/`shadow` correlation**
-  (`vaultysclaw-sensor/docs/vaultysclaw-integration.md` §4/§5 step 6) — `SensorWorkload` rows are
-  real, persisted, and queryable (`SensorWorkloadDAO`), just not surfaced anywhere in the admin UI
-  yet, and nothing correlates a workload's `identityEvidence` against the `Actor` table to decide
-  "managed" vs. merely "observed."
+- **`managed`/`observed`/`shadow` correlation** (`vaultysclaw-sensor/docs/vaultysclaw-integration.md`
+  §4) — `/admin/sensors` is built (see below) and already shows the `shadow` distinction per
+  workload (`agentConfidence >= SHADOW_THRESHOLD`), but nothing yet correlates a workload's
+  `identityEvidence` against the `Actor` table to additionally decide "managed" (this machine is
+  running a real registered Actor, not just an anonymously-observed process).
 - Everything the remaining placeholder pages describe: Audit Log (unified signed IntentLog/
   ActivityLog), Integrations (OIDC/Entra, API Keys, Webhooks, Notification Channels, Model
-  Registry). Actors, Certificates, Workspaces (Overview/Actors/Access tabs — Budgets & Model
-  Access still a stub), and Settings are real. The certificate detail page (§1.5's signature-chain
-  view) is built (`app/admin/certificates/[id]/page.tsx`) and its status-check-history section is
-  real too — see `CertStatusCheckDAO` below.
+  Registry). Actors, Sensors, Map, Certificates, Workspaces (Overview/Actors/Access tabs —
+  Budgets & Model Access still a stub), and Settings are real. The certificate detail page (§1.5's
+  signature-chain view) is built (`app/admin/certificates/[id]/page.tsx`) and its status-check-history
+  section is real too — see `CertStatusCheckDAO` below.
 - **Trust policy enforcement.** `/admin/settings` genuinely persists `trust.failMode`/
   `trust.stapleTtlSeconds` (trust doc §5.3), but nothing reads them yet — no verifier in this
   rebuild consumes `packages/policy`'s `verifyCertStatusResponseCert(vid, token, maxAgeMs)` with a

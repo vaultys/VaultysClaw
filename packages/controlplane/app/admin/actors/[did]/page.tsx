@@ -1,11 +1,16 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
-import { CapabilityCertificateDAO, ActorDAO, UserDAO, WorkspaceDAO } from "@/db";
+import { ArrowLeft, MapPin } from "lucide-react";
+import { CapabilityCertificateDAO, ActorDAO, ActorLinkDAO, UserDAO, WorkspaceDAO } from "@/db";
 import PageChrome from "@/components/layout/PageChrome";
 import { revokeCertificateAction } from "@/app/admin/certificates/actions";
-import { updateActorAction } from "../actions";
-import { decodeDidParam } from "@/lib/actor-route";
+import {
+  updateActorAction,
+  setActorLocationFormAction,
+  addActorLinkAction,
+  deleteActorLinkAction,
+} from "../actions";
+import { decodeDidParam, encodeDidParam } from "@/lib/actor-route";
 import type { CertScope } from "@vaultysclaw/policy";
 
 const KIND_BADGE: Record<string, string> = {
@@ -39,13 +44,17 @@ export default async function ActorDetailPage({
   const actor = await ActorDAO.findByDid(did);
   if (!actor) notFound();
 
-  const [certs, workspaces, human] = await Promise.all([
+  const [certs, workspaces, human, links, allActors] = await Promise.all([
     CapabilityCertificateDAO.list({ agentDid: did }),
     WorkspaceDAO.list(),
     actor.kind === "human" ? UserDAO.findByDid(did) : Promise.resolve(null),
+    ActorLinkDAO.listForActor(did),
+    ActorDAO.list(),
   ]);
 
   const activeCount = certs.filter((c) => c.status === "active").length;
+  const hasLocation = actor.locationLat !== null && actor.locationLon !== null;
+  const linkableActors = allActors.filter((a) => a.did !== did);
 
   return (
     <div className="p-6 max-w-3xl space-y-8">
@@ -99,6 +108,88 @@ export default async function ActorDetailPage({
             {actor.publicKey ?? "—"}
           </div>
         </div>
+      </section>
+
+      <section className="space-y-3 border border-neutral-200/60 rounded-xl bg-background-100 p-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-foreground-700 flex items-center gap-1.5">
+            <MapPin className="w-3.5 h-3.5 text-foreground-400" />
+            Location
+          </h2>
+          <Link href="/admin/map" className="text-xs text-primary-600 hover:underline">
+            View on map →
+          </Link>
+        </div>
+        {hasLocation ? (
+          <p className="text-sm text-foreground">
+            {actor.locationLabel ?? "—"}{" "}
+            <span className="text-xs font-mono text-foreground-500">
+              ({actor.locationLat!.toFixed(4)}, {actor.locationLon!.toFixed(4)})
+            </span>
+          </p>
+        ) : (
+          <p className="text-sm text-foreground-400">Not located.</p>
+        )}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <form action={setActorLocationFormAction} className="flex gap-2">
+            <input type="hidden" name="did" value={actor.did} />
+            <input type="hidden" name="mode" value="city" />
+            <input
+              type="text"
+              name="city"
+              placeholder="Look up by city, e.g. Paris, France"
+              className="flex-1 border border-neutral-200 rounded-lg px-3 py-1.5 text-sm bg-background"
+            />
+            <button
+              type="submit"
+              className="px-3 py-1.5 border border-neutral-200 text-foreground text-sm font-medium rounded-lg hover:bg-background-200 transition-colors shrink-0"
+            >
+              Look up
+            </button>
+          </form>
+          <form action={setActorLocationFormAction} className="flex gap-2">
+            <input type="hidden" name="did" value={actor.did} />
+            <input type="hidden" name="mode" value="coords" />
+            <input
+              type="number"
+              step="any"
+              name="lat"
+              defaultValue={actor.locationLat ?? ""}
+              placeholder="Latitude"
+              className="w-24 border border-neutral-200 rounded-lg px-3 py-1.5 text-sm bg-background"
+            />
+            <input
+              type="number"
+              step="any"
+              name="lon"
+              defaultValue={actor.locationLon ?? ""}
+              placeholder="Longitude"
+              className="w-24 border border-neutral-200 rounded-lg px-3 py-1.5 text-sm bg-background"
+            />
+            <input
+              type="text"
+              name="label"
+              defaultValue={actor.locationLabel ?? ""}
+              placeholder="Label (optional)"
+              className="flex-1 border border-neutral-200 rounded-lg px-3 py-1.5 text-sm bg-background"
+            />
+            <button
+              type="submit"
+              className="px-3 py-1.5 border border-neutral-200 text-foreground text-sm font-medium rounded-lg hover:bg-background-200 transition-colors shrink-0"
+            >
+              Set
+            </button>
+          </form>
+        </div>
+        {hasLocation && (
+          <form action={setActorLocationFormAction}>
+            <input type="hidden" name="did" value={actor.did} />
+            <input type="hidden" name="mode" value="clear" />
+            <button type="submit" className="text-xs text-danger-600 hover:underline">
+              Clear location
+            </button>
+          </form>
+        )}
       </section>
 
       <section className="space-y-4 border border-neutral-200/60 rounded-xl bg-background-100 p-4">
@@ -239,6 +330,111 @@ export default async function ActorDetailPage({
             </tbody>
           </table>
         </div>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-sm font-semibold text-foreground-700">Relationships</h2>
+        <p className="text-xs text-foreground-400">
+          A directed, freely-labeled link to any other Actor — &quot;reports to&quot;,
+          &quot;belongs to&quot;, &quot;manages&quot;, or anything else worth recording.
+        </p>
+        <div className="space-y-2">
+          {links.from.map((link) => (
+            <div
+              key={link.id}
+              className="flex items-center justify-between border border-neutral-200/60 rounded-lg bg-background-100 px-3 py-2 text-sm"
+            >
+              <span>
+                <span className="text-foreground-500">{link.label}</span>{" "}
+                <Link
+                  href={`/admin/actors/${encodeDidParam(link.to.did)}`}
+                  className="text-foreground hover:text-primary-600 hover:underline"
+                >
+                  {link.to.name}
+                </Link>
+              </span>
+              <form action={deleteActorLinkAction}>
+                <input type="hidden" name="id" value={link.id} />
+                <input type="hidden" name="returnToDid" value={did} />
+                <button type="submit" className="text-xs text-danger-600 hover:underline">
+                  Remove
+                </button>
+              </form>
+            </div>
+          ))}
+          {links.to.map((link) => (
+            <div
+              key={link.id}
+              className="flex items-center justify-between border border-neutral-200/60 rounded-lg bg-background-100 px-3 py-2 text-sm"
+            >
+              <span>
+                <Link
+                  href={`/admin/actors/${encodeDidParam(link.from.did)}`}
+                  className="text-foreground hover:text-primary-600 hover:underline"
+                >
+                  {link.from.name}
+                </Link>{" "}
+                <span className="text-foreground-500">{link.label}</span>{" "}
+                <span className="text-foreground-400">this actor</span>
+              </span>
+              <form action={deleteActorLinkAction}>
+                <input type="hidden" name="id" value={link.id} />
+                <input type="hidden" name="returnToDid" value={did} />
+                <button type="submit" className="text-xs text-danger-600 hover:underline">
+                  Remove
+                </button>
+              </form>
+            </div>
+          ))}
+          {links.from.length === 0 && links.to.length === 0 && (
+            <p className="text-sm text-foreground-400">No relationships recorded yet.</p>
+          )}
+        </div>
+        {linkableActors.length > 0 && (
+          <form
+            action={addActorLinkAction}
+            className="flex flex-wrap items-end gap-2 border border-neutral-200/60 rounded-xl bg-background-100 p-4"
+          >
+            <input type="hidden" name="fromDid" value={did} />
+            <div>
+              <label className="block text-xs text-foreground-500 mb-1">Label</label>
+              <input
+                type="text"
+                name="label"
+                placeholder="e.g. belongs to"
+                required
+                list="actor-link-label-presets"
+                className="w-40 border border-neutral-200 rounded-lg px-3 py-1.5 text-sm bg-background"
+              />
+              <datalist id="actor-link-label-presets">
+                <option value="belongs to" />
+                <option value="reports to" />
+                <option value="manages" />
+                <option value="owns" />
+              </datalist>
+            </div>
+            <div className="flex-1 min-w-[200px]">
+              <label className="block text-xs text-foreground-500 mb-1">Target Actor</label>
+              <select
+                name="toDid"
+                required
+                className="w-full border border-neutral-200 rounded-lg px-3 py-1.5 text-sm bg-background"
+              >
+                {linkableActors.map((a) => (
+                  <option key={a.did} value={a.did}>
+                    {a.name} ({a.kind})
+                  </option>
+                ))}
+              </select>
+            </div>
+            <button
+              type="submit"
+              className="px-3 py-1.5 bg-primary-600 hover:bg-primary-500 text-white text-sm font-medium rounded-lg transition-colors"
+            >
+              Add link
+            </button>
+          </form>
+        )}
       </section>
     </div>
   );

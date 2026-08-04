@@ -48,10 +48,19 @@ model Actor {
   registeredAt DateTime @default(now())
   lastSeen     DateTime @default(now())
 
+  // Free-standing lat/lon + display label, not an enum/region — set by an admin (city-name
+  // geocode or manual coordinates, see lib/geocode.ts) via the actor detail page or the map page's
+  // pin editor. Null lat/lon means "not located"; label alone is never authoritative for position.
+  locationLat   Float?
+  locationLon   Float?
+  locationLabel String?
+
   workspace       Workspace?               @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
   certificates    CapabilityCertificate[]
   humanProfile    User?
   sensorWorkloads SensorWorkload[]
+  linksFrom       ActorLink[]              @relation("ActorLinkFrom")
+  linksTo         ActorLink[]              @relation("ActorLinkTo")
 
   @@index([kind])
   @@index([workspaceId])
@@ -230,4 +239,25 @@ model SensorWorkload {
 
   @@unique([deviceDid, fingerprint])
   @@index([deviceDid])
+}
+
+// ─── Actor relationships ──────────────────────────────────────────────────────
+// A directed, freely-labeled edge between two Actors — "reports to", "belongs
+// to", "manages", or anything else an admin wants to record. Deliberately
+// generic rather than a single hardcoded relation (e.g. the old app's
+// sensor-to-owner "assigned user"): any kind of Actor can link to any other,
+// and what the link means is just a label, not a schema-level type.
+
+model ActorLink {
+  id        String   @id
+  fromDid   String
+  toDid     String
+  label     String
+  createdAt DateTime @default(now())
+
+  from Actor @relation("ActorLinkFrom", fields: [fromDid], references: [did], onDelete: Cascade)
+  to   Actor @relation("ActorLinkTo", fields: [toDid], references: [did], onDelete: Cascade)
+
+  @@index([fromDid])
+  @@index([toDid])
 }

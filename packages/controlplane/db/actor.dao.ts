@@ -2,6 +2,13 @@ import { prisma } from "./client";
 import type { Actor } from "@prisma/client";
 
 export class ActorDAO {
+  /**
+   * `kindConfig` is only ever touched on `update` if explicitly passed — omitting it must leave
+   * whatever's already there alone. Every caller today (registration approval) never passes it,
+   * so defaulting it to `{}` unconditionally on update, as this used to, silently wiped out
+   * whatever `mergeKindConfig` (e.g. a sensor's `hostname`/`os` from telemetry) had already set,
+   * every single time an existing Actor's registration got approved again.
+   */
   static async upsert(actor: {
     did: string;
     name: string;
@@ -10,18 +17,17 @@ export class ActorDAO {
     workspaceId?: string | null;
     kindConfig?: unknown;
   }): Promise<Actor> {
-    const data = {
+    const shared = {
       name: actor.name,
       kind: actor.kind,
       publicKey: actor.publicKey ?? undefined,
       workspaceId: actor.workspaceId ?? null,
-      kindConfig: (actor.kindConfig ?? {}) as never,
       lastSeen: new Date(),
     };
     return prisma.actor.upsert({
       where: { did: actor.did },
-      create: { did: actor.did, ...data },
-      update: data,
+      create: { did: actor.did, ...shared, kindConfig: (actor.kindConfig ?? {}) as never },
+      update: { ...shared, ...(actor.kindConfig !== undefined ? { kindConfig: actor.kindConfig as never } : {}) },
     });
   }
 

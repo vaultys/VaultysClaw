@@ -630,7 +630,9 @@ export class ControlPlaneWSServer {
     // event repeats the same Device block, so the first one in the batch is enough.
     const device = payload.events?.[0]?.device;
     if (device) {
-      void ActorDAO.mergeKindConfig(deviceDid, { hostname: device.hostname, os: device.os });
+      void ActorDAO.mergeKindConfig(deviceDid, { hostname: device.hostname, os: device.os }).catch((err) =>
+        logger.error({ err, deviceDid }, "Failed to merge sensor device info into Actor kindConfig")
+      );
     }
 
     let accepted = 0;

@@ -10,6 +10,7 @@
 import type { AgentCapability } from "@vaultysclaw/policy";
 import { PendingRegistrationDAO, ActorDAO } from "@/db";
 import { getWSServerInstance } from "./ws-server";
+import { allowedCapabilitiesForKind } from "./capabilities";
 
 export async function approvePendingRegistration(
   registrationId: string,
@@ -29,11 +30,12 @@ export async function approvePendingRegistration(
     workspaceId: registration.targetWorkspaceId,
   });
 
-  // Sensors have no capability concept and the sensor binary doesn't speak the
-  // service:"certificate" sub-protocol at all — granting one anyway would start an
-  // interactive exchange the sensor silently ignores, leaving the registration stuck in
-  // "approved, awaiting delivery" forever (ws-server.ts never gets a reply to complete it).
-  const grantedCapabilities = registration.kind === "sensor" ? [] : capabilities;
+  // Filtered against an allow-list per kind, not trusted as-is — a sensor's only capability
+  // today is "process_read" (lib/capabilities.ts); anything else submitted for it is dropped
+  // rather than granted, even via a direct form post.
+  const grantedCapabilities = capabilities.filter((c) =>
+    allowedCapabilitiesForKind(registration.kind).includes(c)
+  );
 
   await PendingRegistrationDAO.approve(
     registrationId,

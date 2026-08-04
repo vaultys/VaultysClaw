@@ -475,21 +475,20 @@ export class ControlPlaneWSServer {
 
     try {
       const serverVid = await ServerIdentityDAO.getServerVaultysId();
-      const isFirstRound = !state.challenger;
       if (!state.challenger) {
         state.challenger = new Challenger(serverVid);
       }
       const challenger = state.challenger;
 
-      // Embed the approved capabilities as metadata on our first real update — same pattern
-      // packages/control-plane's auth-handler.ts uses for the auth flow's capability metadata.
-      // The library's own type declaration says Record<string,string>, but its runtime
-      // serializes arbitrary JSON-safe values; this repo already relies on that (see
-      // auth-handler.ts's identical cast) rather than hand-rolling a second encoding.
-      const metadata = isFirstRound
-        ? ({ capabilities: state.capabilities } as unknown as Record<string, string>)
-        : undefined;
-      await challenger.update(Buf.from(payload.data, "base64"), metadata);
+      // No metadata embedded here: github.com/vaultys/vaultysid/go's Challenger (vaultysclaw-sensor's
+      // client) has a verification bug where Step2/Finalize reconstruct the payload they check a
+      // peer's signature against with metadata hardcoded to empty, instead of what was actually
+      // received — any certificate with non-empty signed metadata fails Go-side verification with
+      // "invalid signature", even though the TS side is completely correct on both ends. The
+      // certificate itself proves mutual live presence only; the actual capabilities granted travel
+      // as a plain field on cert_issued below, not something every Challenger implementation needs
+      // to agree on how to sign/verify identically.
+      await challenger.update(Buf.from(payload.data, "base64"));
 
       const certificate = challenger.getCertificate();
       const certB64 = Buf.from(certificate).toString("base64");
@@ -537,6 +536,7 @@ export class ControlPlaneWSServer {
       this.sendMessage(sender, "cert_issued", {
         certId,
         certificate: certB64,
+        capabilities: state.capabilities,
       } satisfies CertIssuedPayload);
       logger.info({ did: registration.did, certId }, "Capability certificate delivered via live exchange");
     } catch (err) {

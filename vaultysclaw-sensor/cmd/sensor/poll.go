@@ -34,6 +34,15 @@ func runPollLoop(
 	defer ticker.Stop()
 
 	poll := func() {
+		// Gated on an actually-delivered process_read certificate (docs/CERTIFICATE_WEB_OF_TRUST.md
+		// §3.2b) whenever we're connected to a control plane at all — read nothing, not just "don't
+		// report it", until granted. Local-detection-only mode (client == nil, no control plane
+		// configured) has no grantor to wait on, so it keeps its original unrestricted behavior.
+		if client != nil && !client.HasCapability("process_read") {
+			logger.Debug("sensor: skipping poll cycle — process_read capability not yet granted")
+			return
+		}
+
 		pctx, cancel := context.WithTimeout(ctx, interval)
 		defer cancel()
 

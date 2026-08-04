@@ -2,20 +2,8 @@ import Link from "next/link";
 import { ActorDAO, PendingRegistrationDAO } from "@/db";
 import PageChrome from "@/components/layout/PageChrome";
 import { encodeDidParam } from "@/lib/actor-route";
+import { AGENT_CAPABILITIES, SENSOR_CAPABILITIES } from "@/lib/capabilities";
 import { approveRegistrationAction, denyRegistrationAction } from "./actions";
-
-/** Capabilities an agent-kind Actor can be granted — admin_console_access/portal_access are human-only (§4.5). */
-const AGENT_CAPABILITIES = [
-  "file_access",
-  "internet_access",
-  "browser_control",
-  "api_call",
-  "mail_send",
-  "code_execution",
-  "system_command",
-  "agent_communication",
-  "knowledge_search",
-] as const;
 
 const KIND_BADGE: Record<string, string> = {
   openclaw: "bg-primary-100 text-primary-700 border-primary-200",
@@ -77,36 +65,39 @@ export default async function ActorsPage() {
                 <KindBadge kind={reg.kind} />
               </div>
               <div className="text-xs text-foreground-500 font-mono">{reg.did}</div>
-              {reg.kind === "sensor" ? (
-                <p className="text-xs text-foreground-400">
-                  Sensors have no capability concept — approving just connects it, no certificate
-                  exchange follows. (Checking a capability below for a sensor would leave this stuck
-                  in "awaiting delivery" forever: the sensor binary doesn't speak the certificate
-                  sub-protocol needed to complete one.)
-                </p>
-              ) : (
-                <>
-                  <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm">
-                    {AGENT_CAPABILITIES.map((cap) => (
-                      <label key={cap} className="flex items-center gap-1.5 text-foreground-700">
-                        <input
-                          type="checkbox"
-                          name="capabilities"
-                          value={cap}
-                          defaultChecked={(reg.requestedCapabilities as string[]).includes(cap)}
-                          className="accent-primary-600"
-                        />
-                        {cap}
-                      </label>
-                    ))}
-                  </div>
-                  {(reg.requestedCapabilities as string[]).length === 0 && (
-                    <p className="text-xs text-foreground-400">
-                      No capabilities requested yet — approving now grants none unless checked below.
-                    </p>
-                  )}
-                </>
-              )}
+              {(() => {
+                const capabilityOptions = reg.kind === "sensor" ? SENSOR_CAPABILITIES : AGENT_CAPABILITIES;
+                return (
+                  <>
+                    <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm">
+                      {capabilityOptions.map((cap) => (
+                        <label key={cap} className="flex items-center gap-1.5 text-foreground-700">
+                          <input
+                            type="checkbox"
+                            name="capabilities"
+                            value={cap}
+                            defaultChecked={(reg.requestedCapabilities as string[]).includes(cap)}
+                            className="accent-primary-600"
+                          />
+                          {cap}
+                        </label>
+                      ))}
+                    </div>
+                    {reg.kind === "sensor" && (
+                      <p className="text-xs text-foreground-400">
+                        Sensors only have this one capability today — approving with it checked
+                        starts a live certificate exchange the sensor gates its process telemetry
+                        on; leaving it unchecked just connects the sensor with no certificate.
+                      </p>
+                    )}
+                    {reg.kind !== "sensor" && (reg.requestedCapabilities as string[]).length === 0 && (
+                      <p className="text-xs text-foreground-400">
+                        No capabilities requested yet — approving now grants none unless checked below.
+                      </p>
+                    )}
+                  </>
+                );
+              })()}
               <div className="flex gap-2 pt-1">
                 <button
                   type="submit"

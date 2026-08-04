@@ -33,6 +33,49 @@ found and fixed in the process (§2), not just configuration:
    proactive hello so there's exactly one message per round, matching the
    real server.
 
+**Update (phase 4 — capability-gated telemetry, done):** the sensor is no
+longer capability-free. It has exactly one capability today, `process_read`
+(`packages/policy`'s `AgentCapability` — more will follow as the sensor
+grows independent things worth gating), and `cmd/sensor/poll.go` will not
+read local process info *at all* until the control plane has actually
+delivered a certificate granting it — `client.HasCapability("process_read")`,
+checked at the top of every poll cycle. Approving a sensor's registration
+with that box checked in `/admin/actors` runs the same live
+`service:"certificate"` exchange as an agent's capability grant
+(`internal/vconn/cert_handshake.go`'s `CertHandshake`, mirroring
+`handshake.go`'s auth-round `Handshake`); completing it flips the gate open
+for the life of that connection (in-memory only — a sensor process restart
+loses the grant until an admin re-triggers delivery, same as any client
+that loses its own copy of state the control plane still has persisted).
+
+This surfaced a **real bug in `github.com/vaultys/vaultysid/go`** (the
+pinned dependency, not this repo's own code): `challenger.Challenger`'s
+`Step2`/`Finalize` reconstruct the payload they check a peer's signature
+against with `Metadata` hardcoded to two *empty* maps, instead of the
+metadata that was actually received on the wire. Any certificate whose
+signed metadata is non-empty — which is exactly how
+`packages/controlplane/lib/ws-server.ts` used to embed granted capabilities
+(a JSON string under `metadata.pk2.capabilities`) — fails Go-side
+verification with `invalid signature`, even though the TS side is correct
+on both ends (it signs and later independently re-verifies the exact same
+bytes without issue; only Go's *own* redundant re-derivation is wrong).
+Confirmed by reproducing it live: the exchange failed exactly at Go's
+`Step2` the moment metadata was added, immediately after months of the
+identical exchange working fine with always-empty metadata.
+
+Rather than depend on `vaultysid/go` being patched (out of this repo's
+control), the fix moved *what was granted* out of the signed certificate
+entirely: `cert_issued` now carries a plain, unsigned `capabilities: []
+string` field (`CertIssuedPayload` in both `lib/protocol.ts` and
+`internal/vconn/envelope.go`) alongside the certificate bytes. The
+certificate itself now carries no metadata for this exchange — it still
+proves mutual live presence (both parties' real signatures, still checked),
+just not *what for*; that answer lives in the ledger
+(`CapabilityCertificate.capabilities`) and travels to the client over this
+plain field instead. `internal/vconn/cert_handshake.go` no longer reads
+metadata at all as a result — simpler, and sidesteps the bug rather than
+working around it per-field.
+
 What's still exactly what §3–§4 below describe as missing: `managed`
 device correlation against a real `Agent`/`Actor` registry, and the
 optional `/admin/sensors` dashboard (§5 step 6).

@@ -61,6 +61,28 @@ function decodePackcertToken(token: string): DecodedToken {
   };
 }
 
+/** Metadata values are stored as JSON-encoded strings (lib/ws-server.ts, lib/user-login-channel.ts —
+ *  a strict-string map is what every Challenger implementation, not just this repo's TS one, can
+ *  decode). Parsed back here purely for a more readable display; falls back to the raw string. */
+function prettifyMetadata(
+  metadata: { pk1?: Record<string, string>; pk2?: Record<string, string> } | undefined
+): unknown {
+  if (!metadata) return metadata;
+  const prettifySide = (side?: Record<string, string>) =>
+    side
+      ? Object.fromEntries(
+          Object.entries(side).map(([key, value]) => {
+            try {
+              return [key, JSON.parse(value)];
+            } catch {
+              return [key, value];
+            }
+          })
+        )
+      : side;
+  return { pk1: prettifySide(metadata.pk1), pk2: prettifySide(metadata.pk2) };
+}
+
 function decodeChallengerToken(certificateBase64: string): DecodedToken {
   try {
     const bytes = Buffer.from(certificateBase64, "base64");
@@ -83,7 +105,7 @@ function decodeChallengerToken(certificateBase64: string): DecodedToken {
         nonce: parsed.nonce ? Buffer.from(parsed.nonce).toString("base64") : undefined,
         sign1: sign1 ? sign1.toString("base64") : undefined,
         sign2: sign2 ? sign2.toString("base64") : undefined,
-        metadata: parsed.metadata,
+        metadata: prettifyMetadata(parsed.metadata),
       },
       signedBodyBase64: null,
       signatureBase64: signature ? signature.toString("base64") : null,

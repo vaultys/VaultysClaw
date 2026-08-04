@@ -114,6 +114,11 @@ shell, and the design system (ported from `packages/control-plane`) are built.
 - `lib/agent-sender.ts` — the same transport-agnostic `AgentSender` shape as
   `packages/control-plane`; only `WsSender` implemented so far (`PeerjsSender` for agents, trust
   doc §4.4, is deferred).
+- `lib/capabilities.ts` — `AGENT_CAPABILITIES` (openclaw/mcp) vs. `SENSOR_CAPABILITIES` (today, just
+  `process_read` — `vaultysclaw-sensor` gates reading local process info at all on actually holding
+  this) and `allowedCapabilitiesForKind(kind)`, the allow-list `lib/registrations.ts`'s
+  `approvePendingRegistration` filters a submitted grant against — anything not in the matching
+  list is dropped even if somehow submitted (e.g. a direct form post), not just hidden in the UI.
 - `lib/ws-server.ts` — the connection lifecycle: register → VaultysId Challenger handshake
   (in-memory per connection, not round-tripped through a DB session row — this is a long-lived
   process, not a stateless API route) → known Actor auto-connects, unknown Actor gets a
@@ -134,11 +139,18 @@ shell, and the design system (ported from `packages/control-plane`) are built.
   up in `server.ts`) is what lets a Server Action (`lib/registrations.ts`, running in the same
   Next.js custom-server process) reach the live connection map at all. `deliverApprovedCapabilities`
   always sends `auth_complete` the moment it promotes a still-connected pending sender into
-  `connected`, *before* deciding whether to start the certificate exchange — a `kind: "sensor"`
-  Actor has no capability concept at all (approved with `capabilities: []`), so for it this is the
-  *only* signal that it's connected; skipping straight to `cert_challenge` without it left a real
-  Go sensor client waiting forever for a message the old code path never sent (found wiring
-  `vaultysclaw-sensor` against this server for real — see below).
+  `connected`, *before* deciding whether to start the certificate exchange — a sensor approved with
+  zero capabilities skips the exchange entirely and is just marked delivered, since there's nothing
+  to certify; without `auth_complete` sent first regardless, a client whose only capability grant
+  ever comes back empty would never be told it's connected at all (found wiring
+  `vaultysclaw-sensor` against this server for real — see below). **The certificate itself carries
+  no metadata for this exchange** — `github.com/vaultys/vaultysid/go` (the sensor's Challenger
+  implementation) has a verification bug where non-empty signed metadata always fails Go-side
+  re-verification (`Step2`/`Finalize` reconstruct the signed payload with metadata hardcoded to
+  empty instead of what was actually received); rather than depend on a fix landing in a pinned
+  external dependency, `cert_issued` instead carries the granted capabilities as a plain, unsigned
+  `capabilities: string[]` field alongside the certificate bytes — see
+  `vaultysclaw-sensor/docs/vaultysclaw-integration.md`'s phase 4 update for the full story.
 - **`handleSensorTelemetry`** (also in `lib/ws-server.ts`) — the one kind-specific message this
   file handles: a connected `kind: "sensor"` Actor's classified AI/agent process observations
   (`vaultysclaw-sensor/docs/vaultysclaw-integration.md`). Upserts into `SensorWorkload` by
@@ -241,6 +253,14 @@ repeatable tests (see deferred).
   expected an unsolicited "hello" this server never sends; the reference collector's own version
   of that same hello then raced with the fix) — see
   `vaultysclaw-sensor/docs/vaultysclaw-integration.md` for detail.
+- **`vaultysclaw-sensor` capability-gated telemetry**: approving a sensor's registration with
+  `process_read` checked correctly starts the certificate exchange (previously untested with a
+  non-empty capability set); the sensor logs `sensor: skipping poll cycle — process_read capability
+  not yet granted` before delivery and never reads a single process in that window, then
+  `vconn: certificate delivered` immediately followed by a real `sensor: poll cycle` once the
+  exchange completes — confirming the gate opens exactly when, and not before, the control plane
+  actually grants it. This is also what surfaced the `vaultysid/go` metadata-verification bug above:
+  the identical exchange with always-empty metadata had worked repeatedly before this.
 - **WS connection lifecycle**: a real WS client running the actual Challenger crypto handshake
   against a live `ControlPlaneWSServer` — unknown DID → `registration_pending` (now carrying the
   real DID); an Actor upserted + granted a certificate → reconnects and gets `auth_complete`;

@@ -71,6 +71,18 @@ type ClientConn struct {
 	cfg   ClientConfig
 	mu    sync.Mutex
 	queue []telemetry.Event
+
+	// capMu/capabilities track what the control plane has actually granted via a completed
+	// service:"certificate" exchange (docs/CERTIFICATE_WEB_OF_TRUST.md §3.2b) — reset on every
+	// reconnect (a fresh connection starts ungranted; nothing here is persisted to disk, so a
+	// process restart also loses it until an admin re-triggers delivery — see HasCapability).
+	capMu        sync.Mutex
+	capabilities map[string]bool
+
+	// writeMu serializes writes to the active connection: sendLoop's ticker-driven telemetry
+	// flushes and its background reader's cert-round replies both write to the same *websocket.Conn,
+	// and gorilla/websocket allows at most one concurrent writer.
+	writeMu sync.Mutex
 }
 
 func NewClientConn(cfg ClientConfig) *ClientConn {
@@ -110,6 +122,31 @@ func (c *ClientConn) drain(max int) []telemetry.Event {
 	copy(batch, c.queue[:n])
 	c.queue = c.queue[n:]
 	return batch
+}
+
+// HasCapability reports whether the control plane has actually delivered the named capability
+// via a completed certificate exchange on the current connection — e.g. cmd/sensor/poll.go gates
+// reading local process info on HasCapability("process_read") rather than collecting anything
+// before being granted it.
+func (c *ClientConn) HasCapability(name string) bool {
+	c.capMu.Lock()
+	defer c.capMu.Unlock()
+	return c.capabilities[name]
+}
+
+func (c *ClientConn) setCapabilities(names []string) {
+	c.capMu.Lock()
+	defer c.capMu.Unlock()
+	c.capabilities = make(map[string]bool, len(names))
+	for _, n := range names {
+		c.capabilities[n] = true
+	}
+}
+
+func (c *ClientConn) writeJSON(conn *websocket.Conn, v any) error {
+	c.writeMu.Lock()
+	defer c.writeMu.Unlock()
+	return conn.WriteJSON(v)
 }
 
 // Run connects (and reconnects with capped exponential backoff on any
@@ -160,6 +197,7 @@ func (c *ClientConn) connectAndServe(ctx context.Context) (everConnected bool, e
 		return false, fmt.Errorf("dial: %w", err)
 	}
 	defer conn.Close()
+	c.setCapabilities(nil) // a fresh connection starts ungranted, regardless of any prior one
 
 	// Declare ourselves first and wait for the server's reply — this is
 	// packages/controlplane's actual protocol (lib/ws-server.ts's
@@ -264,19 +302,38 @@ handshakeLoop:
 }
 
 // sendLoop batches and sends queued telemetry on cfg.BatchInterval, and
-// detects disconnection via a background reader (gorilla/websocket
-// supports one concurrent reader alongside this loop's writes).
+// detects disconnection via a background reader (gorilla/websocket supports
+// one concurrent reader alongside this loop's writes — both the reader's
+// cert-round replies and the ticker's telemetry flushes go through
+// writeJSON, which serializes them against each other).
 func (c *ClientConn) sendLoop(ctx context.Context, conn *websocket.Conn) error {
 	readErrCh := make(chan error, 1)
 	go func() {
+		// certHS is only ever touched from this single goroutine — no lock needed.
+		var certHS *CertHandshake
 		for {
 			var env Envelope
 			if err := conn.ReadJSON(&env); err != nil {
 				readErrCh <- err
 				return
 			}
-			// Nothing else expected from the collector post-connect in
-			// this MVP; unknown messages are simply ignored.
+			switch env.Type {
+			case MsgCertChallenge:
+				certHS = c.handleCertChallenge(conn, env, certHS)
+			case MsgCertIssued:
+				var payload CertIssuedPayload
+				_ = env.Decode(&payload)
+				c.setCapabilities(payload.Capabilities)
+				c.cfg.Logger.Info("vconn: certificate delivered", "certId", payload.CertID, "capabilities", payload.Capabilities)
+				certHS = nil
+			case MsgCertFailed:
+				var payload CertFailedPayload
+				_ = env.Decode(&payload)
+				c.cfg.Logger.Warn("vconn: certificate exchange failed", "reason", payload.Reason)
+				certHS = nil
+			default:
+				// Nothing else expected from the control plane post-connect; ignored.
+			}
 		}
 	}()
 
@@ -297,6 +354,43 @@ func (c *ClientConn) sendLoop(ctx context.Context, conn *websocket.Conn) error {
 	}
 }
 
+// handleCertChallenge advances (or starts) the certificate sub-protocol by one round, replying
+// on the same connection. Returns the handshake to carry into the next round (nil once the
+// exchange has failed and should be abandoned).
+func (c *ClientConn) handleCertChallenge(conn *websocket.Conn, env Envelope, certHS *CertHandshake) *CertHandshake {
+	var payload CertChallengePayload
+	if err := env.Decode(&payload); err != nil {
+		c.cfg.Logger.Warn("vconn: malformed cert_challenge", "error", err)
+		return certHS
+	}
+
+	var nextB64 string
+	var err error
+	if certHS == nil {
+		certHS = NewCertHandshake(c.cfg.Identity.VaultysID())
+		nextB64, err = certHS.Start()
+	} else {
+		nextB64, err = certHS.Accept(payload.Data)
+	}
+	if err != nil {
+		c.cfg.Logger.Warn("vconn: certificate handshake failed", "error", err)
+		return nil
+	}
+	if nextB64 == "" {
+		return certHS
+	}
+
+	resp, err := NewEnvelope(MsgCertChallenge, CertChallengePayload{SessionID: payload.SessionID, Data: nextB64})
+	if err != nil {
+		c.cfg.Logger.Warn("vconn: encoding cert_challenge response failed", "error", err)
+		return certHS
+	}
+	if err := c.writeJSON(conn, resp); err != nil {
+		c.cfg.Logger.Warn("vconn: sending cert_challenge response failed", "error", err)
+	}
+	return certHS
+}
+
 func (c *ClientConn) flushOnce(conn *websocket.Conn) error {
 	for {
 		batch := c.drain(c.cfg.BatchSize)
@@ -308,7 +402,7 @@ func (c *ClientConn) flushOnce(conn *websocket.Conn) error {
 			return err
 		}
 		env.AgentID = c.cfg.Identity.VaultysID().DID()
-		if err := conn.WriteJSON(env); err != nil {
+		if err := c.writeJSON(conn, env); err != nil {
 			return fmt.Errorf("sending telemetry: %w", err)
 		}
 		if len(batch) < c.cfg.BatchSize {

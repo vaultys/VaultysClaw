@@ -28,7 +28,11 @@ export type AgentCapability =
   | "agent_communication"
   | "knowledge_search"
   | "admin_console_access"
-  | "portal_access";
+  | "portal_access"
+  // Sensor-kind Actors have no general capability model (vaultysclaw-sensor
+  // gates its telemetry entirely on this one flag today; more will follow as
+  // the sensor grows more capabilities to gate independently).
+  | "process_read";
 
 /**
  * Runtime constraints embedded in the agent certificate alongside capabilities.

@@ -64,6 +64,21 @@ const (
 	MsgSensorTelemetry MessageType = "sensor_telemetry"
 	// MsgHeartbeat is a keepalive, sent by either side.
 	MsgHeartbeat MessageType = "heartbeat"
+	// MsgCertChallenge carries one step of a *second*, independent Challenger
+	// exchange (protocol/service "p2p"/"certificate", not "p2p"/"auth") that
+	// the control plane proactively starts over the already-authenticated
+	// connection once an admin approves a capability grant
+	// (packages/controlplane/lib/ws-server.ts's deliverApprovedCapabilities,
+	// docs/CERTIFICATE_WEB_OF_TRUST.md §3.2b). Same envelope shape as
+	// MsgAuthChallenge, different sub-protocol — see internal/vconn/cert_handshake.go.
+	MsgCertChallenge MessageType = "cert_challenge"
+	// MsgCertIssued confirms the certificate round completed and identifies
+	// the resulting certificate; CertHandshake.CapabilitiesJSON() is what the
+	// control plane actually granted (surfaced during the round, at STEP1 —
+	// this message just marks "the exchange is done, use what you already saw").
+	MsgCertIssued MessageType = "cert_issued"
+	// MsgCertFailed explains why the certificate round didn't complete.
+	MsgCertFailed MessageType = "cert_failed"
 )
 
 // Envelope is the JSON message wrapper exchanged over the WebSocket
@@ -127,9 +142,10 @@ type RegistrationPendingPayload struct {
 	Message        string `json:"message"`
 }
 
-// RegistrationApprovedPayload accompanies MsgRegistrationApproved
-// (packages/shared/src/types.ts WSRegistrationApprovedPayload). Sensors
-// have no capability concept, so Capabilities is always empty here.
+// RegistrationApprovedPayload accompanies MsgRegistrationApproved — a
+// standalone-collector-only message the real control plane never sends
+// (packages/controlplane/lib/ws-server.ts uses MsgCertChallenge for this
+// instead, see below); kept for compatibility with that older target.
 type RegistrationApprovedPayload struct {
 	RegistrationID string   `json:"registrationId"`
 	Capabilities   []string `json:"capabilities"`
@@ -138,6 +154,28 @@ type RegistrationApprovedPayload struct {
 // SensorTelemetryPayload carries a batch of telemetry events.
 type SensorTelemetryPayload struct {
 	Events []telemetry.Event `json:"events"`
+}
+
+// CertChallengePayload mirrors AuthChallengePayload exactly — same mechanics, a different
+// sub-protocol (service:"certificate" instead of "auth"). Data is "" for the control plane's
+// opening message of this exchange, same convention as the auth handshake's own opening message.
+type CertChallengePayload struct {
+	SessionID string `json:"sessionId"`
+	Data      string `json:"data"`
+}
+
+// CertIssuedPayload confirms the certificate round completed. Capabilities is the actual, plain
+// (unsigned) list of what was granted — not something read back out of the certificate's own
+// metadata, which this exchange deliberately carries none of (see CertHandshake's doc comment).
+type CertIssuedPayload struct {
+	CertID       string   `json:"certId"`
+	Certificate  string   `json:"certificate"`
+	Capabilities []string `json:"capabilities"`
+}
+
+// CertFailedPayload explains why the certificate round didn't complete.
+type CertFailedPayload struct {
+	Reason string `json:"reason"`
 }
 
 // NewEnvelope builds an Envelope with a fresh message ID and the current

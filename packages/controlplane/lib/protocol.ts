@@ -100,6 +100,19 @@ export interface CertIssuedPayload {
   certId: string;
   /** Base64 Challenger certificate bytes — the agent's own copy of what was just issued. */
   certificate: string;
+  /**
+   * The capabilities actually granted — a plain field, not read back out of the certificate's own
+   * signed metadata. `github.com/vaultys/vaultysid/go`'s Challenger (vaultysclaw-sensor's client)
+   * has a verification bug: `Step2`/`Finalize` reconstruct the "unsigned challenge" they check a
+   * peer's signature against with metadata hardcoded to empty, instead of the metadata that was
+   * actually received — any certificate whose signed metadata is non-empty fails Go-side
+   * verification with "invalid signature", even though the TS side (both signing it and
+   * independently re-verifying it later, e.g. the certificate detail page) is completely correct.
+   * Rather than depending on every Challenger implementation handling metadata identically, the
+   * certificate itself carries no metadata for this exchange — it proves mutual live presence only,
+   * not *what* was granted; this field is the actual, load-bearing answer to that question.
+   */
+  capabilities: string[];
 }
 
 export interface CertFailedPayload {

@@ -370,8 +370,11 @@ export class UserLoginChannel {
     const decoded = CryptoChannel.decrypt(Buffer.from(data, "base64"), uintkey);
 
     try {
+      // JSON-encoded as a single string value, not a raw array — same convention as
+      // lib/ws-server.ts's agent issuance, so every embedder in this codebase agrees on one
+      // format any Challenger implementation (not just this TS one) can decode.
       const metadata = isFirstRound
-        ? ({ capabilities: meta.capabilities } as unknown as Record<string, string>)
+        ? ({ capabilities: JSON.stringify(meta.capabilities) } satisfies Record<string, string>)
         : undefined;
       await challenger.update(decoded, metadata);
     } catch (err) {

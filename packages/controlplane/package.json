@@ -24,7 +24,7 @@
     "@vaultysclaw/trust": "workspace:*",
     "dotenv": "^16.6.1",
     "lucide-react": "^1.14.0",
-    "next": "^16.2.12",
+    "next": "^16.3",
     "next-auth": "^4.24.14",
     "ol": "^10.9.0",
     "pg": "^8.21.0",
@@ -43,12 +43,12 @@
     "@types/react-dom": "^19.2.3",
     "@types/ws": "^8.18.1",
     "autoprefixer": "^10.5.0",
-    "eslint": "^10.3.0",
+    "eslint": "^10",
     "eslint-config-next": "^16.2.6",
     "postcss": "^8.5.14",
-    "prisma": "^7.8.0",
+    "prisma": "^7",
     "tsx": "^4.21.0",
-    "typescript": "^5.9.3",
-    "vitest": "^2.1.9"
+    "typescript": "^7",
+    "vitest": "4"
   }
 }

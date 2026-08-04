@@ -3,7 +3,7 @@
 **Status:** Draft. Concretizes [`REBUILD_ARCHITECTURE.md`](REBUILD_ARCHITECTURE.md) §7 into an
 actual page-by-page spec for the two apps that survive the rebuild: the **admin console** and the
 **Access Portal**. Assumes [`CERTIFICATE_WEB_OF_TRUST.md`](CERTIFICATE_WEB_OF_TRUST.md) (the
-ledger/cert model) and `REBUILD_ARCHITECTURE.md` (the Principal/kind model, Notification Channels)
+ledger/cert model) and `REBUILD_ARCHITECTURE.md` (the Actor/kind model, Notification Channels)
 as given. Follows the existing UI conventions in
 [`packages/control-plane/CLAUDE.md`](../packages/control-plane/CLAUDE.md) (`useToolbar`,
 `useBreadcrumbs`, semantic Tailwind classes) rather than introducing new ones.
@@ -28,7 +28,7 @@ apps (separate nav, separate layout root), not tabs of one thing.
 
 ### 1.1 Navigation
 
-Sidebar, top to bottom: **Overview · Principals · Certificates · Audit Log · Workspaces ·
+Sidebar, top to bottom: **Overview · Actors · Certificates · Audit Log · Workspaces ·
 Integrations · Settings**. No `/app/*` vs `/admin/*` split inside this app — it's all admin.
 
 ### 1.2 Overview (`/admin`)
@@ -36,7 +36,7 @@ Integrations · Settings**. No `/app/*` vs `/admin/*` split inside this app — 
 Posture dashboard, the "is everything okay" landing page.
 
 - **Toolbar**: title "Overview", no actions — this page is read-only by design.
-- **Stat tiles**: principals by kind (count per `openclaw`/`mcp`/`sensor`), active certificates,
+- **Stat tiles**: actors by kind (count per `openclaw`/`mcp`/`sensor`), active certificates,
   certificates expiring in the next 24h/7d, revocations in the last 7d, pending registrations
   awaiting approval.
 - **Recent activity feed**: last ~20 audit log entries (link to full Audit Log).
@@ -47,14 +47,14 @@ Posture dashboard, the "is everything okay" landing page.
   card — invite your first agent, configure an identity provider, set up a notification channel —
   each linking to the relevant page. No separate onboarding wizard route; this is the wizard.
 
-### 1.3 Principals (`/admin/principals`)
+### 1.3 Actors (`/admin/actors`)
 
 Unified replacement for today's separate Agents/Sensors pages.
 
 ```typescript
 useToolbar(
   {
-    title: "Principals",
+    title: "Actors",
     description: `${total} registered · ${online} online`,
     actions: [
       { kind: "badge", id: "live", label: "Live", tone: "success", icon: <Wifi /> },
@@ -65,10 +65,10 @@ useToolbar(
           { value: "pending", label: "Pending", }, // badge count of PendingRegistration rows
         ],
       },
-      { kind: "button", id: "invite", label: "Invite principal", variant: "primary", icon: <Plus />, onClick: openInviteFlow },
+      { kind: "button", id: "invite", label: "Invite actor", variant: "primary", icon: <Plus />, onClick: openInviteFlow },
     ],
     search: {
-      value: search, onChange: setSearch, placeholder: "Search principals…",
+      value: search, onChange: setSearch, placeholder: "Search actors…",
       chips: kindFilter.map((k) => ({ id: `kind-${k}`, label: k, onRemove: () => toggleKind(k) })),
       filterGroups: [
         { id: "kind", label: "Kind", options: KINDS.map((k) => ({ id: k, label: k, active: kindFilter.includes(k), onToggle: () => toggleKind(k) })) },
@@ -82,16 +82,16 @@ useToolbar(
 
 - **List columns**: Name, Kind (badge, colored per kind), Workspace, Status (online/offline —
   derived from WS/WebRTC connection state, not just `lastSeen`), Active certs (count, links to
-  Certificates filtered by this principal), Registered.
+  Certificates filtered by this actor), Registered.
 - **Pending tab**: `PendingRegistration` rows — approve/deny inline, and for `kind: "openclaw"`/
   `"mcp"` requests, assign the initial capabilities as part of approval (this *is* the first
   `capability_request` → `capability_grant` round-trip from the trust doc, just surfaced as one
   approval action instead of two steps).
 - **Row click** → detail page.
 
-### 1.4 Principal detail (`/admin/principals/[did]`)
+### 1.4 Actor detail (`/admin/actors/[did]`)
 
-Breadcrumb: Principals → `{name}`.
+Breadcrumb: Actors → `{name}`.
 
 - **Header**: name, DID (copyable), kind badge, workspace, online/offline, connection transport
   (WS or WebRTC — trust doc §4.4).
@@ -100,7 +100,7 @@ Breadcrumb: Principals → `{name}`.
     panel component, not generically — trust doc/rebuild doc §4.3).
   - **Certificates** — every `CapabilityCertificate` row for this DID (active, revoked, expired,
     superseded chains shown linked), "Grant certificate" action opens the issuance flow (§1.5)
-    pre-filled with this principal.
+    pre-filled with this actor.
   - **Kind panel** — the extension surface from `REBUILD_ARCHITECTURE.md` §4.3:
     - `openclaw`: LLM provider/model config, **chat** (same mechanism the Access Portal launches
       into, §2.2 — this page is just another authenticated entry point to it), token consumption
@@ -108,7 +108,7 @@ Breadcrumb: Principals → `{name}`.
     - `mcp`: server URL, transport (stdio/SSE), tool allowlist, live tool list as reported by the
       server.
     - `sensor`: workload/process list (today's `/admin/sensors` detail view, unchanged).
-  - **Audit** — this principal's slice of the global Audit Log (§1.5 filter, scoped by DID).
+  - **Audit** — this actor's slice of the global Audit Log (§1.5 filter, scoped by DID).
 
 ### 1.5 Certificates (`/admin/certificates`)
 
@@ -116,9 +116,9 @@ The ledger, front and center — this is the page that makes the trust model leg
 looking over an admin's shoulder.
 
 - **Toolbar**: title "Certificates", filter chips for Status (`active`/`revoked`/`superseded`/
-  `expired`), Scope (`standing`/`scoped`), Kind, Workspace; search by principal name/DID/certId.
+  `expired`), Scope (`standing`/`scoped`), Kind, Workspace; search by actor name/DID/certId.
   Primary action: **Issue certificate**.
-- **List columns**: Principal (name + kind badge), Capabilities (comma list, truncated with
+- **List columns**: Actor (name + kind badge), Capabilities (comma list, truncated with
   overflow badge), Scope (`—` for standing, or the `resource`/`resourcePattern` for scoped —
   trust doc §3.6), Status (colored badge; a `revoked` row shows the reason on hover), Issued,
   Expires (`Never` rendered in a distinct warning color, not a neutral one, per the "loud, not
@@ -134,7 +134,7 @@ looking over an admin's shoulder.
     of the whole design: it's direct evidence the web-of-trust model is actually being exercised,
     not just designed.
 - **Issue certificate flow** (modal or dedicated route `/admin/certificates/new`):
-  1. Pick principal (existing, or "new pending registration").
+  1. Pick actor (existing, or "new pending registration").
   2. Pick capabilities (checkboxes from the `AgentCapability` enum).
   3. Optional scope — resource / resource pattern / max uses / purpose (trust doc §3.6). Leaving
      this empty issues a standing grant.
@@ -142,7 +142,7 @@ looking over an admin's shoulder.
      one for standing grants; selecting "No expiry" requires an explicit confirmation step
      ("this certificate will remain valid until someone revokes it — are you sure?"), never just a
      checkbox ticked in passing.
-  5. Submit → control plane counter-signs, ledger row created, pushed live if the principal is
+  5. Submit → control plane counter-signs, ledger row created, pushed live if the actor is
      connected (trust doc §3.2/§3.4).
 - **Revoke flow**: reason required (free text → `revokedReason`), confirmation modal stating this
   is a ledger write, not a forced disconnect (trust doc §3.5) — the UI should say plainly "this
@@ -153,8 +153,8 @@ looking over an admin's shoulder.
 
 Unified `IntentLog`/`ActivityLog` (merged, per `REBUILD_ARCHITECTURE.md` §7).
 
-- **Toolbar**: filters for event type, principal, workspace, date range; search.
-- **List**: timestamp, actor (principal or human, with kind badge), event type, target, a small
+- **Toolbar**: filters for event type, actor, workspace, date range; search.
+- **List**: timestamp, actor (actor or human, with kind badge), event type, target, a small
   "✓ signed" badge where the entry carries a verifiable signature (today's `IntentLog.signature`)
   — another concrete, visible trust artifact rather than an abstract claim.
 - **Row expand**: full details JSON, and for cert-related events (issue/revoke/status-check),
@@ -163,11 +163,11 @@ Unified `IntentLog`/`ActivityLog` (merged, per `REBUILD_ARCHITECTURE.md` §7).
 
 ### 1.7 Workspaces (`/admin/workspaces`, `/admin/workspaces/[id]`)
 
-- **List**: name, principal count, member count (humans with any cert scoped to this workspace),
+- **List**: name, actor count, member count (humans with any cert scoped to this workspace),
   budget usage bar.
 - **Detail tabs**:
-  - **Overview** — name, description, color, default capabilities for new principals here.
-  - **Principals** — principals assigned to this workspace (link into §1.4).
+  - **Overview** — name, description, color, default capabilities for new actors here.
+  - **Actors** — actors assigned to this workspace (link into §1.4).
   - **Access** — humans holding a workspace-scoped `admin_console_access` or `portal_access` cert
     (`CertScope.resource = "workspace:<id>"`) — this *is* workspace-level admin/member management
     now, expressed as scoped certs rather than a separate `UserWorkspace` role table (§6).
@@ -204,7 +204,7 @@ A separate, much smaller app — no sidebar, just a top bar with two views.
 
 ### 2.1 My Certificates (`/portal`)
 
-- **List**: capability, scope (if any), issued by, issued, expires, status. No principal column —
+- **List**: capability, scope (if any), issued by, issued, expires, status. No actor column —
   it's implicitly "me." No revoke action — a human can't revoke their own grant; they can only see
   it (and, out of band, ask whoever issued it to revoke it — that's an admin-console action).
 - **Empty state**: "You haven't been granted any access yet" — nothing to do here but wait, by
@@ -216,14 +216,14 @@ A separate, much smaller app — no sidebar, just a top bar with two views.
 - **Cards**, one per certificate that carries a connect right: agent name, kind badge, granted
   capability, expiry, a **Connect** button.
 - **Connect** opens the target kind's own mechanism, gated by presenting that specific cert — for
-  `openclaw`, this is the same chat surface as the admin console's Principal detail page (§1.4),
+  `openclaw`, this is the same chat surface as the admin console's Actor detail page (§1.4),
   just reached through a different, capability-scoped door. No portal-side reimplementation of chat
   UI per kind — one component, two entry points.
 - **Empty state**: "No agents available to connect to."
 
 ## 3. Cross-cutting notes
 
-- **Status badge vocabulary**, used consistently across Principals/Certificates/Audit Log:
+- **Status badge vocabulary**, used consistently across Actors/Certificates/Audit Log:
   `active` (success/green), `pending` (warning/amber), `revoked` (danger/red), `expired`
   (neutral/gray), `superseded` (neutral/gray, with a link to the replacement).
 - **Nullable expiry gets a distinct visual treatment everywhere it appears** (`Never` in

@@ -15,7 +15,7 @@ datasource db {
 
 // ─── Settings ──────────────────────────────────────────────────────────────
 // Key/value store for control-plane-level config, notably `serverSecret` — the
-// VaultysId secret that makes the control plane itself a Principal and the
+// VaultysId secret that makes the control plane itself a Actor and the
 // root issuer for the whole certificate ledger (docs/REBUILD_ARCHITECTURE.md
 // §4.5).
 
@@ -24,23 +24,23 @@ model Setting {
   value String
 }
 
-// ─── Principals ──────────────────────────────────────────────────────────────
+// ─── Actors ──────────────────────────────────────────────────────────────
 // One entity for every DID-holder, human or not (docs/REBUILD_ARCHITECTURE.md
-// §4, §4.5: "Humans are Principals too... not only operators who use the admin
+// §4, §4.5: "Humans are Actors too... not only operators who use the admin
 // console"). Replaces the old Agent/SensorDevice split *and* keeps humans out
 // of a separate identity table — `kind: "human"` is just another kind, so a
-// human's certificates reference the same `Principal.did` an agent's do. A
+// human's certificates reference the same `Actor.did` an agent's do. A
 // human's access — including whether they can open the admin console or the
 // Access Portal at all — is never a role on this row, only whatever
 // CapabilityCertificate rows name their `did` as the subject (§4.5).
 
-model Principal {
+model Actor {
   did          String   @id
   name         String
   kind         String
   // Base64 raw public key, captured at registration from the completed
   // Challenger handshake — enables independently re-verifying any certificate
-  // this Principal co-signed later (e.g. from the certificate detail page),
+  // this Actor co-signed later (e.g. from the certificate detail page),
   // without a live connection. Nullable only for rows that predate this field.
   publicKey    String?
   workspaceId  String?
@@ -57,9 +57,9 @@ model Principal {
 }
 
 // ─── Human profile ────────────────────────────────────────────────────────────
-// 1:1 extension of a `kind: "human"` Principal — profile fields that don't
+// 1:1 extension of a `kind: "human"` Actor — profile fields that don't
 // apply to any other kind (email for notifications, OIDC/Entra linking later).
-// Deliberately not the identity/permission table; that's Principal + the cert
+// Deliberately not the identity/permission table; that's Actor + the cert
 // ledger.
 
 model User {
@@ -67,11 +67,11 @@ model User {
   email     String?  @unique
   createdAt DateTime @default(now())
 
-  principal Principal @relation(fields: [did], references: [did], onDelete: Cascade)
+  actor Actor @relation(fields: [did], references: [did], onDelete: Cascade)
 }
 
 // ─── Capability certificate ledger ──────────────────────────────────────────
-// The single source of truth for what any Principal — agent or human — is
+// The single source of truth for what any Actor — agent or human — is
 // currently allowed to do (docs/CERTIFICATE_WEB_OF_TRUST.md §3.3). Append-only:
 // rows are never deleted or mutated after `active`, only flipped to
 // revoked/superseded/expired.
@@ -100,7 +100,7 @@ model CapabilityCertificate {
   revokedReason      String?
   supersededByCertId String?
 
-  agent     Principal  @relation(fields: [agentDid], references: [did], onDelete: Cascade)
+  agent     Actor  @relation(fields: [agentDid], references: [did], onDelete: Cascade)
   workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
 
   @@index([agentDid, status])
@@ -115,7 +115,7 @@ model PendingRegistration {
   id                    String   @id
   did                   String
   // Base64 raw public key, captured from the Challenger handshake — carried
-  // into Principal.publicKey on approval (lib/registrations.ts).
+  // into Actor.publicKey on approval (lib/registrations.ts).
   publicKey             String?
   sessionId             String
   name                  String
@@ -140,7 +140,7 @@ model PendingRegistration {
 // ─── Auth certificates ────────────────────────────────────────────────────────
 // The raw VaultysId Challenger handshake artifact for a *human login attempt*
 // (QR-code P2P pairing) — distinct from CapabilityCertificate, which is the
-// domain-level "what is this Principal allowed to do" ledger. This is just the
+// domain-level "what is this Actor allowed to do" ledger. This is just the
 // low-level, short-lived crypto exchange state for one login/registration
 // attempt, mirroring packages/control-plane's `Certificate` model (renamed
 // here to avoid any ambiguity with CapabilityCertificate).
@@ -168,6 +168,6 @@ model Workspace {
   isDefault   Boolean  @default(false)
   createdAt   DateTime @default(now())
 
-  principals   Principal[]
+  actors       Actor[]
   certificates CapabilityCertificate[]
 }

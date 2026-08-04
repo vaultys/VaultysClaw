@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Plus } from "lucide-react";
-import { CapabilityCertificateDAO, PrincipalDAO } from "@/db";
+import { CapabilityCertificateDAO, ActorDAO } from "@/db";
 import PageChrome from "@/components/layout/PageChrome";
 import { revokeCertificateAction } from "./actions";
 import type { CertScope, ResourceLimits } from "@vaultysclaw/policy";
@@ -19,11 +19,11 @@ const STATUS_BADGE: Record<string, string> = {
  * (docs/CERTIFICATE_WEB_OF_TRUST.md §3.3).
  */
 export default async function CertificatesPage() {
-  const [certs, principals] = await Promise.all([
+  const [certs, actors] = await Promise.all([
     CapabilityCertificateDAO.list(),
-    PrincipalDAO.list(),
+    ActorDAO.list(),
   ]);
-  const principalByDid = new Map(principals.map((p) => [p.did, p]));
+  const actorByDid = new Map(actors.map((p) => [p.did, p]));
 
   return (
     <div className="p-6 space-y-4">
@@ -49,7 +49,7 @@ export default async function CertificatesPage() {
       <table className="w-full text-sm bg-background-100">
         <thead className="bg-background-200/40 text-left text-xs text-foreground-500 uppercase">
           <tr>
-            <th className="px-4 py-2 font-medium">Principal</th>
+            <th className="px-4 py-2 font-medium">Actor</th>
             <th className="px-4 py-2 font-medium">Capabilities</th>
             <th className="px-4 py-2 font-medium">Scope</th>
             <th className="px-4 py-2 font-medium">Status</th>
@@ -59,7 +59,7 @@ export default async function CertificatesPage() {
         </thead>
         <tbody>
           {certs.map((cert) => {
-            const principal = principalByDid.get(cert.agentDid);
+            const actor = actorByDid.get(cert.agentDid);
             const capabilities = cert.capabilities as string[];
             const scope = cert.scope as CertScope | null;
             void (cert.resourceLimits as ResourceLimits | null);
@@ -70,7 +70,7 @@ export default async function CertificatesPage() {
                     href={`/admin/certificates/${cert.id}`}
                     className="text-foreground font-medium hover:text-primary-600 hover:underline"
                   >
-                    {principal?.name ?? cert.agentDid}
+                    {actor?.name ?? cert.agentDid}
                   </Link>
                   <div className="text-xs text-foreground-500 font-mono">{cert.agentDid}</div>
                 </td>
@@ -130,7 +130,7 @@ export default async function CertificatesPage() {
 
       <p className="text-xs text-foreground-400">
         Revoking is a ledger write, not a forced disconnect — it takes effect the next time
-        anyone checks this Principal&apos;s status, not immediately on an open connection.
+        anyone checks this Actor&apos;s status, not immediately on an open connection.
       </p>
 
       <div className="pt-2">

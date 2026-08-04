@@ -17,7 +17,7 @@ export type ProtocolMessageType =
   | "pong"
   | "cert_status_request"
   | "cert_status_response"
-  // The interactive issuance flow (trust doc §3.2b): a connected Principal
+  // The interactive issuance flow (trust doc §3.2b): a connected Actor
   // asks for capabilities with a plain message; once an admin approves, the
   // control plane proactively runs a service:"certificate" Challenger
   // exchange (cert_challenge, mirroring auth_challenge's mechanics exactly)
@@ -77,7 +77,7 @@ export interface ErrorPayload {
  * A plain, unsigned request — no signature needed since it only ever arrives
  * over an already-authenticated connection (trust doc §3.2b). Sent either
  * right after a fresh registration (while the connection is in the
- * "awaiting approval" phase) or by an already-connected, known Principal
+ * "awaiting approval" phase) or by an already-connected, known Actor
  * asking for more.
  */
 export interface CapabilityRequestPayload {

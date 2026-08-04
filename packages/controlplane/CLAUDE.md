@@ -27,7 +27,7 @@ design system (ported from `packages/control-plane`) are built.
   itself. Toolbar button actions are described as `{ href }` (serializable), not `{ onClick }` — a
   plain closure can't cross the Server→Client Component boundary, only a Server Action or
   serializable data can; `PageChrome` converts `href` into a `router.push` client-side.
-- **Full nav shape** (`components/layout/Sidebar.tsx`): Overview, Principals, Certificates —
+- **Full nav shape** (`components/layout/Sidebar.tsx`): Overview, Actors, Certificates —
   fully built — plus Audit Log, Workspaces, Integrations, Settings as real routes rendering
   `components/layout/ComingSoon.tsx` with a description of what's planned, so the product reads as
   complete rather than missing pages.
@@ -52,7 +52,7 @@ design system (ported from `packages/control-plane`) are built.
   The browser generates a software VaultysId once and persists it in `localStorage`, so repeat
   visits reuse the same identity. **This only ever registers/logs in as a genuinely new or
   previously-dev-registered identity** — exactly like a real wallet, it cannot log in as an
-  unrelated existing Principal it has no key for. The useful case is a fresh, empty database:
+  unrelated existing Actor it has no key for. The useful case is a fresh, empty database:
   there, the first dev-mode click registers the browser's identity, then — since this transport is
   code this repo owns end to end, unlike a real wallet app — runs the bootstrap admin grant through
   a **second, independent live SRP exchange** instead of an offline system-issued cert: double SRP,
@@ -69,19 +69,19 @@ design system (ported from `packages/control-plane`) are built.
   only), plus independent re-verification via `lib/cert-inspect.ts`'s `inspectCertificate`. Shows
   which key actually verifies the embedded request — the concrete, inspectable version of the
   "an inspector of the ledger can see both halves were signed by the same key" audit signal from
-  the trust doc. Requires `Principal.publicKey` (new column — see below) to verify an
+  the trust doc. Requires `Actor.publicKey` (new column — see below) to verify an
   agent-signed request; falls back to trying the control plane's own key (covers admin-issued/
   bootstrap grants) and shows "could not verify" gracefully for older rows with no key on record.
 
-- `prisma/schema.prisma` — `Setting`, `Principal` (one entity for every DID-holder, human or not —
+- `prisma/schema.prisma` — `Setting`, `Actor` (one entity for every DID-holder, human or not —
   §4/§4.5; now also carries `publicKey`, the base64 raw key captured at registration from the
   completed Challenger handshake, enabling independent re-verification later with no live
-  connection), `User` (1:1 human-profile extension of a `kind: "human"` Principal),
+  connection), `User` (1:1 human-profile extension of a `kind: "human"` Actor),
   `CapabilityCertificate` (the ledger, nullable `expiresAt`; `certFormat` discriminates
   `"packcert"` — two nested `packages/policy` tokens, `requestCertificate` populated — from
   `"challenger"` — the library's native dual-signature certificate, trust doc §3.2b,
-  `requestCertificate: null`), `PendingRegistration` (carries the Principal's `did` and
-  `publicKey`, captured during the WS handshake, carried onto `Principal` at approval; `approvedBy`
+  `requestCertificate: null`), `PendingRegistration` (carries the Actor's `did` and
+  `publicKey`, captured during the WS handshake, carried onto `Actor` at approval; `approvedBy`
   + `deliveredAt` track the interactive-issuance lifecycle — `deliveredAt: null` after approval
   means "waiting for the agent to be connected", not "not yet granted"), `AuthCertificate` (the raw
   VaultysId handshake artifact for a *login* attempt — distinct from `CapabilityCertificate`),
@@ -112,18 +112,18 @@ design system (ported from `packages/control-plane`) are built.
   doc §4.4, is deferred).
 - `lib/ws-server.ts` — the connection lifecycle: register → VaultysId Challenger handshake
   (in-memory per connection, not round-tripped through a DB session row — this is a long-lived
-  process, not a stateless API route) → known Principal auto-connects, unknown Principal gets a
+  process, not a stateless API route) → known Actor auto-connects, unknown Actor gets a
   `PendingRegistration` row (reused across reconnect attempts, not duplicated). Also implements
   `heartbeat`/`pong`, the full `cert_status_request`/`cert_status_response` protocol (trust doc
-  §4.1), and the interactive issuance flow (trust doc §3.2b): a connected Principal's plain
+  §4.1), and the interactive issuance flow (trust doc §3.2b): a connected Actor's plain
   `capability_request` message updates its `PendingRegistration` row (whether still
-  `awaitingApproval` on a fresh registration, or an already-known Principal asking for more); once
+  `awaitingApproval` on a fresh registration, or an already-known Actor asking for more); once
   an admin approves (`lib/registrations.ts`), `deliverApprovedCapabilities(did)` proactively starts
   a second, independent `service: "certificate"` Challenger exchange over the same connection
   (`cert_challenge` round-trip, mirroring `auth_challenge`'s mechanics exactly) — completing it
   persists a `certFormat: "challenger"` row and sends `cert_issued`. If the agent isn't connected
   when approved, delivery is deferred: `deliverIfApproved` runs the same check from the "existing
-  Principal reconnect" branch of the auth handshake, so it's picked up on the agent's next
+  Actor reconnect" branch of the auth handshake, so it's picked up on the agent's next
   successful `auth`. A module-level singleton (`setWSServerInstance`/`getWSServerInstance`, wired
   up in `server.ts`) is what lets a Server Action (`lib/registrations.ts`, running in the same
   Next.js custom-server process) reach the live connection map at all.
@@ -133,7 +133,7 @@ design system (ported from `packages/control-plane`) are built.
   "bastion" flow and the older WS-relay handshake are a separate feature, not ported). A human
   scans the QR with the VaultysId wallet app; the server runs the Challenger handshake over a
   PeerJS/WebRTC channel (`lib/webrtc-polyfill.ts` + `@vaultys/channel-peerjs`). On completion, an
-  unknown DID becomes a `kind: "human"` Principal; a known DID just signs in. **Session has no
+  unknown DID becomes a `kind: "human"` Actor; a known DID just signs in. **Session has no
   `role` field** — access is decided by certificates, not anything stored on the session.
   Bootstrap admin differs by transport (see `lib/certificates.ts` above): the QR/wallet path calls
   `ensureBootstrapAdmin` once, directly. The dev-mode classic-HTTP-relay path
@@ -156,7 +156,7 @@ design system (ported from `packages/control-plane`) are built.
   page/route goes through, wrapping `@vaultysclaw/trust`'s `resolvePermission` over the DID's
   certificates. Not a role check.
 - `lib/registrations.ts` — `approvePendingRegistration`/`denyPendingRegistration`: turns a
-  `PendingRegistration` into a real `Principal`, marks the registration `approved` with
+  `PendingRegistration` into a real `Actor`, marks the registration `approved` with
   `deliveredAt: null`, then calls `getWSServerInstance()?.deliverApprovedCapabilities(did)` — the
   admin only decides *what* to grant, `ws-server.ts` runs the live exchange that actually produces
   the certificate (trust doc §3.2b). Distinct from `lib/certificates.ts`'s `issueAdminGrant`, which
@@ -165,8 +165,8 @@ design system (ported from `packages/control-plane`) are built.
 - `app/admin/layout.tsx` — the actual capability gate (`admin_console_access`), not a stub: an
   unauthenticated visitor is redirected to `/login`; an authenticated one without the capability
   sees "Access denied", not a redirect loop.
-- `app/admin/page.tsx` (Overview) and `app/admin/principals/page.tsx` (Principals, with inline
-  approve/deny via Next.js Server Actions in `app/admin/principals/actions.ts`) — the first two
+- `app/admin/page.tsx` (Overview) and `app/admin/actors/page.tsx` (Actors, with inline
+  approve/deny via Next.js Server Actions in `app/admin/actors/actions.ts`) — the first two
   pages from `docs/PAGE_DESIGN.md`.
 - `server.ts` runs the actual Next.js custom-server pattern (HTTP + Next.js pages/API + WS, all in
   one process — same shape as `packages/control-plane`'s `server.ts`).
@@ -183,7 +183,7 @@ repeatable tests (see deferred).
   co-signed certificate.
 - **WS connection lifecycle**: a real WS client running the actual Challenger crypto handshake
   against a live `ControlPlaneWSServer` — unknown DID → `registration_pending` (now carrying the
-  real DID); a Principal upserted + granted a certificate → reconnects and gets `auth_complete`;
+  real DID); a Actor upserted + granted a certificate → reconnects and gets `auth_complete`;
   `heartbeat` → `pong`; a self-signed `cert_status_request` → a verified, signed
   `cert_status_response`.
 - **Dev-mode double-SRP bootstrap**, both at the protocol layer (calling `UserLoginChannel.
@@ -200,14 +200,14 @@ repeatable tests (see deferred).
   string/DID; a simulated completed handshake driven through the **real** NextAuth HTTP endpoints
   produces a correct session.
 - **Admin approval flow**, end to end against a live server: a bootstrap admin signed in over real
-  HTTP correctly sees the Overview/Principals pages; a second human *without* the capability
+  HTTP correctly sees the Overview/Actors pages; a second human *without* the capability
   correctly gets "Access denied" at the same route; `approvePendingRegistration` correctly creates
-  the `Principal`, issues a real certificate (1-year expiry, not indefinite — the "no expiry"
-  exception stays reserved for bootstrap), and the Principals page reflects it on reload (pending
-  count → 0, new Principal listed).
+  the `Actor`, issues a real certificate (1-year expiry, not indefinite — the "no expiry"
+  exception stays reserved for bootstrap), and the Actors page reflects it on reload (pending
+  count → 0, new Actor listed).
 - **Design system + full nav, end to end in a real browser** (not curl — Server Actions and
   client-side navigation need a real DOM): the admin console renders with the ported theme/sidebar/
-  topbar; issuing a certificate through the real form (Principal select, capability checkboxes,
+  topbar; issuing a certificate through the real form (Actor select, capability checkboxes,
   scope, expiry preset) creates a real cert and redirects back to the list; revoking it through the
   real button flips its status, drops the active count, and removes its own revoke form from the
   row; granting a human `portal_access` through that same flow immediately unlocks `/portal` for
@@ -242,7 +242,7 @@ repeatable tests (see deferred).
 - **WebRTC/PeerJS transport for agents** (trust doc §4.4) — `AgentSender` is shaped for it; not
   implemented. (The login flow's own PeerJS/WebRTC usage is separate and already built.)
 - Everything the placeholder pages describe: Audit Log (unified signed IntentLog/ActivityLog),
-  Workspaces (principals/budgets/model access, workspace-scoped admin via `CertScope`),
+  Workspaces (actors/budgets/model access, workspace-scoped admin via `CertScope`),
   Integrations (OIDC/Entra, API Keys, Webhooks, Notification Channels, Model Registry), Settings
   (server identity display, org-wide trust policy). The certificate detail page (§1.5's
   signature-chain view) is built (`app/admin/certificates/[id]/page.tsx`); its status-check-history
@@ -260,5 +260,5 @@ repeatable tests (see deferred).
 - `packages/policy` and `packages/trust` stay pure/dependency-light — this package is the only
   place their outputs get persisted or driven by I/O (same layering as `packages/control-plane`
   today).
-- Humans are Principals (`kind: "human"`), not a separate identity/permission table — see the
-  schema comment on `Principal`/`User` before reintroducing a parallel `role` concept.
+- Humans are Actors (`kind: "human"`), not a separate identity/permission table — see the
+  schema comment on `Actor`/`User` before reintroducing a parallel `role` concept.

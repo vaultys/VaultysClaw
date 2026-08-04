@@ -35,9 +35,9 @@ description of the VaultysId identity/crypto model remains accurate and is not r
     rebuild is fewer surfaces with *more* trust rigor, not less. OIDC/Entra remain
     identity-*establishment* paths that still bind to a VaultysId DID (trust doc §6.3), not a
     parallel login mechanism.
-  - **Agents/Principals of any kind**: the register → auth-challenge → certificate handshake in
+  - **Agents/Actors of any kind**: the register → auth-challenge → certificate handshake in
     `packages/agent-runtime` (WS and WebRTC alike, trust doc §4.4) is untouched by this rebuild.
-    §4's `Principal`/kind model changes what happens *after* a successful handshake (which
+    §4's `Actor`/kind model changes what happens *after* a successful handshake (which
     certificate, which admin panel) — never the handshake itself.
 
 ## 2. Cut
@@ -68,7 +68,7 @@ any of it, so it's deleted, not sunset.
 - **Webhooks** (`packages/webhook-dispatcher`, signed HMAC delivery) — kept as core, per your
   explicit call. Extended in §5 to also carry what used to be notifications.
 
-## 4. The Principal / agent-kind model
+## 4. The Actor / agent-kind model
 
 ### 4.1 Problem being fixed
 
@@ -80,10 +80,10 @@ near-duplicate model per kind.
 
 ### 4.2 Design
 
-One entity, `Principal`, replaces `Agent` + `SensorDevice`:
+One entity, `Actor`, replaces `Agent` + `SensorDevice`:
 
 ```prisma
-model Principal {
+model Actor {
   did          String   @id
   name         String
   kind         String   // "openclaw" | "mcp" | "sensor" | future kinds
@@ -104,7 +104,7 @@ Every kind shares, unconditionally:
 - **Certificates** — the `CapabilityCertificate` ledger from the trust doc. A sensor's cert
   typically carries no capabilities (telemetry-only, as today); an `openclaw` agent's cert carries
   whatever it requested and was granted, standing or scoped (trust doc §3.6).
-- **Audit trail** — every Principal's actions land in the same unified log regardless of kind.
+- **Audit trail** — every Actor's actions land in the same unified log regardless of kind.
 - **Status/trust checks** — the same `cert_status` protocol (trust doc §4) regardless of transport
   or kind.
 
@@ -129,13 +129,13 @@ model, not a parallel registration flow.
 "grant a subset of capabilities to someone, signed, with expiry." Under the unified
 `CapabilityCertificate` ledger (trust doc §3), all three collapse into one thing: a human operator
 delegating scoped access to another operator, or one agent granting a peer access, is just another
-`CapabilityCertificate` row — the `agentDid` field is any Principal's DID, human or not, and
+`CapabilityCertificate` row — the `agentDid` field is any Actor's DID, human or not, and
 `CertScope` (trust doc §3.6) expresses the narrowing. One ledger, one status-check protocol, one
 audit trail — instead of four models each needing their own revocation/expiry logic.
 
-### 4.5 Human Principals and the Access Portal
+### 4.5 Human Actors and the Access Portal
 
-Humans are Principals too (trust doc §2, `kind: "human"`), each with their own VaultysId DID — not
+Humans are Actors too (trust doc §2, `kind: "human"`), each with their own VaultysId DID — not
 only "operators who use the admin console." Two things follow, correcting an over-simplification in
 §1/§2 above.
 
@@ -166,7 +166,7 @@ conceptual shift than the rest of this doc, so it's a recommendation here, not a
 **Bootstrap: the first user.** Gating admin-console access behind a certificate creates an obvious
 chicken-and-egg problem — normal issuance requires an existing admin to approve the `capability_
 request` (trust doc §3.2), and on a fresh deployment there isn't one yet. The exception: on the
-*first* successful human VaultysId login/registration where no Principal of kind `human` anywhere
+*first* successful human VaultysId login/registration where no Actor of kind `human` anywhere
 in the ledger currently holds an active `admin_console_access` cert, the control plane auto-issues
 one to that DID — no approval step, `createdBy: "system:bootstrap"`, `expiresAt: null` (the
 canonical use of the nullable-expiry exception in trust doc §3.3: a standing grant with no renewal
@@ -276,8 +276,8 @@ Two separate apps/route trees, gated by different capabilities (§4.5) rather th
 `/admin/*` convention baked into the routing:
 
 **Admin console** (`admin_console_access`):
-- **Overview** — posture summary: principals by kind, certs expiring soon, recent revocations.
-- **Principals** — unified list (today's `Agents` + `Sensors` pages merged), filterable by `kind`,
+- **Overview** — posture summary: actors by kind, certs expiring soon, recent revocations.
+- **Actors** — unified list (today's `Agents` + `Sensors` pages merged), filterable by `kind`,
   onboarding/approval flow, kind-specific panel per §4.3.
 - **Certificates** — the `CapabilityCertificate` ledger: issue, view, revoke, inspect scope/TTL,
   see status-check history.
@@ -291,13 +291,13 @@ Two separate apps/route trees, gated by different capabilities (§4.5) rather th
   general config.
 
 **Access Portal** (`portal_access`, §4.5) — a separate, much smaller surface for any human
-Principal, admin or not:
+Actor, admin or not:
 - **My certificates** — every `CapabilityCertificate` row where the logged-in DID is the subject:
   capability, scope, expiry, issuer.
 - **My agents** — the subset of those certs that grant a connect right, each with a launch action
   into that agent kind's own connect mechanism (e.g. `openclaw` chat).
 
-No workspace administration, no principal management, no audit log — this surface only ever
+No workspace administration, no actor management, no audit log — this surface only ever
 answers "what am I allowed to do, and let me do it," nothing about anyone else.
 
 ## 8. Rebuild sequencing
@@ -308,7 +308,7 @@ demoable at every step rather than broken for months:
 | Step | Scope |
 |---|---|
 | 1 | `packages/trust` + `CapabilityCertificate` ledger (trust doc §9, Phase 0) — build and test in isolation, no product wiring yet. |
-| 2 | `Principal` model + kind registry + unified onboarding/admin pages, replacing `Agent`/`SensorDevice`. Migrate `vaultysclaw-sensor` into the workspace. |
+| 2 | `Actor` model + kind registry + unified onboarding/admin pages, replacing `Agent`/`SensorDevice`. Migrate `vaultysclaw-sensor` into the workspace. |
 | 3 | Wire certificates end-to-end: issuance, status-check protocol (trust doc §4), `ws-server.ts` split, WebRTC hardening (trust doc §4.4). |
 | 4 | Notification Channels + Apprise integration (§5); delete `packages/notifier`. |
 | 5 | Delete workflows, channels, Teams bridge, end-user settings area, `UserGrant`/`DelegationCert`/`AgentPeerGrant` (subsumed per §4.4). |

@@ -27,7 +27,7 @@ socket.
 
 ## 2. Actors
 
-Every actor is a VaultysId-identified **Principal**. Four kinds exist today or are introduced here:
+Every actor is a VaultysId-identified **Actor**. Four kinds exist today or are introduced here:
 
 | Kind | Existing model | Has capabilities? | Registered via |
 |---|---|---|---|
@@ -43,7 +43,7 @@ no capability grant — and gets its own certificate proving *it* is a known, at
 This matters because the status-check protocol (§4) is itself authenticated: an anonymous caller
 should not be able to fingerprint who the control plane is watching.
 
-**Transport is not part of a Principal's identity.** Every Principal above connects over one of
+**Transport is not part of a Actor's identity.** Every Actor above connects over one of
 two transports, and this design must treat both as equally first-class — a rule that becomes
 concrete in §4.4:
 
@@ -139,7 +139,7 @@ The full flow:
    message itself — the connection already proved identity via the `auth` exchange; this message
    only needs to arrive over that authenticated channel. It creates (or updates) a
    `PendingRegistration` row with real `requestedCapabilities` — the same row type used for a brand
-   new unknown-DID registration, generalized to also cover "an existing Principal wants more."
+   new unknown-DID registration, generalized to also cover "an existing Actor wants more."
 2. **Admin decision** — refuse (`denyPendingRegistration`), accept as requested, or accept with
    different capabilities than requested (the approval form defaults its checkboxes to what was
    requested but the admin can freely change them before submitting — "accept but modify" is the
@@ -291,7 +291,7 @@ This is the new piece — the "OCSP" of VaultysClaw.
 
 ### 4.1 Status-check message/route
 
-Two transports for the same operation, both requiring the caller to be an authenticated Principal
+Two transports for the same operation, both requiring the caller to be an authenticated Actor
 (agent, verifier, or human session — never anonymous):
 
 - **WS** (for already-connected agents checking a peer, e.g. before honoring an
@@ -439,7 +439,7 @@ usable by anyone who has it until someone notices.
 
 ### 6.2 Target
 
-Every REST caller becomes a Principal (§2) with a bound DID:
+Every REST caller becomes a Actor (§2) with a bound DID:
 
 - **Humans**: the session cookie remains the baseline transport (unchanged UX), but is bound to
   the user's VaultysId DID at login. Read-only calls stay cookie-only; mutating/admin-scope calls
@@ -468,9 +468,9 @@ their IdP; they just end up inside the same ledger-checked trust model as everyt
 |---|---|---|
 | 0 | `CapabilityCertificate` ledger + `capability-grant.ts` cert wrappers + bootstrap the new `packages/trust` package (§9) with `resolvePermission` and its property tests, issuance flow wired to existing approval UI | None — additive, existing `Policy`-based enforcement keeps working |
 | 1 | Status-check protocol (WS + REST) + control plane checks its own ledger before dispatching/accepting (§4.3) | Revocation starts actually mattering on the control-plane↔agent link |
-| 2 | `verifier` principal kind + agent-to-agent peer checks + configurable fail-open/closed + staple (§5) — **includes hardening `peer-manager.ts`'s WebRTC data channel** (§4.4), replacing the current "best-effort from local catalog" fallback ([`peer-manager.ts:588`](../packages/agent-runtime/src/peer-manager.ts)) with a live-or-stapled `cert_status` check | Revocation propagates to third parties over WS *and* direct P2P WebRTC; customers can tune the availability/security tradeoff |
+| 2 | `verifier` actor kind + agent-to-agent peer checks + configurable fail-open/closed + staple (§5) — **includes hardening `peer-manager.ts`'s WebRTC data channel** (§4.4), replacing the current "best-effort from local catalog" fallback ([`peer-manager.ts:588`](../packages/agent-runtime/src/peer-manager.ts)) with a live-or-stapled `cert_status` check | Revocation propagates to third parties over WS *and* direct P2P WebRTC; customers can tune the availability/security tradeoff |
 | 3 | REST signed-request upgrade, `ApiKey` → DID-bound, OIDC/Entra → DID binding (§6) | Closes the "everything talking to the control plane has a VaultysId" gap for humans/services, not just agents |
-| 4 | Retire remaining un-authenticated surfaces under the same model — notably the Teams bridge webhook (`verifyTeamsRequest`, currently a stub always returning `true`, [`teams-gateway.ts:63`](../packages/control-plane/lib/bridges/teams-gateway.ts)) — and route bridge secrets through the existing vault (`vault.ts`) instead of the current no-op `encryptConfig` | Closes the two concrete security holes found during the architecture review, using the same principal model rather than one-off fixes |
+| 4 | Retire remaining un-authenticated surfaces under the same model — notably the Teams bridge webhook (`verifyTeamsRequest`, currently a stub always returning `true`, [`teams-gateway.ts:63`](../packages/control-plane/lib/bridges/teams-gateway.ts)) — and route bridge secrets through the existing vault (`vault.ts`) instead of the current no-op `encryptConfig` | Closes the two concrete security holes found during the architecture review, using the same actor model rather than one-off fixes |
 
 ## 9. Package boundary: `packages/trust`
 

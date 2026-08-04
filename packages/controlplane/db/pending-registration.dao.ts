@@ -47,7 +47,7 @@ export class PendingRegistrationDAO {
     });
   }
 
-  /** Approved but not yet delivered, across all Principals — surfaced on the Principals page so an
+  /** Approved but not yet delivered, across all Actors — surfaced on the Actors page so an
    *  admin can see a grant is "waiting for the agent to be connected" rather than assuming it already landed. */
   static async listApprovedUndelivered(): Promise<PendingRegistration[]> {
     return prisma.pendingRegistration.findMany({
@@ -56,7 +56,7 @@ export class PendingRegistrationDAO {
     });
   }
 
-  /** A connected, already-known Principal asking for more capabilities, or an unknown one
+  /** A connected, already-known Actor asking for more capabilities, or an unknown one
    *  reporting what it wants right after the auth handshake — same row, same approval flow. */
   static async updateRequestedCapabilities(id: string, capabilities: string[]): Promise<void> {
     await prisma.pendingRegistration.update({

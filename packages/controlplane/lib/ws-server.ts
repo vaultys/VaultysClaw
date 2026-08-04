@@ -4,11 +4,11 @@
  * `lib/auth-handler.ts`, kept in-memory per connection here instead of
  * round-tripping an AuthSession row — this process is a long-lived WS
  * server, not a stateless API route, so there's nothing to survive a restart
- * for), then either auto-connect a known Principal or persist a
+ * for), then either auto-connect a known Actor or persist a
  * PendingRegistration for an unknown one.
  *
  * Also implements the interactive capability-issuance flow
- * (docs/CERTIFICATE_WEB_OF_TRUST.md §3.2b): a connected Principal sends a
+ * (docs/CERTIFICATE_WEB_OF_TRUST.md §3.2b): a connected Actor sends a
  * plain `capability_request`; once an admin approves it
  * (lib/registrations.ts), the control plane proactively runs a second,
  * separate Challenger exchange over the SAME connection with
@@ -28,7 +28,7 @@ import {
   type AgentCapability,
   type CertificateStatus,
 } from "@vaultysclaw/policy";
-import { PrincipalDAO, PendingRegistrationDAO, CapabilityCertificateDAO, ServerIdentityDAO } from "@/db";
+import { ActorDAO, PendingRegistrationDAO, CapabilityCertificateDAO, ServerIdentityDAO } from "@/db";
 import { persistChallengerCertificate } from "./certificates";
 import { WsSender, type AgentSender } from "./agent-sender";
 import type {
@@ -70,12 +70,12 @@ interface PendingConnection {
   timer: ReturnType<typeof setTimeout>;
 }
 
-interface ConnectedPrincipal {
+interface ConnectedActor {
   did: string;
   name: string;
   kind: string;
   sender: AgentSender;
-  /** The Principal's own public-key VaultysId, from the completed handshake — used to verify anything they sign afterward (cert_status_request). */
+  /** The Actor's own public-key VaultysId, from the completed handshake — used to verify anything they sign afterward (cert_status_request). */
   remoteVid: VaultysId;
   connectedAt: Date;
   lastSeen: Date;
@@ -111,7 +111,7 @@ export function getWSServerInstance(): ControlPlaneWSServer | null {
 
 export class ControlPlaneWSServer {
   private pending = new Map<AgentSender, PendingConnection>();
-  private connected = new Map<string, ConnectedPrincipal>();
+  private connected = new Map<string, ConnectedActor>();
   private connectedBySender = new Map<AgentSender, string>();
   private awaitingApproval = new Map<AgentSender, AwaitingApproval>();
   private certIssuance = new Map<AgentSender, CertIssuanceState>();
@@ -137,7 +137,7 @@ export class ControlPlaneWSServer {
    * `handleAuthChallenge` below).
    *
    * A first-time registrant is still sitting on the same open socket in
-   * `awaitingApproval` — it never went through the "existing Principal"
+   * `awaitingApproval` — it never went through the "existing Actor"
    * reconnect branch, so it was never promoted into `connected`. Promote it
    * now rather than forcing a reconnect just to receive its own grant.
    */
@@ -168,9 +168,9 @@ export class ControlPlaneWSServer {
       return true;
     }
 
-    const principal = this.connected.get(did);
-    if (!principal) return false;
-    this.startCertificateIssuance(principal.sender, approved.id, capabilities);
+    const actor = this.connected.get(did);
+    if (!actor) return false;
+    this.startCertificateIssuance(actor.sender, approved.id, capabilities);
     return true;
   }
 
@@ -191,7 +191,7 @@ export class ControlPlaneWSServer {
     if (did) {
       this.connectedBySender.delete(sender);
       this.connected.delete(did);
-      logger.info({ did }, "Principal disconnected");
+      logger.info({ did }, "Actor disconnected");
     }
   }
 
@@ -298,9 +298,9 @@ export class ControlPlaneWSServer {
       const contact = challenger.getContactId().toVersion(1);
       const did = contact.did;
 
-      const existing = await PrincipalDAO.findByDid(did);
+      const existing = await ActorDAO.findByDid(did);
       if (existing) {
-        await PrincipalDAO.touchLastSeen(did);
+        await ActorDAO.touchLastSeen(did);
         this.connected.set(did, {
           did,
           name: existing.name,
@@ -319,9 +319,9 @@ export class ControlPlaneWSServer {
           data: certB64,
         } satisfies AuthChallengePayload);
 
-        logger.info({ did, kind: existing.kind }, "Principal reconnected");
+        logger.info({ did, kind: existing.kind }, "Actor reconnected");
 
-        // A grant may have been approved while this Principal was offline —
+        // A grant may have been approved while this Actor was offline —
         // deliver it now that they're back (trust doc §3.2b).
         void this.deliverApprovedCapabilities(did);
         return;
@@ -349,7 +349,7 @@ export class ControlPlaneWSServer {
         message: "Identity verified. Registration pending admin approval.",
       } satisfies RegistrationPendingPayload);
 
-      logger.info({ did, registrationId, kind: pending.kind }, "New Principal — pending admin approval");
+      logger.info({ did, registrationId, kind: pending.kind }, "New Actor — pending admin approval");
     } catch (err) {
       logger.error({ err }, "Error processing auth challenge");
       this.failHandshake(pending, "Internal error");
@@ -369,10 +369,10 @@ export class ControlPlaneWSServer {
   private handleHeartbeat(sender: AgentSender): void {
     const did = this.connectedBySender.get(sender);
     if (!did) return;
-    const principal = this.connected.get(did);
-    if (!principal) return;
-    principal.lastSeen = new Date();
-    void PrincipalDAO.touchLastSeen(did);
+    const actor = this.connected.get(did);
+    if (!actor) return;
+    actor.lastSeen = new Date();
+    void ActorDAO.touchLastSeen(did);
     this.sendMessage(sender, "pong", {});
   }
 
@@ -405,7 +405,7 @@ export class ControlPlaneWSServer {
       return;
     }
 
-    const principal = this.connected.get(did);
+    const actor = this.connected.get(did);
     const existingPending = await PendingRegistrationDAO.findPendingByDid(did);
     if (existingPending) {
       await PendingRegistrationDAO.updateRequestedCapabilities(
@@ -419,16 +419,16 @@ export class ControlPlaneWSServer {
     await PendingRegistrationDAO.create({
       id: registrationId,
       did,
-      publicKey: principal ? Buf.from(principal.remoteVid.id).toString("base64") : null,
+      publicKey: actor ? Buf.from(actor.remoteVid.id).toString("base64") : null,
       sessionId: randomBytes(16).toString("hex"),
-      name: principal?.name ?? did,
-      kind: principal?.kind ?? "openclaw",
+      name: actor?.name ?? did,
+      kind: actor?.kind ?? "openclaw",
       requestedCapabilities: payload.requestedCapabilities,
     });
-    logger.info({ did, registrationId }, "Connected Principal requested additional capabilities");
+    logger.info({ did, registrationId }, "Connected Actor requested additional capabilities");
   }
 
-  /** Proactively prompts a connected Principal into a service:"certificate" exchange — same
+  /** Proactively prompts a connected Actor into a service:"certificate" exchange — same
    *  mechanics as handleRegister's opening auth_challenge, different purpose. */
   private startCertificateIssuance(
     sender: AgentSender,
@@ -528,7 +528,7 @@ export class ControlPlaneWSServer {
 
   /**
    * The status-check protocol (docs/CERTIFICATE_WEB_OF_TRUST.md §4.1) — the
-   * "OCSP of VaultysClaw". Only a connected, authenticated Principal may ask;
+   * "OCSP of VaultysClaw". Only a connected, authenticated Actor may ask;
    * the response is signed by the control plane so it can be cached/stapled/
    * forwarded and still independently verified later.
    */

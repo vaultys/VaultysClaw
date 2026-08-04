@@ -30,7 +30,7 @@ export async function issueCertificateAction(formData: FormData): Promise<void> 
   const confirmNoExpiry = formData.get("confirmNoExpiry") === "on";
 
   if (!agentDid || capabilities.length === 0) {
-    throw new Error("A Principal and at least one capability are required");
+    throw new Error("A Actor and at least one capability are required");
   }
 
   const scope: CertScope | null = resource ? { resource } : null;

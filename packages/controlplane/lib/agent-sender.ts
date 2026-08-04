@@ -1,7 +1,7 @@
 import { WebSocket } from "ws";
 
 /**
- * Transport-agnostic send abstraction over a single Principal connection.
+ * Transport-agnostic send abstraction over a single Actor connection.
  * Only `WsSender` exists so far — WebRTC/PeerJS (trust doc §4.4) is deferred,
  * but the interface is shaped so adding a `PeerjsSender` later doesn't touch
  * `ws-server.ts`'s dispatch logic, mirroring `packages/control-plane`'s

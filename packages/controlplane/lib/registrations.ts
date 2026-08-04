@@ -1,5 +1,5 @@
 /**
- * Turns a `PendingRegistration` into a real `Principal`, then delivers the
+ * Turns a `PendingRegistration` into a real `Actor`, then delivers the
  * capability grant via the live `service: "certificate"` Challenger exchange
  * (docs/CERTIFICATE_WEB_OF_TRUST.md §3.2b) instead of admin-issuing a
  * packcert-format grant directly — the agent's own co-signature is what
@@ -8,7 +8,7 @@
  * exchange and persists the resulting certificate once it completes.
  */
 import type { AgentCapability } from "@vaultysclaw/policy";
-import { PendingRegistrationDAO, PrincipalDAO } from "@/db";
+import { PendingRegistrationDAO, ActorDAO } from "@/db";
 import { getWSServerInstance } from "./ws-server";
 
 export async function approvePendingRegistration(
@@ -21,7 +21,7 @@ export async function approvePendingRegistration(
     throw new Error("Registration not found or already resolved");
   }
 
-  await PrincipalDAO.upsert({
+  await ActorDAO.upsert({
     did: registration.did,
     name: registration.name,
     kind: registration.kind,

@@ -19,7 +19,7 @@ export class SettingsDAO {
 /**
  * The control plane's own VaultysId — the root issuer for the whole
  * certificate ledger (docs/REBUILD_ARCHITECTURE.md §4.5). Every other
- * Principal onboards via a WS handshake; the control plane's own identity is
+ * Actor onboards via a WS handshake; the control plane's own identity is
  * generated once and persisted here.
  */
 export class ServerIdentityDAO {

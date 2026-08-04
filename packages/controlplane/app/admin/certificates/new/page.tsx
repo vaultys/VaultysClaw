@@ -1,4 +1,4 @@
-import { PrincipalDAO } from "@/db";
+import { ActorDAO } from "@/db";
 import PageChrome from "@/components/layout/PageChrome";
 import { issueCertificateAction } from "../actions";
 
@@ -18,7 +18,7 @@ const AGENT_CAPABILITIES = [
 
 /** Issue certificate flow (docs/PAGE_DESIGN.md §1.5). */
 export default async function NewCertificatePage() {
-  const principals = await PrincipalDAO.list();
+  const actors = await ActorDAO.list();
 
   return (
     <div className="p-6 max-w-2xl">
@@ -32,14 +32,14 @@ export default async function NewCertificatePage() {
 
       <form action={issueCertificateAction} className="space-y-6">
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1.5">Principal</label>
+          <label className="block text-sm font-medium text-foreground mb-1.5">Actor</label>
           <select
             name="agentDid"
             required
             className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background"
           >
-            <option value="">Select a Principal…</option>
-            {principals.map((p) => (
+            <option value="">Select a Actor…</option>
+            {actors.map((p) => (
               <option key={p.did} value={p.did}>
                 {p.name} ({p.kind}) — {p.did}
               </option>

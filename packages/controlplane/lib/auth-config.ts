@@ -50,14 +50,14 @@ export const authOptions: NextAuthOptions = {
         const metadata = JSON.parse(cert.metadata ?? "{}") as { did?: string };
         if (!metadata.did) return null;
 
-        const principal = await UserDAO.findByDid(metadata.did);
-        if (!principal) return null;
+        const actor = await UserDAO.findByDid(metadata.did);
+        if (!actor) return null;
 
         return {
-          id: principal.did,
-          did: principal.did,
-          name: principal.name,
-          email: principal.humanProfile?.email ?? null,
+          id: actor.did,
+          did: actor.did,
+          name: actor.name,
+          email: actor.humanProfile?.email ?? null,
         };
       },
     }),

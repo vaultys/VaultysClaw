@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, ShieldCheck, ShieldAlert, ShieldQuestion } from "lucide-react";
-import { CapabilityCertificateDAO, PrincipalDAO } from "@/db";
+import { CapabilityCertificateDAO, ActorDAO } from "@/db";
 import PageChrome from "@/components/layout/PageChrome";
 import { inspectCertificate, type DecodedToken } from "@/lib/cert-inspect";
 import type { CertScope, ResourceLimits } from "@vaultysclaw/policy";
@@ -80,12 +80,12 @@ export default async function CertificateDetailPage({
   const cert = await CapabilityCertificateDAO.findById(id);
   if (!cert) notFound();
 
-  const principal = await PrincipalDAO.findByDid(cert.agentDid);
+  const actor = await ActorDAO.findByDid(cert.agentDid);
   const inspected = await inspectCertificate(
     cert.certFormat as "packcert" | "challenger",
     cert.certificate,
     cert.requestCertificate,
-    principal?.publicKey ?? null
+    actor?.publicKey ?? null
   );
 
   const scope = cert.scope as CertScope | null;
@@ -112,7 +112,7 @@ export default async function CertificateDetailPage({
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-lg font-semibold text-foreground">
-            {principal?.name ?? cert.agentDid}
+            {actor?.name ?? cert.agentDid}
           </h1>
           <p className="text-xs text-foreground-500 font-mono mt-0.5">{cert.agentDid}</p>
           <p className="text-xs text-foreground-400 mt-0.5">Certificate {cert.id}</p>
@@ -220,21 +220,21 @@ export default async function CertificateDetailPage({
             <h2 className="text-sm font-semibold text-foreground-700">
               Embedded request (the co-signature)
             </h2>
-            {inspected.requestVerifiedBy === "principal" && (
+            {inspected.requestVerifiedBy === "actor" && (
               <span className="flex items-center gap-1 text-xs text-success-700">
-                <ShieldCheck className="w-3.5 h-3.5" /> Signed by the Principal itself
+                <ShieldCheck className="w-3.5 h-3.5" /> Signed by the Actor itself
               </span>
             )}
             {inspected.requestVerifiedBy === "control-plane" && (
               <span className="flex items-center gap-1 text-xs text-warning-700">
                 <ShieldCheck className="w-3.5 h-3.5" /> Signed by the control plane — system/admin-issued,
-                not requested by the Principal
+                not requested by the Actor
               </span>
             )}
             {inspected.requestVerifiedBy === null && (
               <span className="flex items-center gap-1 text-xs text-foreground-400">
                 <ShieldQuestion className="w-3.5 h-3.5" /> Could not verify (no public key on record for
-                this Principal)
+                this Actor)
               </span>
             )}
           </div>
@@ -253,7 +253,7 @@ export default async function CertificateDetailPage({
       {inspected.certFormat === "challenger" && (
         <p className="text-xs text-foreground-400">
           This certificate was issued interactively (docs/CERTIFICATE_WEB_OF_TRUST.md §3.2b): the
-          control plane and the Principal each signed in the same live exchange, so there is no
+          control plane and the Actor each signed in the same live exchange, so there is no
           separate embedded request token to inspect — pk1/pk2/sign1/sign2 above already show both
           sides&apos; signatures natively.
         </p>

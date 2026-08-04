@@ -55,14 +55,14 @@ export class CapabilityCertificateDAO {
     return prisma.capabilityCertificate.findUnique({ where: { id } });
   }
 
-  /** Every certificate for a Principal, active or not — the caller (packages/trust) decides usability. */
-  static async findAllForPrincipal(agentDid: string): Promise<CapabilityCertificateLite[]> {
+  /** Every certificate for a Actor, active or not — the caller (packages/trust) decides usability. */
+  static async findAllForActor(agentDid: string): Promise<CapabilityCertificateLite[]> {
     const rows = await prisma.capabilityCertificate.findMany({ where: { agentDid } });
     return rows.map(toLite);
   }
 
   /**
-   * Whether any Principal anywhere holds a current, active certificate for
+   * Whether any Actor anywhere holds a current, active certificate for
    * `capability` — the bootstrap-admin existence check
    * (docs/REBUILD_ARCHITECTURE.md §4.5) and, more generally, any "does this
    * capability exist at all yet" query.

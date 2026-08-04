@@ -8,7 +8,7 @@ import SignOutButton from "./SignOutButton";
 /**
  * The Access Portal (docs/PAGE_DESIGN.md §2) — a separate, much smaller app
  * from the admin console, gated by `portal_access` instead of
- * `admin_console_access`. No sidebar, no principal management, no audit
+ * `admin_console_access`. No sidebar, no actor management, no audit
  * log — this surface only ever answers "what am I allowed to do."
  */
 export default async function PortalLayout({

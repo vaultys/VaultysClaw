@@ -84,7 +84,7 @@ async function signSystemRequestCert(
 }
 
 /**
- * An admin (or the system) vouching for a Principal's capabilities directly —
+ * An admin (or the system) vouching for a Actor's capabilities directly —
  * used to approve a `PendingRegistration` into a real grant. Agents don't yet
  * send a signed `capability_request` over the wire (deferred, see
  * packages/controlplane/CLAUDE.md), so this is the only issuance path for a
@@ -213,7 +213,7 @@ export async function persistChallengerCertificate(input: {
   }
 }
 
-/** Constructs a `VaultysId` from a raw public key, for verifying a Principal's own signed request. */
+/** Constructs a `VaultysId` from a raw public key, for verifying a Actor's own signed request. */
 export function vaultysIdFromPublicKey(publicKey: Uint8Array): VaultysId {
   return VaultysId.fromId(publicKey as never).toVersion(1);
 }

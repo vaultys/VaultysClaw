@@ -1,7 +1,7 @@
 /**
  * Custom Next.js server — combines HTTP (Next.js pages/API, including the
  * VaultysId QR login flow) and the WebSocket connection lifecycle for
- * Principals in one process, on separate ports, mirroring
+ * Actors in one process, on separate ports, mirroring
  * packages/control-plane's server.ts pattern.
  */
 import "./lib/webrtc-polyfill";

@@ -36,7 +36,7 @@ export interface DecodedToken {
   signatureByteLength: number | null;
 }
 
-export type VerifiedBy = "control-plane" | "principal" | null;
+export type VerifiedBy = "control-plane" | "actor" | null;
 
 export interface InspectedCertificate {
   certFormat: "packcert" | "challenger";
@@ -46,7 +46,7 @@ export interface InspectedCertificate {
   request: DecodedToken | null;
   /** Which key actually verifies the embedded request — the co-signature audit signal
    *  (trust doc §3.2a): "control-plane" means this was a system/admin-issued grant, nobody
-   *  outside asked for it; "principal" means the agent itself signed the request. */
+   *  outside asked for it; "actor" means the agent itself signed the request. */
   requestVerifiedBy: VerifiedBy;
 }
 
@@ -67,7 +67,7 @@ function decodeChallengerToken(certificateBase64: string): DecodedToken {
     const parsed = Challenger.deserializeCertificate(bytes as never);
     const sign2 = parsed.sign2 ? Buffer.from(parsed.sign2) : null;
     const sign1 = parsed.sign1 ? Buffer.from(parsed.sign1) : null;
-    // sign2 is the counterpart's (the Principal's) final signature — the one that makes this
+    // sign2 is the counterpart's (the Actor's) final signature — the one that makes this
     // interactive/co-signed rather than unilaterally issued; fall back to sign1 for a
     // certificate captured mid-handshake (shouldn't happen for a persisted row, but cheap to guard).
     const signature = sign2 ?? sign1;
@@ -97,19 +97,19 @@ function decodeChallengerToken(certificateBase64: string): DecodedToken {
 async function inspectPackcert(
   certificate: string,
   requestCertificate: string | null,
-  principalPublicKeyBase64: string | null
+  actorPublicKeyBase64: string | null
 ): Promise<InspectedCertificate> {
   const serverVid = await ServerIdentityDAO.getServerVaultysId();
   const grantVerified = verifyCapabilityGrantCert(serverVid, certificate) !== null;
 
   const requestToken = requestCertificate ?? "";
   let requestVerifiedBy: VerifiedBy = null;
-  if (principalPublicKeyBase64) {
-    const principalVid = VaultysId.fromId(
-      Buffer.from(principalPublicKeyBase64, "base64") as never
+  if (actorPublicKeyBase64) {
+    const actorVid = VaultysId.fromId(
+      Buffer.from(actorPublicKeyBase64, "base64") as never
     ).toVersion(1);
-    if (verifyCapabilityRequestCert(principalVid, requestToken) !== null) {
-      requestVerifiedBy = "principal";
+    if (verifyCapabilityRequestCert(actorVid, requestToken) !== null) {
+      requestVerifiedBy = "actor";
     }
   }
   if (!requestVerifiedBy && verifyCapabilityRequestCert(serverVid, requestToken) !== null) {
@@ -146,8 +146,8 @@ export async function inspectCertificate(
   certFormat: "packcert" | "challenger",
   certificate: string,
   requestCertificate: string | null,
-  principalPublicKeyBase64: string | null
+  actorPublicKeyBase64: string | null
 ): Promise<InspectedCertificate> {
   if (certFormat === "challenger") return inspectChallenger(certificate);
-  return inspectPackcert(certificate, requestCertificate, principalPublicKeyBase64);
+  return inspectPackcert(certificate, requestCertificate, actorPublicKeyBase64);
 }

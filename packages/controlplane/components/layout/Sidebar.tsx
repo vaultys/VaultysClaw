@@ -20,12 +20,12 @@ interface NavItem {
   exact: boolean;
 }
 
-// The full nav shape from docs/PAGE_DESIGN.md §1.1 — Overview and Principals
+// The full nav shape from docs/PAGE_DESIGN.md §1.1 — Overview and Actors
 // are fully built; the rest are real routes with placeholder content so the
 // product reads as complete rather than missing pages.
 const NAV_ITEMS: NavItem[] = [
   { href: "/admin", icon: LayoutDashboard, label: "Overview", exact: true },
-  { href: "/admin/principals", icon: Users, label: "Principals", exact: false },
+  { href: "/admin/actors", icon: Users, label: "Actors", exact: false },
   { href: "/admin/certificates", icon: KeyRound, label: "Certificates", exact: false },
   { href: "/admin/audit", icon: ScrollText, label: "Audit Log", exact: false },
   { href: "/admin/workspaces", icon: Globe2, label: "Workspaces", exact: false },

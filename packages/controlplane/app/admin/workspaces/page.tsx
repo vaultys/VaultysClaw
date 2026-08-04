@@ -9,7 +9,7 @@ export default function WorkspacesPage() {
       <ComingSoon
         icon={Globe2}
         title="Workspaces"
-        description="Workspace-scoped principals, budgets, and model access — plus workspace-level admin rights expressed as scoped certificates (CertScope.resource = workspace:<id>), not a separate role table. See docs/PAGE_DESIGN.md §1.7."
+        description="Workspace-scoped actors, budgets, and model access — plus workspace-level admin rights expressed as scoped certificates (CertScope.resource = workspace:<id>), not a separate role table. See docs/PAGE_DESIGN.md §1.7."
       />
     </>
   );

@@ -1,5 +1,5 @@
 /**
- * VaultysId QR-code (P2P/WebRTC) login channel for human Principals, plus the
+ * VaultysId QR-code (P2P/WebRTC) login channel for human Actors, plus the
  * classic (non-WebRTC) dev-mode transport's *second* SRP round: the bootstrap
  * flow is double SRP — one live `Challenger` exchange to connect/register the
  * human (`service: "register"`/`"auth"`), and, only for a brand-new human
@@ -18,12 +18,12 @@
  * not reused here; it's a separate feature, not the core login primitive
  * docs/REBUILD_ARCHITECTURE.md §1 requires to stay unchanged.
  *
- * Register vs. login is decided by whether any human Principal exists yet.
+ * Register vs. login is decided by whether any human Actor exists yet.
  */
 import { Challenger, CryptoChannel, VaultysId, crypto } from "@vaultys/id";
 import pino from "pino";
 import type { AgentCapability } from "@vaultysclaw/policy";
-import { AuthCertificateDAO, PrincipalDAO, UserDAO } from "@/db";
+import { AuthCertificateDAO, ActorDAO, UserDAO } from "@/db";
 import { ServerIdentityDAO } from "@/db/settings.dao";
 import {
   BOOTSTRAP_ADMIN_CERT_ID,
@@ -70,7 +70,7 @@ async function registerHuman(contact: VaultysId): Promise<boolean> {
   const did = contact.toVersion(1).did;
   const publicKey = Buffer.from(contact.id).toString("base64");
   await UserDAO.ensureExists(did, "Unnamed", null, publicKey);
-  logger.info({ did }, "New human Principal registered");
+  logger.info({ did }, "New human Actor registered");
   return true;
 }
 
@@ -425,6 +425,6 @@ export class UserLoginChannel {
   }
 
   static async hasAnyHuman(): Promise<boolean> {
-    return (await PrincipalDAO.count({ kind: "human" })) > 0;
+    return (await ActorDAO.count({ kind: "human" })) > 0;
   }
 }

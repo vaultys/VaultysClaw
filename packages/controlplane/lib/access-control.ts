@@ -13,6 +13,6 @@ export async function hasCapability(
   capability: AgentCapability,
   resource?: string
 ): Promise<boolean> {
-  const certs = await CapabilityCertificateDAO.findAllForPrincipal(did);
+  const certs = await CapabilityCertificateDAO.findAllForActor(did);
   return resolvePermission({ capability, resource }, certs, Date.now()).allowed;
 }

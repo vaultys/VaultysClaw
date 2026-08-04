@@ -1,8 +1,10 @@
-import { PrincipalDAO, PendingRegistrationDAO } from "@/db";
+import Link from "next/link";
+import { ActorDAO, PendingRegistrationDAO } from "@/db";
 import PageChrome from "@/components/layout/PageChrome";
+import { encodeDidParam } from "@/lib/actor-route";
 import { approveRegistrationAction, denyRegistrationAction } from "./actions";
 
-/** Capabilities an agent-kind Principal can be granted — admin_console_access/portal_access are human-only (§4.5). */
+/** Capabilities an agent-kind Actor can be granted — admin_console_access/portal_access are human-only (§4.5). */
 const AGENT_CAPABILITIES = [
   "file_access",
   "internet_access",
@@ -33,14 +35,14 @@ function KindBadge({ kind }: { kind: string }) {
 }
 
 /**
- * Principals (docs/PAGE_DESIGN.md §1.3) — unified list + the onboarding
+ * Actors (docs/PAGE_DESIGN.md §1.3) — unified list + the onboarding
  * approval flow (docs/REBUILD_ARCHITECTURE.md §4.2): approving a pending
  * registration *is* the first capability_request/grant round-trip, presented
  * as one action instead of two steps.
  */
-export default async function PrincipalsPage() {
-  const [principals, pending, awaitingDelivery] = await Promise.all([
-    PrincipalDAO.list(),
+export default async function ActorsPage() {
+  const [actors, pending, awaitingDelivery] = await Promise.all([
+    ActorDAO.list(),
     PendingRegistrationDAO.listPending(),
     PendingRegistrationDAO.listApprovedUndelivered(),
   ]);
@@ -49,12 +51,12 @@ export default async function PrincipalsPage() {
     <div className="p-6 space-y-10">
       <PageChrome
         toolbar={{
-          title: "Principals",
-          description: `${principals.length} registered · ${pending.length} pending approval${
+          title: "Actors",
+          description: `${actors.length} registered · ${pending.length} pending approval${
             awaitingDelivery.length > 0 ? ` · ${awaitingDelivery.length} awaiting delivery` : ""
           }`,
         }}
-        breadcrumbs={[{ label: "Principals" }]}
+        breadcrumbs={[{ label: "Actors" }]}
       />
 
       <section>
@@ -150,7 +152,7 @@ export default async function PrincipalsPage() {
 
       <section>
         <h2 className="text-sm font-semibold text-foreground-700 mb-3">
-          Principals ({principals.length})
+          Actors ({actors.length})
         </h2>
         <div className="overflow-x-auto border border-neutral-200/60 rounded-xl">
         <table className="w-full text-sm bg-background-100">
@@ -163,13 +165,27 @@ export default async function PrincipalsPage() {
             </tr>
           </thead>
           <tbody>
-            {principals.map((p) => (
-              <tr key={p.did} className="border-t border-neutral-200/60">
-                <td className="px-4 py-2.5 text-foreground">{p.name}</td>
+            {actors.map((p) => (
+              <tr key={p.did} className="border-t border-neutral-200/60 hover:bg-background-200/30">
+                <td className="px-4 py-2.5 text-foreground">
+                  <Link
+                    href={`/admin/actors/${encodeDidParam(p.did)}`}
+                    className="hover:text-primary-600 hover:underline"
+                  >
+                    {p.name}
+                  </Link>
+                </td>
                 <td className="px-4 py-2.5">
                   <KindBadge kind={p.kind} />
                 </td>
-                <td className="px-4 py-2.5 text-xs text-foreground-500 font-mono">{p.did}</td>
+                <td className="px-4 py-2.5 text-xs text-foreground-500 font-mono">
+                  <Link
+                    href={`/admin/actors/${encodeDidParam(p.did)}`}
+                    className="hover:text-primary-600 hover:underline"
+                  >
+                    {p.did}
+                  </Link>
+                </td>
                 <td className="px-4 py-2.5 text-xs text-foreground-500">
                   {p.registeredAt.toISOString()}
                 </td>

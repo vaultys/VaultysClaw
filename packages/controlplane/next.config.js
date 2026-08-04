@@ -27,7 +27,8 @@ const nextConfig = {
               "default-src 'self'",
               "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
               "style-src 'self' 'unsafe-inline'",
-              "img-src 'self' data: blob:",
+              // *.basemaps.cartocdn.com: the /admin/map world map's tile source (components/map/world-map/tiles.ts).
+              "img-src 'self' data: blob: https://*.basemaps.cartocdn.com",
               "font-src 'self' data:",
               "connect-src 'self' wss: ws: https:",
               "worker-src 'self' blob:",

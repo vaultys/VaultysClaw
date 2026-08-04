@@ -9,8 +9,8 @@ production traffic here until the cutover is deliberate.
 ## Status
 
 Backend core, the WebSocket connection lifecycle, VaultysId QR login, the full admin navigation
-shape (real + placeholder pages), a real Certificates page, the Access Portal shell, and the
-design system (ported from `packages/control-plane`) are built.
+shape (real + placeholder pages), real Actors/Certificates/Workspaces pages, the Access Portal
+shell, and the design system (ported from `packages/control-plane`) are built.
 
 - **Design system**: `app/theme.css` (the adaptive CSS-variable palette, light/dark via `.dark`),
   `tailwind.config.js` (semantic color tokens — `bg-primary-600`, `text-foreground-500`, etc.,
@@ -168,6 +168,27 @@ design system (ported from `packages/control-plane`) are built.
 - `app/admin/page.tsx` (Overview) and `app/admin/actors/page.tsx` (Actors, with inline
   approve/deny via Next.js Server Actions in `app/admin/actors/actions.ts`) — the first two
   pages from `docs/PAGE_DESIGN.md`.
+- **`app/admin/actors/[did]/page.tsx`** (docs/PAGE_DESIGN.md §1.4) — full Actor detail: registered/
+  last-seen, public key, an edit form (`updateActorAction` in `app/admin/actors/actions.ts` — name/
+  workspace for any kind, email additionally for humans via `UserDAO.updateEmail`), and every
+  certificate issued to that Actor with inline revoke (reuses `app/admin/certificates/actions.ts`'s
+  `revokeCertificateAction` directly rather than duplicating it). DIDs are base64url-encoded for the
+  URL segment (`lib/actor-route.ts`'s `encodeDidParam`/`decodeDidParam`) — a raw `did:vaultys:...`
+  string is not a safe path segment: even percent-encoded, Next's client-side router decodes it back
+  to literal colons before the real top-level navigation and the server 404s on that (confirmed by
+  network trace — the RSC prefetch of the encoded form succeeds, the actual navigation does not).
+- **`app/admin/workspaces/{page.tsx,[id]/page.tsx,new/page.tsx,actions.ts}`** (docs/PAGE_DESIGN.md
+  §1.7) — list (actor/member counts computed from `ActorDAO.list()` + active certs, not stored
+  counters) and a tabbed detail page (Overview edit form, Actors — assign/remove via
+  `assignActorWorkspaceAction`, a *separate* action from `updateActorAction` so assigning a workspace
+  never touches a human's email as a side effect — and Access, listing humans holding a
+  `CertScope.resource = "workspace:<id>"` grant, with a deep link into
+  `app/admin/certificates/new` that pre-fills the resource field via a `resource` search param).
+  Tabs are plain `?tab=` query-param links, not the ported `Toolbar`'s client-side `tabs` action kind
+  (that one takes an `onChange` closure, which — like `onClick` — can't cross the Server→Client
+  Component boundary from a page that fetches its own data; `PageChrome` doesn't bridge it (yet)).
+  Budgets & Model Access is a `ComingSoon`-style stub — needs the token-budget/model-registry schema
+  this rebuild hasn't ported (rebuild doc §8, step 4+).
 - `server.ts` runs the actual Next.js custom-server pattern (HTTP + Next.js pages/API + WS, all in
   one process — same shape as `packages/control-plane`'s `server.ts`).
 
@@ -241,15 +262,16 @@ repeatable tests (see deferred).
 
 - **WebRTC/PeerJS transport for agents** (trust doc §4.4) — `AgentSender` is shaped for it; not
   implemented. (The login flow's own PeerJS/WebRTC usage is separate and already built.)
-- Everything the placeholder pages describe: Audit Log (unified signed IntentLog/ActivityLog),
-  Workspaces (actors/budgets/model access, workspace-scoped admin via `CertScope`),
-  Integrations (OIDC/Entra, API Keys, Webhooks, Notification Channels, Model Registry), Settings
-  (server identity display, org-wide trust policy). The certificate detail page (§1.5's
-  signature-chain view) is built (`app/admin/certificates/[id]/page.tsx`); its status-check-history
-  section is still a static note — no query log is persisted yet (would need a table + a write in
-  `handleCertStatusRequest`).
-- A human's `name`/`email` profile — a freshly registered human gets `name: "Unnamed"` and no
-  email; there's no profile-completion step yet.
+- Everything the remaining placeholder pages describe: Audit Log (unified signed IntentLog/
+  ActivityLog), Integrations (OIDC/Entra, API Keys, Webhooks, Notification Channels, Model
+  Registry), Settings (server identity display, org-wide trust policy). Actors, Certificates, and
+  Workspaces (Overview/Actors/Access tabs — Budgets & Model Access still a stub) are real. The
+  certificate detail page (§1.5's signature-chain view) is built
+  (`app/admin/certificates/[id]/page.tsx`); its status-check-history section is still a static
+  note — no query log is persisted yet (would need a table + a write in `handleCertStatusRequest`).
+- A human's `name`/email is now editable from the Actor detail page (`updateActorAction`), but a
+  freshly registered human still starts as `name: "Unnamed"` with no email — no first-login
+  profile-completion prompt yet, it's admin-driven only.
 - Notification Channels/Apprise, Webhooks, Model Registry, OIDC/Entra — added to the schema and
   this package only once each is actually being built.
 - A Docker-gated integration test suite (mirroring the root project's `vitest.config.docker.mjs`

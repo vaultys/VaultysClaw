@@ -27,7 +27,7 @@ export async function denyRegistrationAction(formData: FormData): Promise<void> 
   revalidatePath("/admin");
 }
 
-/** Edits a Actor's own record — name/workspace for any kind, email additionally for humans
+/** Edits an Actor's own record — name/workspace for any kind, email additionally for humans
  *  (`User` is a 1:1 profile extension, see `packages/controlplane/CLAUDE.md`'s Actor/User note). */
 export async function updateActorAction(formData: FormData): Promise<void> {
   const session = await getServerSession(authOptions);

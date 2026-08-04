@@ -15,8 +15,23 @@ export class WorkspaceDAO {
     name: string;
     slug: string;
     description?: string;
+    color?: string;
   }): Promise<Workspace> {
     return prisma.workspace.create({ data });
+  }
+
+  static async update(
+    id: string,
+    data: { name?: string; description?: string | null; color?: string }
+  ): Promise<Workspace> {
+    return prisma.workspace.update({
+      where: { id },
+      data: {
+        ...(data.name !== undefined ? { name: data.name } : {}),
+        ...(data.description !== undefined ? { description: data.description } : {}),
+        ...(data.color !== undefined ? { color: data.color } : {}),
+      },
+    });
   }
 
   /** Ensures a default workspace exists — called at server bootstrap. */

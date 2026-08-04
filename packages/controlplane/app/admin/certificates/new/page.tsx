@@ -16,9 +16,14 @@ const AGENT_CAPABILITIES = [
   "portal_access",
 ] as const;
 
-/** Issue certificate flow (docs/PAGE_DESIGN.md §1.5). */
-export default async function NewCertificatePage() {
-  const actors = await ActorDAO.list();
+/** Issue certificate flow (docs/PAGE_DESIGN.md §1.5). `resource`/`agentDid` query params let
+ *  another page (e.g. a workspace's Access tab) deep-link here with the scope pre-filled. */
+export default async function NewCertificatePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ resource?: string; agentDid?: string }>;
+}) {
+  const [actors, { resource, agentDid }] = await Promise.all([ActorDAO.list(), searchParams]);
 
   return (
     <div className="p-6 max-w-2xl">
@@ -38,9 +43,9 @@ export default async function NewCertificatePage() {
             required
             className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background"
           >
-            <option value="">Select a Actor…</option>
+            <option value="">Select an Actor…</option>
             {actors.map((p) => (
-              <option key={p.did} value={p.did}>
+              <option key={p.did} value={p.did} selected={p.did === agentDid}>
                 {p.name} ({p.kind}) — {p.did}
               </option>
             ))}
@@ -66,6 +71,7 @@ export default async function NewCertificatePage() {
           <input
             type="text"
             name="resource"
+            defaultValue={resource ?? ""}
             placeholder='e.g. file:///reports/q3.pdf — leave empty for a standing grant'
             className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background"
           />

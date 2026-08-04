@@ -46,9 +46,9 @@ export async function generateDevIdentity(): Promise<BrowserIdData> {
 }
 
 /** Runs the two-round Challenger SRP exchange over `channel`, acting as the wallet/initiator. */
-async function srp(channel: BrowserChannel, vaultysId: VaultysId): Promise<void> {
+async function srp(channel: BrowserChannel, vaultysId: VaultysId, service = "auth"): Promise<void> {
   const challenger = new Challenger(vaultysId);
-  challenger.createChallenge("p2p", "auth", 0);
+  challenger.createChallenge("p2p", service, 0);
   const cert = challenger.getCertificate();
   if (!cert) {
     channel.close();
@@ -60,7 +60,10 @@ async function srp(channel: BrowserChannel, vaultysId: VaultysId): Promise<void>
   if (challenger.isComplete()) {
     const finalCert = challenger.getCertificate();
     if (!finalCert) throw new Error("No final certificate");
-    channel.send(finalCert);
+    // `send` awaits the full POST/response round-trip, so by the time this resolves the server
+    // has already persisted whatever this round was for (docs/CERTIFICATE_WEB_OF_TRUST.md §3.2b) —
+    // the response body itself isn't needed, unlike the first round's.
+    await channel.send(finalCert);
   } else {
     throw new Error("Challenge not complete after two rounds");
   }
@@ -78,4 +81,21 @@ export async function connectWithoutApp(key: string): Promise<void> {
   const vaultysId = VaultysId.fromSecret(identity.secret, "base64").toVersion(1);
   const channel = new BrowserChannel(`${SERVER_URL}/api/public/user/request`, key);
   await srp(channel, vaultysId);
+}
+
+/**
+ * The second SRP of the dev-mode bootstrap's double-SRP flow
+ * (docs/CERTIFICATE_WEB_OF_TRUST.md §3.2b): after the login round completes
+ * and `/api/public/user/listen/[token]` reports a `certRound`, the browser
+ * runs this — same software identity, same transport, `service: "certificate"`
+ * instead of `"auth"` — to actually co-sign the `admin_console_access` grant.
+ * Resolving means the certificate is already persisted (see `srp`'s final
+ * `await`); there's nothing further to poll for this round.
+ */
+export async function completeCertificateRound(key: string): Promise<void> {
+  const identity = getStoredDevIdentity();
+  if (!identity) throw new Error("No stored dev identity — can't run the certificate round");
+  const vaultysId = VaultysId.fromSecret(identity.secret, "base64").toVersion(1);
+  const channel = new BrowserChannel(`${SERVER_URL}/api/public/user/request`, key);
+  await srp(channel, vaultysId, "certificate");
 }

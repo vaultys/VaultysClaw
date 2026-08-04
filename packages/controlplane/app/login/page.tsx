@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { signIn } from "next-auth/react";
-import { connectWithoutApp } from "@/lib/browser-connect";
+import { connectWithoutApp, completeCertificateRound } from "@/lib/browser-connect";
 
 const WALLET_URL = process.env.NEXT_PUBLIC_WALLET_URL || "https://wallet.vaultys.net";
 // process.env.NODE_ENV is inlined at build time by Next.js, including in client bundles —
@@ -28,8 +28,20 @@ export default function LoginPage() {
   const pollAndSignIn = useCallback(async (token: string, key: string) => {
     for (let i = 0; i < 180 && !cancelled.current; i++) {
       const pollRes = await fetch(`/api/public/user/listen/${token}`);
-      const { status } = await pollRes.json();
+      const { status, certRound } = await pollRes.json();
       if (status === 2) {
+        if (certRound?.key) {
+          // Double SRP (docs/CERTIFICATE_WEB_OF_TRUST.md §3.2b): this browser is the very first
+          // human, so a second live exchange claims admin_console_access before sign-in proceeds.
+          // Best-effort — a failure here isn't fatal to logging in, it just means no admin got
+          // bootstrapped yet; the same offer reappears on the next fresh login since the
+          // capability still won't exist.
+          try {
+            await completeCertificateRound(certRound.key);
+          } catch (err) {
+            console.error("Certificate round failed", err);
+          }
+        }
         const signInRes = await signIn("credentials", { token: key, redirect: false });
         if (signInRes?.ok) {
           setPhase("success");

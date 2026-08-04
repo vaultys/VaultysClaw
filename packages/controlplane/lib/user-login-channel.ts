@@ -1,22 +1,36 @@
 /**
- * VaultysId QR-code (P2P/WebRTC) login channel for human Principals.
+ * VaultysId QR-code (P2P/WebRTC) login channel for human Principals, plus the
+ * classic (non-WebRTC) dev-mode transport's *second* SRP round: the bootstrap
+ * flow is double SRP — one live `Challenger` exchange to connect/register the
+ * human (`service: "register"`/`"auth"`), and, only for a brand-new human
+ * when no admin exists yet, a second, independent live exchange
+ * (`service: "certificate"`) that actually co-signs the `admin_console_access`
+ * grant, run over the same still-live connection immediately after the first
+ * completes (docs/CERTIFICATE_WEB_OF_TRUST.md §3.2b). The QR/PeerJS wallet
+ * path keeps the single-SRP, system-issued bootstrap grant instead
+ * (`ensureBootstrapAdmin`, §3.2a) — a real third-party wallet app can't be
+ * assumed to understand an unprompted follow-up `service: "certificate"`
+ * challenge, unlike the dev-mode browser identity, which is code this repo
+ * owns end to end (`lib/browser-connect.ts`).
  *
  * Ported from packages/control-plane's `UserServerChannel`, trimmed to only
- * the P2P wallet-pairing flow (the actual "scan this QR with your VaultysId
- * app" login) — the browser-extension "bastion" pairing and the older
- * WS-relay `handleRequest` flow are not reused here; they're a separate
- * feature, not the core login primitive docs/REBUILD_ARCHITECTURE.md §1
- * requires to stay unchanged.
+ * the P2P wallet-pairing flow — the browser-extension "bastion" pairing is
+ * not reused here; it's a separate feature, not the core login primitive
+ * docs/REBUILD_ARCHITECTURE.md §1 requires to stay unchanged.
  *
- * Register vs. login is decided by whether any human Principal exists yet —
- * the first successful handshake ever also runs the bootstrap-admin check
- * (lib/certificates.ts `ensureBootstrapAdmin`).
+ * Register vs. login is decided by whether any human Principal exists yet.
  */
 import { Challenger, CryptoChannel, VaultysId, crypto } from "@vaultys/id";
 import pino from "pino";
+import type { AgentCapability } from "@vaultysclaw/policy";
 import { AuthCertificateDAO, PrincipalDAO, UserDAO } from "@/db";
 import { ServerIdentityDAO } from "@/db/settings.dao";
-import { ensureBootstrapAdmin } from "./certificates";
+import {
+  BOOTSTRAP_ADMIN_CERT_ID,
+  ensureBootstrapAdmin,
+  isBootstrapAdminNeeded,
+  persistChallengerCertificate,
+} from "./certificates";
 import type { AuthCertificate } from "@prisma/client";
 
 const logger = pino({ name: "user-login-channel" });
@@ -25,6 +39,11 @@ const Buffer = crypto.Buffer;
 function verifyProtocol(challenger: Challenger): boolean {
   const { protocol, service } = challenger.getContext();
   return protocol === "p2p" && (service === "register" || service === "auth");
+}
+
+function verifyCertificateProtocol(challenger: Challenger): boolean {
+  const { protocol, service } = challenger.getContext();
+  return protocol === "p2p" && service === "certificate";
 }
 
 // Mutable working copy of a cert during the challenger protocol.
@@ -37,12 +56,21 @@ type MutableCert = {
   metadata: string | null;
 };
 
+/** Stashed in a "certificate round" AuthCertificate's `metadata` — what to grant once its live
+ *  exchange completes (there's no PendingRegistration for humans, so this row IS the approval). */
+interface CertRoundMeta {
+  kind: "certificate";
+  humanDid: string;
+  capabilities: AgentCapability[];
+  certId: string;
+  issuedBy: string;
+}
+
 async function registerHuman(contact: VaultysId): Promise<boolean> {
   const did = contact.toVersion(1).did;
   const publicKey = Buffer.from(contact.id).toString("base64");
   await UserDAO.ensureExists(did, "Unnamed", null, publicKey);
-  await ensureBootstrapAdmin(did);
-  logger.info({ did }, "New human Principal registered via QR login");
+  logger.info({ did }, "New human Principal registered");
   return true;
 }
 
@@ -55,17 +83,24 @@ async function loginHuman(contact: VaultysId): Promise<boolean> {
   return existing !== null;
 }
 
-async function handleSuccess(cert: MutableCert, challenger: Challenger): Promise<boolean> {
+interface LoginResult {
+  ok: boolean;
+  did: string;
+  isNewRegistration: boolean;
+}
+
+async function handleSuccess(cert: MutableCert, challenger: Challenger): Promise<LoginResult> {
   const contact = challenger.getContactId();
   const did = contact.toVersion(1).did;
   const meta = JSON.parse(cert.metadata ?? "{}") as Record<string, unknown>;
+  const isNewRegistration = cert.register === 1;
 
-  const ok = cert.register ? await registerHuman(contact) : await loginHuman(contact);
+  const ok = isNewRegistration ? await registerHuman(contact) : await loginHuman(contact);
   if (ok) {
     meta.did = did;
     cert.metadata = JSON.stringify(meta);
   }
-  return ok;
+  return { ok, did, isNewRegistration };
 }
 
 export class UserLoginChannel {
@@ -90,6 +125,33 @@ export class UserLoginChannel {
       connection: crypto.hash("sha256", Buffer.from(`connecting-${key}-vaultys`)).toString("hex"),
       register: 0,
       data: "",
+    });
+  }
+
+  /**
+   * The second half of the dev-mode bootstrap's double SRP
+   * (docs/CERTIFICATE_WEB_OF_TRUST.md §3.2b): a fresh `AuthCertificate` row,
+   * same hashing scheme as the two above, but tagged in `metadata` so
+   * `handleRequest` routes rounds against it to `handleCertificateRequest`
+   * instead of the login dispatch. This row *is* the approval — there's no
+   * separate `PendingRegistration` for a human bootstrapping themselves.
+   */
+  static async createCertificateRound(
+    humanDid: string,
+    capabilities: AgentCapability[],
+    certId: string,
+    issuedBy: string
+  ): Promise<AuthCertificate> {
+    const key = crypto.randomBytes(32).toString("hex");
+    const meta: CertRoundMeta = { kind: "certificate", humanDid, capabilities, certId, issuedBy };
+    return AuthCertificateDAO.create({
+      id: crypto.randomBytes(16).toString("hex"),
+      key,
+      registration: crypto.hash("sha256", Buffer.from(`vaultys-${key}-server`)).toString("hex"),
+      connection: crypto.hash("sha256", Buffer.from(`connecting-${key}-vaultys`)).toString("hex"),
+      register: 0,
+      data: "",
+      metadata: JSON.stringify(meta),
     });
   }
 
@@ -137,7 +199,9 @@ export class UserLoginChannel {
               const hisKeyRaw = (challenger as unknown as { hisKey: Buffer }).hisKey;
               if (contactDid && hisKeyRaw) {
                 const contact = VaultysId.fromId(hisKeyRaw);
-                const ok = await (mutableCert.register === 1 ? registerHuman(contact) : loginHuman(contact));
+                const isNewRegistration = mutableCert.register === 1;
+                const ok = await (isNewRegistration ? registerHuman(contact) : loginHuman(contact));
+                if (ok && isNewRegistration) await ensureBootstrapAdmin(contactDid);
                 mutableCert.metadata = JSON.stringify({ did: contactDid });
                 await AuthCertificateDAO.update(cert.id, {
                   status: ok ? 2 : -2,
@@ -166,9 +230,10 @@ export class UserLoginChannel {
             break;
           }
           if (challenger.isComplete()) {
-            const ok = await handleSuccess(mutableCert, challenger);
+            const result = await handleSuccess(mutableCert, challenger);
+            if (result.ok && result.isNewRegistration) await ensureBootstrapAdmin(result.did);
             await AuthCertificateDAO.update(cert.id, {
-              status: ok ? 2 : -2,
+              status: result.ok ? 2 : -2,
               data: mutableCert.data,
               metadata: mutableCert.metadata ?? undefined,
             });
@@ -203,6 +268,11 @@ export class UserLoginChannel {
 
     const cert = await AuthCertificateDAO.findByRegistration(token);
     if (!cert) return new Uint8Array([0]);
+
+    const existingMeta = JSON.parse(cert.metadata ?? "{}") as Partial<CertRoundMeta>;
+    if (existingMeta.kind === "certificate") {
+      return UserLoginChannel.handleCertificateRequest(cert, existingMeta as CertRoundMeta, data);
+    }
 
     const mutableCert: MutableCert = { ...cert };
     const uintkey = Buffer.from(cert.key, "hex");
@@ -240,10 +310,23 @@ export class UserLoginChannel {
     }
 
     if (challenger.isComplete()) {
-      const ok = await handleSuccess(mutableCert, challenger);
-      if (!ok) {
+      const result = await handleSuccess(mutableCert, challenger);
+      if (!result.ok) {
         await AuthCertificateDAO.update(cert.id, { status: -2, data: mutableCert.data });
         return new Uint8Array([0]);
+      }
+      if (result.isNewRegistration && (await isBootstrapAdminNeeded())) {
+        const certRound = await UserLoginChannel.createCertificateRound(
+          result.did,
+          ["admin_console_access"],
+          BOOTSTRAP_ADMIN_CERT_ID,
+          "system:bootstrap"
+        );
+        const meta = JSON.parse(mutableCert.metadata ?? "{}") as Record<string, unknown>;
+        // Only `key` is needed — BrowserChannel derives its own request-route token from it,
+        // exactly like the login round's own key does (see lib/browser-connect.ts).
+        meta.certRound = { key: certRound.key };
+        mutableCert.metadata = JSON.stringify(meta);
       }
     }
 
@@ -252,6 +335,75 @@ export class UserLoginChannel {
       data: mutableCert.data,
       metadata: mutableCert.metadata ?? undefined,
     });
+    return CryptoChannel.encrypt(certificate, uintkey);
+  }
+
+  /**
+   * One round of the same classic-transport Challenger protocol as
+   * `handleRequest`, but for a "certificate round" row: `service` must be
+   * `"certificate"` (not `"register"`/`"auth"`), the first server-side round
+   * embeds the stashed `capabilities` as metadata (mirroring
+   * `lib/ws-server.ts`'s agent issuance exactly), and completion persists a
+   * `certFormat: "challenger"` grant instead of dispatching to
+   * register/login.
+   */
+  private static async handleCertificateRequest(
+    cert: AuthCertificate,
+    meta: CertRoundMeta,
+    data: string
+  ): Promise<Uint8Array> {
+    const uintkey = Buffer.from(cert.key, "hex");
+    const vid = await ServerIdentityDAO.getServerVaultysId();
+    const challenger = new Challenger(vid);
+    const isFirstRound = !cert.data;
+
+    if (cert.data) {
+      try {
+        await challenger.init(Buffer.from(cert.data, "base64"));
+      } catch (err) {
+        logger.warn({ err }, "Challenger.init failed (certificate round)");
+        await AuthCertificateDAO.update(cert.id, { status: -2 });
+        return new Uint8Array([0]);
+      }
+    }
+
+    const decoded = CryptoChannel.decrypt(Buffer.from(data, "base64"), uintkey);
+
+    try {
+      const metadata = isFirstRound
+        ? ({ capabilities: meta.capabilities } as unknown as Record<string, string>)
+        : undefined;
+      await challenger.update(decoded, metadata);
+    } catch (err) {
+      logger.warn({ err }, "Challenger.update failed (certificate round)");
+      await AuthCertificateDAO.update(cert.id, { status: -2 });
+      return new Uint8Array([0]);
+    }
+
+    const certificate = challenger.getCertificate();
+    const dataB64 = certificate.toString("base64");
+
+    if (challenger.hasFailed() || !verifyCertificateProtocol(challenger)) {
+      await AuthCertificateDAO.update(cert.id, { status: -2, data: dataB64 });
+      return new Uint8Array([0]);
+    }
+
+    if (challenger.isComplete()) {
+      const persisted = await persistChallengerCertificate({
+        certId: meta.certId,
+        agentDid: meta.humanDid,
+        capabilities: meta.capabilities,
+        certificateBase64: dataB64,
+        expiresAt: null,
+        issuedBy: meta.issuedBy,
+      });
+      logger.info(
+        { certId: meta.certId, humanDid: meta.humanDid, granted: persisted !== null },
+        "Certificate round completed"
+      );
+    }
+
+    await AuthCertificateDAO.update(cert.id, { status: challenger.state, data: dataB64 });
     return CryptoChannel.encrypt(certificate, uintkey);
   }
 

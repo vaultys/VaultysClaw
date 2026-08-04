@@ -119,8 +119,7 @@ export async function issueAdminGrant(input: {
  * The bootstrap exception (docs/REBUILD_ARCHITECTURE.md §4.5): on the first
  * human to reach this check when no `admin_console_access` certificate exists
  * anywhere yet, mint one — no approval step, standing (`expiresAt: null`),
- * tagged `system:bootstrap`. Idempotent and safe to call on every human login;
- * it only ever acts once per deployment, guarded by the existence check.
+ * tagged `system:bootstrap`.
  *
  * Fixed, deterministic id for the bootstrap grant — not `randomUUID()`. Two
  * humans racing to be "first" both pass the existence check before either
@@ -130,15 +129,31 @@ export async function issueAdminGrant(input: {
  * cheaper and more honest guard here than a distributed lock for something
  * that fires at most once per deployment.
  */
-const BOOTSTRAP_ADMIN_CERT_ID = "bootstrap-admin-cert";
+export const BOOTSTRAP_ADMIN_CERT_ID = "bootstrap-admin-cert";
 
-export async function ensureBootstrapAdmin(
-  humanDid: string
-): Promise<CapabilityCertificate | null> {
+/** Cheap up-front check before bothering to run a live SRP round or sign anything — the real race
+ *  guard is still the `certId` collision at create time (see both callers below), this just avoids
+ *  the common case of doing that work at all once a deployment already has an admin. */
+export async function isBootstrapAdminNeeded(): Promise<boolean> {
   const alreadyExists = await CapabilityCertificateDAO.existsActiveWithCapability(
     "admin_console_access"
   );
-  if (alreadyExists) return null;
+  return !alreadyExists;
+}
+
+/**
+ * The QR/PeerJS wallet login path's bootstrap grant — system/admin-issued
+ * (§3.2a), because a real third-party VaultysId wallet app can't be assumed
+ * to understand an unprompted follow-up `service: "certificate"` challenge
+ * yet (unlike the dev-mode browser identity, which is code this repo owns —
+ * see `persistChallengerCertificate` for that path, wired up from
+ * `lib/user-login-channel.ts`'s `handleCertificateRequest`). Idempotent and
+ * safe to call on every human login; it only ever acts once per deployment.
+ */
+export async function ensureBootstrapAdmin(
+  humanDid: string
+): Promise<CapabilityCertificate | null> {
+  if (!(await isBootstrapAdminNeeded())) return null;
 
   const requestCert = await signSystemRequestCert(
     humanDid,
@@ -158,6 +173,42 @@ export async function ensureBootstrapAdmin(
   } catch (err) {
     const code = (err as { code?: string } | undefined)?.code;
     if (code === "P2002") return null; // lost the race — someone else bootstrapped first
+    throw err;
+  }
+}
+
+/**
+ * Persists the result of a live `service: "certificate"` Challenger exchange
+ * (docs/CERTIFICATE_WEB_OF_TRUST.md §3.2b) — the dev-mode login's double-SRP
+ * bootstrap path (`lib/user-login-channel.ts`'s `handleCertificateRequest`)
+ * and `lib/ws-server.ts`'s agent issuance both funnel through here. Returns
+ * `null`, not an error, on a `certId` collision — the same "lost the race"
+ * semantics as `ensureBootstrapAdmin`, since a fixed `certId` is exactly how
+ * the bootstrap-admin race guard extends to this format too.
+ */
+export async function persistChallengerCertificate(input: {
+  certId: string;
+  agentDid: string;
+  workspaceId?: string | null;
+  capabilities: AgentCapability[];
+  certificateBase64: string;
+  expiresAt: number | null;
+  issuedBy: string | null;
+}): Promise<CapabilityCertificate | null> {
+  try {
+    return await CapabilityCertificateDAO.create({
+      id: input.certId,
+      agentDid: input.agentDid,
+      workspaceId: input.workspaceId ?? null,
+      capabilities: input.capabilities,
+      certFormat: "challenger",
+      certificate: input.certificateBase64,
+      expiresAt: input.expiresAt,
+      issuedBy: input.issuedBy,
+    });
+  } catch (err) {
+    const code = (err as { code?: string } | undefined)?.code;
+    if (code === "P2002") return null;
     throw err;
   }
 }

@@ -29,6 +29,7 @@ import {
   type CertificateStatus,
 } from "@vaultysclaw/policy";
 import { PrincipalDAO, PendingRegistrationDAO, CapabilityCertificateDAO, ServerIdentityDAO } from "@/db";
+import { persistChallengerCertificate } from "./certificates";
 import { WsSender, type AgentSender } from "./agent-sender";
 import type {
   AuthChallengePayload,
@@ -497,13 +498,12 @@ export class ControlPlaneWSServer {
       }
 
       const certId = randomUUID();
-      await CapabilityCertificateDAO.create({
-        id: certId,
+      await persistChallengerCertificate({
+        certId,
         agentDid: registration.did,
         workspaceId: registration.targetWorkspaceId,
         capabilities: state.capabilities,
-        certFormat: "challenger",
-        certificate: certB64,
+        certificateBase64: certB64,
         expiresAt: Date.now() + DEFAULT_GRANT_TTL_MS,
         issuedBy: registration.approvedBy,
       });

@@ -53,12 +53,16 @@ design system (ported from `packages/control-plane`) are built.
   visits reuse the same identity. **This only ever registers/logs in as a genuinely new or
   previously-dev-registered identity** — exactly like a real wallet, it cannot log in as an
   unrelated existing Principal it has no key for. The useful case is a fresh, empty database:
-  there, the first dev-mode click registers the browser's identity and runs
-  `ensureBootstrapAdmin`, giving instant admin access with no wallet at all. On a database that
-  already has people in it, a *new* browser identity correctly fails to log in (verified: the
-  Challenger handshake completes successfully — proving the crypto/transport is correct — and
-  `loginHuman` correctly rejects the unknown DID) — that's not a limitation to fix, it's the same
-  security property the wallet-based flow has.
+  there, the first dev-mode click registers the browser's identity, then — since this transport is
+  code this repo owns end to end, unlike a real wallet app — runs the bootstrap admin grant through
+  a **second, independent live SRP exchange** instead of an offline system-issued cert: double SRP,
+  one to connect/register (`service: "register"`), one to actually claim
+  `admin_console_access` (`service: "certificate"`, docs/CERTIFICATE_WEB_OF_TRUST.md §3.2b) — see
+  `lib/user-login-channel.ts`'s `handleCertificateRequest` below. On a database that already has
+  people in it, a *new* browser identity correctly fails to log in (verified: the Challenger
+  handshake completes successfully — proving the crypto/transport is correct — and `loginHuman`
+  correctly rejects the unknown DID) — that's not a limitation to fix, it's the same security
+  property the wallet-based flow has.
 - **`app/admin/certificates/[id]/page.tsx`** — the certificate detail page (docs/PAGE_DESIGN.md
   §1.5's signature-chain view): full raw + decoded payload for both the grant and the embedded
   request, using `packages/policy`'s new `decodeCertUnsafe` (decode without verifying — display
@@ -87,11 +91,18 @@ design system (ported from `packages/control-plane`) are built.
   pattern as `packages/control-plane`).
 - `lib/vault.ts` — reused unchanged (VaultysId signcrypt-to-self), per the "kept" list in the
   rebuild doc.
-- `lib/certificates.ts` — `issueCapabilityGrant` (the co-signed request/grant flow, trust doc §3.2),
-  `signSystemRequestCert` (self-signs the "request" half when nobody actually asked — an admin
-  vouching, or the bootstrap exception), `issueAdminGrant` (an admin/system issuing a grant
-  directly), and `ensureBootstrapAdmin` (the first-user exception, rebuild doc §4.5 — race-safe via
-  a fixed cert id that collides on a concurrent second attempt instead of minting two grants).
+- `lib/certificates.ts` — `issueCapabilityGrant` (the co-signed request/grant flow, trust doc
+  §3.2a), `signSystemRequestCert` (self-signs the "request" half when nobody actually asked — an
+  admin vouching), `issueAdminGrant` (an admin/system issuing a grant directly),
+  `isBootstrapAdminNeeded` (the up-front existence check, split out so a caller can decide *how* to
+  bootstrap before committing to it), `ensureBootstrapAdmin` (the QR/PeerJS wallet path's
+  single-SRP, system-issued bootstrap grant — §3.2a, kept because a real third-party wallet app
+  can't be assumed to understand a follow-up `service: "certificate"` challenge), and
+  `persistChallengerCertificate` (persists the result of any live `service: "certificate"` exchange
+  — §3.2b; both `lib/ws-server.ts`'s agent issuance and `lib/user-login-channel.ts`'s dev-mode
+  bootstrap funnel through this one function). All three issuance paths share the same
+  `certId`-collision race guard — a fixed id doubles as the "only one admin gets bootstrapped"
+  lock, whichever path wins it.
 - `lib/protocol.ts` — a small, purpose-built message-type union (register, auth challenge/complete/
   failed, registration_pending, heartbeat/pong, cert_status_request/response) — not a reuse of
   `@vaultysclaw/shared`'s `WSMessageType`, which still carries the chat/workflow/channel types this
@@ -122,9 +133,25 @@ design system (ported from `packages/control-plane`) are built.
   "bastion" flow and the older WS-relay handshake are a separate feature, not ported). A human
   scans the QR with the VaultysId wallet app; the server runs the Challenger handshake over a
   PeerJS/WebRTC channel (`lib/webrtc-polyfill.ts` + `@vaultys/channel-peerjs`). On completion, an
-  unknown DID becomes a `kind: "human"` Principal and runs `ensureBootstrapAdmin`; a known DID
-  just signs in. **Session has no `role` field** — access is decided by certificates, not anything
-  stored on the session.
+  unknown DID becomes a `kind: "human"` Principal; a known DID just signs in. **Session has no
+  `role` field** — access is decided by certificates, not anything stored on the session.
+  Bootstrap admin differs by transport (see `lib/certificates.ts` above): the QR/wallet path calls
+  `ensureBootstrapAdmin` once, directly. The dev-mode classic-HTTP-relay path
+  (`lib/browser-connect.ts`, `app/api/public/user/{connect,request/[token]}`) instead runs a
+  **double SRP**: after `handleRequest` completes the login round for a brand-new registration and
+  `isBootstrapAdminNeeded()` is still true, it creates a second `AuthCertificate` row via
+  `createCertificateRound` — tagged in `metadata` (`{ kind: "certificate", humanDid, capabilities,
+  certId, issuedBy }`) so `handleRequest` routes any round against it to `handleCertificateRequest`
+  instead of the login dispatch — and stashes `{ certRound: { key } }` onto the *login* cert's own
+  metadata. `/api/public/user/listen/[token]` surfaces that `certRound` to the poller; the login
+  page (`app/login/page.tsx`) sees it, runs `browser-connect.ts`'s `completeCertificateRound(key)`
+  — the same software identity, `service: "certificate"` instead of `"auth"` — and only then calls
+  `signIn`. `handleCertificateRequest` mirrors `lib/ws-server.ts`'s agent issuance exactly: embeds
+  `capabilities` as metadata on the first server-side round, persists via
+  `persistChallengerCertificate` on completion. There's no `PendingRegistration` for a human
+  bootstrapping themselves — the certificate-round `AuthCertificate` row *is* the approval. A
+  failed certificate round doesn't block sign-in (best-effort — the same idempotent bootstrap check
+  just re-offers a fresh round on the next login attempt).
 - `lib/access-control.ts` — `hasCapability(did, capability)`: the one helper every gated
   page/route goes through, wrapping `@vaultysclaw/trust`'s `resolvePermission` over the DID's
   certificates. Not a role check.
@@ -159,6 +186,14 @@ repeatable tests (see deferred).
   real DID); a Principal upserted + granted a certificate → reconnects and gets `auth_complete`;
   `heartbeat` → `pong`; a self-signed `cert_status_request` → a verified, signed
   `cert_status_response`.
+- **Dev-mode double-SRP bootstrap**, both at the protocol layer (calling `UserLoginChannel.
+  handleRequest` directly, driving both Challenger rounds by hand) and end to end in a real
+  browser against a live dev server on a freshly reset database: clicking "Connect without the app"
+  runs the login round, then transparently a second `service: "certificate"` round, before
+  `signIn` ever fires; the resulting `bootstrap-admin-cert` persists with `certFormat: "challenger"`
+  and `metadata.pk2.capabilities = ["admin_console_access"]`, independently re-verifies
+  (`Challenger.verifyCertificate`), and the signed-in browser correctly lands on `/admin` with the
+  capability already in place — no race between sign-in and the grant landing.
 - **Login flow**, against a real running dev server: `/` redirects to `/login` when
   unauthenticated; `/api/public/user/p2p-connect` genuinely opens a PeerJS/WebRTC channel (proving
   the `@roamhq/wrtc` native bindings work in this environment) and returns a real connection

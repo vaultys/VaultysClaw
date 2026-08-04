@@ -2,8 +2,9 @@
 //
 // Deliberately minimal: only the models the current build slice actually uses.
 // See docs/REBUILD_ARCHITECTURE.md for the full target model list (Notification
-// Channels, Webhooks, Model Registry, etc.) — those get added to this schema as
-// each feature is actually built, not speculatively ahead of time.
+// Channels, Model Registry, etc.) — those get added to this schema as each
+// feature is actually built, not speculatively ahead of time. Webhooks already
+// landed (see below).
 
 generator client {
   provider = "prisma-client-js"
@@ -260,4 +261,29 @@ model ActorLink {
 
   @@index([fromDid])
   @@index([toDid])
+}
+
+// ─── Webhooks ──────────────────────────────────────────────────────────────
+// Signed HTTP delivery to admin-configured endpoints — kept as core per
+// docs/REBUILD_ARCHITECTURE.md §3. Mirrors packages/control-plane's Webhook
+// model field-for-field (same shape `packages/webhook-dispatcher` already
+// expects) so that package's dispatcher code works against this schema
+// unmodified — see packages/controlplane/CLAUDE.md for the deployment note
+// (a dispatcher instance for this schema needs its own DATABASE_URL and a
+// distinct BullMQ queue prefix so its jobs never mix with control-plane's).
+
+model Webhook {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  url         String
+  secret      String // HMAC signing secret; readable by the dispatcher, never by the admin UI after creation
+  events      Json     @default("[]") // string[] of subscribed event types
+  isActive    Boolean  @default(true)
+  createdBy   String // DID of the admin who created it
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isActive])
+  @@map("webhooks")
 }

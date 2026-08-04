@@ -6,6 +6,8 @@ import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
 import { WorkspaceDAO, ActorDAO } from "@/db";
+import { enqueueWebhook } from "@/lib/webhook-queue";
+import { workspacePayload } from "@/lib/webhook-payloads";
 
 function slugify(name: string): string {
   return (
@@ -33,7 +35,8 @@ export async function createWorkspaceAction(formData: FormData): Promise<void> {
   const existing = await WorkspaceDAO.list();
   const slug = existing.some((w) => w.slug === base) ? `${base}-${id.slice(0, 6)}` : base;
 
-  await WorkspaceDAO.create({ id, name, slug, description: description || undefined, color });
+  const workspace = await WorkspaceDAO.create({ id, name, slug, description: description || undefined, color });
+  void enqueueWebhook({ eventType: "workspace.created", payload: workspacePayload(workspace) });
   revalidatePath("/admin/workspaces");
   redirect(`/admin/workspaces/${id}`);
 }
@@ -48,7 +51,8 @@ export async function updateWorkspaceAction(formData: FormData): Promise<void> {
   const color = (formData.get("color") as string) || undefined;
   if (!id || !name) throw new Error("Name is required");
 
-  await WorkspaceDAO.update(id, { name, description: description || null, color });
+  const workspace = await WorkspaceDAO.update(id, { name, description: description || null, color });
+  void enqueueWebhook({ eventType: "workspace.updated", payload: workspacePayload(workspace) });
   revalidatePath(`/admin/workspaces/${id}`);
   revalidatePath("/admin/workspaces");
 }

@@ -11,6 +11,8 @@ import type { AgentCapability } from "@vaultysclaw/policy";
 import { PendingRegistrationDAO, ActorDAO } from "@/db";
 import { getWSServerInstance } from "./ws-server";
 import { allowedCapabilitiesForKind } from "./capabilities";
+import { enqueueWebhook } from "./webhook-queue";
+import { actorPayload } from "./webhook-payloads";
 
 export async function approvePendingRegistration(
   registrationId: string,
@@ -22,13 +24,14 @@ export async function approvePendingRegistration(
     throw new Error("Registration not found or already resolved");
   }
 
-  await ActorDAO.upsert({
+  const actor = await ActorDAO.upsert({
     did: registration.did,
     name: registration.name,
     kind: registration.kind,
     publicKey: registration.publicKey,
     workspaceId: registration.targetWorkspaceId,
   });
+  void enqueueWebhook({ eventType: "actor.approved", payload: actorPayload(actor) });
 
   // Filtered against an allow-list per kind, not trusted as-is — a sensor's only capability
   // today is "process_read" (lib/capabilities.ts); anything else submitted for it is dropped
@@ -56,4 +59,8 @@ export async function denyPendingRegistration(registrationId: string): Promise<v
     throw new Error("Registration not found or already resolved");
   }
   await PendingRegistrationDAO.deny(registrationId);
+  void enqueueWebhook({
+    eventType: "actor.denied",
+    payload: { did: registration.did, name: registration.name, kind: registration.kind },
+  });
 }

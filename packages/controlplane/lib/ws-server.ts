@@ -37,6 +37,7 @@ import {
   ServerIdentityDAO,
 } from "@/db";
 import { persistChallengerCertificate } from "./certificates";
+import { enqueueWebhook } from "./webhook-queue";
 import { WsSender, type AgentSender } from "./agent-sender";
 import type {
   AuthChallengePayload,
@@ -365,6 +366,10 @@ export class ControlPlaneWSServer {
           name: pending.name,
           kind: pending.kind,
           requestedCapabilities: [],
+        });
+        void enqueueWebhook({
+          eventType: "actor.registration_requested",
+          payload: { did, name: pending.name, kind: pending.kind, registrationId },
         });
       }
       this.awaitingApproval.set(sender, { did, registrationId });

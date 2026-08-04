@@ -131,7 +131,7 @@ The docs are only auto-generated from data you must keep current. Whenever you *
 | Variable | Package | Purpose |
 |---|---|---|
 | `DATABASE_URL` | control-plane, notifier, webhook-dispatcher | PostgreSQL connection string (Prisma) |
-| `REDIS_URL` | control-plane, notifier, webhook-dispatcher | Redis URL for the BullMQ notification + webhook queues + pub/sub |
+| `REDIS_URL` | control-plane, controlplane, notifier, webhook-dispatcher | Redis URL for the BullMQ notification + webhook queues + pub/sub. `controlplane`'s webhook queue uses BullMQ `prefix: "vaultysclaw-controlplane"` so its jobs never mix with control-plane's on a shared Redis. |
 | `WEBHOOK_TIMEOUT_MS` | webhook-dispatcher | Per-endpoint delivery timeout (default 10000) |
 | `NEXTAUTH_URL` / `APP_URL` | control-plane, notifier | Browser-facing base URL; the notifier uses it to build deep-link buttons in emails (`APP_URL` overrides `NEXTAUTH_URL`) |
 | `NOTIFICATION_RETENTION_DAYS` | control-plane | Days after which **read** notifications are pruned (default 30) |

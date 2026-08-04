@@ -6,6 +6,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
 import { CapabilityCertificateDAO } from "@/db";
 import { issueAdminGrant } from "@/lib/certificates";
+import { enqueueWebhook } from "@/lib/webhook-queue";
+import { certificatePayload } from "@/lib/webhook-payloads";
 import type { AgentCapability, CertScope } from "@vaultysclaw/policy";
 
 export async function revokeCertificateAction(formData: FormData): Promise<void> {
@@ -14,7 +16,8 @@ export async function revokeCertificateAction(formData: FormData): Promise<void>
 
   const certId = formData.get("certId") as string;
   const reason = (formData.get("reason") as string) || "No reason given";
-  await CapabilityCertificateDAO.revoke(certId, session.user.did, reason);
+  const cert = await CapabilityCertificateDAO.revoke(certId, session.user.did, reason);
+  void enqueueWebhook({ eventType: "certificate.revoked", payload: certificatePayload(cert) });
   revalidatePath("/admin/certificates");
   revalidatePath("/admin");
 }
@@ -51,13 +54,14 @@ export async function issueCertificateAction(formData: FormData): Promise<void> 
     expiresAt = Date.now() + (presetMs[expiryPreset] ?? presetMs["30d"]);
   }
 
-  await issueAdminGrant({
+  const cert = await issueAdminGrant({
     agentDid,
     capabilities,
     scope,
     expiresAt,
     issuedBy: session.user.did,
   });
+  void enqueueWebhook({ eventType: "certificate.issued", payload: certificatePayload(cert) });
 
   revalidatePath("/admin/certificates");
   revalidatePath("/admin");

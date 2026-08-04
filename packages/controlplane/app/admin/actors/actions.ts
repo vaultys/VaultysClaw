@@ -7,6 +7,8 @@ import { approvePendingRegistration, denyPendingRegistration } from "@/lib/regis
 import { ActorDAO, ActorLinkDAO, UserDAO } from "@/db";
 import { encodeDidParam } from "@/lib/actor-route";
 import { geocodeCity } from "@/lib/geocode";
+import { enqueueWebhook } from "@/lib/webhook-queue";
+import { actorPayload } from "@/lib/webhook-payloads";
 import type { AgentCapability } from "@vaultysclaw/policy";
 
 export async function approveRegistrationAction(formData: FormData): Promise<void> {
@@ -42,12 +44,13 @@ export async function updateActorAction(formData: FormData): Promise<void> {
   const actor = await ActorDAO.findByDid(did);
   if (!actor) throw new Error("Actor not found");
 
-  await ActorDAO.update(did, { name, workspaceId });
+  const updated = await ActorDAO.update(did, { name, workspaceId });
 
   if (actor.kind === "human") {
     const email = (formData.get("email") as string)?.trim();
     await UserDAO.updateEmail(did, email || null);
   }
+  void enqueueWebhook({ eventType: "actor.updated", payload: actorPayload(updated) });
 
   revalidatePath(`/admin/actors/${encodeDidParam(did)}`);
   revalidatePath("/admin/actors");

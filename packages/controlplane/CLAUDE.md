@@ -27,10 +27,10 @@ the Access Portal shell, and the design system (ported from `packages/control-pl
   itself. Toolbar button actions are described as `{ href }` (serializable), not `{ onClick }` — a
   plain closure can't cross the Server→Client Component boundary, only a Server Action or
   serializable data can; `PageChrome` converts `href` into a `router.push` client-side.
-- **Full nav shape** (`components/layout/Sidebar.tsx`): Overview, Actors, Certificates —
-  fully built — plus Audit Log, Workspaces, Integrations, Settings as real routes rendering
-  `components/layout/ComingSoon.tsx` with a description of what's planned, so the product reads as
-  complete rather than missing pages.
+- **Full nav shape** (`components/layout/Sidebar.tsx`): Overview, Actors, Sensors, Map,
+  Certificates, Workspaces, Settings, and Integrations' Webhooks tab are real. Audit Log is still a
+  real route rendering `components/layout/ComingSoon.tsx` with a description of what's planned, so
+  the product reads as complete rather than missing a page outright.
 - **`app/admin/certificates/`** — the real Certificates page (docs/PAGE_DESIGN.md §1.5): list with
   status badges, scope, and the "Never" expiry rendered in warning-amber (never neutral, per the
   "loud, not silent" rule); an issuance form (`new/page.tsx`) with the explicit no-expiry
@@ -269,6 +269,55 @@ the Access Portal shell, and the design system (ported from `packages/control-pl
 - `server.ts` runs the actual Next.js custom-server pattern (HTTP + Next.js pages/API + WS, all in
   one process — same shape as `packages/control-plane`'s `server.ts`).
 
+## Webhooks
+
+Signed HTTP delivery to admin-configured endpoints — kept as core per `docs/REBUILD_ARCHITECTURE.md`
+§3, first Integrations slice actually built (`app/admin/integrations`, previously a bare
+`ComingSoon` stub). Same wire format and dispatcher code as `packages/control-plane`'s webhooks
+(root `CLAUDE.md`'s "Adding or changing a webhook event" checklist still applies — extend
+`@vaultysclaw/shared`'s `WEBHOOK_EVENTS` catalog, add a payload builder, add a docs example), but
+this package's admin surface is plain Server Actions, not ts-rest, since that's this rebuild's
+pattern everywhere else.
+
+- **Schema**: `Webhook` model (`prisma/schema.prisma`) mirrors `packages/control-plane`'s
+  field-for-field — same shape `packages/webhook-dispatcher` already expects, so that package's
+  code works against this schema unmodified. `db/webhook.dao.ts` is a plain DAO (no ts-rest
+  contract layer); `lib/webhook-secret.ts` has `generateWebhookSecret`/`secretPreview`.
+- **Event catalog**: this package's own events (`actor.registration_requested`, `actor.approved`,
+  `actor.denied`, `actor.updated`, `certificate.issued`, `certificate.revoked`) were added to
+  `@vaultysclaw/shared`'s `WEBHOOK_EVENTS` under new "Actors"/"Certificates" groups — the catalog is
+  genuinely shared across both control-plane packages, not forked. `workspace.created`/`updated`
+  are reused as-is from the existing "Workspaces" group (`workspace.deleted` has no emission site
+  yet — there's no workspace-delete action in this rebuild at all). `lib/webhook-events.ts`'s
+  `CONTROLPLANE_WEBHOOK_EVENTS` filters the shared catalog down to just these groups — the
+  create/edit forms and the docs page all read from it, not the raw shared catalog, so an admin
+  here is never offered a checkbox for an event (e.g. `agent.created`, `model.updated`) that
+  belongs to control-plane's domain and will never actually fire in this app.
+- **Producer** (`lib/webhook-queue.ts`): same BullMQ queue *name* as control-plane
+  (`WEBHOOK_QUEUE_NAME`) but a distinct `prefix` (`"vaultysclaw-controlplane"`) — this package's
+  Postgres is entirely separate from control-plane's, so a shared Redis must never let one
+  dispatcher process treat the two apps' jobs as one queue. **Running an actual dispatcher for this
+  schema means a separate `packages/webhook-dispatcher` instance**, pointed at this package's
+  `DATABASE_URL` with its `Queue`/`Worker` `prefix` set to that same value — not a code change to
+  the dispatcher, a deployment-time configuration difference. Fire-and-forget and a no-op when
+  `REDIS_URL` is unset, same as every other producer in this monorepo.
+- **Payloads** (`lib/webhook-payloads.ts`): `stripSensitive` (same key-blacklist regex as
+  control-plane) + `actorPayload`/`certificatePayload`/`workspacePayload` — explicit allow-lists for
+  this package's actual domain objects. Deliberately excludes an Actor's `kindConfig` (kind-specific,
+  not guaranteed safe/meaningful) and location fields, and a certificate's raw `certificate`/
+  `requestCertificate` bytes.
+- **Admin UI** (`app/admin/integrations/{page.tsx,actions.ts,webhooks/*}`): list, create, edit,
+  toggle active, delete, regenerate secret. The one-time secret reveal
+  (`webhooks/NewWebhookForm.tsx`, `webhooks/RegenerateSecretButton.tsx`) is a new pattern for this
+  rebuild — a Client Component calling a `"use server"` action directly (not via `<form action>`)
+  and `await`-ing its return value, which Next.js supports natively; every other Server Action in
+  this package so far has been fire-and-`redirect`/`revalidatePath` with no return value needed.
+- **Docs** (`lib/webhook-docs.ts` + `app/admin/integrations/webhooks/docs/page.tsx`): same
+  "examples built from the real payload builders, so they can't drift" approach as control-plane,
+  restricted to `CONTROLPLANE_WEBHOOK_EVENTS`. A Server Component throughout — the original's
+  collapsible event list used client-side `useState`; this one uses plain `<details>`, no JS needed
+  for that interaction.
+
 ## Verified
 
 Everything below was exercised against a real (throwaway, Docker) Postgres and, where noted, a
@@ -376,11 +425,18 @@ repeatable tests (see deferred).
   separate: `vaultysclaw-sensor` connecting is plain WS, not WebRTC — that's the one kind of remote
   agent actually wired end to end today, see Verified above.)
 - Everything the remaining placeholder pages describe: Audit Log (unified signed IntentLog/
-  ActivityLog), Integrations (OIDC/Entra, API Keys, Webhooks, Notification Channels, Model
-  Registry). Actors, Sensors, Map, Certificates, Workspaces (Overview/Actors/Access tabs —
-  Budgets & Model Access still a stub), and Settings are real. The certificate detail page (§1.5's
-  signature-chain view) is built (`app/admin/certificates/[id]/page.tsx`) and its status-check-history
-  section is real too — see `CertStatusCheckDAO` below.
+  ActivityLog), the rest of Integrations (OIDC/Entra, API Keys, Notification Channels, Model
+  Registry — Webhooks is now real, see above). Actors, Sensors, Map, Certificates, Workspaces
+  (Overview/Actors/Access tabs — Budgets & Model Access still a stub), Settings, and Integrations'
+  Webhooks tab are real. The certificate detail page (§1.5's signature-chain view) is built
+  (`app/admin/certificates/[id]/page.tsx`) and its status-check-history section is real too — see
+  `CertStatusCheckDAO` below.
+- **A dispatcher instance for this schema isn't part of this repo's deployment yet** — verified by
+  running a throwaway one (own `DATABASE_URL`, own BullMQ `prefix`) against a real Postgres, not by
+  anything checked into `docker/docker-compose.yml` or a Dockerfile. Wiring a real one up (its own
+  compose entry, its own `Dockerfile.webhook-dispatcher` variant pointed at this package's
+  `prisma/schema.prisma`) is a deployment-time decision for whenever this package actually ships,
+  not a code gap in `packages/webhook-dispatcher` itself.
 - **Trust policy enforcement.** `/admin/settings` genuinely persists `trust.failMode`/
   `trust.stapleTtlSeconds` (trust doc §5.3), but nothing reads them yet — no verifier in this
   rebuild consumes `packages/policy`'s `verifyCertStatusResponseCert(vid, token, maxAgeMs)` with a

@@ -156,6 +156,74 @@ func TestReconcile_NewlyMCP_EmitsMCPServerDetectedOnce(t *testing.T) {
 	}
 }
 
+func TestReconcile_AttachesIdentityEvidenceOnlyForAgentFrameworkMatch(t *testing.T) {
+	s := NewStore()
+	s.SetAgentIdentityDID("did:vaultys:local-agent")
+	device := telemetry.Device{ID: "device-1", Hostname: "host", OS: "darwin"}
+
+	fp := ComputeFingerprint("/usr/bin/node", "node agent-controller/cli.js", "fx", "anthropic", "device-1")
+	matched := CurrentObservation{
+		Fingerprint: fp,
+		Process:     collector.Process{PID: 1, Name: "node", Executable: "/usr/bin/node", Command: "node agent-controller/cli.js"},
+		Detection: detector.Detection{
+			AIConfidence:    0.9,
+			AgentConfidence: 0.8,
+			Provider:        "anthropic",
+			AgentFramework:  "vaultysclaw_agent",
+		},
+	}
+
+	fp2 := ComputeFingerprint("/usr/bin/python3", "python3 invoice-agent.py", "fx", "openai", "device-1")
+	unmatched := newObs(fp2, 0.9, 0.5, "openai", false) // no AgentFramework set
+
+	events := s.Reconcile(time.Now(), device, []CurrentObservation{matched, unmatched})
+
+	var gotMatched, gotUnmatched bool
+	for _, e := range events {
+		if e.Type != telemetry.EventAIWorkloadDetected {
+			continue
+		}
+		switch e.Workload.Fingerprint {
+		case string(fp):
+			gotMatched = true
+			if e.Workload.IdentityEvidence != "did:vaultys:local-agent" {
+				t.Errorf("expected IdentityEvidence on the agent-framework match, got %q", e.Workload.IdentityEvidence)
+			}
+		case string(fp2):
+			gotUnmatched = true
+			if e.Workload.IdentityEvidence != "" {
+				t.Errorf("expected no IdentityEvidence on an unrelated workload, got %q", e.Workload.IdentityEvidence)
+			}
+		}
+	}
+	if !gotMatched || !gotUnmatched {
+		t.Fatalf("expected detected events for both workloads, got %v", eventTypes(events))
+	}
+}
+
+func TestReconcile_NoLocalAgentIdentity_NeverAttachesEvidence(t *testing.T) {
+	s := NewStore() // SetAgentIdentityDID never called — nothing configured
+	device := telemetry.Device{ID: "device-1", Hostname: "host", OS: "darwin"}
+	fp := ComputeFingerprint("/usr/bin/node", "node agent-controller/cli.js", "fx", "anthropic", "device-1")
+
+	events := s.Reconcile(time.Now(), device, []CurrentObservation{{
+		Fingerprint: fp,
+		Process:     collector.Process{PID: 1, Name: "node", Executable: "/usr/bin/node", Command: "node agent-controller/cli.js"},
+		Detection: detector.Detection{
+			AIConfidence:    0.9,
+			AgentConfidence: 0.8,
+			Provider:        "anthropic",
+			AgentFramework:  "vaultysclaw_agent",
+		},
+	}})
+
+	for _, e := range events {
+		if e.Workload.IdentityEvidence != "" {
+			t.Errorf("expected no IdentityEvidence with no local agent identity configured, got %q", e.Workload.IdentityEvidence)
+		}
+	}
+}
+
 func TestReconcile_NeverIdenticalObservationEverySingleCycle(t *testing.T) {
 	// Regression guard for "avoid sending identical observations every
 	// polling interval": ten unchanged polls in a row should produce

@@ -9,6 +9,7 @@ import (
 	"github.com/vaultys/vaultysclaw-sensor/internal/config"
 	"github.com/vaultys/vaultysclaw-sensor/internal/correlation"
 	"github.com/vaultys/vaultysclaw-sensor/internal/detector"
+	"github.com/vaultys/vaultysclaw-sensor/internal/identity"
 	"github.com/vaultys/vaultysclaw-sensor/internal/state"
 	"github.com/vaultys/vaultysclaw-sensor/internal/telemetry"
 	"github.com/vaultys/vaultysclaw-sensor/internal/vconn"
@@ -33,7 +34,28 @@ func runPollLoop(
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
+	var lastAgentIdentityDID string // only for the change-log below, not correctness
+	refreshAgentIdentity := func() {
+		if cfg.AgentIdentityPath == "" {
+			return
+		}
+		did, err := identity.LoadDID(cfg.AgentIdentityPath)
+		if err != nil {
+			did = "" // not found/unreadable right now — not fatal, just no evidence to attach this cycle
+		}
+		if did != lastAgentIdentityDID {
+			if did != "" {
+				logger.Info("sensor: local agent identity found — will attach as evidence on matching workloads", "agentDid", did)
+			} else {
+				logger.Warn("sensor: local agent identity no longer readable", "path", cfg.AgentIdentityPath)
+			}
+			lastAgentIdentityDID = did
+		}
+		store.SetAgentIdentityDID(did)
+	}
+
 	poll := func() {
+		refreshAgentIdentity()
 		// Gated on an actually-delivered process_read certificate (docs/CERTIFICATE_WEB_OF_TRUST.md
 		// §3.2b) whenever we're connected to a control plane at all — read nothing, not just "don't
 		// report it", until granted. Local-detection-only mode (client == nil, no control plane

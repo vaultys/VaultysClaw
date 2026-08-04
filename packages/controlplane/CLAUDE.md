@@ -169,6 +169,19 @@ the Access Portal shell, and the design system (ported from `packages/control-pl
   Observed pill per row). No "assigned user" column like the old app had — that concept doesn't
   exist in this rebuild's schema at all; a sensor's owner/relationship is just an `ActorLink` (see
   below), shown read-only here and edited from the Actor detail page.
+- **`lib/workload-status.ts`** — the managed/observed/shadow correlation
+  (`vaultysclaw-sensor/docs/vaultysclaw-integration.md` §4): `resolveManagingActors` batch-resolves
+  a set of workloads' `SensorWorkload.identityEvidence` values against `ActorDAO.findManyByDid`
+  (one query, not N+1), excluding any that resolve to a `kind: "sensor"` Actor — a sensor's own DID
+  never counts as "managing" a workload it observed on itself; `computeWorkloadStatus` then returns
+  `"managed"` for a workload whose evidence resolved to a real Actor, otherwise falling back to the
+  existing `agentConfidence >= SHADOW_THRESHOLD` shadow/observed split. The sensor decides nothing
+  here — an unresolved or revoked DID just falls through to shadow/observed, same as no evidence at
+  all. Wired into both `/admin/sensors` (a new "Managed" stat card) and the per-device detail page
+  (a third status pill, plus "by `<Actor name>`" linking to the managing Actor's page when
+  applicable). `vaultysclaw-sensor` populates real `identityEvidence` via an operator-configured
+  `agentIdentityPath` pointing at a real agent's own identity file — see that repo's integration
+  doc for the sensor-side half.
 - **Actor location** (`Actor.locationLat`/`locationLon`/`locationLabel`, ported from the old app's
   identical `Agent`/`User` fields) — set from the Actor detail page (`lib/geocode.ts`'s server-side
   Nominatim lookup by city name, or exact coordinates) or from `/admin/map` directly (click a pin →
@@ -285,6 +298,14 @@ repeatable tests (see deferred).
   exchange completes — confirming the gate opens exactly when, and not before, the control plane
   actually grants it. This is also what surfaced the `vaultysid/go` metadata-verification bug above:
   the identical exchange with always-empty metadata had worked repeatedly before this.
+- **managed/observed/shadow correlation** (`lib/workload-status.ts`): a direct DB-backed check
+  against real Postgres — a fake `openclaw` Actor plus a workload naming its DID as
+  `identityEvidence` resolves to `"managed"`; a workload with no evidence at high confidence
+  resolves to `"shadow"`, low confidence to `"observed"`; a workload whose evidence names a
+  nonexistent DID and one naming the sensor's *own* DID both correctly fall back to `"shadow"`
+  rather than false-positiving as managed. `vaultysclaw-sensor`'s half (an operator-configured
+  `agentIdentityPath` attached as evidence only on workloads matching a known agent framework) is
+  covered by real Go unit tests in that repo (`internal/detector`, `internal/state`).
 - **WS connection lifecycle**: a real WS client running the actual Challenger crypto handshake
   against a live `ControlPlaneWSServer` — unknown DID → `registration_pending` (now carrying the
   real DID); an Actor upserted + granted a certificate → reconnects and gets `auth_complete`;
@@ -354,11 +375,6 @@ repeatable tests (see deferred).
   implemented. (The login flow's own PeerJS/WebRTC usage is separate and already built. Also
   separate: `vaultysclaw-sensor` connecting is plain WS, not WebRTC — that's the one kind of remote
   agent actually wired end to end today, see Verified above.)
-- **`managed`/`observed`/`shadow` correlation** (`vaultysclaw-sensor/docs/vaultysclaw-integration.md`
-  §4) — `/admin/sensors` is built (see below) and already shows the `shadow` distinction per
-  workload (`agentConfidence >= SHADOW_THRESHOLD`), but nothing yet correlates a workload's
-  `identityEvidence` against the `Actor` table to additionally decide "managed" (this machine is
-  running a real registered Actor, not just an anonymously-observed process).
 - Everything the remaining placeholder pages describe: Audit Log (unified signed IntentLog/
   ActivityLog), Integrations (OIDC/Entra, API Keys, Webhooks, Notification Channels, Model
   Registry). Actors, Sensors, Map, Certificates, Workspaces (Overview/Actors/Access tabs —

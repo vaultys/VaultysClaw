@@ -18,6 +18,11 @@ type Detection struct {
 	IsMCP           bool
 	MCPServers      []string
 	IsLocalRuntime  bool
+	// AgentFramework is the matched rule's name (config.AgentFrameworkRule.Name,
+	// e.g. "vaultysclaw_agent"), or "" if none matched. Lets a workload known to
+	// be running an agent framework carry IdentityEvidence (see internal/state)
+	// without re-deriving the match from Reasons' free-text strings.
+	AgentFramework string
 }
 
 // Classify runs the weighted rule set over a single Observation. cfg
@@ -31,7 +36,7 @@ func Classify(obs correlation.Observation, cfg *config.Sensor, resolver *collect
 	aiSignals, provider := evaluateAI(obs, cfg, resolver, rt)
 	aiConf, aiReasons := Combine(aiSignals)
 
-	agentSignals, mcp := evaluateAgent(obs, cfg, aiConf > 0)
+	agentSignals, mcp, frameworkName := evaluateAgent(obs, cfg, aiConf > 0)
 	agentConf, agentReasons := Combine(agentSignals)
 
 	d := Detection{
@@ -40,6 +45,7 @@ func Classify(obs correlation.Observation, cfg *config.Sensor, resolver *collect
 		Provider:        provider,
 		Reasons:         dedupeSorted(append(append([]string{}, aiReasons...), agentReasons...)),
 		IsLocalRuntime:  rt != nil,
+		AgentFramework:  frameworkName,
 	}
 	if mcp != nil {
 		d.IsMCP = true

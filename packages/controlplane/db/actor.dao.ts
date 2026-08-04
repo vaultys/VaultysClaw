@@ -35,6 +35,13 @@ export class ActorDAO {
     return prisma.actor.findUnique({ where: { did } });
   }
 
+  /** Batched lookup for correlating a set of claimed DIDs (e.g. SensorWorkload.identityEvidence
+   *  values) against real registered Actors — one query, not N+1. */
+  static async findManyByDid(dids: string[]): Promise<Actor[]> {
+    if (dids.length === 0) return [];
+    return prisma.actor.findMany({ where: { did: { in: dids } } });
+  }
+
   /** Admin-editable fields only — `did`/`kind`/`publicKey` are captured at registration and never change. */
   static async update(
     did: string,

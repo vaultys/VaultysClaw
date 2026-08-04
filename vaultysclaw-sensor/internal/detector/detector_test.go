@@ -176,6 +176,31 @@ func TestClassify_UnknownProcessToAzureOpenAI(t *testing.T) {
 	}
 }
 
+func TestClassify_VaultysclawAgent_SetsAgentFramework(t *testing.T) {
+	o := obs(collector.Process{PID: 800, Name: "node", Command: "node dist/agent-controller/cli.js run"},
+		nil, []collector.Connection{conn("api.anthropic.com", 443)}, nil)
+
+	d := Classify(o, testConfig(), nil)
+
+	if d.AgentFramework != "vaultysclaw_agent" {
+		t.Errorf("expected AgentFramework %q, got %q", "vaultysclaw_agent", d.AgentFramework)
+	}
+	if d.AgentConfidence <= agentLow {
+		t.Errorf("expected non-trivial agent confidence for a known framework match, got %v", d.AgentConfidence)
+	}
+}
+
+func TestClassify_NoAgentFrameworkMatch_LeavesAgentFrameworkEmpty(t *testing.T) {
+	o := obs(collector.Process{PID: 801, Name: "unknownbinary", Command: "unknownbinary --do-something"},
+		nil, []collector.Connection{conn("api.anthropic.com", 443)}, nil)
+
+	d := Classify(o, testConfig(), nil)
+
+	if d.AgentFramework != "" {
+		t.Errorf("expected no AgentFramework match, got %q", d.AgentFramework)
+	}
+}
+
 func TestClassify_NoSignals_ZeroConfidence(t *testing.T) {
 	o := obs(collector.Process{PID: 700, Name: "bash", Command: "bash -c ls"}, nil, nil, nil)
 

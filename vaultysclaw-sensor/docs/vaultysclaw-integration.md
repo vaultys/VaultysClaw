@@ -151,30 +151,41 @@ sensor also sets one on the envelope (`Envelope.AgentID`) — the server
 doesn't need to trust it. Verified with real telemetry from this machine
 (Ollama, a local MCP-pattern process) landing in Postgres.
 
-## 4. managed / observed / shadow
+## 4. managed / observed / shadow — done
 
 The reference collector's `computeStatus()` (`internal/ingest/store.go`)
-only ever returns `observed` or `shadow` (agent confidence ≥ 0.75). A real
-integration adds `managed`, server-side, by correlating a workload's
-evidence against VaultysClaw's `Actor` table for the same workspace — e.g.
-matching a locally-observed VaultysClaw identity file/DID (reported via
-`Workload.IdentityEvidence` in the wire schema, currently unused by the
-reference collector) against a registered `Actor.did`. This is exactly the
-design spec's intent: **the sensor reports observations and identity
-evidence; the control plane decides organizational ownership** — the
-sensor should never be trusted to self-report "I am managed."
+only ever returns `observed` or `shadow` (agent confidence ≥ 0.75). The real
+control plane (`packages/controlplane`) adds a third tier, `managed`, by
+correlating a workload's `IdentityEvidence` against the real `Actor` table
+(`lib/workload-status.ts`'s `computeWorkloadStatus`/`resolveManagingActors`)
+— exactly the design spec's intent: **the sensor reports observations and
+identity evidence; the control plane decides organizational ownership**, so
+a workload is never "managed" just because the sensor said so. A DID that
+doesn't resolve to a real, non-sensor Actor (unknown, revoked, or the
+sensor's own DID) falls back to the existing shadow/observed distinction,
+not a crash or a false positive.
 
-Note this is *almost* automatic given §2/§3 are done: if the sensor
-connects using the same DID a real `agent-controller` process would use on
-that machine, `ActorDAO.findByDid` already recognizes it as a known Actor
-— the "managed" signal falls out of the existing auto-approve path rather
-than needing new correlation logic, *if* the deployment story is "one
-VaultysId per machine, shared between the sensor and any real agent on
-it." If sensor identities are meant to be distinct from agent identities
-even on the same machine (arguably cleaner), then the `IdentityEvidence`
-field is the right mechanism instead. **Still not implemented** — this is
-the one open item from the original design that real wiring didn't need
-to touch.
+Sensor identities are kept distinct from agent identities even on the same
+machine (the "arguably cleaner" option this doc originally flagged) rather
+than relying on a shared-DID coincidence: `IdentityEvidence` is populated by
+pointing the sensor at a real agent's own VaultysId secret file via the
+operator-configured `agentIdentityPath` (`VCS_AGENT_IDENTITY_PATH`,
+`internal/config/config.go`) — a plain, read-only local file read
+(`identity.LoadDID`), never a cross-process environment read, which would
+both be platform-specific and risk capturing secrets this sensor is
+explicitly designed to never touch. `internal/detector.Detection` gained an
+`AgentFramework` field (the matched `config.AgentFrameworkRule.Name`, e.g.
+`"vaultysclaw_agent"`); `internal/state.buildWorkload` only attaches the
+configured agent's DID as `IdentityEvidence` on a workload whose
+classification actually matched a known agent framework, never borrowed by
+an unrelated process just because one happens to be configured on the same
+machine (`internal/state.Store.SetAgentIdentityDID`, refreshed every poll
+cycle so installing the agent after the sensor starts doesn't need a
+restart). Verified: unit tests in `internal/detector` and `internal/state`
+covering the match/no-match cases, plus a real correlation check against
+Postgres (a fake `openclaw` Actor + a workload naming it as evidence
+resolves to `"managed"`; an unresolved DID and the sensor's own DID both
+correctly fall back to `"shadow"`/`"observed"`).
 
 ## 5. Migration path, concretely
 

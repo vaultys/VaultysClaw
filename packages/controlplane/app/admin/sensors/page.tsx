@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { Monitor, Wifi, Cpu, Shield, WifiOff } from "lucide-react";
+import { Monitor, Wifi, Cpu, Shield, BadgeCheck, WifiOff } from "lucide-react";
 import { ActorDAO, SensorWorkloadDAO, WorkspaceDAO, ActorLinkDAO, SHADOW_THRESHOLD } from "@/db";
 import PageChrome from "@/components/layout/PageChrome";
 import { encodeDidParam } from "@/lib/actor-route";
 import { getWSServerInstance } from "@/lib/ws-server";
+import { resolveManagingActors } from "@/lib/workload-status";
 
 function StatCard({
   label,
@@ -66,7 +67,11 @@ export default async function SensorsPage() {
   }
 
   const onlineCount = sensors.filter((s) => ws?.isConnected(s.did)).length;
-  const shadowCount = workloads.filter((w) => w.agentConfidence >= SHADOW_THRESHOLD).length;
+  const managingActors = await resolveManagingActors(workloads);
+  const managedCount = workloads.filter((w) => w.identityEvidence && managingActors.has(w.identityEvidence)).length;
+  const shadowCount = workloads.filter(
+    (w) => !(w.identityEvidence && managingActors.has(w.identityEvidence)) && w.agentConfidence >= SHADOW_THRESHOLD
+  ).length;
 
   return (
     <div className="p-6 space-y-6">
@@ -78,10 +83,11 @@ export default async function SensorsPage() {
         breadcrumbs={[{ label: "Sensors" }]}
       />
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <StatCard label="Sensors" value={sensors.length} icon={Monitor} />
         <StatCard label="Online now" value={onlineCount} icon={Wifi} tone="success" />
         <StatCard label="AI workloads" value={workloads.length} icon={Cpu} />
+        <StatCard label="Managed" value={managedCount} icon={BadgeCheck} tone="success" />
         <StatCard
           label="Shadow agents"
           value={shadowCount}

@@ -57,6 +57,16 @@ type Sensor struct {
 	TelemetryEnabled    bool   `yaml:"telemetryEnabled"`
 	Debug               bool   `yaml:"debug"`
 	IdentityPath        string `yaml:"identityPath"`
+	// AgentIdentityPath, if set, points at a locally-known VaultysId secret file
+	// for a real agent (e.g. agent-controller's own identity, VAULTYS_ID_PATH) —
+	// deliberately operator-configured, not auto-discovered, since there's no
+	// safe portable way to read another process's own identity path choice.
+	// When set and readable, its DID is attached as IdentityEvidence on any
+	// workload whose classification matched a known agent framework, letting
+	// the control plane correlate "this AI/agent workload is run by that
+	// specific, already-registered Actor" (docs/vaultysclaw-integration.md §4)
+	// instead of treating every detection as merely observed.
+	AgentIdentityPath string `yaml:"agentIdentityPath"`
 
 	Providers       []ProviderRule       `yaml:"providers"`
 	LocalRuntimes   []RuntimeRule        `yaml:"localRuntimes"`
@@ -211,6 +221,9 @@ func (s *Sensor) applyEnvOverrides() {
 	}
 	if v := os.Getenv("VCS_IDENTITY_PATH"); v != "" {
 		s.IdentityPath = v
+	}
+	if v := os.Getenv("VCS_AGENT_IDENTITY_PATH"); v != "" {
+		s.AgentIdentityPath = v
 	}
 }
 

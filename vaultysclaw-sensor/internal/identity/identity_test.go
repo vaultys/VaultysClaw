@@ -76,3 +76,26 @@ func TestVerify_RejectsWrongIdentity(t *testing.T) {
 		t.Error("expected verification to fail against a different identity")
 	}
 }
+
+func TestLoadDID_MatchesLoadOrCreate(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "identity.secret")
+	p, err := LoadOrCreate(path)
+	if err != nil {
+		t.Fatalf("LoadOrCreate: %v", err)
+	}
+
+	did, err := LoadDID(path)
+	if err != nil {
+		t.Fatalf("LoadDID: %v", err)
+	}
+	if did != p.DID() {
+		t.Errorf("expected LoadDID to return the same DID as LoadOrCreate, got %s vs %s", did, p.DID())
+	}
+}
+
+func TestLoadDID_MissingFile_Errors(t *testing.T) {
+	_, err := LoadDID(filepath.Join(t.TempDir(), "does-not-exist.secret"))
+	if err == nil {
+		t.Error("expected an error for a missing identity file")
+	}
+}

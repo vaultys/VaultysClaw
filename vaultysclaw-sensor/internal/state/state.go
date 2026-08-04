@@ -59,12 +59,25 @@ type trackedEntry struct {
 // restarts by design — a restart simply re-detects and re-emits
 // ai_workload_detected for anything still running, which is harmless.
 type Store struct {
-	mu      sync.Mutex
-	entries map[Fingerprint]*trackedEntry
+	mu               sync.Mutex
+	entries          map[Fingerprint]*trackedEntry
+	agentIdentityDID string
 }
 
 func NewStore() *Store {
 	return &Store{entries: make(map[Fingerprint]*trackedEntry)}
+}
+
+// SetAgentIdentityDID updates the locally-known agent identity (see
+// config.Sensor.AgentIdentityPath), attached as IdentityEvidence on any
+// workload whose classification matched a known agent framework. Safe to
+// call concurrently with Reconcile — cheap enough to call every poll cycle
+// so picking up the identity file after the sensor starts, or losing it,
+// takes effect on the next cycle rather than requiring a restart.
+func (s *Store) SetAgentIdentityDID(did string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.agentIdentityDID = did
 }
 
 // Reconcile compares the current cycle's observations against prior
@@ -79,7 +92,7 @@ func (s *Store) Reconcile(now time.Time, device telemetry.Device, current []Curr
 
 	for _, c := range current {
 		seen[c.Fingerprint] = struct{}{}
-		workload := buildWorkload(c.Fingerprint, c.Process, c.Detection)
+		workload := buildWorkload(c.Fingerprint, c.Process, c.Detection, s.agentIdentityDID)
 
 		existing, ok := s.entries[c.Fingerprint]
 		if !ok {
@@ -145,7 +158,7 @@ func (s *Store) Reconcile(now time.Time, device telemetry.Device, current []Curr
 		if _, ok := seen[fp]; ok {
 			continue
 		}
-		workload := buildWorkload(fp, entry.process, entry.detection)
+		workload := buildWorkload(fp, entry.process, entry.detection, s.agentIdentityDID)
 		events = append(events, telemetry.NewEvent(telemetry.EventAIWorkloadStopped, now, device, workload))
 		delete(s.entries, fp)
 	}
@@ -160,8 +173,8 @@ func (s *Store) Len() int {
 	return len(s.entries)
 }
 
-func buildWorkload(fp Fingerprint, proc collector.Process, d detector.Detection) telemetry.Workload {
-	return telemetry.Workload{
+func buildWorkload(fp Fingerprint, proc collector.Process, d detector.Detection, agentIdentityDID string) telemetry.Workload {
+	w := telemetry.Workload{
 		Fingerprint: string(fp),
 		Process: telemetry.ProcessInfo{
 			Name:       proc.Name,
@@ -178,6 +191,14 @@ func buildWorkload(fp Fingerprint, proc collector.Process, d detector.Detection)
 		MCPServers:      d.MCPServers,
 		IsLocalRuntime:  d.IsLocalRuntime,
 	}
+	// Only a workload actually classified as a known agent framework gets
+	// identity evidence attached — an unrelated process shouldn't borrow the
+	// locally-configured agent's DID just because one happens to be present
+	// on the same machine.
+	if d.AgentFramework != "" && agentIdentityDID != "" {
+		w.IdentityEvidence = agentIdentityDID
+	}
+	return w
 }
 
 func reasonsEqual(a, b []string) bool {

@@ -61,6 +61,23 @@ func LoadOrCreate(path string) (*Provider, error) {
 	return &Provider{vid: vid}, nil
 }
 
+// LoadDID reads a VaultysID secret from path and returns just its DID —
+// read-only, never creates or writes anything, unlike LoadOrCreate. Used to
+// check for a locally-known *other* identity (e.g. a real agent-controller's,
+// see config.Sensor.AgentIdentityPath) without ever needing that identity's
+// signing capability, only its public DID.
+func LoadDID(path string) (string, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", fmt.Errorf("identity: reading %s: %w", path, err)
+	}
+	vid, err := vaultysid.FromSecret(data)
+	if err != nil {
+		return "", fmt.Errorf("identity: parsing secret from %s: %w", path, err)
+	}
+	return vid.DID(), nil
+}
+
 // DID returns this identity's decentralized identifier
 // ("did:vaultys:..."), identical in derivation to the TypeScript
 // VaultysId used by the rest of VaultysClaw.

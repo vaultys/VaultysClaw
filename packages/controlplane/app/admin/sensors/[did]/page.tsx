@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
-import { ActorDAO, SensorWorkloadDAO, WorkspaceDAO, SHADOW_THRESHOLD } from "@/db";
+import { ActorDAO, SensorWorkloadDAO, WorkspaceDAO } from "@/db";
 import PageChrome from "@/components/layout/PageChrome";
 import { decodeDidParam, encodeDidParam } from "@/lib/actor-route";
 import { getWSServerInstance } from "@/lib/ws-server";
+import { computeWorkloadStatus, resolveManagingActors } from "@/lib/workload-status";
 
 /**
  * Sensor detail — fleet-telemetry-focused (workloads), unlike the generic Actor detail page
@@ -24,6 +25,7 @@ export default async function SensorDetailPage({
     SensorWorkloadDAO.listForDevice(did),
     WorkspaceDAO.list(),
   ]);
+  const managingActors = await resolveManagingActors(workloads);
 
   const kindConfig = actor.kindConfig as { hostname?: string; os?: string };
   const online = getWSServerInstance()?.isConnected(did) ?? false;
@@ -110,7 +112,8 @@ export default async function SensorDetailPage({
               {workloads.map((w) => {
                 const reasons = w.reasons as string[];
                 const mcpServers = w.mcpServers as string[];
-                const isShadow = w.agentConfidence >= SHADOW_THRESHOLD;
+                const status = computeWorkloadStatus(w, managingActors);
+                const managingActor = w.identityEvidence ? managingActors.get(w.identityEvidence) : undefined;
                 return (
                   <tr key={w.id} className="border-t border-neutral-200/60 align-top">
                     <td className="px-4 py-2.5">
@@ -130,13 +133,26 @@ export default async function SensorDetailPage({
                     <td className="px-4 py-2.5">
                       <span
                         className={`text-xs px-2 py-0.5 rounded-full border ${
-                          isShadow
-                            ? "bg-warning-100 text-warning-700 border-warning-200"
-                            : "bg-neutral-100 text-foreground-500 border-neutral-200"
+                          status === "managed"
+                            ? "bg-success-100 text-success-700 border-success-200"
+                            : status === "shadow"
+                              ? "bg-warning-100 text-warning-700 border-warning-200"
+                              : "bg-neutral-100 text-foreground-500 border-neutral-200"
                         }`}
                       >
-                        {isShadow ? "Shadow" : "Observed"}
+                        {status === "managed" ? "Managed" : status === "shadow" ? "Shadow" : "Observed"}
                       </span>
+                      {managingActor && (
+                        <div className="text-xs text-foreground-400 mt-1">
+                          by{" "}
+                          <Link
+                            href={`/admin/actors/${encodeDidParam(managingActor.did)}`}
+                            className="hover:text-primary-600 hover:underline"
+                          >
+                            {managingActor.name}
+                          </Link>
+                        </div>
+                      )}
                     </td>
                     <td className="px-4 py-2.5 text-foreground-500">
                       {w.isMcp ? mcpServers.join(", ") || "yes" : "—"}

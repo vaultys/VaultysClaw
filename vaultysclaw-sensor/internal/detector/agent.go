@@ -13,12 +13,13 @@ import (
 // open to chatgpt.com is AI usage, not agentic behavior, regardless of how
 // long it's been open — this is the core "AI usage vs AI agent"
 // distinction from the design spec.
-func evaluateAgent(obs correlation.Observation, cfg *config.Sensor, hasAIActivity bool) ([]Signal, *collector.MCPMatch) {
+func evaluateAgent(obs correlation.Observation, cfg *config.Sensor, hasAIActivity bool) ([]Signal, *collector.MCPMatch, string) {
 	if collector.IsBrowserProcess(obs.Process.Name, cfg.BrowserProcess) {
-		return nil, nil
+		return nil, nil, ""
 	}
 
 	var signals []Signal
+	var frameworkName string
 
 	mcp := collector.DetectMCP(obs.Process, obs.Children, cfg.MCPServers)
 	if mcp != nil {
@@ -31,6 +32,7 @@ func evaluateAgent(obs correlation.Observation, cfg *config.Sensor, hasAIActivit
 
 	if fw := collector.DetectAgentFramework(obs.Process, cfg.AgentFrameworks); fw != nil {
 		signals = append(signals, Signal{Weight: WeightStrong, Reason: "known agent framework detected (" + fw.Name + ")"})
+		frameworkName = fw.Name
 	}
 
 	if hasAIActivity && !obs.Process.StartTime.IsZero() {
@@ -43,5 +45,5 @@ func evaluateAgent(obs correlation.Observation, cfg *config.Sensor, hasAIActivit
 		signals = append(signals, Signal{Weight: WeightMedium, Reason: "executable/command naming suggests an agent"})
 	}
 
-	return signals, mcp
+	return signals, mcp, frameworkName
 }

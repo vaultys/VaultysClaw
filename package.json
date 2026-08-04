@@ -20,6 +20,7 @@
     "webhook:dev": "pnpm --filter @vaultysclaw/webhook-dispatcher dev",
     "webhook:start": "pnpm --filter @vaultysclaw/webhook-dispatcher start",
     "webhook:build": "pnpm --filter @vaultysclaw/webhook-dispatcher build",
+    "sensor:start": "cd vaultysclaw-sensor && VCS_COLLECTOR_URL=http://localhost:8081 VCS_DEBUG=true go run ./cmd/sensor run",
     "dev": "turbo run dev",
     "-- BUILD --": "",
     "build": "turbo run build",

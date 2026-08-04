@@ -32,6 +32,14 @@ export class PendingRegistrationDAO {
     return prisma.pendingRegistration.findFirst({ where: { did, status: "pending" } });
   }
 
+  /** Approved but not yet delivered via the live service:"certificate" exchange (trust doc §3.2b). */
+  static async findApprovedUndelivered(did: string): Promise<PendingRegistration | null> {
+    return prisma.pendingRegistration.findFirst({
+      where: { did, status: "approved", deliveredAt: null },
+      orderBy: { createdAt: "asc" },
+    });
+  }
+
   static async listPending(): Promise<PendingRegistration[]> {
     return prisma.pendingRegistration.findMany({
       where: { status: "pending" },
@@ -39,9 +47,28 @@ export class PendingRegistrationDAO {
     });
   }
 
+  /** Approved but not yet delivered, across all Principals — surfaced on the Principals page so an
+   *  admin can see a grant is "waiting for the agent to be connected" rather than assuming it already landed. */
+  static async listApprovedUndelivered(): Promise<PendingRegistration[]> {
+    return prisma.pendingRegistration.findMany({
+      where: { status: "approved", deliveredAt: null },
+      orderBy: { createdAt: "asc" },
+    });
+  }
+
+  /** A connected, already-known Principal asking for more capabilities, or an unknown one
+   *  reporting what it wants right after the auth handshake — same row, same approval flow. */
+  static async updateRequestedCapabilities(id: string, capabilities: string[]): Promise<void> {
+    await prisma.pendingRegistration.update({
+      where: { id },
+      data: { requestedCapabilities: capabilities as never },
+    });
+  }
+
   static async approve(
     id: string,
     assignedCapabilities: string[],
+    approvedBy: string,
     targetWorkspaceId?: string | null
   ): Promise<PendingRegistration> {
     return prisma.pendingRegistration.update({
@@ -49,6 +76,7 @@ export class PendingRegistrationDAO {
       data: {
         status: "approved",
         assignedCapabilities: assignedCapabilities as never,
+        approvedBy,
         targetWorkspaceId: targetWorkspaceId ?? null,
       },
     });
@@ -58,6 +86,13 @@ export class PendingRegistrationDAO {
     return prisma.pendingRegistration.update({
       where: { id },
       data: { status: "denied" },
+    });
+  }
+
+  static async markDelivered(id: string): Promise<void> {
+    await prisma.pendingRegistration.update({
+      where: { id },
+      data: { deliveredAt: new Date() },
     });
   }
 }

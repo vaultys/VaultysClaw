@@ -73,11 +73,16 @@ design system (ported from `packages/control-plane`) are built.
   §4/§4.5; now also carries `publicKey`, the base64 raw key captured at registration from the
   completed Challenger handshake, enabling independent re-verification later with no live
   connection), `User` (1:1 human-profile extension of a `kind: "human"` Principal),
-  `CapabilityCertificate` (the ledger, nullable `expiresAt`), `PendingRegistration` (carries the
-  Principal's `did` and `publicKey`, captured during the WS handshake, carried onto `Principal` at
-  approval), `AuthCertificate` (the raw VaultysId handshake artifact for a *login* attempt —
-  distinct from `CapabilityCertificate`), `Workspace`. Deliberately minimal — models get added here
-  as each subsequent feature is actually built, not ahead of time.
+  `CapabilityCertificate` (the ledger, nullable `expiresAt`; `certFormat` discriminates
+  `"packcert"` — two nested `packages/policy` tokens, `requestCertificate` populated — from
+  `"challenger"` — the library's native dual-signature certificate, trust doc §3.2b,
+  `requestCertificate: null`), `PendingRegistration` (carries the Principal's `did` and
+  `publicKey`, captured during the WS handshake, carried onto `Principal` at approval; `approvedBy`
+  + `deliveredAt` track the interactive-issuance lifecycle — `deliveredAt: null` after approval
+  means "waiting for the agent to be connected", not "not yet granted"), `AuthCertificate` (the raw
+  VaultysId handshake artifact for a *login* attempt — distinct from `CapabilityCertificate`),
+  `Workspace`. Deliberately minimal — models get added here as each subsequent feature is actually
+  built, not ahead of time.
 - `db/` — DAOs over the schema above (`client.ts` uses the same `@prisma/adapter-pg` + `pg.Pool`
   pattern as `packages/control-plane`).
 - `lib/vault.ts` — reused unchanged (VaultysId signcrypt-to-self), per the "kept" list in the
@@ -98,8 +103,19 @@ design system (ported from `packages/control-plane`) are built.
   (in-memory per connection, not round-tripped through a DB session row — this is a long-lived
   process, not a stateless API route) → known Principal auto-connects, unknown Principal gets a
   `PendingRegistration` row (reused across reconnect attempts, not duplicated). Also implements
-  `heartbeat`/`pong` and the full `cert_status_request`/`cert_status_response` protocol (trust doc
-  §4.1).
+  `heartbeat`/`pong`, the full `cert_status_request`/`cert_status_response` protocol (trust doc
+  §4.1), and the interactive issuance flow (trust doc §3.2b): a connected Principal's plain
+  `capability_request` message updates its `PendingRegistration` row (whether still
+  `awaitingApproval` on a fresh registration, or an already-known Principal asking for more); once
+  an admin approves (`lib/registrations.ts`), `deliverApprovedCapabilities(did)` proactively starts
+  a second, independent `service: "certificate"` Challenger exchange over the same connection
+  (`cert_challenge` round-trip, mirroring `auth_challenge`'s mechanics exactly) — completing it
+  persists a `certFormat: "challenger"` row and sends `cert_issued`. If the agent isn't connected
+  when approved, delivery is deferred: `deliverIfApproved` runs the same check from the "existing
+  Principal reconnect" branch of the auth handshake, so it's picked up on the agent's next
+  successful `auth`. A module-level singleton (`setWSServerInstance`/`getWSServerInstance`, wired
+  up in `server.ts`) is what lets a Server Action (`lib/registrations.ts`, running in the same
+  Next.js custom-server process) reach the live connection map at all.
 - `lib/user-login-channel.ts` + `lib/auth-config.ts` + `app/login/page.tsx` — the passwordless
   QR-code login (reused in spirit from `packages/control-plane`'s `UserServerChannel`/
   `useVaultysConnect`, trimmed to only the P2P wallet-pairing flow — the browser-extension
@@ -113,8 +129,12 @@ design system (ported from `packages/control-plane`) are built.
   page/route goes through, wrapping `@vaultysclaw/trust`'s `resolvePermission` over the DID's
   certificates. Not a role check.
 - `lib/registrations.ts` — `approvePendingRegistration`/`denyPendingRegistration`: turns a
-  `PendingRegistration` into a real `Principal` + an admin-issued grant (via `issueAdminGrant`,
-  since agents don't yet send a signed `capability_request` over the wire — see deferred).
+  `PendingRegistration` into a real `Principal`, marks the registration `approved` with
+  `deliveredAt: null`, then calls `getWSServerInstance()?.deliverApprovedCapabilities(did)` — the
+  admin only decides *what* to grant, `ws-server.ts` runs the live exchange that actually produces
+  the certificate (trust doc §3.2b). Distinct from `lib/certificates.ts`'s `issueAdminGrant`, which
+  stays reserved for the non-interactive system/admin-issued path (§3.2a, e.g. bootstrap) — this
+  function no longer calls it.
 - `app/admin/layout.tsx` — the actual capability gate (`admin_console_access`), not a stub: an
   unauthenticated visitor is redirected to `/login`; an authenticated one without the capability
   sees "Access denied", not a redirect loop.
@@ -158,6 +178,22 @@ repeatable tests (see deferred).
   row; granting a human `portal_access` through that same flow immediately unlocks `/portal` for
   them, and their **My Certificates** page correctly shows both that grant and their
   `system:bootstrap`-issued `admin_console_access` grant with correct `issuedBy` provenance.
+- **Interactive certificate issuance** (trust doc §3.2b), a real WS client running the actual
+  Challenger crypto against a live `ControlPlaneWSServer` in-process (so the `getWSServerInstance()`
+  singleton is genuinely reachable, exactly like the real Server Action path): (1) an unknown
+  agent registers, sends `capability_request` for two capabilities, and an admin approves with a
+  *different, reduced* set — confirming "accept but modify" actually lands; the server then
+  proactively starts a `service: "certificate"` exchange, completes it, and persists a
+  `certFormat: "challenger"` row whose capabilities match the admin's edit, not the original
+  request; `inspectCertificate` independently re-verifies it (`Challenger.verifyCertificate`)
+  end to end. (2) The offline-delivery path: an agent registers then disconnects *before* approval;
+  approving while offline correctly leaves `deliveredAt: null`; reconnecting with the same identity
+  triggers `deliverIfApproved` and the same live exchange, ending in `cert_issued` and
+  `deliveredAt` set. (3) The certificate detail page renders a `"challenger"`-format row correctly
+  in a real browser — decoded pk1/pk2/nonce/sign1/sign2/metadata, verified badge, no "Embedded
+  request" section (there is no separate request token for this format) — alongside a pre-existing
+  `"packcert"` row (the bootstrap grant) rendering exactly as before, confirming the `certFormat`
+  branch in `lib/cert-inspect.ts` didn't regress the older format.
 - **Caveat, not verified**: the actual PeerJS/WebRTC wire exchange with a real VaultysId wallet
   app (no physical wallet in this environment — the Challenger crypto itself is already proven via
   the WS-agent path). One incidental observation from testing against the public PeerJS relay: an
@@ -168,18 +204,15 @@ repeatable tests (see deferred).
 
 ## Explicitly deferred (next slices, not started)
 
-- **`capability_request`/`capability_grant` over the wire.** The primitives exist and an agent's
-  *initial* grant can be admin-issued (`issueAdminGrant`), but nothing in `ws-server.ts` lets a
-  *connected* agent ask for more capabilities later — that needs both a new message handler and an
-  admin-facing way to approve/deny the request.
 - **WebRTC/PeerJS transport for agents** (trust doc §4.4) — `AgentSender` is shaped for it; not
   implemented. (The login flow's own PeerJS/WebRTC usage is separate and already built.)
 - Everything the placeholder pages describe: Audit Log (unified signed IntentLog/ActivityLog),
   Workspaces (principals/budgets/model access, workspace-scoped admin via `CertScope`),
   Integrations (OIDC/Entra, API Keys, Webhooks, Notification Channels, Model Registry), Settings
-  (server identity display, org-wide trust policy). Also: the Certificates page's per-cert detail
-  drawer (signature chain, status-check history) from `docs/PAGE_DESIGN.md` §1.5 isn't built —
-  today's page is list + issue + revoke only.
+  (server identity display, org-wide trust policy). The certificate detail page (§1.5's
+  signature-chain view) is built (`app/admin/certificates/[id]/page.tsx`); its status-check-history
+  section is still a static note — no query log is persisted yet (would need a table + a write in
+  `handleCertStatusRequest`).
 - A human's `name`/`email` profile — a freshly registered human gets `name: "Unnamed"` and no
   email; there's no profile-completion step yet.
 - Notification Channels/Apprise, Webhooks, Model Registry, OIDC/Entra — added to the schema and

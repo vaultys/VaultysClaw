@@ -11,7 +11,7 @@ import next from "next";
 import { WebSocketServer } from "ws";
 import pino from "pino";
 import { ServerIdentityDAO, WorkspaceDAO } from "./db";
-import { ControlPlaneWSServer } from "./lib/ws-server";
+import { ControlPlaneWSServer, setWSServerInstance } from "./lib/ws-server";
 
 const logger = pino({ name: "controlplane" });
 
@@ -39,7 +39,7 @@ async function main() {
   httpServer.listen(PORT, () => logger.info({ port: PORT }, "HTTP server listening"));
 
   const wss = new WebSocketServer({ port: WS_PORT });
-  new ControlPlaneWSServer(wss);
+  setWSServerInstance(new ControlPlaneWSServer(wss));
   logger.info({ port: WS_PORT }, "Control plane WebSocket server listening");
 }
 

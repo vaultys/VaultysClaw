@@ -39,9 +39,10 @@ function KindBadge({ kind }: { kind: string }) {
  * as one action instead of two steps.
  */
 export default async function PrincipalsPage() {
-  const [principals, pending] = await Promise.all([
+  const [principals, pending, awaitingDelivery] = await Promise.all([
     PrincipalDAO.list(),
     PendingRegistrationDAO.listPending(),
+    PendingRegistrationDAO.listApprovedUndelivered(),
   ]);
 
   return (
@@ -49,7 +50,9 @@ export default async function PrincipalsPage() {
       <PageChrome
         toolbar={{
           title: "Principals",
-          description: `${principals.length} registered · ${pending.length} pending approval`,
+          description: `${principals.length} registered · ${pending.length} pending approval${
+            awaitingDelivery.length > 0 ? ` · ${awaitingDelivery.length} awaiting delivery` : ""
+          }`,
         }}
         breadcrumbs={[{ label: "Principals" }]}
       />
@@ -75,11 +78,22 @@ export default async function PrincipalsPage() {
               <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm">
                 {AGENT_CAPABILITIES.map((cap) => (
                   <label key={cap} className="flex items-center gap-1.5 text-foreground-700">
-                    <input type="checkbox" name="capabilities" value={cap} className="accent-primary-600" />
+                    <input
+                      type="checkbox"
+                      name="capabilities"
+                      value={cap}
+                      defaultChecked={(reg.requestedCapabilities as string[]).includes(cap)}
+                      className="accent-primary-600"
+                    />
                     {cap}
                   </label>
                 ))}
               </div>
+              {(reg.requestedCapabilities as string[]).length === 0 && (
+                <p className="text-xs text-foreground-400">
+                  No capabilities requested yet — approving now grants none unless checked below.
+                </p>
+              )}
               <div className="flex gap-2 pt-1">
                 <button
                   type="submit"
@@ -99,6 +113,40 @@ export default async function PrincipalsPage() {
           ))}
         </div>
       </section>
+
+      {awaitingDelivery.length > 0 && (
+        <section>
+          <h2 className="text-sm font-semibold text-foreground-700 mb-3">
+            Approved, awaiting delivery ({awaitingDelivery.length})
+          </h2>
+          <p className="text-xs text-foreground-400 mb-3">
+            Approved — the certificate is delivered via a live exchange the next time each agent is
+            connected (docs/CERTIFICATE_WEB_OF_TRUST.md §3.2b), not written immediately.
+          </p>
+          <div className="space-y-2">
+            {awaitingDelivery.map((reg) => (
+              <div
+                key={reg.id}
+                className="border border-warning-200 bg-warning-50 rounded-xl p-4 flex items-center justify-between gap-3"
+              >
+                <div>
+                  <div className="flex items-center gap-2">
+                    <div className="font-medium text-foreground">{reg.name}</div>
+                    <KindBadge kind={reg.kind} />
+                  </div>
+                  <div className="text-xs text-foreground-500 font-mono mt-0.5">{reg.did}</div>
+                  <div className="text-xs text-foreground-600 mt-1">
+                    Granting: {(reg.assignedCapabilities as string[]).join(", ") || "—"}
+                  </div>
+                </div>
+                <span className="text-xs px-2.5 py-1 rounded-full border shrink-0 bg-warning-100 text-warning-700 border-warning-200">
+                  waiting for connection
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section>
         <h2 className="text-sm font-semibold text-foreground-700 mb-3">

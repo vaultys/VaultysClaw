@@ -1,13 +1,15 @@
 /**
- * Turns a `PendingRegistration` into a real `Principal` + initial
- * `CapabilityCertificate` grant (docs/REBUILD_ARCHITECTURE.md §4.2). The
- * agent itself isn't asked again — the DID and requested capabilities were
- * already proven/captured during the WS handshake (`lib/ws-server.ts`); an
- * admin just decides what to actually grant.
+ * Turns a `PendingRegistration` into a real `Principal`, then delivers the
+ * capability grant via the live `service: "certificate"` Challenger exchange
+ * (docs/CERTIFICATE_WEB_OF_TRUST.md §3.2b) instead of admin-issuing a
+ * packcert-format grant directly — the agent's own co-signature is what
+ * makes this format live/interactive rather than a system-issued token. The
+ * admin only decides *what* to grant; `ws-server.ts` runs the actual
+ * exchange and persists the resulting certificate once it completes.
  */
 import type { AgentCapability } from "@vaultysclaw/policy";
 import { PendingRegistrationDAO, PrincipalDAO } from "@/db";
-import { issueAdminGrant } from "./certificates";
+import { getWSServerInstance } from "./ws-server";
 
 export async function approvePendingRegistration(
   registrationId: string,
@@ -27,18 +29,17 @@ export async function approvePendingRegistration(
     workspaceId: registration.targetWorkspaceId,
   });
 
-  // Standing grant with a real (not indefinite) expiry — the "no expiry"
-  // exception is reserved for the bootstrap admin path (trust doc §3.3).
-  const oneYearMs = 365 * 24 * 60 * 60 * 1000;
-  await issueAdminGrant({
-    agentDid: registration.did,
-    workspaceId: registration.targetWorkspaceId,
+  await PendingRegistrationDAO.approve(
+    registrationId,
     capabilities,
-    expiresAt: Date.now() + oneYearMs,
-    issuedBy: approverDid,
-  });
+    approverDid,
+    registration.targetWorkspaceId
+  );
 
-  await PendingRegistrationDAO.approve(registrationId, capabilities, registration.targetWorkspaceId);
+  // Best-effort: delivers immediately if the agent is still connected;
+  // otherwise it's picked up on its next successful auth handshake
+  // (`deliverIfApproved` in ws-server.ts).
+  await getWSServerInstance()?.deliverApprovedCapabilities(registration.did);
 }
 
 export async function denyPendingRegistration(registrationId: string): Promise<void> {

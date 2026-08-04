@@ -17,6 +17,15 @@ export type ProtocolMessageType =
   | "pong"
   | "cert_status_request"
   | "cert_status_response"
+  // The interactive issuance flow (trust doc §3.2b): a connected Principal
+  // asks for capabilities with a plain message; once an admin approves, the
+  // control plane proactively runs a service:"certificate" Challenger
+  // exchange (cert_challenge, mirroring auth_challenge's mechanics exactly)
+  // and delivers the result.
+  | "capability_request"
+  | "cert_challenge"
+  | "cert_issued"
+  | "cert_failed"
   | "error";
 
 export interface ProtocolMessage {
@@ -61,5 +70,32 @@ export interface CertStatusResponsePayload {
 }
 
 export interface ErrorPayload {
+  reason: string;
+}
+
+/**
+ * A plain, unsigned request — no signature needed since it only ever arrives
+ * over an already-authenticated connection (trust doc §3.2b). Sent either
+ * right after a fresh registration (while the connection is in the
+ * "awaiting approval" phase) or by an already-connected, known Principal
+ * asking for more.
+ */
+export interface CapabilityRequestPayload {
+  requestedCapabilities: string[];
+}
+
+/** Mirrors AuthChallengePayload exactly — same mechanics, service:"certificate" instead of "auth". */
+export interface CertChallengePayload {
+  sessionId: string;
+  data: string;
+}
+
+export interface CertIssuedPayload {
+  certId: string;
+  /** Base64 Challenger certificate bytes — the agent's own copy of what was just issued. */
+  certificate: string;
+}
+
+export interface CertFailedPayload {
   reason: string;
 }

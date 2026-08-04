@@ -83,8 +83,13 @@ model CapabilityCertificate {
   capabilities       Json      @default("[]")
   resourceLimits     Json?
   scope              Json?
+  // "packcert" (trust doc §3.2a — packages/policy's signCert wire format, request+grant as two
+  // nested tokens) or "challenger" (§3.2b — the library's native Challenger certificate, issued
+  // interactively over a live service:"certificate" exchange; pk1/pk2/sign1/sign2 are already a
+  // native dual-signature, so there is no separate nested request token for these rows).
+  certFormat         String    @default("packcert")
   certificate        String
-  requestCertificate String
+  requestCertificate String?
   status             String    @default("active")
   // DID of the issuer, or "system:bootstrap" for the first-admin exception (§4.5).
   issuedBy           String?
@@ -121,6 +126,13 @@ model PendingRegistration {
   initiatedByUserId     String?
   targetWorkspaceId     String?
   createdAt             DateTime @default(now())
+  // DID of the admin who approved this — carried onto the eventual
+  // CapabilityCertificate.issuedBy once delivered.
+  approvedBy            String?
+  // Set once the approved capabilities have actually been delivered via a live
+  // service:"certificate" exchange (trust doc §3.2b) — null means "approved,
+  // waiting for the agent to be connected." Approval alone never sets this.
+  deliveredAt           DateTime?
 
   @@index([did])
 }

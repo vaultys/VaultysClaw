@@ -35,7 +35,7 @@ function RawToken({ token }: { token: string }) {
  * msgpack-encoded body) and the signature bytes over it. Shown separately
  * from "decoded payload" so "what is exactly signed" isn't left implicit.
  */
-function SignatureAnatomy({ token }: { token: DecodedToken }) {
+function SignatureAnatomy({ token, noSignedBody }: { token: DecodedToken; noSignedBody?: string }) {
   return (
     <div className="grid grid-cols-1 gap-3">
       <div>
@@ -44,6 +44,8 @@ function SignatureAnatomy({ token }: { token: DecodedToken }) {
         </div>
         {token.signedBodyBase64 ? (
           <RawToken token={token.signedBodyBase64} />
+        ) : noSignedBody ? (
+          <p className="text-xs text-foreground-400">{noSignedBody}</p>
         ) : (
           <p className="text-xs text-danger-600">Could not unpack — malformed token.</p>
         )}
@@ -80,6 +82,7 @@ export default async function CertificateDetailPage({
 
   const principal = await PrincipalDAO.findByDid(cert.agentDid);
   const inspected = await inspectCertificate(
+    cert.certFormat as "packcert" | "challenger",
     cert.certificate,
     cert.requestCertificate,
     principal?.publicKey ?? null
@@ -178,7 +181,11 @@ export default async function CertificateDetailPage({
 
       <section className="space-y-3">
         <div className="flex items-center gap-2">
-          <h2 className="text-sm font-semibold text-foreground-700">Grant (control-plane signed)</h2>
+          <h2 className="text-sm font-semibold text-foreground-700">
+            {inspected.certFormat === "challenger"
+              ? "Certificate (interactively co-signed)"
+              : "Grant (control-plane signed)"}
+          </h2>
           {inspected.grantVerified ? (
             <span className="flex items-center gap-1 text-xs text-success-700">
               <ShieldCheck className="w-3.5 h-3.5" /> Signature verified
@@ -193,46 +200,64 @@ export default async function CertificateDetailPage({
           <div className="text-xs text-foreground-500 mb-1">Decoded payload</div>
           <JsonBlock value={inspected.grant.decoded} />
         </div>
-        <SignatureAnatomy token={inspected.grant} />
+        <SignatureAnatomy
+          token={inspected.grant}
+          noSignedBody={
+            inspected.certFormat === "challenger"
+              ? "Not applicable — a Challenger certificate's pk1/pk2/sign1/sign2 fields (shown above) are already a native dual signature, not a single signed body + detached signature pair."
+              : undefined
+          }
+        />
         <div>
           <div className="text-xs text-foreground-500 mb-1">Raw token (wire format — length-prefixed body + signature)</div>
           <RawToken token={inspected.grant.raw} />
         </div>
       </section>
 
-      <section className="space-y-3">
-        <div className="flex items-center gap-2">
-          <h2 className="text-sm font-semibold text-foreground-700">
-            Embedded request (the co-signature)
-          </h2>
-          {inspected.requestVerifiedBy === "principal" && (
-            <span className="flex items-center gap-1 text-xs text-success-700">
-              <ShieldCheck className="w-3.5 h-3.5" /> Signed by the Principal itself
-            </span>
-          )}
-          {inspected.requestVerifiedBy === "control-plane" && (
-            <span className="flex items-center gap-1 text-xs text-warning-700">
-              <ShieldCheck className="w-3.5 h-3.5" /> Signed by the control plane — system/admin-issued,
-              not requested by the Principal
-            </span>
-          )}
-          {inspected.requestVerifiedBy === null && (
-            <span className="flex items-center gap-1 text-xs text-foreground-400">
-              <ShieldQuestion className="w-3.5 h-3.5" /> Could not verify (no public key on record for
-              this Principal)
-            </span>
-          )}
-        </div>
-        <div>
-          <div className="text-xs text-foreground-500 mb-1">Decoded payload</div>
-          <JsonBlock value={inspected.request.decoded} />
-        </div>
-        <SignatureAnatomy token={inspected.request} />
-        <div>
-          <div className="text-xs text-foreground-500 mb-1">Raw token (wire format — length-prefixed body + signature)</div>
-          <RawToken token={inspected.request.raw} />
-        </div>
-      </section>
+      {inspected.certFormat === "packcert" && inspected.request && (
+        <section className="space-y-3">
+          <div className="flex items-center gap-2">
+            <h2 className="text-sm font-semibold text-foreground-700">
+              Embedded request (the co-signature)
+            </h2>
+            {inspected.requestVerifiedBy === "principal" && (
+              <span className="flex items-center gap-1 text-xs text-success-700">
+                <ShieldCheck className="w-3.5 h-3.5" /> Signed by the Principal itself
+              </span>
+            )}
+            {inspected.requestVerifiedBy === "control-plane" && (
+              <span className="flex items-center gap-1 text-xs text-warning-700">
+                <ShieldCheck className="w-3.5 h-3.5" /> Signed by the control plane — system/admin-issued,
+                not requested by the Principal
+              </span>
+            )}
+            {inspected.requestVerifiedBy === null && (
+              <span className="flex items-center gap-1 text-xs text-foreground-400">
+                <ShieldQuestion className="w-3.5 h-3.5" /> Could not verify (no public key on record for
+                this Principal)
+              </span>
+            )}
+          </div>
+          <div>
+            <div className="text-xs text-foreground-500 mb-1">Decoded payload</div>
+            <JsonBlock value={inspected.request.decoded} />
+          </div>
+          <SignatureAnatomy token={inspected.request} />
+          <div>
+            <div className="text-xs text-foreground-500 mb-1">Raw token (wire format — length-prefixed body + signature)</div>
+            <RawToken token={inspected.request.raw} />
+          </div>
+        </section>
+      )}
+
+      {inspected.certFormat === "challenger" && (
+        <p className="text-xs text-foreground-400">
+          This certificate was issued interactively (docs/CERTIFICATE_WEB_OF_TRUST.md §3.2b): the
+          control plane and the Principal each signed in the same live exchange, so there is no
+          separate embedded request token to inspect — pk1/pk2/sign1/sign2 above already show both
+          sides&apos; signatures natively.
+        </p>
+      )}
 
       <p className="text-xs text-foreground-400">
         Status-check history (who has queried this certificate&apos;s live status, and when) isn&apos;t

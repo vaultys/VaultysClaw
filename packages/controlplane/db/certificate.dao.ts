@@ -25,8 +25,11 @@ export class CapabilityCertificateDAO {
     capabilities: AgentCapability[];
     resourceLimits?: ResourceLimits | null;
     scope?: CertScope | null;
+    /** "packcert" (default) or "challenger" — trust doc §3.2a vs §3.2b. */
+    certFormat?: "packcert" | "challenger";
     certificate: string;
-    requestCertificate: string;
+    /** Only meaningful for "packcert" rows — the embedded request token. Omit for "challenger" rows. */
+    requestCertificate?: string | null;
     /** null = does not auto-expire (rare — docs/CERTIFICATE_WEB_OF_TRUST.md §3.3). */
     expiresAt: number | null;
     issuedBy?: string | null;
@@ -39,8 +42,9 @@ export class CapabilityCertificateDAO {
         capabilities: input.capabilities as never,
         resourceLimits: (input.resourceLimits ?? null) as never,
         scope: (input.scope ?? null) as never,
+        certFormat: input.certFormat ?? "packcert",
         certificate: input.certificate,
-        requestCertificate: input.requestCertificate,
+        requestCertificate: input.requestCertificate ?? null,
         expiresAt: input.expiresAt !== null ? new Date(input.expiresAt) : null,
         issuedBy: input.issuedBy ?? null,
       },

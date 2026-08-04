@@ -7,11 +7,16 @@
  * for), then either auto-connect a known Principal or persist a
  * PendingRegistration for an unknown one.
  *
- * Deliberately does not yet implement: capability_request/grant over the
- * wire (needs an admin-approval UI to be meaningful — the primitives already
- * exist in lib/certificates.ts, ready to be called once that UI exists), or
- * the WebRTC/PeerJS transport (trust doc §4.4 — `AgentSender` is already
- * shaped for it, see lib/agent-sender.ts).
+ * Also implements the interactive capability-issuance flow
+ * (docs/CERTIFICATE_WEB_OF_TRUST.md §3.2b): a connected Principal sends a
+ * plain `capability_request`; once an admin approves it
+ * (lib/registrations.ts), the control plane proactively runs a second,
+ * separate Challenger exchange over the SAME connection with
+ * `service: "certificate"` instead of `"auth"` — same mechanics as the auth
+ * handshake, different purpose, per the protocol's own protocol/service
+ * discriminator. Deliberately not yet implemented: the WebRTC/PeerJS
+ * transport (trust doc §4.4 — `AgentSender` is already shaped for it, see
+ * lib/agent-sender.ts).
  */
 import { randomBytes, randomUUID } from "crypto";
 import type { WebSocket, WebSocketServer } from "ws";
@@ -20,6 +25,7 @@ import pino from "pino";
 import {
   verifyCertStatusRequestCert,
   signCertStatusResponseCert,
+  type AgentCapability,
   type CertificateStatus,
 } from "@vaultysclaw/policy";
 import { PrincipalDAO, PendingRegistrationDAO, CapabilityCertificateDAO, ServerIdentityDAO } from "@/db";
@@ -28,6 +34,10 @@ import type {
   AuthChallengePayload,
   AuthCompletePayload,
   AuthFailedPayload,
+  CapabilityRequestPayload,
+  CertChallengePayload,
+  CertFailedPayload,
+  CertIssuedPayload,
   CertStatusRequestPayload,
   CertStatusResponsePayload,
   ErrorPayload,
@@ -41,6 +51,7 @@ const logger = pino({ name: "ws-server" });
 const Buf = vCrypto.Buffer;
 
 const HANDSHAKE_TIMEOUT_MS = 30_000;
+const DEFAULT_GRANT_TTL_MS = 365 * 24 * 60 * 60 * 1000;
 
 /** Same two-condition check as packages/shared's `verifyProtocol` — inlined rather than
  * pulling in a dependency on the legacy shared package for one pure 2-line helper. */
@@ -63,16 +74,46 @@ interface ConnectedPrincipal {
   name: string;
   kind: string;
   sender: AgentSender;
-  /** The Principal's own public-key VaultysId, from the completed handshake — used to verify anything they sign afterward (cert_status_request, future capability_request). */
+  /** The Principal's own public-key VaultysId, from the completed handshake — used to verify anything they sign afterward (cert_status_request). */
   remoteVid: VaultysId;
   connectedAt: Date;
   lastSeen: Date;
+}
+
+/** A connection that completed auth but is awaiting admin approval — tracked so a later
+ *  `capability_request` message on the same still-open socket can be tied back to its row. */
+interface AwaitingApproval {
+  did: string;
+  registrationId: string;
+}
+
+/** In-flight `service: "certificate"` exchange (trust doc §3.2b) — mirrors `PendingConnection`
+ *  but for issuance rather than initial auth, over an already-authenticated connection. */
+interface CertIssuanceState {
+  sessionId: string;
+  registrationId: string;
+  capabilities: AgentCapability[];
+  challenger: Challenger | null;
+}
+
+const globalForWsServer = globalThis as unknown as { __wsServerInstance?: ControlPlaneWSServer };
+
+/** Set by server.ts after construction — lets Server Actions (lib/registrations.ts) reach the
+ *  live connection map from the Next.js request-handling side of the same process. */
+export function setWSServerInstance(instance: ControlPlaneWSServer): void {
+  globalForWsServer.__wsServerInstance = instance;
+}
+
+export function getWSServerInstance(): ControlPlaneWSServer | null {
+  return globalForWsServer.__wsServerInstance ?? null;
 }
 
 export class ControlPlaneWSServer {
   private pending = new Map<AgentSender, PendingConnection>();
   private connected = new Map<string, ConnectedPrincipal>();
   private connectedBySender = new Map<AgentSender, string>();
+  private awaitingApproval = new Map<AgentSender, AwaitingApproval>();
+  private certIssuance = new Map<AgentSender, CertIssuanceState>();
 
   constructor(wss: WebSocketServer) {
     wss.on("connection", (ws: WebSocket) => this.handleConnection(ws));
@@ -86,6 +127,52 @@ export class ControlPlaneWSServer {
     return this.connected.has(did);
   }
 
+  /**
+   * Called by lib/registrations.ts right after an admin approves a
+   * PendingRegistration. If the agent is connected right now, immediately
+   * starts the certificate-issuance exchange and returns true; otherwise
+   * returns false and delivery waits for the agent's next `auth` handshake
+   * (see `deliverIfApproved`, invoked from the `existing` branch of
+   * `handleAuthChallenge` below).
+   *
+   * A first-time registrant is still sitting on the same open socket in
+   * `awaitingApproval` — it never went through the "existing Principal"
+   * reconnect branch, so it was never promoted into `connected`. Promote it
+   * now rather than forcing a reconnect just to receive its own grant.
+   */
+  async deliverApprovedCapabilities(did: string): Promise<boolean> {
+    const approved = await PendingRegistrationDAO.findApprovedUndelivered(did);
+    if (!approved) return false;
+    const capabilities = approved.assignedCapabilities as AgentCapability[];
+
+    for (const [sender, awaiting] of this.awaitingApproval) {
+      if (awaiting.did !== did) continue;
+      this.awaitingApproval.delete(sender);
+      const remoteVid = approved.publicKey
+        ? VaultysId.fromId(Buf.from(approved.publicKey, "base64") as never).toVersion(1)
+        : null;
+      if (remoteVid) {
+        this.connected.set(did, {
+          did,
+          name: approved.name,
+          kind: approved.kind,
+          sender,
+          remoteVid,
+          connectedAt: new Date(),
+          lastSeen: new Date(),
+        });
+        this.connectedBySender.set(sender, did);
+      }
+      this.startCertificateIssuance(sender, approved.id, capabilities);
+      return true;
+    }
+
+    const principal = this.connected.get(did);
+    if (!principal) return false;
+    this.startCertificateIssuance(principal.sender, approved.id, capabilities);
+    return true;
+  }
+
   // ─── Connection lifecycle ───────────────────────────────────────────────
 
   private handleConnection(ws: WebSocket): void {
@@ -97,6 +184,8 @@ export class ControlPlaneWSServer {
 
   private handleClose(sender: AgentSender): void {
     this.pending.delete(sender);
+    this.awaitingApproval.delete(sender);
+    this.certIssuance.delete(sender);
     const did = this.connectedBySender.get(sender);
     if (did) {
       this.connectedBySender.delete(sender);
@@ -126,6 +215,12 @@ export class ControlPlaneWSServer {
         return;
       case "cert_status_request":
         void this.handleCertStatusRequest(sender, message.payload as CertStatusRequestPayload);
+        return;
+      case "capability_request":
+        void this.handleCapabilityRequest(sender, message.payload as CapabilityRequestPayload);
+        return;
+      case "cert_challenge":
+        void this.handleCertChallenge(sender, message.payload as CertChallengePayload);
         return;
       default:
         this.sendError(sender, `Unhandled message type: ${message.type}`);
@@ -224,6 +319,10 @@ export class ControlPlaneWSServer {
         } satisfies AuthChallengePayload);
 
         logger.info({ did, kind: existing.kind }, "Principal reconnected");
+
+        // A grant may have been approved while this Principal was offline —
+        // deliver it now that they're back (trust doc §3.2b).
+        void this.deliverApprovedCapabilities(did);
         return;
       }
 
@@ -242,6 +341,7 @@ export class ControlPlaneWSServer {
           requestedCapabilities: [],
         });
       }
+      this.awaitingApproval.set(sender, { did, registrationId });
 
       this.sendMessage(sender, "registration_pending", {
         registrationId,
@@ -273,6 +373,157 @@ export class ControlPlaneWSServer {
     principal.lastSeen = new Date();
     void PrincipalDAO.touchLastSeen(did);
     this.sendMessage(sender, "pong", {});
+  }
+
+  /**
+   * A plain, unsigned request (trust doc §3.2b) — no signature needed since
+   * it only ever arrives over an already-authenticated connection. Creates
+   * or updates a PendingRegistration; an admin decides from there
+   * (lib/registrations.ts).
+   */
+  private async handleCapabilityRequest(
+    sender: AgentSender,
+    payload: CapabilityRequestPayload
+  ): Promise<void> {
+    const awaiting = this.awaitingApproval.get(sender);
+    if (awaiting) {
+      await PendingRegistrationDAO.updateRequestedCapabilities(
+        awaiting.registrationId,
+        payload.requestedCapabilities
+      );
+      logger.info(
+        { registrationId: awaiting.registrationId, capabilities: payload.requestedCapabilities },
+        "Capability request recorded for pending registration"
+      );
+      return;
+    }
+
+    const did = this.connectedBySender.get(sender);
+    if (!did) {
+      this.sendError(sender, "Not authenticated");
+      return;
+    }
+
+    const principal = this.connected.get(did);
+    const existingPending = await PendingRegistrationDAO.findPendingByDid(did);
+    if (existingPending) {
+      await PendingRegistrationDAO.updateRequestedCapabilities(
+        existingPending.id,
+        payload.requestedCapabilities
+      );
+      return;
+    }
+
+    const registrationId = randomUUID();
+    await PendingRegistrationDAO.create({
+      id: registrationId,
+      did,
+      publicKey: principal ? Buf.from(principal.remoteVid.id).toString("base64") : null,
+      sessionId: randomBytes(16).toString("hex"),
+      name: principal?.name ?? did,
+      kind: principal?.kind ?? "openclaw",
+      requestedCapabilities: payload.requestedCapabilities,
+    });
+    logger.info({ did, registrationId }, "Connected Principal requested additional capabilities");
+  }
+
+  /** Proactively prompts a connected Principal into a service:"certificate" exchange — same
+   *  mechanics as handleRegister's opening auth_challenge, different purpose. */
+  private startCertificateIssuance(
+    sender: AgentSender,
+    registrationId: string,
+    capabilities: AgentCapability[]
+  ): void {
+    const sessionId = randomBytes(16).toString("hex");
+    this.certIssuance.set(sender, { sessionId, registrationId, capabilities, challenger: null });
+    this.sendMessage(sender, "cert_challenge", { sessionId, data: "" } satisfies CertChallengePayload);
+    logger.info({ registrationId }, "Initiating certificate issuance exchange");
+  }
+
+  private async handleCertChallenge(sender: AgentSender, payload: CertChallengePayload): Promise<void> {
+    const state = this.certIssuance.get(sender);
+    if (!state || state.sessionId !== payload.sessionId) {
+      this.sendError(sender, "No matching certificate session");
+      return;
+    }
+
+    try {
+      const serverVid = await ServerIdentityDAO.getServerVaultysId();
+      const isFirstRound = !state.challenger;
+      if (!state.challenger) {
+        state.challenger = new Challenger(serverVid);
+      }
+      const challenger = state.challenger;
+
+      // Embed the approved capabilities as metadata on our first real update — same pattern
+      // packages/control-plane's auth-handler.ts uses for the auth flow's capability metadata.
+      // The library's own type declaration says Record<string,string>, but its runtime
+      // serializes arbitrary JSON-safe values; this repo already relies on that (see
+      // auth-handler.ts's identical cast) rather than hand-rolling a second encoding.
+      const metadata = isFirstRound
+        ? ({ capabilities: state.capabilities } as unknown as Record<string, string>)
+        : undefined;
+      await challenger.update(Buf.from(payload.data, "base64"), metadata);
+
+      const certificate = challenger.getCertificate();
+      const certB64 = Buf.from(certificate).toString("base64");
+
+      if (challenger.hasFailed()) {
+        this.failCertIssuance(sender, state, challenger.challenge?.error ?? "Challenge failed");
+        return;
+      }
+      if (challenger.getContext().service !== "certificate") {
+        this.failCertIssuance(sender, state, "Unexpected service — expected 'certificate'");
+        return;
+      }
+
+      if (!challenger.isComplete()) {
+        this.sendMessage(sender, "cert_challenge", {
+          sessionId: state.sessionId,
+          data: certB64,
+        } satisfies CertChallengePayload);
+        return;
+      }
+
+      // Complete — both sides mutually proved presence. Persist and deliver.
+      this.certIssuance.delete(sender);
+
+      const registration = await PendingRegistrationDAO.findById(state.registrationId);
+      if (!registration) {
+        this.sendMessage(sender, "cert_failed", {
+          reason: "Registration no longer exists",
+        } satisfies CertFailedPayload);
+        return;
+      }
+
+      const certId = randomUUID();
+      await CapabilityCertificateDAO.create({
+        id: certId,
+        agentDid: registration.did,
+        workspaceId: registration.targetWorkspaceId,
+        capabilities: state.capabilities,
+        certFormat: "challenger",
+        certificate: certB64,
+        expiresAt: Date.now() + DEFAULT_GRANT_TTL_MS,
+        issuedBy: registration.approvedBy,
+      });
+      await PendingRegistrationDAO.markDelivered(registration.id);
+
+      this.sendMessage(sender, "cert_issued", {
+        certId,
+        certificate: certB64,
+      } satisfies CertIssuedPayload);
+      logger.info({ did: registration.did, certId }, "Capability certificate delivered via live exchange");
+    } catch (err) {
+      logger.error({ err }, "Error during certificate issuance exchange");
+      this.failCertIssuance(sender, state, "Internal error");
+    }
+  }
+
+  private failCertIssuance(sender: AgentSender, state: CertIssuanceState, reason: string): void {
+    this.certIssuance.delete(sender);
+    this.sendMessage(sender, "cert_failed", { reason } satisfies CertFailedPayload);
+    logger.warn({ registrationId: state.registrationId, reason }, "Certificate issuance failed");
   }
 
   /**

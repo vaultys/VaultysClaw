@@ -78,14 +78,17 @@ the source of truth. `Policy` rows become a *view/config* over it (what an admin
 
 ### 3.2 Request → co-signed issuance
 
-Reuse the existing cert primitives exactly as-is
-(`signCert`/`openCert`, [`sign.ts`](../packages/policy/src/certs/sign.ts)) — no changes needed to
-`packages/policy`'s core codec. Add two new typed wrappers alongside
-`intent.ts`/`delegation.ts`/`peer-grant.ts`:
+Two distinct issuance paths exist, because two distinct situations exist: sometimes there's a live
+counterpart to negotiate with, sometimes there isn't.
+
+#### 3.2a No live counterpart — system/admin-issued (`packages/policy`'s `capability-grant.ts`)
+
+Used for the bootstrap admin grant and for an admin approving a `PendingRegistration` whose agent
+isn't currently connected. Reuses the existing cert primitives exactly as-is (`signCert`/`openCert`,
+[`sign.ts`](../packages/policy/src/certs/sign.ts)):
 
 ```ts
 // packages/policy/src/certs/capability-grant.ts
-
 export interface CapabilityRequestBody {
   type: "capability_request";
   agentDid: string;
@@ -94,35 +97,67 @@ export interface CapabilityRequestBody {
   nonce: string;
   issuedAt: number;
 }
-// signCapabilityRequestCert(agentVid, body) -- signed BY THE AGENT
+// signCapabilityRequestCert(vid, body) -- signed by whoever is vouching (the control plane
+// itself, self-authored, when there's no live agent to ask — trust doc's signSystemRequestCert)
 
 export interface CapabilityGrantBody {
   type: "capability_grant";
-  certId: string;               // stable id, used by the status-check protocol
+  certId: string;
   agentDid: string;
   workspaceId: string | null;
   grantedCapabilities: AgentCapability[];
   resourceLimits: ResourceLimits | null;
-  requestCert: string;          // the agent's own signed request, embedded verbatim
+  requestCert: string;          // the embedded request — signed by the SAME key as the grant here
   issuedAt: number;
-  expiresAt: number;
+  expiresAt: number | null;
 }
 // signCapabilityGrantCert(controlPlaneVid, body) -- signed BY THE CONTROL PLANE
 ```
 
-This *is* the co-signature the design calls for, using only the existing primitive: the control
-plane's signature covers a payload that embeds the agent's own signed request. Anyone holding
-just the control plane's public key can verify the grant; anyone who additionally wants to confirm
-the agent actually asked for exactly these rights (not a broader grant fabricated by an admin
-mistake or a compromised control plane) can unpack `requestCert` with the agent's public key too.
-No changes to `codec.ts`/`sign.ts`; this is a pure addition, same pattern as `delegation.ts`.
+The control plane's signature covers a payload that embeds a request signed by the same key —
+that's the honest audit signal for this path: nobody outside asked for this, the system/an admin
+decided it directly (see `packages/controlplane/CLAUDE.md`'s `issueAdminGrant`).
 
-Flow over the existing WS channel: agent sends a new `capability_request` message
-([`channel-types.ts`](../packages/shared/src/channel-types.ts) gets a new variant) → control plane
-evaluates against workspace defaults / admin approval (reuses the existing
-`PendingRegistration`-style approval UI, not a new one) → issues `capability_grant`, persists a
-`CapabilityCertificate` row, calls the existing `applyPolicy` path
-([`ws-server.ts:2359`](../packages/control-plane/lib/ws-server.ts)) to push it live.
+#### 3.2b A connected agent — interactive issuance over a live `service: "certificate"` exchange
+
+Used whenever the agent asking for capabilities is actually online: the SRP-style `Challenger`
+protocol underneath VaultysId is multipurpose by design — `protocol`/`service` are plain strings
+that discriminate *what* an exchange is for, and `metadata` carries whatever that purpose needs.
+`service: "auth"` is a connection handshake; `service: "certificate"` is the same mechanism used to
+*issue* a certificate interactively instead. This is deliberately not a variant of 3.2a's
+`signCert`-based format — it's the library's own `Challenger` certificate (`pk1`/`pk2`/`sign1`/
+`sign2`/`metadata`), which is a **native** dual-signature artifact (both parties' keys and
+signatures as first-class fields, not one token nested inside another) and, importantly, is
+**independently verifiable later by anyone**, offline, via `Challenger.verifyCertificate()` /
+`Challenger.fromCertificate()` — the same "check it without replaying the session" property 3.2a's
+format has, just gained natively instead of by embedding a token inside a token.
+
+The full flow:
+
+1. **Request** — a connected agent sends a plain `capability_request` message (`{
+   requestedCapabilities, scope? }`) over its already-authenticated connection. No signature on the
+   message itself — the connection already proved identity via the `auth` exchange; this message
+   only needs to arrive over that authenticated channel. It creates (or updates) a
+   `PendingRegistration` row with real `requestedCapabilities` — the same row type used for a brand
+   new unknown-DID registration, generalized to also cover "an existing Principal wants more."
+2. **Admin decision** — refuse (`denyPendingRegistration`), accept as requested, or accept with
+   different capabilities than requested (the approval form defaults its checkboxes to what was
+   requested but the admin can freely change them before submitting — "accept but modify" is the
+   same action as "accept," just with edited input).
+3. **Delivery is a live exchange, not an immediate write.** Approval marks the registration
+   `approved` with `deliveredAt: null` — it does not mint a certificate yet. If the agent is
+   currently connected, the control plane immediately prompts a new `service: "certificate"`
+   `Challenger` round (proactively sending an empty-data challenge, exactly how `auth_challenge` is
+   today) embedding the approved capabilities as metadata; the resulting completed certificate is
+   what gets persisted as `CapabilityCertificate.certificate`, and `deliveredAt` is stamped. If the
+   agent isn't connected, delivery simply waits: the next time that DID completes the `auth`
+   handshake, the control plane checks for an approved-but-undelivered registration and runs the
+   certificate exchange right after `auth_complete`, before anything else.
+
+This means an agent-negotiated grant requires **both** the agent and the control plane to be
+mutually, cryptographically present at the moment of issuance — a stronger liveness guarantee than
+3.2a's path, which is exactly why 3.2a stays reserved for the cases with no live counterpart to
+hold up their end of the exchange, rather than becoming the universal mechanism.
 
 ### 3.3 Ledger schema (additive Prisma migration)
 
@@ -133,8 +168,14 @@ model CapabilityCertificate {
   workspaceId       String?
   capabilities      Json      @default("[]")
   resourceLimits    Json?
-  certificate       String                   // the signed capability_grant token (base64)
-  requestCertificate String                  // the agent's signed request, for audit
+  // "packcert" (3.2a: packages/policy's signCert wire format) or "challenger" (3.2b: the
+  // library's native Challenger certificate) — the two formats are structurally different,
+  // so anything that decodes/verifies this row branches on this field first.
+  certFormat        String    @default("packcert")
+  certificate       String                   // the cert itself (base64) — shape depends on certFormat
+  requestCertificate String?                 // packcert only: the embedded request, for audit.
+                                              // null for "challenger" rows — the co-signature is
+                                              // already native to `certificate` (pk1/pk2/sign1/sign2).
   status            String    @default("active") // active | revoked | superseded | expired
   issuedAt          DateTime  @default(now())
   expiresAt         DateTime?                  // null = does not auto-expire (rare — see below)

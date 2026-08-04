@@ -11,12 +11,18 @@ import { BreadcrumbProvider } from "./BreadcrumbContext";
  * authentication/capability gate lives in app/admin/layout.tsx (a server
  * component); this only renders once that gate has already passed.
  */
-export default function AppShell({ children }: { children: React.ReactNode }) {
+export default function AppShell({
+  children,
+  orgName,
+}: {
+  children: React.ReactNode;
+  orgName: string;
+}) {
   return (
     <BreadcrumbProvider>
       <ToolbarProvider>
         <div className="flex h-screen overflow-hidden bg-background text-foreground">
-          <Sidebar />
+          <Sidebar orgName={orgName} />
           <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
             <TopBar />
             <Toolbar />

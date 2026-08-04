@@ -9,7 +9,7 @@ production traffic here until the cutover is deliberate.
 ## Status
 
 Backend core, the WebSocket connection lifecycle, VaultysId QR login, the full admin navigation
-shape (real + placeholder pages), real Actors/Certificates/Workspaces pages, the Access Portal
+shape (real + placeholder pages), real Actors/Certificates/Workspaces/Settings pages, the Access Portal
 shell, and the design system (ported from `packages/control-plane`) are built.
 
 - **Design system**: `app/theme.css` (the adaptive CSS-variable palette, light/dark via `.dark`),
@@ -193,6 +193,14 @@ shell, and the design system (ported from `packages/control-plane`) are built.
   Component boundary from a page that fetches its own data; `PageChrome` doesn't bridge it (yet)).
   Budgets & Model Access is a `ComingSoon`-style stub — needs the token-budget/model-registry schema
   this rebuild hasn't ported (rebuild doc §8, step 4+).
+- **`app/admin/settings/{page.tsx,actions.ts}` + `lib/org-settings.ts`** (docs/PAGE_DESIGN.md §1.9)
+  — Server identity (a plain read of `ServerIdentityDAO.getServerVaultysId()`, no new state);
+  Trust policy (`updateTrustPolicyAction` persists `trust.failMode`/`trust.stapleTtlSeconds` as
+  `Setting` rows, trust doc §5.3 — genuinely written, not yet read by any verifier, and the page
+  says so); General (`updateGeneralSettingsAction` sets `org.name`, which `app/admin/layout.tsx`
+  reads and threads through `AppShell` → `Sidebar` as the `orgName` prop — the one piece of this
+  page that's fully wired end to end, not just persisted). `lib/org-settings.ts` centralizes the
+  `Setting` key strings and defaults so the page, its actions, and the layout can't drift on them.
 - `server.ts` runs the actual Next.js custom-server pattern (HTTP + Next.js pages/API + WS, all in
   one process — same shape as `packages/control-plane`'s `server.ts`).
 
@@ -213,6 +221,11 @@ repeatable tests (see deferred).
   `cert_status_response` whose issuance is also correctly persisted as a `CertStatusCheck` row
   (`requesterDid`, `status`, `checkedAt`), readable back via `CertStatusCheckDAO.listForCert` and
   rendered on the certificate detail page.
+- **Settings**, end to end in a real browser: changing the organization name updates the sidebar
+  immediately on the next render (proving the `layout.tsx` → `AppShell` → `Sidebar` prop-threading
+  actually works, not just that the value persisted); saving the trust policy form with its default
+  values round-trips correctly (`trust.failMode: "closed"`, `trust.stapleTtlSeconds: "0"` confirmed
+  in the DB after submit).
 - **Dev-mode double-SRP bootstrap**, both at the protocol layer (calling `UserLoginChannel.
   handleRequest` directly, driving both Challenger rounds by hand) and end to end in a real
   browser against a live dev server on a freshly reset database: clicking "Connect without the app"
@@ -270,11 +283,17 @@ repeatable tests (see deferred).
   implemented. (The login flow's own PeerJS/WebRTC usage is separate and already built.)
 - Everything the remaining placeholder pages describe: Audit Log (unified signed IntentLog/
   ActivityLog), Integrations (OIDC/Entra, API Keys, Webhooks, Notification Channels, Model
-  Registry), Settings (server identity display, org-wide trust policy). Actors, Certificates, and
-  Workspaces (Overview/Actors/Access tabs — Budgets & Model Access still a stub) are real. The
-  certificate detail page (§1.5's signature-chain view) is built
-  (`app/admin/certificates/[id]/page.tsx`) and its status-check-history section is real too — see
-  `CertStatusCheckDAO` below.
+  Registry). Actors, Certificates, Workspaces (Overview/Actors/Access tabs — Budgets & Model
+  Access still a stub), and Settings are real. The certificate detail page (§1.5's signature-chain
+  view) is built (`app/admin/certificates/[id]/page.tsx`) and its status-check-history section is
+  real too — see `CertStatusCheckDAO` below.
+- **Trust policy enforcement.** `/admin/settings` genuinely persists `trust.failMode`/
+  `trust.stapleTtlSeconds` (trust doc §5.3), but nothing reads them yet — no verifier in this
+  rebuild consumes `packages/policy`'s `verifyCertStatusResponseCert(vid, token, maxAgeMs)` with a
+  `maxAgeMs` derived from the staple TTL. The Settings page says so directly rather than implying
+  enforcement that doesn't exist. Per-workspace override columns (trust doc §5.3's `Workspace.
+  certFailMode`/`certStapleTtlSeconds`) also aren't added to the schema yet — org-wide is the only
+  level today.
 - A human's `name`/email is now editable from the Actor detail page (`updateActorAction`), but a
   freshly registered human still starts as `name: "Unnamed"` with no email — no first-login
   profile-completion prompt yet, it's admin-driven only.

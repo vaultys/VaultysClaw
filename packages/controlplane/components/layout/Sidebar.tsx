@@ -37,7 +37,7 @@ function itemActive(item: NavItem, pathname: string) {
   return item.exact ? pathname === item.href : pathname.startsWith(item.href);
 }
 
-export default function Sidebar() {
+export default function Sidebar({ orgName }: { orgName: string }) {
   const pathname = usePathname();
 
   return (
@@ -47,7 +47,7 @@ export default function Sidebar() {
           V
         </span>
         <span className="font-semibold text-foreground text-sm tracking-tight truncate">
-          VaultysClaw
+          {orgName}
         </span>
       </div>
 

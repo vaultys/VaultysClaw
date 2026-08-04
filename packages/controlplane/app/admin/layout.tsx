@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth-config";
 import { hasCapability } from "@/lib/access-control";
 import AppShell from "@/components/layout/AppShell";
+import { SettingsDAO } from "@/db";
+import { DEFAULT_ORG_NAME, SETTINGS_KEYS } from "@/lib/org-settings";
 
 /**
  * The admin console's capability gate (docs/PAGE_DESIGN.md §0): a route
@@ -32,5 +34,7 @@ export default async function AdminLayout({
     );
   }
 
-  return <AppShell>{children}</AppShell>;
+  const orgName = (await SettingsDAO.get(SETTINGS_KEYS.orgName)) ?? DEFAULT_ORG_NAME;
+
+  return <AppShell orgName={orgName}>{children}</AppShell>;
 }

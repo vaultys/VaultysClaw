@@ -43,4 +43,11 @@ export class UserDAO {
   static async updateEmail(did: string, email: string | null): Promise<void> {
     await prisma.user.update({ where: { did }, data: { email } });
   }
+
+  /** Marks the one-time first-login profile-completion prompt (app/welcome) as done — called
+   *  whether the human actually filled in the form or explicitly skipped it, and immediately at
+   *  creation time for an invite-based registration (which already has a real name/email). */
+  static async markProfileCompleted(did: string): Promise<void> {
+    await prisma.user.update({ where: { did }, data: { profileCompletedAt: new Date() } });
+  }
 }

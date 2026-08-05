@@ -2,13 +2,18 @@ import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth-config";
 import { hasCapability } from "@/lib/access-control";
+import { UserDAO } from "@/db";
 import LandingPage from "@/components/marketing/LandingPage";
 
 /** Marketing root for an anonymous visitor; routes a signed-in human to whichever surface their
- *  certificates grant. */
+ *  certificates grant — after the one-time first-login profile-completion prompt (app/welcome),
+ *  if they haven't been through it yet. */
 export default async function HomePage() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.did) return <LandingPage />;
+
+  const actor = await UserDAO.findByDid(session.user.did);
+  if (actor?.kind === "human" && !actor.humanProfile?.profileCompletedAt) redirect("/welcome");
 
   if (await hasCapability(session.user.did, "admin_console_access")) redirect("/admin");
   if (await hasCapability(session.user.did, "portal_access")) redirect("/portal");

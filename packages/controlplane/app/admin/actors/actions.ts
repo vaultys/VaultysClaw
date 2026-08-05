@@ -112,6 +112,10 @@ export async function updateActorAction(formData: FormData): Promise<void> {
     const email = (formData.get("email") as string)?.trim();
     await UserDAO.updateEmail(did, email || null);
     changes.push(...diffFields({ email: beforeEmail }, { email: email || null }, ["email"]));
+    // An admin fixing up a human's profile counts as "done" too — otherwise this human would
+    // still hit the first-login prompt (app/welcome) on their next sign-in despite already having
+    // a real name here.
+    await UserDAO.markProfileCompleted(did);
   }
   const performedBy = { did: session.user.did, name: session.user.name ?? "Unnamed" };
   await recordEvent({

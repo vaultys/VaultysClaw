@@ -88,6 +88,13 @@ model User {
   did       String   @id
   email     String?  @unique
   createdAt DateTime @default(now())
+  // Null means this human hasn't been through the one-time first-login profile-completion
+  // prompt (app/welcome) yet — set the moment they either submit or explicitly skip it. A human
+  // created via an invite (lib/user-login-channel.ts's registerHumanFromInvitation) already has a
+  // real name/email from the invite, so it's set immediately at creation there instead — the
+  // prompt is only for the plain self-registration path, which otherwise leaves every fresh human
+  // named "Unnamed" with no admin-driven way to fix it themselves.
+  profileCompletedAt DateTime?
 
   actor Actor @relation(fields: [did], references: [did], onDelete: Cascade)
 }

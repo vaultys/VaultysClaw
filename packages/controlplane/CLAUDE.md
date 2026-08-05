@@ -564,6 +564,23 @@ OIDC/Entra linking for humans (mirroring `packages/control-plane`'s `EntraIdenti
 stays deferred per the existing schema-minimalism rule below — nothing added here ahead of that
 feature actually being built.
 
+## First-login profile completion
+
+A plainly self-registered human (QR/dev-mode at `/login`, no invite involved) starts as
+`Actor.name: "Unnamed"` with no email — previously fixable only by an admin, from the Actor detail
+page. `app/welcome/{page.tsx,actions.ts}` is a one-time prompt closing that gap: `app/page.tsx`
+redirects a signed-in human there first, before its usual admin/portal capability routing, whenever
+`User.profileCompletedAt` is still null; the page lets them set their own name/email
+(`completeProfileAction`, recorded as a normal `actor.updated` audit event — it genuinely is one,
+just self-initiated, `performedBy` is the human themselves) or explicitly skip
+(`skipProfileAction`, no profile change, just marks the prompt done so it doesn't nag every login).
+
+`profileCompletedAt` is set at three points, not just here: immediately at creation for an
+invite-onboarded human (`lib/user-login-channel.ts`'s `registerHumanFromInvitation` — already has a
+real name/email from the invite, no need to ask again), and also whenever an admin edits a human's
+profile from the Actor detail page (`app/admin/actors/actions.ts`'s `updateActorAction`) — otherwise
+a human an admin had already renamed would still hit this prompt on their next sign-in.
+
 ## Human onboarding via invite
 
 An admin can invite a specific human directly (`/admin/actors/invite`) instead of only waiting for
@@ -762,9 +779,6 @@ repeatable tests (see deferred).
   enforcement that doesn't exist. Per-workspace override columns (trust doc §5.3's `Workspace.
   certFailMode`/`certStapleTtlSeconds`) also aren't added to the schema yet — org-wide is the only
   level today.
-- A human's `name`/email is now editable from the Actor detail page (`updateActorAction`), but a
-  freshly registered human still starts as `name: "Unnamed"` with no email — no first-login
-  profile-completion prompt yet, it's admin-driven only.
 - Model Registry, OIDC/Entra — added to the schema and this package only once each is actually
   being built (Webhooks and Notification Channels already are, see above).
 - A Docker-gated integration test suite (mirroring the root project's `vitest.config.docker.mjs`

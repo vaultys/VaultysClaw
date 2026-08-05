@@ -91,6 +91,9 @@ async function registerHumanFromInvitation(
 
   const actor = await UserDAO.ensureExists(did, invitation.name, invitation.email, publicKey);
   await InvitationDAO.markRedeemed(invitation.tokenHash, did);
+  // Already has a real name/email from the invite — skip the first-login profile-completion
+  // prompt (app/welcome) entirely, unlike the plain self-registration path.
+  await UserDAO.markProfileCompleted(did);
 
   const capabilities = invitation.capabilities as AgentCapability[];
   if (capabilities.length > 0) {

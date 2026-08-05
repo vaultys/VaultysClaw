@@ -12,12 +12,12 @@ import { PendingRegistrationDAO, ActorDAO } from "@/db";
 import { getWSServerInstance } from "./ws-server";
 import { allowedCapabilitiesForKind } from "./capabilities";
 import { enqueueWebhook } from "./webhook-queue";
-import { actorPayload } from "./webhook-payloads";
+import { actorPayload, actorAdminUrl, buildAdminUrl, type PerformedBy } from "./webhook-payloads";
 
 export async function approvePendingRegistration(
   registrationId: string,
   capabilities: AgentCapability[],
-  approverDid: string
+  approver: PerformedBy
 ): Promise<void> {
   const registration = await PendingRegistrationDAO.findById(registrationId);
   if (!registration || registration.status !== "pending") {
@@ -31,7 +31,10 @@ export async function approvePendingRegistration(
     publicKey: registration.publicKey,
     workspaceId: registration.targetWorkspaceId,
   });
-  void enqueueWebhook({ eventType: "actor.approved", payload: actorPayload(actor) });
+  void enqueueWebhook({
+    eventType: "actor.approved",
+    payload: { ...actorPayload(actor), performedBy: approver, adminUrl: actorAdminUrl(actor.did) },
+  });
 
   // Filtered against an allow-list per kind, not trusted as-is — a sensor's only capability
   // today is "process_read" (lib/capabilities.ts); anything else submitted for it is dropped
@@ -43,7 +46,7 @@ export async function approvePendingRegistration(
   await PendingRegistrationDAO.approve(
     registrationId,
     grantedCapabilities,
-    approverDid,
+    approver.did,
     registration.targetWorkspaceId
   );
 
@@ -53,7 +56,7 @@ export async function approvePendingRegistration(
   await getWSServerInstance()?.deliverApprovedCapabilities(registration.did);
 }
 
-export async function denyPendingRegistration(registrationId: string): Promise<void> {
+export async function denyPendingRegistration(registrationId: string, denier: PerformedBy): Promise<void> {
   const registration = await PendingRegistrationDAO.findById(registrationId);
   if (!registration || registration.status !== "pending") {
     throw new Error("Registration not found or already resolved");
@@ -61,6 +64,14 @@ export async function denyPendingRegistration(registrationId: string): Promise<v
   await PendingRegistrationDAO.deny(registrationId);
   void enqueueWebhook({
     eventType: "actor.denied",
-    payload: { did: registration.did, name: registration.name, kind: registration.kind },
+    payload: {
+      did: registration.did,
+      name: registration.name,
+      kind: registration.kind,
+      performedBy: denier,
+      // No Actor row exists for a denied registration — link to the list, not a detail page that
+      // would 404.
+      adminUrl: buildAdminUrl("/admin/actors"),
+    },
   });
 }

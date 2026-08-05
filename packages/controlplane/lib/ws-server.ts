@@ -38,6 +38,7 @@ import {
 } from "@/db";
 import { persistChallengerCertificate } from "./certificates";
 import { enqueueWebhook } from "./webhook-queue";
+import { buildAdminUrl } from "./webhook-payloads";
 import { WsSender, type AgentSender } from "./agent-sender";
 import type {
   AuthChallengePayload,
@@ -369,7 +370,15 @@ export class ControlPlaneWSServer {
         });
         void enqueueWebhook({
           eventType: "actor.registration_requested",
-          payload: { did, name: pending.name, kind: pending.kind, registrationId },
+          payload: {
+            did,
+            name: pending.name,
+            kind: pending.kind,
+            registrationId,
+            // No human origin — an agent's own connection attempt, not an admin action — and no
+            // Actor row exists yet either, so this links to the list, not a detail page.
+            adminUrl: buildAdminUrl("/admin/actors"),
+          },
         });
       }
       this.awaitingApproval.set(sender, { did, registrationId });

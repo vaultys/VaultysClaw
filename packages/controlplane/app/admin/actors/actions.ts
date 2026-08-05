@@ -8,7 +8,7 @@ import { ActorDAO, ActorLinkDAO, UserDAO } from "@/db";
 import { encodeDidParam } from "@/lib/actor-route";
 import { geocodeCity } from "@/lib/geocode";
 import { enqueueWebhook } from "@/lib/webhook-queue";
-import { actorPayload } from "@/lib/webhook-payloads";
+import { actorPayload, actorAdminUrl } from "@/lib/webhook-payloads";
 import type { AgentCapability } from "@vaultysclaw/policy";
 
 export async function approveRegistrationAction(formData: FormData): Promise<void> {
@@ -18,14 +18,23 @@ export async function approveRegistrationAction(formData: FormData): Promise<voi
   const registrationId = formData.get("registrationId") as string;
   const capabilities = formData.getAll("capabilities") as AgentCapability[];
 
-  await approvePendingRegistration(registrationId, capabilities, session.user.did);
+  await approvePendingRegistration(registrationId, capabilities, {
+    did: session.user.did,
+    name: session.user.name ?? "Unnamed",
+  });
   revalidatePath("/admin/actors");
   revalidatePath("/admin");
 }
 
 export async function denyRegistrationAction(formData: FormData): Promise<void> {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.did) throw new Error("Not authenticated");
+
   const registrationId = formData.get("registrationId") as string;
-  await denyPendingRegistration(registrationId);
+  await denyPendingRegistration(registrationId, {
+    did: session.user.did,
+    name: session.user.name ?? "Unnamed",
+  });
   revalidatePath("/admin/actors");
   revalidatePath("/admin");
 }
@@ -50,7 +59,14 @@ export async function updateActorAction(formData: FormData): Promise<void> {
     const email = (formData.get("email") as string)?.trim();
     await UserDAO.updateEmail(did, email || null);
   }
-  void enqueueWebhook({ eventType: "actor.updated", payload: actorPayload(updated) });
+  void enqueueWebhook({
+    eventType: "actor.updated",
+    payload: {
+      ...actorPayload(updated),
+      performedBy: { did: session.user.did, name: session.user.name ?? "Unnamed" },
+      adminUrl: actorAdminUrl(updated.did),
+    },
+  });
 
   revalidatePath(`/admin/actors/${encodeDidParam(did)}`);
   revalidatePath("/admin/actors");

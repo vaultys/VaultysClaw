@@ -249,6 +249,25 @@ describe("renderNotification", () => {
   it("returns null for an event type with no template", () => {
     expect(renderNotification({ ...JOB, eventType: "does.not.exist" })).toBeNull();
   });
+
+  it("appends who did it and a link back to the admin console when present", () => {
+    const r = renderNotification({
+      ...JOB,
+      payload: {
+        ...JOB.payload,
+        performedBy: { did: "did:vaultys:admin", name: "Alex" },
+        adminUrl: "https://app.example/admin/workspaces/ws-1",
+      },
+    });
+    expect(r!.body).toContain("By: Alex");
+    expect(r!.body).toContain("View: https://app.example/admin/workspaces/ws-1");
+  });
+
+  it("omits the footer entirely when performedBy/adminUrl are absent (e.g. no human origin)", () => {
+    const r = renderNotification(JOB);
+    expect(r!.body).not.toContain("By:");
+    expect(r!.body).not.toContain("View:");
+  });
 });
 
 describe("selectNotificationTargets", () => {

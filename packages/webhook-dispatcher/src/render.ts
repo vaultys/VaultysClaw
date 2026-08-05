@@ -77,10 +77,27 @@ const RENDERERS: Record<string, Renderer> = {
   }),
 };
 
+/**
+ * Appended to every rendered body, uniformly, rather than repeated in each renderer above:
+ * who did it (`performedBy: {did, name}`, attached at the emission site in
+ * packages/controlplane — absent for events with no human origin, e.g. an agent's own
+ * `actor.registration_requested`) and a deep link back into the admin console
+ * (`adminUrl`, also attached at the emission site — `null`/absent when neither `APP_URL` nor
+ * `NEXTAUTH_URL` is configured there, rather than a link that can't resolve to anything).
+ */
+function appendFooter(body: string, payload: Record<string, unknown>): string {
+  const lines: string[] = [body];
+  const performedBy = payload.performedBy as { name?: string } | undefined;
+  if (performedBy?.name) lines.push(`By: ${performedBy.name}`);
+  if (typeof payload.adminUrl === "string" && payload.adminUrl) lines.push(`View: ${payload.adminUrl}`);
+  return lines.join("\n");
+}
+
 /** Renders a job into a Notification Channel payload, or null for an event type with no template
  *  — the caller should skip Notification Channel delivery for that job, not send a blank alert. */
 export function renderNotification(job: WebhookJob): RenderedNotification | null {
   const renderer = RENDERERS[job.eventType];
   if (!renderer) return null;
-  return renderer(job.payload);
+  const rendered = renderer(job.payload);
+  return { ...rendered, body: appendFooter(rendered.body, job.payload) };
 }

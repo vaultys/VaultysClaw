@@ -346,6 +346,18 @@ pattern everywhere else.
   this package's actual domain objects. Deliberately excludes an Actor's `kindConfig` (kind-specific,
   not guaranteed safe/meaningful) and location fields, and a certificate's raw `certificate`/
   `requestCertificate` bytes.
+- **`performedBy` / `adminUrl`** — attached at each emission site (every call site already has
+  `session.user` or an `approver`/`denier` parameter; the payload builders above don't, so this
+  isn't baked into them) rather than derived downstream: `performedBy: {did, name}` is the admin
+  who did it (absent for events with no human origin, e.g. `actor.registration_requested` — an
+  agent's own connection attempt), and `adminUrl` (`buildAdminUrl`/`actorAdminUrl` in
+  `webhook-payloads.ts`, built from `APP_URL`/`NEXTAUTH_URL`) is an absolute deep link back to the
+  relevant page — `/admin/actors` (list, not a DID-keyed detail page) for
+  `registration_requested`/`denied`, since no Actor row exists yet for either; the specific
+  detail/edit page for everything else. Both fields ride along on the raw Webhook payload too
+  (an external system may find a deep-link just as useful), and are what
+  `packages/webhook-dispatcher/src/render.ts` appends to every Notification Channel body ("By: …" /
+  "View: …") — see that package's CLAUDE.md.
 - **Admin UI** (`app/admin/integrations/{page.tsx,actions.ts,webhooks/*}`): list, create, edit,
   toggle active, delete, regenerate secret. The one-time secret reveal
   (`webhooks/NewWebhookForm.tsx`, `webhooks/RegenerateSecretButton.tsx`) is a new pattern for this

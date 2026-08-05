@@ -9,6 +9,37 @@
  * location. `stripSensitive` is a recursive defence-in-depth pass applied by
  * `enqueueWebhook` on top of these, never the primary protection.
  */
+import { encodeDidParam } from "./actor-route";
+
+/**
+ * Who actually did this — attached at each emission site (call sites know their own admin
+ * session; the payload builders below don't), not derived here. Absent for events with no human
+ * origin (e.g. an agent's own `actor.registration_requested`).
+ */
+export interface PerformedBy {
+  did: string;
+  name: string;
+}
+
+/**
+ * An absolute deep link back into this admin console, for a human reading a rendered Notification
+ * Channel message (packages/webhook-dispatcher/src/render.ts appends it to the body) — and,
+ * incidentally, also included on the raw Webhook payload, where an external system integration
+ * may find it just as useful. `null` when neither `APP_URL` nor `NEXTAUTH_URL` is configured,
+ * rather than emitting a link that can't actually resolve to anything.
+ */
+export function buildAdminUrl(path: string): string | null {
+  const base = process.env.APP_URL || process.env.NEXTAUTH_URL;
+  if (!base) return null;
+  return `${base.replace(/\/+$/, "")}${path}`;
+}
+
+/** `/admin/actors/<did>` only resolves once the Actor row actually exists (i.e. after approval) —
+ *  call sites for events where it doesn't yet (registration_requested, denied) should link to the
+ *  Actors list instead. */
+export function actorAdminUrl(did: string): string | null {
+  return buildAdminUrl(`/admin/actors/${encodeDidParam(did)}`);
+}
 
 const SENSITIVE_KEY =
   /secret|password|passwd|apikey|api_key|keyhash|token|privatekey|private_key|credential|virtualkey|enc$/i;

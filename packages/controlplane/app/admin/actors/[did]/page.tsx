@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, MapPin } from "lucide-react";
 import { CapabilityCertificateDAO, ActorDAO, ActorLinkDAO, UserDAO, WorkspaceDAO } from "@/db";
 import PageChrome from "@/components/layout/PageChrome";
+import { ActorKindBadge } from "@/components/ActorKindBadge";
 import { revokeCertificateAction } from "@/app/admin/certificates/actions";
 import {
   updateActorAction,
@@ -12,13 +13,6 @@ import {
 } from "../actions";
 import { decodeDidParam, encodeDidParam } from "@/lib/actor-route";
 import type { CertScope } from "@vaultysclaw/policy";
-
-const KIND_BADGE: Record<string, string> = {
-  openclaw: "bg-primary-100 text-primary-700 border-primary-200",
-  mcp: "bg-secondary-100 text-secondary-700 border-secondary-200",
-  sensor: "bg-neutral-100 text-foreground-600 border-neutral-200",
-  human: "bg-success-100 text-success-700 border-success-200",
-};
 
 const STATUS_BADGE: Record<string, string> = {
   active: "bg-success-100 text-success-700 border-success-200",
@@ -55,6 +49,8 @@ export default async function ActorDetailPage({
   const activeCount = certs.filter((c) => c.status === "active").length;
   const hasLocation = actor.locationLat !== null && actor.locationLon !== null;
   const linkableActors = allActors.filter((a) => a.did !== did);
+  const owner = actor.ownerDid ? allActors.find((a) => a.did === actor.ownerDid) : null;
+  const ownedActors = allActors.filter((a) => a.ownerDid === did);
 
   return (
     <div className="p-6 max-w-3xl space-y-8">
@@ -79,12 +75,9 @@ export default async function ActorDetailPage({
           <h1 className="text-lg font-semibold text-foreground">{actor.name}</h1>
           <p className="text-xs text-foreground-500 font-mono mt-0.5">{actor.did}</p>
         </div>
-        <span
-          className={`text-xs px-2.5 py-1 rounded-full border shrink-0 ${KIND_BADGE[actor.kind] ?? "bg-neutral-100 text-foreground-600 border-neutral-200"
-            }`}
-        >
-          {actor.kind}
-        </span>
+        <div className="shrink-0">
+          <ActorKindBadge kind={actor.kind} />
+        </div>
       </div>
 
       <section className="grid grid-cols-2 gap-4 text-sm">
@@ -233,6 +226,27 @@ export default async function ActorDetailPage({
               />
             </div>
           )}
+          {actor.kind !== "human" && (
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1.5">Owned by</label>
+              <select
+                name="ownerDid"
+                defaultValue={actor.ownerDid ?? ""}
+                className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background"
+              >
+                <option value="">No owner</option>
+                {linkableActors.map((a) => (
+                  <option key={a.did} value={a.did}>
+                    {a.name} ({a.kind})
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-foreground-400 mt-1">
+                The actor this one belongs to / acts for (e.g. a device belonging to a human or an
+                agent) — descriptive only today, not yet enforced by any certificate.
+              </p>
+            </div>
+          )}
           <button
             type="submit"
             className="px-4 py-2 bg-primary-600 hover:bg-primary-500 text-white text-sm font-medium rounded-lg transition-colors"
@@ -329,6 +343,45 @@ export default async function ActorDetailPage({
               )}
             </tbody>
           </table>
+        </div>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-sm font-semibold text-foreground-700">Ownership</h2>
+        <p className="text-xs text-foreground-400">
+          Which actor this one belongs to / acts for, and which actors belong to it — see the
+          &quot;Owned by&quot; field in Edit above. Descriptive only today, not yet enforced by any
+          certificate.
+        </p>
+        <div className="space-y-2">
+          {owner && (
+            <div className="border border-neutral-200/60 rounded-lg bg-background-100 px-3 py-2 text-sm">
+              <span className="text-foreground-500">Belongs to</span>{" "}
+              <Link
+                href={`/admin/actors/${encodeDidParam(owner.did)}`}
+                className="text-foreground hover:text-primary-600 hover:underline"
+              >
+                {owner.name}
+              </Link>
+            </div>
+          )}
+          {ownedActors.map((a) => (
+            <div
+              key={a.did}
+              className="border border-neutral-200/60 rounded-lg bg-background-100 px-3 py-2 text-sm"
+            >
+              <span className="text-foreground-500">Owns</span>{" "}
+              <Link
+                href={`/admin/actors/${encodeDidParam(a.did)}`}
+                className="text-foreground hover:text-primary-600 hover:underline"
+              >
+                {a.name}
+              </Link>
+            </div>
+          ))}
+          {!owner && ownedActors.length === 0 && (
+            <p className="text-sm text-foreground-400">No ownership relationships recorded yet.</p>
+          )}
         </div>
       </section>
 

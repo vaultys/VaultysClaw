@@ -3,7 +3,9 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { WorkspaceDAO, ActorDAO, CapabilityCertificateDAO } from "@/db";
 import PageChrome from "@/components/layout/PageChrome";
+import { ActorKindBadge } from "@/components/ActorKindBadge";
 import { encodeDidParam } from "@/lib/actor-route";
+import { categoryForKind } from "@/lib/actor-kinds";
 import { updateWorkspaceAction, assignActorWorkspaceAction } from "../actions";
 import type { CertScope } from "@vaultysclaw/policy";
 
@@ -15,13 +17,6 @@ const TABS = [
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
-
-const KIND_BADGE: Record<string, string> = {
-  openclaw: "bg-primary-100 text-primary-700 border-primary-200",
-  mcp: "bg-secondary-100 text-secondary-700 border-secondary-200",
-  sensor: "bg-neutral-100 text-foreground-600 border-neutral-200",
-  human: "bg-success-100 text-success-700 border-success-200",
-};
 
 function TabLink({ id, active, label }: { id: string; active: boolean; label: string }) {
   return (
@@ -69,7 +64,8 @@ export default async function WorkspaceDetailPage({
   const actorByDid = new Map(allActors.map((a) => [a.did, a]));
   const workspaceAccessCerts = activeCerts.filter((cert) => {
     const scope = cert.scope as CertScope | null;
-    return scope?.resource === `workspace:${id}` && actorByDid.get(cert.agentDid)?.kind === "human";
+    const holderKind = actorByDid.get(cert.agentDid)?.kind;
+    return scope?.resource === `workspace:${id}` && !!holderKind && categoryForKind(holderKind) === "human";
   });
 
   return (
@@ -176,13 +172,7 @@ export default async function WorkspaceDetailPage({
                       </Link>
                     </td>
                     <td className="px-4 py-2.5">
-                      <span
-                        className={`text-xs px-2 py-0.5 rounded-full border ${
-                          KIND_BADGE[a.kind] ?? "bg-neutral-100 text-foreground-600 border-neutral-200"
-                        }`}
-                      >
-                        {a.kind}
-                      </span>
+                      <ActorKindBadge kind={a.kind} />
                     </td>
                     <td className="px-4 py-2.5 text-xs text-foreground-500 font-mono">{a.did}</td>
                     <td className="px-4 py-2.5">

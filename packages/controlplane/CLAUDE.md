@@ -481,6 +481,65 @@ the same "what happened" data, just two different consumers of it.
   with a "View full Audit Log →" link, giving the posture-summary page a live pulse instead of
   only static counts.
 
+## Actor categories, devices & delegation
+
+`Actor.kind` (`openclaw` | `mcp` | `sensor` | `device` | `human`) is a flat, open-ended string with
+no grouping concept of its own — `lib/actor-kinds.ts` is now the single source of truth for what
+each kind means: `ACTOR_KIND_META` (label + `ActorCategory` + Tailwind badge class),
+`getActorKindMeta`/`categoryForKind` with a graceful fallback for an unrecognized kind. It replaces
+four previously byte-identical `KIND_BADGE` object literals (Actors list/detail, Workspace detail,
+Audit Log — all now render `<ActorKindBadge kind={...} />`, `components/ActorKindBadge.tsx`) and is
+what `app/admin/actors/page.tsx`'s Humans/Agents & Devices sections,
+`app/admin/certificates/new/page.tsx`'s optgroups, and the workspace-membership filters
+(`app/admin/workspaces/{page,[id]/page}.tsx`) all key off instead of a duplicated `"human"` literal.
+`components/map/world-map/types.ts`'s `TYPE_COLOR`/`TYPE_ONLINE_COLOR`/`MARKER_TYPES` and
+`MarkerIcon.tsx` stay a parallel set of raw-hex/icon maps (canvas rendering, not Tailwind classes) —
+each cross-references the other so a future kind addition doesn't drift between them.
+
+**`device`** — a browser, computer, or server, categorized as `agent`. It registers exactly like
+openclaw/mcp/sensor today (the generic WS `register` → `PendingRegistration` → admin-approval flow,
+`lib/ws-server.ts`/`lib/registrations.ts` are kind-agnostic already — no protocol change was needed)
+and falls into `lib/capabilities.ts`'s `AGENT_CAPABILITIES` default, same as any other non-sensor
+kind.
+
+**`Actor.ownerDid`** — a nullable self-relation recording "this actor belongs to / acts for that
+actor," settable on any non-human actor (edit form on `app/admin/actors/[did]/page.tsx`, only shown
+when `actor.kind !== "human"`) pointing at any other actor, human or agent. Shown both ways: the
+owned actor's page links "Belongs to;" the owner's page lists "Owns." **Descriptive/administrative
+only** — same caveat as the pre-existing `ActorLink` — not consulted by `packages/trust`'s
+`resolvePermission`. It exists so a device can be recorded as belonging to a human (or another
+agent) today, ahead of any real enforcement mechanism.
+
+**Delegation certificates — designed, not built.** The eventual mechanism for a device (or any
+actor) to actually act in the name of its owner, once a certificate is delivered accordingly: a
+chained, dual-signed certificate. Certificate A is an actor's normal capability grant, exactly like
+today (signed by that actor + the control plane, `packcert`/`challenger`). Certificate B delegates
+capabilities to a second actor — it carries the `delegation` capability
+(`packages/policy`'s `AgentCapability`), references A via `CapabilityCertificate.parentCertId` (a
+self-relation) and `parentCertHash` (a hash of A's `certificate` bytes recorded at delegation time,
+so a future verifier can confirm the chain even offline), names the delegator via `delegatedByDid`
+(must equal `A.agentDid`), and is signed by **both** actor 1 (the delegator) and actor 2 (the
+delegate) — **deliberately no control-plane signature**, unlike every cert format today.
+`non_delegatable` is the one piece of this that's real and usable right now, because it needs no
+new column at all: it's a plain `AgentCapability`, pickable in the certificate issuance form and the
+registration-approval flow (not sensors' — see `lib/capabilities.ts`'s comment) exactly like any
+other capability. If it appears anywhere in a certificate's `capabilities`, that whole certificate
+can never be a delegation chain's parent — not per-capability, the whole cert.
+
+**What's genuinely inert**: `CapabilityCertificate.delegatedByDid`/`parentCertId`/`parentCertHash`
+and the `delegation` capability are schema/type additions only — no DAO method, Server Action, or UI
+in this codebase ever sets them, and `delegation` is deliberately not offered in any
+capability-selection UI (exposing it today would let an admin fabricate a cert that claims to be a
+delegation without any of the actual guarantees a real one requires). Future verification, when
+built, must check in order: (1) both actors' signatures over B, (2) `parentCertHash` matches the
+live `A.certificate` bytes, (3) A is active/non-revoked/non-expired and does not carry
+`non_delegatable`, (4) every capability in `B.capabilities` is present in `A.capabilities`,
+(5) recurse if A is itself a delegation cert, up to a root cert co-signed by the control plane.
+
+OIDC/Entra linking for humans (mirroring `packages/control-plane`'s `EntraIdentity`/`OidcIdentity`)
+stays deferred per the existing schema-minimalism rule below — nothing added here ahead of that
+feature actually being built.
+
 ## Verified
 
 Everything below was exercised against a real (throwaway, Docker) Postgres and, where noted, a

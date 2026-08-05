@@ -1,26 +1,11 @@
 import Link from "next/link";
 import { ActorDAO, PendingRegistrationDAO } from "@/db";
 import PageChrome from "@/components/layout/PageChrome";
+import { ActorKindBadge } from "@/components/ActorKindBadge";
 import { encodeDidParam } from "@/lib/actor-route";
+import { categoryForKind } from "@/lib/actor-kinds";
 import { AGENT_CAPABILITIES, SENSOR_CAPABILITIES } from "@/lib/capabilities";
 import { approveRegistrationAction, denyRegistrationAction } from "./actions";
-
-const KIND_BADGE: Record<string, string> = {
-  openclaw: "bg-primary-100 text-primary-700 border-primary-200",
-  mcp: "bg-secondary-100 text-secondary-700 border-secondary-200",
-  sensor: "bg-neutral-100 text-foreground-600 border-neutral-200",
-  human: "bg-success-100 text-success-700 border-success-200",
-};
-
-function KindBadge({ kind }: { kind: string }) {
-  return (
-    <span
-      className={`text-xs px-2 py-0.5 rounded-full border ${KIND_BADGE[kind] ?? "bg-neutral-100 text-foreground-600 border-neutral-200"}`}
-    >
-      {kind}
-    </span>
-  );
-}
 
 /**
  * Actors (docs/PAGE_DESIGN.md §1.3) — unified list + the onboarding
@@ -62,7 +47,7 @@ export default async function ActorsPage() {
               <input type="hidden" name="registrationId" value={reg.id} />
               <div className="flex items-center gap-2">
                 <div className="font-medium text-foreground">{reg.name}</div>
-                <KindBadge kind={reg.kind} />
+                <ActorKindBadge kind={reg.kind} />
               </div>
               <div className="text-xs text-foreground-500 font-mono">{reg.did}</div>
               {(() => {
@@ -136,7 +121,7 @@ export default async function ActorsPage() {
                 <div>
                   <div className="flex items-center gap-2">
                     <div className="font-medium text-foreground">{reg.name}</div>
-                    <KindBadge kind={reg.kind} />
+                    <ActorKindBadge kind={reg.kind} />
                   </div>
                   <div className="text-xs text-foreground-500 font-mono mt-0.5">{reg.did}</div>
                   <div className="text-xs text-foreground-600 mt-1">
@@ -152,51 +137,68 @@ export default async function ActorsPage() {
         </section>
       )}
 
-      <section>
-        <h2 className="text-sm font-semibold text-foreground-700 mb-3">
-          Actors ({actors.length})
-        </h2>
-        <div className="overflow-x-auto border border-neutral-200/60 rounded-xl">
-        <table className="w-full text-sm bg-background-100">
-          <thead className="bg-background-200/40 text-left text-xs text-foreground-500 uppercase">
-            <tr>
-              <th className="px-4 py-2 font-medium">Name</th>
-              <th className="px-4 py-2 font-medium">Kind</th>
-              <th className="px-4 py-2 font-medium">DID</th>
-              <th className="px-4 py-2 font-medium">Registered</th>
-            </tr>
-          </thead>
-          <tbody>
-            {actors.map((p) => (
-              <tr key={p.did} className="border-t border-neutral-200/60 hover:bg-background-200/30">
-                <td className="px-4 py-2.5 text-foreground">
-                  <Link
-                    href={`/admin/actors/${encodeDidParam(p.did)}`}
-                    className="hover:text-primary-600 hover:underline"
-                  >
-                    {p.name}
-                  </Link>
-                </td>
-                <td className="px-4 py-2.5">
-                  <KindBadge kind={p.kind} />
-                </td>
-                <td className="px-4 py-2.5 text-xs text-foreground-500 font-mono">
-                  <Link
-                    href={`/admin/actors/${encodeDidParam(p.did)}`}
-                    className="hover:text-primary-600 hover:underline"
-                  >
-                    {p.did}
-                  </Link>
-                </td>
-                <td className="px-4 py-2.5 text-xs text-foreground-500">
-                  {p.registeredAt.toISOString()}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        </div>
-      </section>
+      {(() => {
+        const humans = actors.filter((p) => categoryForKind(p.kind) === "human");
+        const agentsAndDevices = actors.filter((p) => categoryForKind(p.kind) !== "human");
+        const sections = [
+          { title: "Humans", rows: humans },
+          { title: "Agents & Devices", rows: agentsAndDevices },
+        ];
+        return sections.map((section) => (
+          <section key={section.title}>
+            <h2 className="text-sm font-semibold text-foreground-700 mb-3">
+              {section.title} ({section.rows.length})
+            </h2>
+            <div className="overflow-x-auto border border-neutral-200/60 rounded-xl">
+              <table className="w-full text-sm bg-background-100">
+                <thead className="bg-background-200/40 text-left text-xs text-foreground-500 uppercase">
+                  <tr>
+                    <th className="px-4 py-2 font-medium">Name</th>
+                    <th className="px-4 py-2 font-medium">Kind</th>
+                    <th className="px-4 py-2 font-medium">DID</th>
+                    <th className="px-4 py-2 font-medium">Registered</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {section.rows.map((p) => (
+                    <tr key={p.did} className="border-t border-neutral-200/60 hover:bg-background-200/30">
+                      <td className="px-4 py-2.5 text-foreground">
+                        <Link
+                          href={`/admin/actors/${encodeDidParam(p.did)}`}
+                          className="hover:text-primary-600 hover:underline"
+                        >
+                          {p.name}
+                        </Link>
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <ActorKindBadge kind={p.kind} />
+                      </td>
+                      <td className="px-4 py-2.5 text-xs text-foreground-500 font-mono">
+                        <Link
+                          href={`/admin/actors/${encodeDidParam(p.did)}`}
+                          className="hover:text-primary-600 hover:underline"
+                        >
+                          {p.did}
+                        </Link>
+                      </td>
+                      <td className="px-4 py-2.5 text-xs text-foreground-500">
+                        {p.registeredAt.toISOString()}
+                      </td>
+                    </tr>
+                  ))}
+                  {section.rows.length === 0 && (
+                    <tr>
+                      <td colSpan={4} className="px-4 py-6 text-center text-foreground-400">
+                        None yet.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        ));
+      })()}
     </div>
   );
 }

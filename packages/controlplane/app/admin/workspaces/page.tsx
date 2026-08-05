@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Plus } from "lucide-react";
 import { WorkspaceDAO, ActorDAO, CapabilityCertificateDAO } from "@/db";
 import PageChrome from "@/components/layout/PageChrome";
+import { categoryForKind } from "@/lib/actor-kinds";
 import type { CertScope } from "@vaultysclaw/policy";
 
 /**
@@ -23,7 +24,9 @@ export default async function WorkspacesPage() {
     actorsByWorkspace.set(a.workspaceId, (actorsByWorkspace.get(a.workspaceId) ?? 0) + 1);
   }
 
-  const humanDidByActor = new Map(actors.filter((a) => a.kind === "human").map((a) => [a.did, a]));
+  const humanDidByActor = new Map(
+    actors.filter((a) => categoryForKind(a.kind) === "human").map((a) => [a.did, a])
+  );
   const membersByWorkspace = new Map<string, Set<string>>();
   for (const cert of certs) {
     const scope = cert.scope as CertScope | null;

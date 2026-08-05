@@ -56,15 +56,26 @@ model Actor {
   locationLon   Float?
   locationLabel String?
 
+  // "This actor belongs to / acts for that actor" (lib/actor-kinds.ts's `device` kind — a
+  // browser/computer/server owned by a human *or* an agent). Descriptive/administrative only:
+  // not consulted by packages/trust's resolvePermission. Real "device X acts as its owner"
+  // enforcement is future work, via the delegation-certificate chain described on
+  // CapabilityCertificate below — this field just records the relationship in the meantime, and
+  // will remain useful as a display concept even once that lands.
+  ownerDid String?
+  owner    Actor?  @relation("ActorOwnership", fields: [ownerDid], references: [did], onDelete: SetNull)
+
   workspace       Workspace?               @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
   certificates    CapabilityCertificate[]
   humanProfile    User?
   sensorWorkloads SensorWorkload[]
   linksFrom       ActorLink[]              @relation("ActorLinkFrom")
   linksTo         ActorLink[]              @relation("ActorLinkTo")
+  ownedActors     Actor[]                  @relation("ActorOwnership")
 
   @@index([kind])
   @@index([workspaceId])
+  @@index([ownerDid])
 }
 
 // ─── Human profile ────────────────────────────────────────────────────────────
@@ -95,9 +106,10 @@ model CapabilityCertificate {
   resourceLimits     Json?
   scope              Json?
   // "packcert" (trust doc §3.2a — packages/policy's signCert wire format, request+grant as two
-  // nested tokens) or "challenger" (§3.2b — the library's native Challenger certificate, issued
+  // nested tokens), "challenger" (§3.2b — the library's native Challenger certificate, issued
   // interactively over a live service:"certificate" exchange; pk1/pk2/sign1/sign2 are already a
-  // native dual-signature, so there is no separate nested request token for these rows).
+  // native dual-signature, so there is no separate nested request token for these rows), or
+  // "delegation" (not yet produced by any code — see the three fields + doc note below).
   certFormat         String    @default("packcert")
   certificate        String
   requestCertificate String?
@@ -111,12 +123,29 @@ model CapabilityCertificate {
   revokedReason      String?
   supersededByCertId String?
 
-  agent     Actor  @relation(fields: [agentDid], references: [did], onDelete: Cascade)
-  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
-  statusChecks CertStatusCheck[]
+  // ─ Delegation-chain groundwork (packages/controlplane/CLAUDE.md "Actor categories, devices &
+  // delegation") — schema only, nothing in this codebase sets these three fields yet. The design:
+  // a future `certFormat: "delegation"` row (cert B) delegates capabilities from this row's holder
+  // (cert A, held by `delegatedByDid`) to a second actor (this row's own `agentDid`), co-signed by
+  // both actors — deliberately no control-plane signature, unlike packcert/challenger above.
+  // `parentCertHash` records a hash of A's `certificate` bytes at delegation time, so a future
+  // verifier can confirm B truly chains to that exact A even offline. A's own `capabilities`
+  // carrying the plain "non_delegatable" capability (packages/policy's AgentCapability) means A can
+  // never be such a chain's parent at all, full stop — see that type's doc comment for the full
+  // future verification algorithm.
+  delegatedByDid String?
+  parentCertId   String?
+  parentCertHash String?
+
+  agent          Actor                   @relation(fields: [agentDid], references: [did], onDelete: Cascade)
+  workspace      Workspace?              @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  statusChecks   CertStatusCheck[]
+  parentCert     CapabilityCertificate?  @relation("CertDelegation", fields: [parentCertId], references: [id], onDelete: SetNull)
+  delegatedCerts CapabilityCertificate[] @relation("CertDelegation")
 
   @@index([agentDid, status])
   @@index([expiresAt])
+  @@index([parentCertId])
 }
 
 // ─── Certificate status-check history ────────────────────────────────────────

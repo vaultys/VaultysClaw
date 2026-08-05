@@ -97,6 +97,7 @@ export function actorPayload(a: AnyRecord): AnyRecord {
     name: a.name,
     kind: a.kind,
     workspaceId: a.workspaceId ?? null,
+    ownerDid: a.ownerDid ?? null,
     registeredAt: a.registeredAt ?? null,
     lastSeen: a.lastSeen ?? null,
   };

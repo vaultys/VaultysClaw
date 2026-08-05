@@ -40,7 +40,8 @@ export async function denyRegistrationAction(formData: FormData): Promise<void> 
 }
 
 /** Edits an Actor's own record — name/workspace for any kind, email additionally for humans
- *  (`User` is a 1:1 profile extension, see `packages/controlplane/CLAUDE.md`'s Actor/User note). */
+ *  (`User` is a 1:1 profile extension, see `packages/controlplane/CLAUDE.md`'s Actor/User note),
+ *  and `ownerDid` ("belongs to / acts for") for any non-human kind. */
 export async function updateActorAction(formData: FormData): Promise<void> {
   const session = await getServerSession(authOptions);
   if (!session?.user?.did) throw new Error("Not authenticated");
@@ -48,13 +49,15 @@ export async function updateActorAction(formData: FormData): Promise<void> {
   const did = formData.get("did") as string;
   const name = (formData.get("name") as string)?.trim();
   const workspaceId = (formData.get("workspaceId") as string) || null;
+  const ownerDid = (formData.get("ownerDid") as string) || null;
   if (!did || !name) throw new Error("Name is required");
+  if (ownerDid === did) throw new Error("An Actor can't be its own owner");
 
   const actor = await ActorDAO.findByDid(did);
   if (!actor) throw new Error("Actor not found");
 
-  const updated = await ActorDAO.update(did, { name, workspaceId });
-  const changes = diffFields(actor, updated, ["name", "workspaceId"]);
+  const updated = await ActorDAO.update(did, { name, workspaceId, ownerDid });
+  const changes = diffFields(actor, updated, ["name", "workspaceId", "ownerDid"]);
 
   if (actor.kind === "human") {
     const beforeEmail = (await UserDAO.findByDid(did))?.humanProfile?.email ?? null;

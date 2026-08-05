@@ -43,7 +43,7 @@ export interface ProtocolMessage {
 
 export interface RegisterPayload {
   name: string;
-  /** Open-ended — "openclaw" | "mcp" | "sensor" | future kinds (§4.2). Not human; humans onboard via login, not this handshake. */
+  /** Open-ended — "openclaw" | "mcp" | "sensor" | "device" | future kinds (§4.2, lib/actor-kinds.ts). Not human; humans onboard via login, not this handshake. */
   kind: string;
 }
 

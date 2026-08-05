@@ -42,16 +42,19 @@ export class ActorDAO {
     return prisma.actor.findMany({ where: { did: { in: dids } } });
   }
 
-  /** Admin-editable fields only — `did`/`kind`/`publicKey` are captured at registration and never change. */
+  /** Admin-editable fields only — `did`/`kind`/`publicKey` are captured at registration and never
+   *  change. `ownerDid` records "this actor belongs to / acts for that actor" (lib/actor-kinds.ts's
+   *  `device` kind) — descriptive/administrative only, not consulted by resolvePermission. */
   static async update(
     did: string,
-    data: { name?: string; workspaceId?: string | null }
+    data: { name?: string; workspaceId?: string | null; ownerDid?: string | null }
   ): Promise<Actor> {
     return prisma.actor.update({
       where: { did },
       data: {
         ...(data.name !== undefined ? { name: data.name } : {}),
         ...(data.workspaceId !== undefined ? { workspaceId: data.workspaceId } : {}),
+        ...(data.ownerDid !== undefined ? { ownerDid: data.ownerDid } : {}),
       },
     });
   }

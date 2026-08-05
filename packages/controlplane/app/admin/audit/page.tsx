@@ -5,13 +5,7 @@ import { getWebhookEvent } from "@vaultysclaw/shared";
 import { inspectCertificate } from "@/lib/cert-inspect";
 import { encodeDidParam } from "@/lib/actor-route";
 import PageChrome from "@/components/layout/PageChrome";
-
-const KIND_BADGE: Record<string, string> = {
-  openclaw: "bg-primary-100 text-primary-700 border-primary-200",
-  mcp: "bg-secondary-100 text-secondary-700 border-secondary-200",
-  sensor: "bg-neutral-100 text-foreground-600 border-neutral-200",
-  human: "bg-success-100 text-success-700 border-success-200",
-};
+import { ActorKindBadge } from "@/components/ActorKindBadge";
 
 function JsonBlock({ value }: { value: unknown }) {
   return (
@@ -173,8 +167,8 @@ export default async function AuditLogPage({
                     <span className="text-foreground-400 italic">system</span>
                   )}
                   {actor && (
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full border shrink-0 ${KIND_BADGE[actor.kind] ?? "bg-neutral-100 text-foreground-600 border-neutral-200"}`}>
-                      {actor.kind}
+                    <span className="shrink-0">
+                      <ActorKindBadge kind={actor.kind} />
                     </span>
                   )}
                 </span>

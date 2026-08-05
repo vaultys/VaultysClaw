@@ -32,7 +32,20 @@ export type AgentCapability =
   // Sensor-kind Actors have no general capability model (vaultysclaw-sensor
   // gates its telemetry entirely on this one flag today; more will follow as
   // the sensor grows more capabilities to gate independently).
-  | "process_read";
+  | "process_read"
+  // ── Delegation-chain groundwork (schema-only for now — see
+  // packages/controlplane/CLAUDE.md "Actor categories, devices & delegation" and
+  // CapabilityCertificate's delegatedByDid/parentCertId/parentCertHash fields there) ──
+  // A plain capability, usable today with no special-cased column: if it appears anywhere in a
+  // certificate's `capabilities`, that whole certificate can never be the parent of a future
+  // delegation chain (not per-capability — the whole cert).
+  | "non_delegatable"
+  // Reserved marker for a future delegation-format certificate (cert B: capabilities delegated
+  // from a parent cert A, co-signed by the delegator and the delegate, no control-plane
+  // signature). Not yet produced by any issuance code, and deliberately not offered in any
+  // capability-selection UI — exposing it today would let someone fabricate a cert that claims to
+  // be a delegation without the actual dual-signature/parent-chain guarantees a real one requires.
+  | "delegation";
 
 /**
  * Runtime constraints embedded in the agent certificate alongside capabilities.

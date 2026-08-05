@@ -12,6 +12,7 @@ export const AGENT_CAPABILITIES = [
   "system_command",
   "agent_communication",
   "knowledge_search",
+  "non_delegatable",
 ] as const satisfies readonly AgentCapability[];
 
 /**
@@ -21,11 +22,15 @@ export const AGENT_CAPABILITIES = [
  * being granted it. More will be added here as the sensor grows independent
  * capabilities to gate (per the roadmap, not yet built).
  */
+// Deliberately excludes "non_delegatable" — this list is kept to the one real capability so the
+// registration-approval UI's "sensors only have this one capability today" copy stays true.
 export const SENSOR_CAPABILITIES = ["process_read"] as const satisfies readonly AgentCapability[];
 
 /** The allow-list a `PendingRegistration` approval is filtered against, by the registering
  *  Actor's `kind` — see `lib/registrations.ts`. Anything not in the matching list is dropped
- *  rather than granted, even if somehow submitted (e.g. a direct form post). */
+ *  rather than granted, even if somehow submitted (e.g. a direct form post). `device` (see
+ *  `lib/actor-kinds.ts`) falls into the `AGENT_CAPABILITIES` default below, same as
+ *  openclaw/mcp — it has no smaller capability set of its own yet. */
 export function allowedCapabilitiesForKind(kind: string): readonly AgentCapability[] {
   return kind === "sensor" ? SENSOR_CAPABILITIES : AGENT_CAPABILITIES;
 }

@@ -2,7 +2,7 @@
  *  every Actor with a location set, not a separate persisted "map marker" concept. */
 export interface MapMarker {
   id: string; // Actor.did
-  type: string; // Actor.kind — openclaw/mcp/sensor/human today, open-ended per docs §4.3
+  type: string; // Actor.kind — openclaw/mcp/sensor/device/human today, open-ended per docs §4.3
   label: string; // Actor.name
   lat: number;
   lon: number;
@@ -10,11 +10,15 @@ export interface MapMarker {
   meta?: { did: string };
 }
 
+// Kept as a parallel set of raw-hex maps (canvas rendering, not Tailwind classes) rather than
+// sourced from lib/actor-kinds.ts's registry — but every kind added there (and in MarkerIcon.tsx)
+// must be added here too.
 export const TYPE_COLOR: Record<string, string> = {
   openclaw: "#6366f1",
   human: "#10b981",
   sensor: "#f59e0b",
   mcp: "#3b82f6",
+  device: "#eab308",
 };
 const DEFAULT_COLOR = "#94a3b8";
 export function typeColor(type: string): string {
@@ -26,6 +30,7 @@ export const TYPE_ONLINE_COLOR: Record<string, string> = {
   human: "#34d399",
   sensor: "#fbbf24",
   mcp: "#60a5fa",
+  device: "#facc15",
 };
 const DEFAULT_ONLINE_COLOR = "#cbd5e1";
 export function typeOnlineColor(type: string): string {
@@ -34,7 +39,7 @@ export function typeOnlineColor(type: string): string {
 
 /** Kinds in priority order, used for dominant-type and legend ordering — falls back to whatever
  *  other kind strings actually show up (docs §4.3: kinds are open-ended) after these known ones. */
-export const MARKER_TYPES = ["openclaw", "human", "sensor", "mcp"] as const;
+export const MARKER_TYPES = ["openclaw", "human", "sensor", "mcp", "device"] as const;
 
 export interface MapCluster {
   id: string;

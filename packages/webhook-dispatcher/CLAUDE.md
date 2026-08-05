@@ -24,7 +24,11 @@ partial failure only re-hits the endpoints that actually failed, and healthy
 endpoints are never double-delivered (delivery stays at-least-once per endpoint).
 
 When a job exhausts all attempts it is moved to the **dead-letter queue**
-(`WEBHOOK_DLQ_NAME = "webhooks:dead"`) as a `DeadWebhookJob` (original job +
+(`WEBHOOK_DLQ_NAME = "webhooks-dead"` — a colon, its original value, is not a
+legal BullMQ queue name; that was never caught until this file's `Queue`
+construction actually ran against real BullMQ for the first time, since
+`index.ts` is intentionally excluded from the unit tests, see Tests below) as a
+`DeadWebhookJob` (original job +
 `failedAt` + `attemptsMade` + last `error` + `deliveredEndpointIds`) instead of
 being dropped. Inspect it with any BullMQ tooling; to **replay**, re-enqueue the
 wrapped `job` on `WEBHOOK_QUEUE_NAME` (skip `deliveredEndpointIds` to avoid
@@ -62,6 +66,14 @@ webhook delivery is unaffected either way). In Docker it's the
 > **Run it with `node --import tsx`, not the bare `tsx` CLI** — same reason as the
 > notifier: `shared`'s `"tsx"` export condition resolves inconsistently. `shared`
 > must stay a native-ESM build.
+
+**This package has no `prisma/schema.prisma` of its own locally** — only Docker copies one in (see
+Prisma in Docker below), so running `pnpm webhook:dev` straight from a fresh clone fails with
+`does not provide an export named 'PrismaClient'` (the resolved `@prisma/client` was never
+generated at all). For `packages/controlplane`, `pnpm controlplane:webhook:dev` (root
+`package.json`) does the copy-and-generate step first automatically
+(`controlplane:webhook:prisma`) — use that instead of this package's own `dev` script when testing
+against that schema locally.
 
 ## Files
 

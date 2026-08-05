@@ -18,7 +18,11 @@ export const WEBHOOK_QUEUE_NAME = "webhooks";
  * attempts is moved here (as a {@link DeadWebhookJob}) instead of being dropped,
  * so failed deliveries can be inspected and replayed.
  */
-export const WEBHOOK_DLQ_NAME = "webhooks:dead";
+// BullMQ queue names may not contain ":" (reserved as its own key separator) — this was never
+// actually validated until a real Queue was constructed with it for the first time, since
+// index.ts's BullMQ/Prisma wiring is intentionally excluded from the unit tests (see that
+// package's CLAUDE.md).
+export const WEBHOOK_DLQ_NAME = "webhooks-dead";
 
 export interface WebhookEventDef {
   /** Stable catalog key, e.g. "workspace.created". */

@@ -8,7 +8,7 @@ import { ActorDAO, ActorLinkDAO, UserDAO } from "@/db";
 import { encodeDidParam } from "@/lib/actor-route";
 import { geocodeCity } from "@/lib/geocode";
 import { enqueueWebhook } from "@/lib/webhook-queue";
-import { actorPayload, actorAdminUrl } from "@/lib/webhook-payloads";
+import { actorPayload, actorAdminUrl, diffFields } from "@/lib/webhook-payloads";
 import type { AgentCapability } from "@vaultysclaw/policy";
 
 export async function approveRegistrationAction(formData: FormData): Promise<void> {
@@ -54,10 +54,13 @@ export async function updateActorAction(formData: FormData): Promise<void> {
   if (!actor) throw new Error("Actor not found");
 
   const updated = await ActorDAO.update(did, { name, workspaceId });
+  const changes = diffFields(actor, updated, ["name", "workspaceId"]);
 
   if (actor.kind === "human") {
+    const beforeEmail = (await UserDAO.findByDid(did))?.humanProfile?.email ?? null;
     const email = (formData.get("email") as string)?.trim();
     await UserDAO.updateEmail(did, email || null);
+    changes.push(...diffFields({ email: beforeEmail }, { email: email || null }, ["email"]));
   }
   void enqueueWebhook({
     eventType: "actor.updated",
@@ -65,6 +68,7 @@ export async function updateActorAction(formData: FormData): Promise<void> {
       ...actorPayload(updated),
       performedBy: { did: session.user.did, name: session.user.name ?? "Unnamed" },
       adminUrl: actorAdminUrl(updated.did),
+      changes,
     },
   });
 

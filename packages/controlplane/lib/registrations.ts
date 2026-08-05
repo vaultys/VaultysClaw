@@ -31,10 +31,6 @@ export async function approvePendingRegistration(
     publicKey: registration.publicKey,
     workspaceId: registration.targetWorkspaceId,
   });
-  void enqueueWebhook({
-    eventType: "actor.approved",
-    payload: { ...actorPayload(actor), performedBy: approver, adminUrl: actorAdminUrl(actor.did) },
-  });
 
   // Filtered against an allow-list per kind, not trusted as-is — a sensor's only capability
   // today is "process_read" (lib/capabilities.ts); anything else submitted for it is dropped
@@ -42,6 +38,18 @@ export async function approvePendingRegistration(
   const grantedCapabilities = capabilities.filter((c) =>
     allowedCapabilitiesForKind(registration.kind).includes(c)
   );
+
+  void enqueueWebhook({
+    eventType: "actor.approved",
+    payload: {
+      ...actorPayload(actor),
+      performedBy: approver,
+      adminUrl: actorAdminUrl(actor.did),
+      // Not a before/after diff (there's no prior Actor state to compare against) — what was
+      // actually granted, which is the change that matters here.
+      grantedCapabilities,
+    },
+  });
 
   await PendingRegistrationDAO.approve(
     registrationId,

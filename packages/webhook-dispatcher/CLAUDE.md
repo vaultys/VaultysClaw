@@ -104,13 +104,19 @@ against that schema locally.
   (agent/model/etc.) doesn't have Notification Channels wired up yet; that
   migration (rebuild doc §8 step 4) would add its own templates here, keyed
   the same way. Every rendered body gets a uniform footer appended
-  (`appendFooter`, not repeated per template): "By: `<name>`" from
-  `job.payload.performedBy` when present (absent for events with no human
-  origin), and "View: `<adminUrl>`" from `job.payload.adminUrl` when present.
-  Both fields are attached at the emission site in packages/controlplane
-  (`lib/webhook-payloads.ts`'s `buildAdminUrl`/`actorAdminUrl`), not derived
-  here — this file only ever reads them, keeping it free of routing/URL logic
-  for an app whose route shape it shouldn't need to know.
+  (`appendFooter`, not repeated per template), in this order: field-level
+  changes (`appendChanges`, from `job.payload.changes: FieldChange[]` — only
+  present on `*.updated` events, "Changes:\n  field: from → to" per entry,
+  `formatValue` rendering `null`/`""`/`[]` as `(none)` rather than a blank);
+  what was granted (`appendGrantedCapabilities`, from
+  `job.payload.grantedCapabilities` — `actor.approved` only, explicit
+  "(no capabilities)" rather than silence when the array is empty); "By:
+  `<name>`" from `job.payload.performedBy` when present (absent for events
+  with no human origin); and "View: `<adminUrl>`" from `job.payload.adminUrl`
+  when present. All of these are attached at the emission site in
+  packages/controlplane (`lib/webhook-payloads.ts`'s `diffFields`/
+  `buildAdminUrl`/`actorAdminUrl`), not derived here — this file only ever
+  reads them, keeping it free of that app's domain/routing logic.
 - **`src/prisma.ts`** — Prisma client (same generated client + schema as
   whichever app this instance is deployed for; pg adapter). Reads the
   `webhooks` and (if the schema has it) `notification_channels` tables.

@@ -268,6 +268,45 @@ describe("renderNotification", () => {
     expect(r!.body).not.toContain("By:");
     expect(r!.body).not.toContain("View:");
   });
+
+  it("lists field changes when present", () => {
+    const r = renderNotification({
+      ...JOB,
+      payload: {
+        ...JOB.payload,
+        changes: [
+          { field: "name", from: "Marketing", to: "Growth" },
+          { field: "description", from: null, to: "New team" },
+        ],
+      },
+    });
+    expect(r!.body).toContain("Changes:");
+    expect(r!.body).toContain("name: Marketing → Growth");
+    expect(r!.body).toContain("description: (none) → New team");
+  });
+
+  it("omits the Changes section when the list is empty", () => {
+    const r = renderNotification({ ...JOB, payload: { ...JOB.payload, changes: [] } });
+    expect(r!.body).not.toContain("Changes:");
+  });
+
+  it("lists granted capabilities on approval", () => {
+    const r = renderNotification({
+      ...JOB,
+      eventType: "actor.approved",
+      payload: { name: "sensor-1", kind: "sensor", grantedCapabilities: ["process_read"] },
+    });
+    expect(r!.body).toContain("Granted: process_read");
+  });
+
+  it("says so explicitly when nothing was granted", () => {
+    const r = renderNotification({
+      ...JOB,
+      eventType: "actor.approved",
+      payload: { name: "sensor-1", kind: "sensor", grantedCapabilities: [] },
+    });
+    expect(r!.body).toContain("Granted: (no capabilities)");
+  });
 });
 
 describe("selectNotificationTargets", () => {

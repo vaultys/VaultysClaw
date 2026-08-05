@@ -77,16 +77,47 @@ const RENDERERS: Record<string, Renderer> = {
   }),
 };
 
+function formatValue(v: unknown): string {
+  if (v === null || v === undefined || v === "") return "(none)";
+  if (Array.isArray(v)) return v.length ? v.join(", ") : "(none)";
+  return String(v);
+}
+
 /**
- * Appended to every rendered body, uniformly, rather than repeated in each renderer above:
- * who did it (`performedBy: {did, name}`, attached at the emission site in
- * packages/controlplane — absent for events with no human origin, e.g. an agent's own
- * `actor.registration_requested`) and a deep link back into the admin console
- * (`adminUrl`, also attached at the emission site — `null`/absent when neither `APP_URL` nor
- * `NEXTAUTH_URL` is configured there, rather than a link that can't resolve to anything).
+ * What actually changed on an update (`changes: FieldChange[]`, attached at the emission site in
+ * packages/controlplane — see `lib/webhook-payloads.ts`'s `diffFields`) — only present on
+ * *.updated events, since *.created/*.approved have no "before" to diff against.
+ */
+function appendChanges(lines: string[], payload: Record<string, unknown>): void {
+  const changes = payload.changes as { field: string; from: unknown; to: unknown }[] | undefined;
+  if (!changes || changes.length === 0) return;
+  lines.push("Changes:");
+  for (const c of changes) {
+    lines.push(`  ${c.field}: ${formatValue(c.from)} → ${formatValue(c.to)}`);
+  }
+}
+
+/** What was actually granted on approval — not a diff (there's no prior Actor state to compare
+ *  against), but still the change that matters for this event. */
+function appendGrantedCapabilities(lines: string[], payload: Record<string, unknown>): void {
+  const granted = payload.grantedCapabilities;
+  if (!Array.isArray(granted)) return;
+  lines.push(granted.length > 0 ? `Granted: ${granted.join(", ")}` : "Granted: (no capabilities)");
+}
+
+/**
+ * Appended to every rendered body, uniformly, rather than repeated in each renderer above: what
+ * changed (see appendChanges/appendGrantedCapabilities above), who did it (`performedBy:
+ * {did, name}`, attached at the emission site in packages/controlplane — absent for events with
+ * no human origin, e.g. an agent's own `actor.registration_requested`), and a deep link back into
+ * the admin console (`adminUrl`, also attached at the emission site — `null`/absent when neither
+ * `APP_URL` nor `NEXTAUTH_URL` is configured there, rather than a link that can't resolve to
+ * anything).
  */
 function appendFooter(body: string, payload: Record<string, unknown>): string {
   const lines: string[] = [body];
+  appendChanges(lines, payload);
+  appendGrantedCapabilities(lines, payload);
   const performedBy = payload.performedBy as { name?: string } | undefined;
   if (performedBy?.name) lines.push(`By: ${performedBy.name}`);
   if (typeof payload.adminUrl === "string" && payload.adminUrl) lines.push(`View: ${payload.adminUrl}`);

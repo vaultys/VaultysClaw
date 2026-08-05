@@ -358,6 +358,17 @@ pattern everywhere else.
   (an external system may find a deep-link just as useful), and are what
   `packages/webhook-dispatcher/src/render.ts` appends to every Notification Channel body ("By: …" /
   "View: …") — see that package's CLAUDE.md.
+- **`changes` / `grantedCapabilities`** — what actually changed, alongside who changed it.
+  `diffFields(before, after, fields)` (`webhook-payloads.ts`) compares specific fields between a
+  fetched-before-update row and the updated one, returning only the fields that actually differ
+  (`workspace.updated`: name/description/color; `actor.updated`: name/workspaceId/email — the last
+  needs an extra `UserDAO.findByDid` first, since `email` lives on the separate `User` profile, not
+  `Actor`) — attached as `changes: FieldChange[]`. There's no "before" to diff for a `*.created` or
+  `actor.approved` event; the latter instead carries `grantedCapabilities` (the filtered set
+  `approvePendingRegistration` actually persists, not the raw submitted list) as the change that
+  matters for that event. `render.ts` renders both into the body ("Changes:\n  field: from → to",
+  "Granted: …") — see that package's CLAUDE.md for the exact formatting rules (e.g. `(none)` for a
+  null/empty value, so a rendered diff never shows a bare empty string).
 - **Admin UI** (`app/admin/integrations/{page.tsx,actions.ts,webhooks/*}`): list, create, edit,
   toggle active, delete, regenerate secret. The one-time secret reveal
   (`webhooks/NewWebhookForm.tsx`, `webhooks/RegenerateSecretButton.tsx`) is a new pattern for this

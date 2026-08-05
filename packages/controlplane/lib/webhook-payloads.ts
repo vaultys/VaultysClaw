@@ -41,6 +41,32 @@ export function actorAdminUrl(did: string): string | null {
   return buildAdminUrl(`/admin/actors/${encodeDidParam(did)}`);
 }
 
+export interface FieldChange {
+  field: string;
+  from: unknown;
+  to: unknown;
+}
+
+/**
+ * What actually changed on an update — attached as `changes: FieldChange[]` alongside
+ * `performedBy`/`adminUrl` at the emission site, which is the only place that has both the
+ * before and after row (payload builders above only ever see one snapshot). Only meaningful for
+ * *.updated events; a *.created/*.approved event has no "before" to diff against, and
+ * certificate.revoked already carries its own `revokedReason` instead. Dates compare by value
+ * (`toISOString()`), not object identity, so an unrelated `updatedAt` bump alone isn't reported
+ * as every field having "changed."
+ */
+export function diffFields(before: AnyRecord, after: AnyRecord, fields: string[]): FieldChange[] {
+  const normalize = (v: unknown) => (v instanceof Date ? v.toISOString() : (v ?? null));
+  const changes: FieldChange[] = [];
+  for (const field of fields) {
+    const from = normalize(before[field]);
+    const to = normalize(after[field]);
+    if (JSON.stringify(from) !== JSON.stringify(to)) changes.push({ field, from, to });
+  }
+  return changes;
+}
+
 const SENSITIVE_KEY =
   /secret|password|passwd|apikey|api_key|keyhash|token|privatekey|private_key|credential|virtualkey|enc$/i;
 

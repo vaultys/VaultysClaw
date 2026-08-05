@@ -7,7 +7,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
 import { WorkspaceDAO, ActorDAO } from "@/db";
 import { enqueueWebhook } from "@/lib/webhook-queue";
-import { workspacePayload, buildAdminUrl } from "@/lib/webhook-payloads";
+import { workspacePayload, buildAdminUrl, diffFields } from "@/lib/webhook-payloads";
 
 function slugify(name: string): string {
   return (
@@ -58,6 +58,7 @@ export async function updateWorkspaceAction(formData: FormData): Promise<void> {
   const color = (formData.get("color") as string) || undefined;
   if (!id || !name) throw new Error("Name is required");
 
+  const before = await WorkspaceDAO.findById(id);
   const workspace = await WorkspaceDAO.update(id, { name, description: description || null, color });
   void enqueueWebhook({
     eventType: "workspace.updated",
@@ -65,6 +66,7 @@ export async function updateWorkspaceAction(formData: FormData): Promise<void> {
       ...workspacePayload(workspace),
       performedBy: { did: session.user.did, name: session.user.name ?? "Unnamed" },
       adminUrl: buildAdminUrl(`/admin/workspaces/${workspace.id}`),
+      changes: before ? diffFields(before, workspace, ["name", "description", "color"]) : [],
     },
   });
   revalidatePath(`/admin/workspaces/${id}`);

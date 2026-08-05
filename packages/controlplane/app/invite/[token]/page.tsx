@@ -71,7 +71,7 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
     await pollAndSignIn(pollToken, key);
   }, [token, pollAndSignIn]);
 
-  const startDevLogin = useCallback(async (identity?: BrowserIdData | "new") => {
+  const startDevLogin = useCallback(async (identity?: BrowserIdData) => {
     setPhase("dev-connecting");
     cancelled.current = false;
 

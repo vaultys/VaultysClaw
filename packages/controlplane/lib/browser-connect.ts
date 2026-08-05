@@ -2,11 +2,8 @@
 
 /**
  * Dev-mode login — the browser performs the VaultysId SRP handshake itself,
- * using a software identity generated and persisted in localStorage, instead
- * of a physical wallet app scanning a QR code. Ported from
- * packages/control-plane's `lib/browser-connect.ts`, trimmed to the software
- * identity path only (no PASSKEY/HARDWARE — those need a real WebAuthn
- * authenticator, not a dev convenience).
+ * instead of a physical wallet app scanning a QR code. Ported from
+ * packages/control-plane's `lib/browser-connect.ts`.
  *
  * Reuses the exact same Challenger primitive as every other login path; only
  * the transport differs (plain HTTP POSTs via BrowserChannel against
@@ -14,9 +11,19 @@
  *
  * Multiple identities can be stored side by side (not just one) so testing as
  * different humans — admin vs. a freshly invited user, say — doesn't require
- * destroying the previous identity first. `DevIdentityPicker.tsx` is the UI
- * for choosing between them; everything here is just the storage + connect
- * primitives it and the login/invite pages call into.
+ * destroying the previous identity first. Four generation types, same set
+ * packages/control-plane's `SecurityTypeSelector` offers plus one it doesn't:
+ *   - "software"     — a random key generated and stored in this browser.
+ *   - "software-pqc"  — same, but a post-quantum/classical hybrid key
+ *                        (dilithium_ed25519) — @vaultys/id already supports this
+ *                        algorithm choice; neither control-plane app actually
+ *                        used it before now, it was only ever a decorative "PQC"
+ *                        badge in packages/control-plane's login diagram.
+ *   - "passkey"       — a real WebAuthn platform authenticator (Face ID/Touch ID).
+ *   - "hardware"      — a real WebAuthn cross-platform authenticator (FIDO2 key).
+ * `DevIdentityPicker.tsx` is the UI for choosing between stored identities or
+ * generating a new one of a given type; everything here is just the storage +
+ * generation + connect primitives it and the login/invite pages call into.
  */
 
 import { BrowserChannel } from "@vaultys/channel-browser";
@@ -24,10 +31,13 @@ import { Challenger, VaultysId, crypto } from "@vaultys/id";
 
 const Buffer = crypto.Buffer;
 
+export type DevIdentityType = "software" | "software-pqc" | "passkey" | "hardware";
+
 export interface BrowserIdData {
   did: string;
   vid: string; // base64 public key
   secret: string; // base64 secret
+  type: DevIdentityType;
 }
 
 const IDENTITIES_KEY = "vaultysclaw:devIdentities";
@@ -44,8 +54,8 @@ function readIdentities(): BrowserIdData[] {
 
   const legacyRaw = localStorage.getItem(LEGACY_KEY);
   if (legacyRaw) {
-    const legacy = JSON.parse(legacyRaw) as BrowserIdData;
-    if (!list.some((i) => i.did === legacy.did)) list.push(legacy);
+    const legacy = JSON.parse(legacyRaw) as Omit<BrowserIdData, "type"> & { type?: DevIdentityType };
+    if (!list.some((i) => i.did === legacy.did)) list.push({ ...legacy, type: legacy.type ?? "software" });
     localStorage.setItem(IDENTITIES_KEY, JSON.stringify(list));
     localStorage.removeItem(LEGACY_KEY);
   }
@@ -79,12 +89,64 @@ export function removeStoredDevIdentity(did: string): void {
   persistIdentities(readIdentities().filter((i) => i.did !== did));
 }
 
-export async function generateDevIdentity(): Promise<BrowserIdData> {
-  const vaultysId = (await VaultysId.generateMachine()).toVersion(1);
+/** Ported verbatim from packages/control-plane's `getPkCred` — the only difference between a
+ *  Passkey and a Hardware key request is `authenticatorAttachment`/`residentKey` below; both are
+ *  real `navigator.credentials.create()` calls, not stubs. */
+function getPkCred(requireResidentKey: boolean): PublicKeyCredentialCreationOptions {
+  const safari = /^((?!chrome|android).)*applewebkit/i.test(navigator.userAgent);
+  const challenge = new Uint8Array(32);
+  const userId = new Uint8Array(16);
+  globalThis.crypto.getRandomValues(challenge);
+  globalThis.crypto.getRandomValues(userId);
+  return {
+    challenge,
+    rp: { name: "VaultysClaw" },
+    user: { id: userId, name: "VaultysClaw", displayName: "VaultysClaw" },
+    attestation: safari ? "none" : "direct",
+    authenticatorSelection: {
+      authenticatorAttachment: requireResidentKey ? "platform" : "cross-platform",
+      residentKey: requireResidentKey ? "required" : "discouraged",
+      userVerification: "preferred",
+    },
+    pubKeyCredParams: [
+      { type: "public-key", alg: -7 },
+      { type: "public-key", alg: -8 },
+      { type: "public-key", alg: -257 },
+    ],
+  };
+}
+
+/** Generates and stores a new dev identity of the given type — "passkey"/"hardware" trigger a
+ *  real WebAuthn prompt and can reject (e.g. the user cancels, or no authenticator is available);
+ *  callers should expect this to throw. */
+export async function generateDevIdentity(type: DevIdentityType = "software"): Promise<BrowserIdData> {
+  let vaultysId: VaultysId;
+  switch (type) {
+    case "passkey": {
+      const attestation = (await navigator.credentials.create({
+        publicKey: getPkCred(true),
+      })) as PublicKeyCredential;
+      vaultysId = (await VaultysId.fido2FromAttestation(attestation)).toVersion(1);
+      break;
+    }
+    case "hardware": {
+      const attestation = (await navigator.credentials.create({
+        publicKey: getPkCred(false),
+      })) as PublicKeyCredential;
+      vaultysId = (await VaultysId.fido2FromAttestation(attestation)).toVersion(1);
+      break;
+    }
+    case "software-pqc":
+      vaultysId = (await VaultysId.generateMachine("dilithium_ed25519")).toVersion(1);
+      break;
+    default:
+      vaultysId = (await VaultysId.generateMachine()).toVersion(1);
+  }
   const data: BrowserIdData = {
     did: vaultysId.did,
     vid: Buffer.from(vaultysId.id).toString("base64"),
     secret: vaultysId.getSecret("base64"),
+    type,
   };
   upsertIdentity(data);
   return data;
@@ -117,18 +179,16 @@ async function srp(channel: BrowserChannel, vaultysId: VaultysId, service = "aut
 /**
  * Authenticates the browser directly against the control plane, without a
  * physical wallet, using `identity` — a specific stored VaultysID (picked via
- * `DevIdentityPicker`), the literal string `"new"` to generate a fresh one, or
- * omitted entirely to fall back to whichever identity was used most recently
- * (or the first stored one, or a freshly generated one if none exist yet) —
- * the same one-click behavior this had before multiple identities existed.
- * The caller is expected to already be polling /api/public/user/listen/[token]
- * — this only completes the server-side certificate, it does not poll.
+ * `DevIdentityPicker`, which resolves "generate a new one" to a concrete
+ * identity itself before calling this) — or omitted entirely to fall back to
+ * whichever identity was used most recently (or the first stored one, or a
+ * freshly generated software one if none exist yet) — the same one-click
+ * behavior this had before multiple identities existed. The caller is
+ * expected to already be polling /api/public/user/listen/[token] — this only
+ * completes the server-side certificate, it does not poll.
  */
-export async function connectWithoutApp(key: string, identity?: BrowserIdData | "new"): Promise<void> {
-  const chosen =
-    identity === "new"
-      ? await generateDevIdentity()
-      : identity ?? getActiveIdentity() ?? readIdentities()[0] ?? (await generateDevIdentity());
+export async function connectWithoutApp(key: string, identity?: BrowserIdData): Promise<void> {
+  const chosen = identity ?? getActiveIdentity() ?? readIdentities()[0] ?? (await generateDevIdentity());
   setActiveIdentity(chosen.did);
   const vaultysId = VaultysId.fromSecret(chosen.secret, "base64").toVersion(1);
   const channel = new BrowserChannel(`${SERVER_URL}/api/public/user/request`, key);
@@ -139,8 +199,8 @@ export async function connectWithoutApp(key: string, identity?: BrowserIdData | 
  * The second SRP of the dev-mode bootstrap's double-SRP flow
  * (docs/CERTIFICATE_WEB_OF_TRUST.md §3.2b): after the login round completes
  * and `/api/public/user/listen/[token]` reports a `certRound`, the browser
- * runs this — same software identity `connectWithoutApp` just used (tracked
- * as "active" above, not just "whatever's stored"), same transport,
+ * runs this — same identity `connectWithoutApp` just used (tracked as
+ * "active" above, not just "whatever's stored"), same transport,
  * `service: "certificate"` instead of `"auth"` — to actually co-sign the
  * `admin_console_access` grant. Resolving means the certificate is already
  * persisted (see `srp`'s final `await`); there's nothing further to poll for

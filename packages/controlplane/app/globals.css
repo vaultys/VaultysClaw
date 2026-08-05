@@ -55,3 +55,56 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+html {
+  scroll-behavior: smooth;
+}
+
+/* ── Marketing/login page effects (app/page.tsx, app/login/page.tsx) ────────
+   Kept minimal and semantic (no vc-* prefix, unlike packages/control-plane's
+   equivalent) — this rebuild only ever uses these two, not a full node-diagram
+   login screen. */
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.6s ease-out both;
+}
+
+@keyframes gradientShift {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+.animate-gradient-shift {
+  background-size: 200% auto;
+  animation: gradientShift 6s ease-in-out infinite;
+}
+
+/* A faint dot grid used behind the hero/login panels — opacity carries the effect, so it reads as
+   texture rather than a busy pattern. */
+.mesh-overlay {
+  background-image: radial-gradient(rgb(var(--primary-500) / 0.35) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in-up,
+  .animate-gradient-shift {
+    animation: none;
+  }
+}

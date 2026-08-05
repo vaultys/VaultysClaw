@@ -77,24 +77,41 @@ the Access Portal shell, and the design system (ported from `packages/control-pl
   instead of `admin_console_access`: `page.tsx` (My Certificates, real data — the one portal page
   built for real, since it's a direct `CapabilityCertificateDAO` query) and `agents/page.tsx` (My
   Agents, placeholder — needs the per-kind "connect" mechanism, deferred).
-- `app/page.tsx` now routes a signed-in human to `/admin` or `/portal` based on which capability
-  they actually hold, instead of a bare "logged in" placeholder.
-- **Dev-mode login without a physical wallet** — `lib/browser-connect.ts` (client, trimmed from
-  `packages/control-plane`'s SOFTWARE-identity path only, no PASSKEY/HARDWARE), plus
+- `app/page.tsx` shows `components/marketing/LandingPage.tsx` (nav, hero, stats strip, feature
+  grid, closing CTA, footer — styled after `packages/control-plane`'s own landing page, copy
+  rewritten for this rebuild's actual features: one Actor ledger, signed capability certificates,
+  the append-only audit log, webhooks/notification channels) to an anonymous visitor, and routes a
+  signed-in human to `/admin` or `/portal` based on which capability they actually hold, instead of
+  a bare "logged in" placeholder. `app/login/page.tsx` gained matching branding (gradient/mesh
+  background, a feature-bullet panel beside the QR card on wide screens) — same underlying state
+  machine, styling only.
+- **Dev-mode login without a physical wallet** — `lib/browser-connect.ts` (client, ported from
+  `packages/control-plane`'s equivalent — **all four** of its identity-generation paths, not just
+  software: `"software"`/`"software-pqc"` (`VaultysId.generateMachine()`, the latter passing
+  `"dilithium_ed25519"` — a real algorithm choice the library already supported that neither
+  control-plane app had ever actually used; `packages/control-plane`'s own "PQC" badge was purely
+  decorative, see `components/DevIdentityPicker.tsx`'s doc comment) and `"passkey"`/`"hardware"`
+  (real `navigator.credentials.create()` WebAuthn calls + `VaultysId.fido2FromAttestation`, verbatim
+  from that package's `getPkCred`/`generateBrowserId` — not stubs), plus
   `UserLoginChannel.handleRequest` and two new routes (`app/api/public/user/connect`,
   `app/api/public/user/request/[token]`) implementing the *classic* Challenger exchange relayed
-  over plain HTTP POSTs instead of PeerJS/WebRTC — no native bindings needed at all. The login
-  page's "Connect without the app (dev mode)" link is gated on `process.env.NODE_ENV !==
+  over plain HTTP POSTs instead of PeerJS/WebRTC — no native bindings needed for the software/PQC
+  paths (passkey/hardware still need a real platform/FIDO2 authenticator, same as production). The
+  login page's "Connect without the app (dev mode)" link is gated on `process.env.NODE_ENV !==
   "production"` (inlined at build time by Next.js, safe to check directly in a Client Component).
-  The browser can hold **several** software VaultysIDs side by side (`listStoredDevIdentities`/
-  `generateDevIdentity`/`removeStoredDevIdentity`, keyed in `localStorage` under
-  `vaultysclaw:devIdentities`, migrated automatically from the older single-identity key if
-  present) rather than always silently reusing/overwriting one — `components/DevIdentityPicker.tsx`
-  lets a developer pick which stored identity to connect as, or generate a fresh one, from both
-  `/login` and `/invite/[token]`'s dev-mode controls, so testing as several different humans doesn't
-  require destroying the previous identity first. Omitting a picker choice falls back to whichever
-  identity was used most recently (tracked separately, `vaultysclaw:activeDevIdentityDid`) — the
-  same one-click behavior this had before multiple identities existed. **This only ever registers/logs in as a genuinely new or
+  The browser can hold **several** VaultysIDs side by side, of any of the four types
+  (`listStoredDevIdentities`/`generateDevIdentity(type)`/`removeStoredDevIdentity`, keyed in
+  `localStorage` under `vaultysclaw:devIdentities`, migrated automatically from the older
+  single-identity key if present) rather than always silently reusing/overwriting one —
+  `components/DevIdentityPicker.tsx` is a full-screen modal (portaled to `document.body` — an
+  ancestor's completed `animate-fade-in-up` CSS animation leaves a resolved, non-`none` `transform`
+  behind, which creates a containing block for `position: fixed`, so an in-place modal would be
+  confined to that ancestor's box instead of the real viewport) letting a developer pick which
+  stored identity to connect as or generate a fresh one of a chosen type, from both `/login` and
+  `/invite/[token]`'s dev-mode controls — makes testing as several different humans not require
+  destroying the previous identity first. Omitting a picker choice falls back to whichever identity
+  was used most recently (tracked separately, `vaultysclaw:activeDevIdentityDid`) — the same
+  one-click behavior this had before multiple identities existed. **This only ever registers/logs in as a genuinely new or
   previously-dev-registered identity** — exactly like a real wallet, it cannot log in as an
   unrelated existing Actor it has no key for. The useful case is a fresh, empty database:
   there, the first dev-mode click registers the browser's identity, then — since this transport is

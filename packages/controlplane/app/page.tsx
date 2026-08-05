@@ -2,11 +2,13 @@ import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth-config";
 import { hasCapability } from "@/lib/access-control";
+import LandingPage from "@/components/marketing/LandingPage";
 
-/** Routes a signed-in human to whichever surface their certificates grant. */
+/** Marketing root for an anonymous visitor; routes a signed-in human to whichever surface their
+ *  certificates grant. */
 export default async function HomePage() {
   const session = await getServerSession(authOptions);
-  if (!session?.user?.did) redirect("/login");
+  if (!session?.user?.did) return <LandingPage />;
 
   if (await hasCapability(session.user.did, "admin_console_access")) redirect("/admin");
   if (await hasCapability(session.user.did, "portal_access")) redirect("/portal");

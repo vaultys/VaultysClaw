@@ -37,7 +37,7 @@ import {
   ServerIdentityDAO,
 } from "@/db";
 import { persistChallengerCertificate } from "./certificates";
-import { enqueueWebhook } from "./webhook-queue";
+import { recordEvent } from "./audit";
 import { buildAdminUrl } from "./webhook-payloads";
 import { WsSender, type AgentSender } from "./agent-sender";
 import type {
@@ -368,7 +368,7 @@ export class ControlPlaneWSServer {
           kind: pending.kind,
           requestedCapabilities: [],
         });
-        void enqueueWebhook({
+        await recordEvent({
           eventType: "actor.registration_requested",
           payload: {
             did,
@@ -379,6 +379,8 @@ export class ControlPlaneWSServer {
             // Actor row exists yet either, so this links to the list, not a detail page.
             adminUrl: buildAdminUrl("/admin/actors"),
           },
+          targetType: "actor",
+          targetId: did,
         });
       }
       this.awaitingApproval.set(sender, { did, registrationId });

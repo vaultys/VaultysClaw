@@ -321,3 +321,31 @@ model NotificationChannel {
 
   @@index([isActive])
 }
+
+// ─── Audit Log ───────────────────────────────────────────────────────────────
+// Unified, append-only log (docs/REBUILD_ARCHITECTURE.md §7, docs/PAGE_DESIGN.md §1.6) —
+// replaces the old app's split IntentLog (agent intent execution)/ActivityLog (a simpler admin
+// event log) with one table, since this rebuild has no separate "intent execution" concept to
+// track: every domain event here already flows through lib/webhook-payloads.ts's sanitized
+// builders and lib/webhook-queue.ts's enqueueWebhook. lib/audit.ts's recordEvent() writes here
+// AND calls enqueueWebhook with the exact same eventType/payload, so one call site at each
+// emission point drives both the audit trail and the Webhooks/Notification Channels pipeline —
+// they were always the same "what happened" data, just two different consumers of it.
+
+model AuditLogEntry {
+  id         String   @id @default(cuid())
+  eventType  String // same catalog as Webhooks — actor.*, certificate.*, workspace.*
+  // Denormalized, not a live Actor relation — an Actor can be renamed or (in principle) removed
+  // later, and an audit entry must keep describing what was true at the time, not what's true now.
+  actorDid   String? // null for events with no human origin (e.g. actor.registration_requested)
+  actorName  String?
+  targetType String? // "actor" | "certificate" | "workspace" | ... — coarse type for filtering/links
+  targetId   String? // the specific id/did, used to build a detail link
+  details    Json     @default("{}") // the same sanitized payload already built for the event
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt(sort: Desc)])
+  @@index([actorDid])
+  @@index([eventType])
+  @@index([targetType, targetId])
+}

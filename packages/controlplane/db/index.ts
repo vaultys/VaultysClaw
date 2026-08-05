@@ -12,3 +12,4 @@ export { PendingRegistrationDAO } from "./pending-registration.dao";
 export { AuthCertificateDAO } from "./auth-certificate.dao";
 export { WebhookDAO } from "./webhook.dao";
 export { NotificationChannelDAO } from "./notification-channel.dao";
+export { AuditLogDAO, type AuditLogFilter } from "./audit-log.dao";

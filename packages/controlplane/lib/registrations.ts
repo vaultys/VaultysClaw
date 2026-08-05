@@ -11,7 +11,7 @@ import type { AgentCapability } from "@vaultysclaw/policy";
 import { PendingRegistrationDAO, ActorDAO } from "@/db";
 import { getWSServerInstance } from "./ws-server";
 import { allowedCapabilitiesForKind } from "./capabilities";
-import { enqueueWebhook } from "./webhook-queue";
+import { recordEvent } from "./audit";
 import { actorPayload, actorAdminUrl, buildAdminUrl, type PerformedBy } from "./webhook-payloads";
 
 export async function approvePendingRegistration(
@@ -39,7 +39,7 @@ export async function approvePendingRegistration(
     allowedCapabilitiesForKind(registration.kind).includes(c)
   );
 
-  void enqueueWebhook({
+  await recordEvent({
     eventType: "actor.approved",
     payload: {
       ...actorPayload(actor),
@@ -49,6 +49,9 @@ export async function approvePendingRegistration(
       // actually granted, which is the change that matters here.
       grantedCapabilities,
     },
+    performedBy: approver,
+    targetType: "actor",
+    targetId: actor.did,
   });
 
   await PendingRegistrationDAO.approve(
@@ -70,7 +73,7 @@ export async function denyPendingRegistration(registrationId: string, denier: Pe
     throw new Error("Registration not found or already resolved");
   }
   await PendingRegistrationDAO.deny(registrationId);
-  void enqueueWebhook({
+  await recordEvent({
     eventType: "actor.denied",
     payload: {
       did: registration.did,
@@ -81,5 +84,8 @@ export async function denyPendingRegistration(registrationId: string, denier: Pe
       // would 404.
       adminUrl: buildAdminUrl("/admin/actors"),
     },
+    performedBy: denier,
+    targetType: "actor",
+    targetId: registration.did,
   });
 }

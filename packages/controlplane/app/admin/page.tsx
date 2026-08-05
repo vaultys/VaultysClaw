@@ -1,4 +1,6 @@
-import { ActorDAO, PendingRegistrationDAO, CapabilityCertificateDAO } from "@/db";
+import Link from "next/link";
+import { ActorDAO, PendingRegistrationDAO, CapabilityCertificateDAO, AuditLogDAO } from "@/db";
+import { getWebhookEvent } from "@vaultysclaw/shared";
 import PageChrome from "@/components/layout/PageChrome";
 
 /**
@@ -6,10 +8,11 @@ import PageChrome from "@/components/layout/PageChrome";
  * read-only; no actions live here.
  */
 export default async function AdminOverviewPage() {
-  const [byKind, pending, activeCerts] = await Promise.all([
+  const [byKind, pending, activeCerts, recentActivity] = await Promise.all([
     ActorDAO.countByKind(),
     PendingRegistrationDAO.listPending(),
     CapabilityCertificateDAO.countActive(),
+    AuditLogDAO.recent(20),
   ]);
 
   const totalActors = Object.values(byKind).reduce((a, b) => a + b, 0);
@@ -62,6 +65,33 @@ export default async function AdminOverviewPage() {
               {kind}: {count}
             </span>
           ))}
+        </div>
+      </div>
+
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-semibold text-foreground-700">Recent activity</h2>
+          <Link href="/admin/audit" className="text-xs text-primary-600 hover:underline">
+            View full Audit Log →
+          </Link>
+        </div>
+        <div className="border border-neutral-200/60 rounded-xl divide-y divide-neutral-200/60">
+          {recentActivity.map((entry) => (
+            <div key={entry.id} className="flex items-center gap-3 px-4 py-2 text-sm">
+              <span className="text-xs text-foreground-400 shrink-0 w-36">
+                {entry.createdAt.toISOString().replace("T", " ").slice(0, 19)}
+              </span>
+              <span className="text-foreground-700 truncate">
+                {getWebhookEvent(entry.eventType)?.label ?? entry.eventType}
+              </span>
+              {entry.actorName && (
+                <span className="text-foreground-400 truncate">by {entry.actorName}</span>
+              )}
+            </div>
+          ))}
+          {recentActivity.length === 0 && (
+            <div className="px-4 py-6 text-center text-foreground-400 text-sm">Nothing yet.</div>
+          )}
         </div>
       </div>
 

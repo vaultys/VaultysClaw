@@ -6,7 +6,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
 import { CapabilityCertificateDAO } from "@/db";
 import { issueAdminGrant } from "@/lib/certificates";
-import { enqueueWebhook } from "@/lib/webhook-queue";
+import { recordEvent } from "@/lib/audit";
 import { certificatePayload, buildAdminUrl } from "@/lib/webhook-payloads";
 import type { AgentCapability, CertScope } from "@vaultysclaw/policy";
 
@@ -17,13 +17,13 @@ export async function revokeCertificateAction(formData: FormData): Promise<void>
   const certId = formData.get("certId") as string;
   const reason = (formData.get("reason") as string) || "No reason given";
   const cert = await CapabilityCertificateDAO.revoke(certId, session.user.did, reason);
-  void enqueueWebhook({
+  const performedBy = { did: session.user.did, name: session.user.name ?? "Unnamed" };
+  await recordEvent({
     eventType: "certificate.revoked",
-    payload: {
-      ...certificatePayload(cert),
-      performedBy: { did: session.user.did, name: session.user.name ?? "Unnamed" },
-      adminUrl: buildAdminUrl(`/admin/certificates/${cert.id}`),
-    },
+    payload: { ...certificatePayload(cert), performedBy, adminUrl: buildAdminUrl(`/admin/certificates/${cert.id}`) },
+    performedBy,
+    targetType: "certificate",
+    targetId: cert.id,
   });
   revalidatePath("/admin/certificates");
   revalidatePath("/admin");
@@ -68,13 +68,13 @@ export async function issueCertificateAction(formData: FormData): Promise<void> 
     expiresAt,
     issuedBy: session.user.did,
   });
-  void enqueueWebhook({
+  const performedBy = { did: session.user.did, name: session.user.name ?? "Unnamed" };
+  await recordEvent({
     eventType: "certificate.issued",
-    payload: {
-      ...certificatePayload(cert),
-      performedBy: { did: session.user.did, name: session.user.name ?? "Unnamed" },
-      adminUrl: buildAdminUrl(`/admin/certificates/${cert.id}`),
-    },
+    payload: { ...certificatePayload(cert), performedBy, adminUrl: buildAdminUrl(`/admin/certificates/${cert.id}`) },
+    performedBy,
+    targetType: "certificate",
+    targetId: cert.id,
   });
 
   revalidatePath("/admin/certificates");

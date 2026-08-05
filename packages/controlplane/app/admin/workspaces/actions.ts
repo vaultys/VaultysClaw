@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
 import { WorkspaceDAO, ActorDAO } from "@/db";
-import { enqueueWebhook } from "@/lib/webhook-queue";
+import { recordEvent } from "@/lib/audit";
 import { workspacePayload, buildAdminUrl, diffFields } from "@/lib/webhook-payloads";
 
 function slugify(name: string): string {
@@ -36,13 +36,13 @@ export async function createWorkspaceAction(formData: FormData): Promise<void> {
   const slug = existing.some((w) => w.slug === base) ? `${base}-${id.slice(0, 6)}` : base;
 
   const workspace = await WorkspaceDAO.create({ id, name, slug, description: description || undefined, color });
-  void enqueueWebhook({
+  const performedBy = { did: session.user.did, name: session.user.name ?? "Unnamed" };
+  await recordEvent({
     eventType: "workspace.created",
-    payload: {
-      ...workspacePayload(workspace),
-      performedBy: { did: session.user.did, name: session.user.name ?? "Unnamed" },
-      adminUrl: buildAdminUrl(`/admin/workspaces/${workspace.id}`),
-    },
+    payload: { ...workspacePayload(workspace), performedBy, adminUrl: buildAdminUrl(`/admin/workspaces/${workspace.id}`) },
+    performedBy,
+    targetType: "workspace",
+    targetId: workspace.id,
   });
   revalidatePath("/admin/workspaces");
   redirect(`/admin/workspaces/${id}`);
@@ -60,14 +60,18 @@ export async function updateWorkspaceAction(formData: FormData): Promise<void> {
 
   const before = await WorkspaceDAO.findById(id);
   const workspace = await WorkspaceDAO.update(id, { name, description: description || null, color });
-  void enqueueWebhook({
+  const performedBy = { did: session.user.did, name: session.user.name ?? "Unnamed" };
+  await recordEvent({
     eventType: "workspace.updated",
     payload: {
       ...workspacePayload(workspace),
-      performedBy: { did: session.user.did, name: session.user.name ?? "Unnamed" },
+      performedBy,
       adminUrl: buildAdminUrl(`/admin/workspaces/${workspace.id}`),
       changes: before ? diffFields(before, workspace, ["name", "description", "color"]) : [],
     },
+    performedBy,
+    targetType: "workspace",
+    targetId: workspace.id,
   });
   revalidatePath(`/admin/workspaces/${id}`);
   revalidatePath("/admin/workspaces");

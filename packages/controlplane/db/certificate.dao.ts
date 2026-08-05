@@ -55,6 +55,13 @@ export class CapabilityCertificateDAO {
     return prisma.capabilityCertificate.findUnique({ where: { id } });
   }
 
+  /** Batched lookup for the Audit Log's live re-verification of certificate-related entries — one
+   *  query for a page of rows, not N+1. */
+  static async findManyByIds(ids: string[]): Promise<CapabilityCertificate[]> {
+    if (ids.length === 0) return [];
+    return prisma.capabilityCertificate.findMany({ where: { id: { in: ids } } });
+  }
+
   /** Every certificate for a Actor, active or not — the caller (packages/trust) decides usability. */
   static async findAllForActor(agentDid: string): Promise<CapabilityCertificateLite[]> {
     const rows = await prisma.capabilityCertificate.findMany({ where: { agentDid } });

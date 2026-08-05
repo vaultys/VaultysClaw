@@ -67,9 +67,7 @@ the Access Portal shell, and the design system (ported from `packages/control-pl
   the raw objects instead crashed the page ("Maximum update depth exceeded") because inline JSX
   object/array literals are fresh references every render, so that dependency never settles.
 - **Full nav shape** (`components/layout/Sidebar.tsx`): Overview, Actors, Sensors, Map,
-  Certificates, Workspaces, Settings, and Integrations' Webhooks tab are real. Audit Log is still a
-  real route rendering `components/layout/ComingSoon.tsx` with a description of what's planned, so
-  the product reads as complete rather than missing a page outright.
+  Certificates, Workspaces, Settings, Integrations (both tabs), and Audit Log are all real.
 - **`app/admin/certificates/`** — the real Certificates page (docs/PAGE_DESIGN.md §1.5): list with
   status badges, scope, and the "Never" expiry rendered in warning-amber (never neutral, per the
   "loud, not silent" rule); an issuance form (`new/page.tsx`) with the explicit no-expiry
@@ -446,6 +444,43 @@ real sections, not one.
   queue right now," which reachability alone can't. All three reuse `lib/webhook-queue.ts`'s
   existing `getQueue()` singleton/connection rather than opening a second one just to check health.
 
+## Audit Log
+
+A unified, append-only log (docs/PAGE_DESIGN.md §1.6) — replaces the old app's split IntentLog
+(agent intent execution)/ActivityLog (a simpler admin event log) with one table, since this
+rebuild has no separate "intent execution" concept to track: every domain event already flows
+through `lib/webhook-payloads.ts`'s sanitized builders and `lib/webhook-queue.ts`'s
+`enqueueWebhook`, so the audit trail and the Webhooks/Notification Channels pipeline are always
+the same "what happened" data, just two different consumers of it.
+
+- **Schema**: `AuditLogEntry` (`prisma/schema.prisma`) — `eventType` (same catalog as Webhooks),
+  `actorDid`/`actorName` (null for events with no human origin, e.g.
+  `actor.registration_requested`), `targetType`/`targetId` (coarse type + id used to build a
+  detail link — `"actor"` | `"certificate"` | `"workspace"`), `details` (the same sanitized
+  payload already built for the event). No edit or delete — `AuditLogDAO` (`db/audit-log.dao.ts`)
+  only ever `create`s, `list`s (filterable by `eventType`/`actorDid`/`from`/`to`), `count`s, and
+  `recent`s.
+- **`recordEvent()`** (`lib/audit.ts`) is the single call site every domain event goes through
+  instead of calling `enqueueWebhook` directly: it writes the `AuditLogEntry` row (awaited,
+  reliable) **and** calls the existing fire-and-forget `enqueueWebhook` with the exact same
+  `eventType`/`payload` — one call drives both the audit trail and the Webhooks/Notification
+  Channels pipeline. Every emission site (`app/admin/actors/actions.ts`,
+  `app/admin/certificates/actions.ts`, `app/admin/workspaces/actions.ts`, `lib/registrations.ts`,
+  `lib/ws-server.ts`'s `actor.registration_requested`) has been migrated to it; `enqueueWebhook`
+  itself is no longer called from a domain site directly.
+- **`app/admin/audit/page.tsx`** — the real page (docs/PAGE_DESIGN.md §1.6): a plain-GET filter
+  form (event type, actor DID, from/to date), a list of entries (newest first, `<details>` per row
+  disclosing the full JSON `details` blob, no client JS needed), a target link
+  (`actor`/`certificate`/`workspace` → the matching detail page), and a live "signed"/"invalid"
+  badge on certificate-related rows — computed the same way the certificate detail page does, by
+  re-running `lib/cert-inspect.ts`'s `inspectCertificate` against the actual stored certificate
+  bytes, not by trusting any stored flag. Actor kind badges and certificate re-verification are
+  both batch-resolved once per page load (`ActorDAO.findManyByDid`, `CapabilityCertificateDAO.
+  findManyByIds`), not per row.
+- **Overview feed** (`app/admin/page.tsx`) — a "Recent activity" section (`AuditLogDAO.recent(20)`)
+  with a "View full Audit Log →" link, giving the posture-summary page a live pulse instead of
+  only static counts.
+
 ## Verified
 
 Everything below was exercised against a real (throwaway, Docker) Postgres and, where noted, a
@@ -547,6 +582,15 @@ repeatable tests (see deferred).
   request" section (there is no separate request token for this format) — alongside a pre-existing
   `"packcert"` row (the bootstrap grant) rendering exactly as before, confirming the `certFormat`
   branch in `lib/cert-inspect.ts` didn't regress the older format.
+- **Audit Log**, end to end in a real browser against a live dev server: editing a workspace's
+  description through the real form produced a `workspace.updated` entry with the correct actor
+  ("admin test", `human` badge), a working link to `/admin/workspaces/default`, and an expanded
+  `details` blob showing the exact field-level diff (`changes: [{field: "description", from:
+  "test", to: "audit-log-verification"}]`) plus `performedBy`/`adminUrl`; issuing a certificate
+  through the real form produced a `certificate.issued` entry whose live-recomputed "signed" badge
+  correctly showed `signed` (re-verified against the actual stored certificate bytes, not a stored
+  flag). The Overview page's "Recent activity" feed correctly showed "Nothing yet." before either
+  event and both entries, newest first, after.
 - **Caveat, not verified**: the actual PeerJS/WebRTC wire exchange with a real VaultysId wallet
   app (no physical wallet in this environment — the Challenger crypto itself is already proven via
   the WS-agent path). One incidental observation from testing against the public PeerJS relay: an
@@ -561,13 +605,12 @@ repeatable tests (see deferred).
   implemented. (The login flow's own PeerJS/WebRTC usage is separate and already built. Also
   separate: `vaultysclaw-sensor` connecting is plain WS, not WebRTC — that's the one kind of remote
   agent actually wired end to end today, see Verified above.)
-- Everything the remaining placeholder pages describe: Audit Log (unified signed IntentLog/
-  ActivityLog), the rest of Integrations (OIDC/Entra, API Keys, Model Registry — Webhooks and
-  Notification Channels are now real, see above). Actors, Sensors, Map, Certificates, Workspaces
-  (Overview/Actors/Access tabs — Budgets & Model Access still a stub), Settings, and both
-  Integrations tabs are real. The certificate detail page (§1.5's signature-chain view) is built
-  (`app/admin/certificates/[id]/page.tsx`) and its status-check-history section is real too — see
-  `CertStatusCheckDAO` below.
+- Everything the remaining placeholder pages describe: the rest of Integrations (OIDC/Entra, API
+  Keys, Model Registry — Webhooks and Notification Channels are now real, see above). Actors,
+  Sensors, Map, Certificates, Workspaces (Overview/Actors/Access tabs — Budgets & Model Access
+  still a stub), Settings, Audit Log, and both Integrations tabs are real. The certificate detail
+  page (§1.5's signature-chain view) is built (`app/admin/certificates/[id]/page.tsx`) and its
+  status-check-history section is real too — see `CertStatusCheckDAO` below.
 - **A committed *production* deployment for a dispatcher against this schema isn't part of this
   repo yet** — `pnpm controlplane:webhook:dev` (see Development above) covers local dev, generating
   a client from this package's schema into `packages/webhook-dispatcher` on the fly; there's no

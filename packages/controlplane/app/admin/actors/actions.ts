@@ -7,7 +7,7 @@ import { approvePendingRegistration, denyPendingRegistration } from "@/lib/regis
 import { ActorDAO, ActorLinkDAO, UserDAO } from "@/db";
 import { encodeDidParam } from "@/lib/actor-route";
 import { geocodeCity } from "@/lib/geocode";
-import { enqueueWebhook } from "@/lib/webhook-queue";
+import { recordEvent } from "@/lib/audit";
 import { actorPayload, actorAdminUrl, diffFields } from "@/lib/webhook-payloads";
 import type { AgentCapability } from "@vaultysclaw/policy";
 
@@ -62,14 +62,13 @@ export async function updateActorAction(formData: FormData): Promise<void> {
     await UserDAO.updateEmail(did, email || null);
     changes.push(...diffFields({ email: beforeEmail }, { email: email || null }, ["email"]));
   }
-  void enqueueWebhook({
+  const performedBy = { did: session.user.did, name: session.user.name ?? "Unnamed" };
+  await recordEvent({
     eventType: "actor.updated",
-    payload: {
-      ...actorPayload(updated),
-      performedBy: { did: session.user.did, name: session.user.name ?? "Unnamed" },
-      adminUrl: actorAdminUrl(updated.did),
-      changes,
-    },
+    payload: { ...actorPayload(updated), performedBy, adminUrl: actorAdminUrl(updated.did), changes },
+    performedBy,
+    targetType: "actor",
+    targetId: updated.did,
   });
 
   revalidatePath(`/admin/actors/${encodeDidParam(did)}`);

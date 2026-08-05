@@ -3,7 +3,8 @@
 import { use, useCallback, useEffect, useRef, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { signIn } from "next-auth/react";
-import { connectWithoutApp } from "@/lib/browser-connect";
+import { connectWithoutApp, type BrowserIdData } from "@/lib/browser-connect";
+import DevIdentityPicker from "@/components/DevIdentityPicker";
 
 const WALLET_URL = process.env.NEXT_PUBLIC_WALLET_URL || "https://wallet.vaultys.net";
 // process.env.NODE_ENV is inlined at build time by Next.js, including in client bundles —
@@ -70,7 +71,7 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
     await pollAndSignIn(pollToken, key);
   }, [token, pollAndSignIn]);
 
-  const startDevLogin = useCallback(async () => {
+  const startDevLogin = useCallback(async (identity?: BrowserIdData | "new") => {
     setPhase("dev-connecting");
     cancelled.current = false;
 
@@ -79,7 +80,7 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
 
     // Same fire-and-forget-through-polling shape as /login — a rejection here surfaces via the
     // poll below (the server marks the cert failed) rather than directly.
-    void connectWithoutApp(key).catch(() => {});
+    void connectWithoutApp(key, identity).catch(() => {});
     await pollAndSignIn(pollToken, key);
   }, [token, pollAndSignIn]);
 
@@ -180,12 +181,17 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
         )}
 
         {DEV_LOGIN_ENABLED && (phase === "waiting" || phase === "loading") && (
-          <button
-            onClick={startDevLogin}
-            className="text-xs text-foreground-400 hover:text-foreground-600 transition-colors underline underline-offset-2"
-          >
-            Connect without the app (dev mode)
-          </button>
+          <div className="space-y-2">
+            <button
+              onClick={() => startDevLogin()}
+              className="text-xs text-foreground-400 hover:text-foreground-600 transition-colors underline underline-offset-2"
+            >
+              Connect without the app (dev mode)
+            </button>
+            <div>
+              <DevIdentityPicker onSelect={(identity) => startDevLogin(identity)} />
+            </div>
+          </div>
         )}
       </div>
     </main>

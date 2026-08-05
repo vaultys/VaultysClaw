@@ -1,8 +1,10 @@
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { authOptions } from "@/lib/auth-config";
 import { hasCapability } from "@/lib/access-control";
 import AppShell from "@/components/layout/AppShell";
+import SignOutButton from "@/components/SignOutButton";
 import { SettingsDAO } from "@/db";
 import { DEFAULT_ORG_NAME, SETTINGS_KEYS } from "@/lib/org-settings";
 
@@ -24,11 +26,19 @@ export default async function AdminLayout({
   if (!authorized) {
     return (
       <main className="min-h-screen flex items-center justify-center p-6 bg-background">
-        <div className="max-w-md text-center space-y-2">
-          <h1 className="text-lg font-semibold text-foreground">Access denied</h1>
-          <p className="text-sm text-foreground-500">
-            Your account does not hold an <code>admin_console_access</code> certificate.
-          </p>
+        <div className="max-w-md text-center space-y-4">
+          <div className="space-y-2">
+            <h1 className="text-lg font-semibold text-foreground">Access denied</h1>
+            <p className="text-sm text-foreground-500">
+              Your account does not hold an <code>admin_console_access</code> certificate.
+            </p>
+          </div>
+          <div className="flex items-center justify-center gap-4">
+            <Link href="/" className="text-sm text-foreground-500 hover:text-foreground transition-colors">
+              Home
+            </Link>
+            <SignOutButton />
+          </div>
         </div>
       </main>
     );

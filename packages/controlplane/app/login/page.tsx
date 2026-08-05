@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { signIn } from "next-auth/react";
-import { connectWithoutApp, completeCertificateRound } from "@/lib/browser-connect";
+import { connectWithoutApp, completeCertificateRound, type BrowserIdData } from "@/lib/browser-connect";
+import DevIdentityPicker from "@/components/DevIdentityPicker";
 
 const WALLET_URL = process.env.NEXT_PUBLIC_WALLET_URL || "https://wallet.vaultys.net";
 // process.env.NODE_ENV is inlined at build time by Next.js, including in client bundles —
@@ -74,7 +75,7 @@ export default function LoginPage() {
     await pollAndSignIn(token, key);
   }, [pollAndSignIn]);
 
-  const startDevLogin = useCallback(async () => {
+  const startDevLogin = useCallback(async (identity?: BrowserIdData | "new") => {
     setPhase("dev-connecting");
     cancelled.current = false;
 
@@ -84,7 +85,7 @@ export default function LoginPage() {
     // Errors here surface through the poll below (the server marks the cert
     // failed), so a rejection is intentionally swallowed rather than shown
     // directly — same behavior as the QR flow's failure path.
-    void connectWithoutApp(key).catch(() => {});
+    void connectWithoutApp(key, identity).catch(() => {});
     await pollAndSignIn(token, key);
   }, [pollAndSignIn]);
 
@@ -151,12 +152,17 @@ export default function LoginPage() {
         )}
 
         {DEV_LOGIN_ENABLED && (phase === "waiting" || phase === "loading") && (
-          <button
-            onClick={startDevLogin}
-            className="text-xs text-foreground-400 hover:text-foreground-600 transition-colors underline underline-offset-2"
-          >
-            Connect without the app (dev mode)
-          </button>
+          <div className="space-y-2">
+            <button
+              onClick={() => startDevLogin()}
+              className="text-xs text-foreground-400 hover:text-foreground-600 transition-colors underline underline-offset-2"
+            >
+              Connect without the app (dev mode)
+            </button>
+            <div>
+              <DevIdentityPicker onSelect={(identity) => startDevLogin(identity)} />
+            </div>
+          </div>
         )}
       </div>
     </main>

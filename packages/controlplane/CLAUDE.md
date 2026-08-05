@@ -86,8 +86,15 @@ the Access Portal shell, and the design system (ported from `packages/control-pl
   over plain HTTP POSTs instead of PeerJS/WebRTC — no native bindings needed at all. The login
   page's "Connect without the app (dev mode)" link is gated on `process.env.NODE_ENV !==
   "production"` (inlined at build time by Next.js, safe to check directly in a Client Component).
-  The browser generates a software VaultysId once and persists it in `localStorage`, so repeat
-  visits reuse the same identity. **This only ever registers/logs in as a genuinely new or
+  The browser can hold **several** software VaultysIDs side by side (`listStoredDevIdentities`/
+  `generateDevIdentity`/`removeStoredDevIdentity`, keyed in `localStorage` under
+  `vaultysclaw:devIdentities`, migrated automatically from the older single-identity key if
+  present) rather than always silently reusing/overwriting one — `components/DevIdentityPicker.tsx`
+  lets a developer pick which stored identity to connect as, or generate a fresh one, from both
+  `/login` and `/invite/[token]`'s dev-mode controls, so testing as several different humans doesn't
+  require destroying the previous identity first. Omitting a picker choice falls back to whichever
+  identity was used most recently (tracked separately, `vaultysclaw:activeDevIdentityDid`) — the
+  same one-click behavior this had before multiple identities existed. **This only ever registers/logs in as a genuinely new or
   previously-dev-registered identity** — exactly like a real wallet, it cannot log in as an
   unrelated existing Actor it has no key for. The useful case is a fresh, empty database:
   there, the first dev-mode click registers the browser's identity, then — since this transport is

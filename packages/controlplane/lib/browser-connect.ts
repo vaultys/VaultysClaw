@@ -11,6 +11,12 @@
  * Reuses the exact same Challenger primitive as every other login path; only
  * the transport differs (plain HTTP POSTs via BrowserChannel against
  * /api/public/user/request, not WebRTC/PeerJS).
+ *
+ * Multiple identities can be stored side by side (not just one) so testing as
+ * different humans — admin vs. a freshly invited user, say — doesn't require
+ * destroying the previous identity first. `DevIdentityPicker.tsx` is the UI
+ * for choosing between them; everything here is just the storage + connect
+ * primitives it and the login/invite pages call into.
  */
 
 import { BrowserChannel } from "@vaultys/channel-browser";
@@ -24,14 +30,53 @@ export interface BrowserIdData {
   secret: string; // base64 secret
 }
 
-const USER_ID_KEY = "vaultysclaw:devLoginVid";
+const IDENTITIES_KEY = "vaultysclaw:devIdentities";
+const ACTIVE_KEY = "vaultysclaw:activeDevIdentityDid";
+/** Pre-multi-identity storage key — migrated into IDENTITIES_KEY once, on first read. */
+const LEGACY_KEY = "vaultysclaw:devLoginVid";
 
 export const SERVER_URL = typeof window !== "undefined" ? window.location.origin : "";
 
-export function getStoredDevIdentity(): BrowserIdData | null {
+function readIdentities(): BrowserIdData[] {
+  if (typeof localStorage === "undefined") return [];
+  const raw = localStorage.getItem(IDENTITIES_KEY);
+  const list: BrowserIdData[] = raw ? JSON.parse(raw) : [];
+
+  const legacyRaw = localStorage.getItem(LEGACY_KEY);
+  if (legacyRaw) {
+    const legacy = JSON.parse(legacyRaw) as BrowserIdData;
+    if (!list.some((i) => i.did === legacy.did)) list.push(legacy);
+    localStorage.setItem(IDENTITIES_KEY, JSON.stringify(list));
+    localStorage.removeItem(LEGACY_KEY);
+  }
+  return list;
+}
+
+function persistIdentities(list: BrowserIdData[]): void {
+  localStorage.setItem(IDENTITIES_KEY, JSON.stringify(list));
+}
+
+function upsertIdentity(data: BrowserIdData): void {
+  persistIdentities([...readIdentities().filter((i) => i.did !== data.did), data]);
+}
+
+function setActiveIdentity(did: string): void {
+  if (typeof localStorage !== "undefined") localStorage.setItem(ACTIVE_KEY, did);
+}
+
+function getActiveIdentity(): BrowserIdData | null {
   if (typeof localStorage === "undefined") return null;
-  const raw = localStorage.getItem(USER_ID_KEY);
-  return raw ? (JSON.parse(raw) as BrowserIdData) : null;
+  const did = localStorage.getItem(ACTIVE_KEY);
+  return (did && readIdentities().find((i) => i.did === did)) || null;
+}
+
+/** Every VaultysID this browser has generated for dev-mode login so far. */
+export function listStoredDevIdentities(): BrowserIdData[] {
+  return readIdentities();
+}
+
+export function removeStoredDevIdentity(did: string): void {
+  persistIdentities(readIdentities().filter((i) => i.did !== did));
 }
 
 export async function generateDevIdentity(): Promise<BrowserIdData> {
@@ -41,7 +86,7 @@ export async function generateDevIdentity(): Promise<BrowserIdData> {
     vid: Buffer.from(vaultysId.id).toString("base64"),
     secret: vaultysId.getSecret("base64"),
   };
-  localStorage.setItem(USER_ID_KEY, JSON.stringify(data));
+  upsertIdentity(data);
   return data;
 }
 
@@ -71,14 +116,21 @@ async function srp(channel: BrowserChannel, vaultysId: VaultysId, service = "aut
 
 /**
  * Authenticates the browser directly against the control plane, without a
- * physical wallet. Reuses (or generates) a persisted software identity, then
- * drives the SRP exchange against /api/public/user/request using `key`.
+ * physical wallet, using `identity` — a specific stored VaultysID (picked via
+ * `DevIdentityPicker`), the literal string `"new"` to generate a fresh one, or
+ * omitted entirely to fall back to whichever identity was used most recently
+ * (or the first stored one, or a freshly generated one if none exist yet) —
+ * the same one-click behavior this had before multiple identities existed.
  * The caller is expected to already be polling /api/public/user/listen/[token]
  * — this only completes the server-side certificate, it does not poll.
  */
-export async function connectWithoutApp(key: string): Promise<void> {
-  const identity = getStoredDevIdentity() ?? (await generateDevIdentity());
-  const vaultysId = VaultysId.fromSecret(identity.secret, "base64").toVersion(1);
+export async function connectWithoutApp(key: string, identity?: BrowserIdData | "new"): Promise<void> {
+  const chosen =
+    identity === "new"
+      ? await generateDevIdentity()
+      : identity ?? getActiveIdentity() ?? readIdentities()[0] ?? (await generateDevIdentity());
+  setActiveIdentity(chosen.did);
+  const vaultysId = VaultysId.fromSecret(chosen.secret, "base64").toVersion(1);
   const channel = new BrowserChannel(`${SERVER_URL}/api/public/user/request`, key);
   await srp(channel, vaultysId);
 }
@@ -87,14 +139,16 @@ export async function connectWithoutApp(key: string): Promise<void> {
  * The second SRP of the dev-mode bootstrap's double-SRP flow
  * (docs/CERTIFICATE_WEB_OF_TRUST.md §3.2b): after the login round completes
  * and `/api/public/user/listen/[token]` reports a `certRound`, the browser
- * runs this — same software identity, same transport, `service: "certificate"`
- * instead of `"auth"` — to actually co-sign the `admin_console_access` grant.
- * Resolving means the certificate is already persisted (see `srp`'s final
- * `await`); there's nothing further to poll for this round.
+ * runs this — same software identity `connectWithoutApp` just used (tracked
+ * as "active" above, not just "whatever's stored"), same transport,
+ * `service: "certificate"` instead of `"auth"` — to actually co-sign the
+ * `admin_console_access` grant. Resolving means the certificate is already
+ * persisted (see `srp`'s final `await`); there's nothing further to poll for
+ * this round.
  */
 export async function completeCertificateRound(key: string): Promise<void> {
-  const identity = getStoredDevIdentity();
-  if (!identity) throw new Error("No stored dev identity — can't run the certificate round");
+  const identity = getActiveIdentity();
+  if (!identity) throw new Error("No active dev identity — can't run the certificate round");
   const vaultysId = VaultysId.fromSecret(identity.secret, "base64").toVersion(1);
   const channel = new BrowserChannel(`${SERVER_URL}/api/public/user/request`, key);
   await srp(channel, vaultysId, "certificate");

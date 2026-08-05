@@ -604,6 +604,15 @@ pnpm build
 pnpm type-check
 ```
 
+### `pnpm vaultysclaw:dev` fails
+
+The script pipes control-plane output through `pino-pretty` and requires PostgreSQL reachable at `DATABASE_URL`. Two independent failure modes:
+
+- `sh: 1: pino-pretty: not found` — `pino-pretty` is a devDependency; run `pnpm install` to pick it up.
+- `Can't reach database server at 127.0.0.1:5432` (Prisma `P1001`) — the Postgres container isn't running. Start it with `docker compose -f docker/docker-compose.yml up -d postgres`, or `docker start <name>` if a stopped one already exists (find its name with `docker ps -a | grep postgres`).
+
+Note: CLAUDE.md's scripts table lists this script as `vaultysclaw:dev`, not `controlplane:dev`.
+
 ## Next Steps
 
 1. Implement VaultysId integration

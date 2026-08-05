@@ -57,6 +57,18 @@ const EXAMPLE_PAYLOADS: Record<string, Record<string, unknown>> = {
   "actor.denied": { did: sampleActor.did, name: sampleActor.name, kind: sampleActor.kind },
   "actor.updated": actorPayload(sampleActor),
 
+  "human.invited": {
+    name: "Alice Martin",
+    email: "alice@example.com",
+    workspaceId: sampleWorkspace.id,
+    expiresAt: "2026-07-23T09:24:00.000Z",
+    createdBy: sampleCertificate.issuedBy,
+  },
+  "human.invitation_redeemed": {
+    ...actorPayload({ ...sampleActor, kind: "human", name: "Alice Martin" }),
+    invitedBy: sampleCertificate.issuedBy,
+  },
+
   "certificate.issued": certificatePayload(sampleCertificate),
   "certificate.revoked": certificatePayload({
     ...sampleCertificate,

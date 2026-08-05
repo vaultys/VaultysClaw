@@ -217,6 +217,39 @@ model AuthCertificate {
   startedAt    DateTime @default(now())
 }
 
+// ─── Invitations ──────────────────────────────────────────────────────────────
+// Admin-issued, single-use invite for a human to onboard directly (rather than
+// self-registering at /login) — packages/controlplane/CLAUDE.md "Human onboarding
+// via invite". Unlike packages/control-plane's UserInvitation, there is no
+// pre-created placeholder User/Actor row to claim: Actor.did is this schema's
+// primary key, non-nullable, so nothing human-shaped can exist before a real
+// VaultysId has actually paired. An Invitation is a standalone record; the
+// Actor/User rows are created fresh only once redemption's Challenger handshake
+// genuinely completes (lib/user-login-channel.ts's registerHumanFromInvitation).
+model Invitation {
+  // sha256(raw token) hex — the raw token (crypto.randomBytes(32), same entropy as
+  // AuthCertificate's own key) is generated and returned to the admin exactly once at
+  // creation time and never persisted anywhere, matching this package's existing
+  // reveal-once secret pattern (a Webhook's signing secret).
+  tokenHash    String    @id
+  name         String
+  email        String?
+  capabilities Json      @default("[\"portal_access\"]")
+  workspaceId  String?
+  // DID of the admin who created this invite.
+  createdBy    String
+  createdAt    DateTime  @default(now())
+  expiresAt    DateTime
+  // Both set together, only once redemption's Challenger handshake actually completes
+  // (not at link-generation/QR-display time) — closing a real bug in the old package's
+  // equivalent, where the invite was marked claimed too early and a stale/reopened link
+  // could silently mint an unrelated second account instead of failing loudly.
+  redeemedAt   DateTime?
+  redeemedDid  String?
+
+  @@index([expiresAt])
+}
+
 // ─── Workspaces ───────────────────────────────────────────────────────────────
 
 model Workspace {

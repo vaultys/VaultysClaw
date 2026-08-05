@@ -540,6 +540,61 @@ OIDC/Entra linking for humans (mirroring `packages/control-plane`'s `EntraIdenti
 stays deferred per the existing schema-minimalism rule below — nothing added here ahead of that
 feature actually being built.
 
+## Human onboarding via invite
+
+An admin can invite a specific human directly (`/admin/actors/invite`) instead of only waiting for
+someone to self-register at `/login` — a single-use link that walks the invitee through the exact
+same VaultysId pairing UI, scoped to that one invitation. Ported in spirit from
+`packages/control-plane`'s `UserInvitation` feature, but restructured for this schema and fixing two
+real bugs found in that implementation along the way (see below).
+
+- **Schema** (`Invitation`, `prisma/schema.prisma`): `tokenHash` (sha256 of a
+  `crypto.randomBytes(32)` raw token — the raw token is generated, returned once to the admin, and
+  never persisted, the same reveal-once convention already used for a Webhook's signing secret),
+  `name`/`email` (used to seed the new `Actor`/`User` on redemption), `capabilities` (granted via
+  `issueAdminGrant` once redemption succeeds), `workspaceId`, `createdBy`, `expiresAt`,
+  `redeemedAt`/`redeemedDid` (both null until redemption genuinely completes). `db/invitation.dao.ts`
+  — `create` (generates + hashes the token), `findValidByToken` (not-found/expired/already-redeemed
+  all return `null` alike — used at the point of actually registering, where the caller only needs
+  a yes/no), `findByToken` (returns the row regardless of validity, for the pre-flight check below,
+  which needs to explain *why*), `markRedeemed`.
+- **Why not literally port the old model**: `packages/control-plane`'s `User.id` (a cuid) is
+  decoupled from its nullable `User.did`, so it can pre-create an "unclaimed" placeholder row before
+  any real VaultysId pairs, then `claim()` it later. This schema's `Actor.did`/`User.did` **is** the
+  primary key, non-nullable — there is no placeholder slot to pre-create. `Invitation` is instead a
+  fully standalone record with no `Actor`/`User` row until redemption's Challenger handshake actually
+  completes (`lib/user-login-channel.ts`'s `registerHumanFromInvitation`, invoked from `registerHuman`
+  when an `invitationToken` rides along in the `AuthCertificate`'s `metadata` — the same stash-in-
+  metadata trick already used for the bootstrap double-SRP round, `CertRoundMeta`).
+- **Two bugs in the old implementation, fixed by construction here, not ported**:
+  1. Old: the invite was marked claimed at QR-**generation** time, so abandoning the page still
+     burned it. Here: `markRedeemed` only runs after the Challenger handshake genuinely completes
+     inside `registerHumanFromInvitation` — there is no earlier point that could mark it used.
+  2. Old: neither the info route nor the redeem route re-checked "already claimed" before
+     proceeding, so reopening a used link could silently mint an unrelated second account. Here:
+     `GET /api/public/invite/[token]` (the redemption page's pre-flight check, run **before** any
+     crypto exchange starts) and `registerHumanFromInvitation` itself (`findValidByToken`, re-checked
+     at the moment of actual registration, not just at page-load) both independently reject an
+     already-redeemed or expired token.
+- **Admin UI**: `app/admin/actors/invite/{page.tsx,InviteHumanForm.tsx}` — Name/Email/Workspace/
+  Capabilities (`portal_access` pre-checked)/expiry preset (1d/7d/30d, default 7d). `InviteHumanForm`
+  is a Client Component calling `createInvitationAction` directly and awaiting its return value —
+  the same one-time-reveal pattern as `NewWebhookForm.tsx`, necessary because the raw link, like a
+  webhook secret, can never be shown again after this response. Entry point: "Invite human →" next
+  to the Humans section heading on `/admin/actors`.
+- **Redemption**: `app/invite/[token]/page.tsx` — a close cousin of `app/login/page.tsx` (this
+  package has no shared login hook to extract into yet), always in register mode (no login branch —
+  an invite is never for an existing Actor), hitting invite-scoped public routes that mirror the
+  normal ones exactly except they skip the `hasAnyHuman()` register-vs-login decision:
+  `GET /api/public/invite/[token]` (pre-flight validity), `GET /api/public/invite/[token]/p2p-connect`
+  and `GET /api/public/invite/[token]/connect` (mirror `.../user/p2p-connect` and `.../user/connect`).
+  `POST /api/public/user/request/[token]` and `GET /api/public/user/listen/[token]` are reused
+  unchanged — that `token` is the per-session `AuthCertificate` connection hash, an unrelated
+  namespace to the invite token in the URL.
+- **Webhook events**: `human.invited` (creation — no Actor exists yet, so a small inline payload
+  rather than reusing `actorPayload`) and `human.invitation_redeemed` (redemption —
+  `actorPayload(actor) + invitedBy`), both in the "Actors" group.
+
 ## Verified
 
 Everything below was exercised against a real (throwaway, Docker) Postgres and, where noted, a

@@ -23,14 +23,17 @@
 import { Challenger, CryptoChannel, VaultysId, crypto } from "@vaultys/id";
 import pino from "pino";
 import type { AgentCapability } from "@vaultysclaw/policy";
-import { AuthCertificateDAO, ActorDAO, UserDAO } from "@/db";
+import { AuthCertificateDAO, ActorDAO, UserDAO, InvitationDAO } from "@/db";
 import { ServerIdentityDAO } from "@/db/settings.dao";
 import {
   BOOTSTRAP_ADMIN_CERT_ID,
   ensureBootstrapAdmin,
   isBootstrapAdminNeeded,
+  issueAdminGrant,
   persistChallengerCertificate,
 } from "./certificates";
+import { recordEvent } from "./audit";
+import { actorPayload } from "./webhook-payloads";
 import type { AuthCertificate } from "@prisma/client";
 
 const logger = pino({ name: "user-login-channel" });
@@ -66,9 +69,57 @@ interface CertRoundMeta {
   issuedBy: string;
 }
 
-async function registerHuman(contact: VaultysId): Promise<boolean> {
+/**
+ * Redeeming an invite (packages/controlplane/CLAUDE.md "Human onboarding via invite"): unlike
+ * packages/control-plane's equivalent, there's no pre-created placeholder row to claim — Actor.did
+ * is this schema's primary key, so nothing human-shaped can exist before this handshake actually
+ * completes. `InvitationDAO.findValidByToken` re-checks expiry/already-redeemed right here (not
+ * just at the pre-flight `GET /api/public/invite/[token]` the redemption page calls before
+ * starting the exchange) — closing the old package's flagged gap where a stale/reopened link could
+ * silently mint an unrelated second account instead of failing loudly.
+ */
+async function registerHumanFromInvitation(
+  did: string,
+  publicKey: string,
+  rawToken: string
+): Promise<boolean> {
+  const invitation = await InvitationDAO.findValidByToken(rawToken);
+  if (!invitation) {
+    logger.warn({ did }, "Invitation redemption attempted with an invalid/expired/used token");
+    return false;
+  }
+
+  const actor = await UserDAO.ensureExists(did, invitation.name, invitation.email, publicKey);
+  await InvitationDAO.markRedeemed(invitation.tokenHash, did);
+
+  const capabilities = invitation.capabilities as AgentCapability[];
+  if (capabilities.length > 0) {
+    await issueAdminGrant({
+      agentDid: did,
+      workspaceId: invitation.workspaceId,
+      capabilities,
+      expiresAt: Date.now() + 365 * 24 * 60 * 60 * 1000,
+      issuedBy: invitation.createdBy,
+    });
+  }
+
+  // No `performedBy` — this is the new human's own action, same convention as
+  // `actor.registration_requested`. `invitedBy` records who set the invite up in the first place.
+  await recordEvent({
+    eventType: "human.invitation_redeemed",
+    payload: { ...actorPayload(actor), invitedBy: invitation.createdBy },
+    targetType: "actor",
+    targetId: did,
+  });
+
+  logger.info({ did, invitedBy: invitation.createdBy }, "Human onboarded via invitation");
+  return true;
+}
+
+async function registerHuman(contact: VaultysId, invitationToken?: string): Promise<boolean> {
   const did = contact.toVersion(1).did;
   const publicKey = Buffer.from(contact.id).toString("base64");
+  if (invitationToken) return registerHumanFromInvitation(did, publicKey, invitationToken);
   await UserDAO.ensureExists(did, "Unnamed", null, publicKey);
   logger.info({ did }, "New human Actor registered");
   return true;
@@ -94,8 +145,11 @@ async function handleSuccess(cert: MutableCert, challenger: Challenger): Promise
   const did = contact.toVersion(1).did;
   const meta = JSON.parse(cert.metadata ?? "{}") as Record<string, unknown>;
   const isNewRegistration = cert.register === 1;
+  const invitationToken = typeof meta.invitationToken === "string" ? meta.invitationToken : undefined;
 
-  const ok = isNewRegistration ? await registerHuman(contact) : await loginHuman(contact);
+  const ok = isNewRegistration
+    ? await registerHuman(contact, invitationToken)
+    : await loginHuman(contact);
   if (ok) {
     meta.did = did;
     cert.metadata = JSON.stringify(meta);
@@ -104,7 +158,10 @@ async function handleSuccess(cert: MutableCert, challenger: Challenger): Promise
 }
 
 export class UserLoginChannel {
-  static async createRegistrationCertificate(): Promise<AuthCertificate> {
+  /** `invitationToken` (packages/controlplane/CLAUDE.md "Human onboarding via invite"), when
+   *  given, rides along in the row's initial `metadata` — `handleSuccess`/the P2P early-completion
+   *  branch both read it back out and thread it into `registerHuman` on completion. */
+  static async createRegistrationCertificate(invitationToken?: string): Promise<AuthCertificate> {
     const key = crypto.randomBytes(32).toString("hex");
     return AuthCertificateDAO.create({
       id: crypto.randomBytes(16).toString("hex"),
@@ -113,6 +170,7 @@ export class UserLoginChannel {
       connection: crypto.hash("sha256", Buffer.from(`connecting-${key}-vaultys`)).toString("hex"),
       register: 1,
       data: "",
+      metadata: invitationToken ? JSON.stringify({ invitationToken }) : undefined,
     });
   }
 
@@ -200,7 +258,15 @@ export class UserLoginChannel {
               if (contactDid && hisKeyRaw) {
                 const contact = VaultysId.fromId(hisKeyRaw);
                 const isNewRegistration = mutableCert.register === 1;
-                const ok = await (isNewRegistration ? registerHuman(contact) : loginHuman(contact));
+                const initialMeta = JSON.parse(mutableCert.metadata ?? "{}") as Record<string, unknown>;
+                const invitationToken =
+                  typeof initialMeta.invitationToken === "string" ? initialMeta.invitationToken : undefined;
+                const ok = await (isNewRegistration
+                  ? registerHuman(contact, invitationToken)
+                  : loginHuman(contact));
+                // Idempotent and a no-op once any admin exists (isBootstrapAdminNeeded) — which is
+                // guaranteed here anyway, since creating an invite in the first place requires
+                // already being an authenticated admin.
                 if (ok && isNewRegistration) await ensureBootstrapAdmin(contactDid);
                 mutableCert.metadata = JSON.stringify({ did: contactDid });
                 await AuthCertificateDAO.update(cert.id, {

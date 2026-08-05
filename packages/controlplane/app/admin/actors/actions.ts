@@ -4,12 +4,60 @@ import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
 import { approvePendingRegistration, denyPendingRegistration } from "@/lib/registrations";
-import { ActorDAO, ActorLinkDAO, UserDAO } from "@/db";
+import { ActorDAO, ActorLinkDAO, UserDAO, InvitationDAO } from "@/db";
 import { encodeDidParam } from "@/lib/actor-route";
 import { geocodeCity } from "@/lib/geocode";
 import { recordEvent } from "@/lib/audit";
-import { actorPayload, actorAdminUrl, diffFields } from "@/lib/webhook-payloads";
+import { actorPayload, actorAdminUrl, buildAdminUrl, diffFields } from "@/lib/webhook-payloads";
 import type { AgentCapability } from "@vaultysclaw/policy";
+
+const EXPIRY_PRESET_MS: Record<string, number> = {
+  "1d": 24 * 60 * 60 * 1000,
+  "7d": 7 * 24 * 60 * 60 * 1000,
+  "30d": 30 * 24 * 60 * 60 * 1000,
+};
+
+/** "Reveal once" pattern (app/admin/integrations/actions.ts's createWebhookAction) — the raw
+ *  invite link is only ever returned here, directly to the calling Client Component, never
+ *  persisted or round-tripped through a URL/redirect. */
+export async function createInvitationAction(formData: FormData): Promise<{ url: string }> {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.did) throw new Error("Not authenticated");
+
+  const name = (formData.get("name") as string)?.trim();
+  const email = (formData.get("email") as string)?.trim() || null;
+  const workspaceId = (formData.get("workspaceId") as string) || null;
+  const capabilities = formData.getAll("capabilities") as AgentCapability[];
+  const expiryPreset = (formData.get("expiryPreset") as string) || "7d";
+  if (!name) throw new Error("Name is required");
+
+  const expiresAt = new Date(Date.now() + (EXPIRY_PRESET_MS[expiryPreset] ?? EXPIRY_PRESET_MS["7d"]));
+
+  const { invitation, rawToken } = await InvitationDAO.create({
+    name,
+    email,
+    capabilities,
+    workspaceId,
+    createdBy: session.user.did,
+    expiresAt,
+  });
+
+  const performedBy = { did: session.user.did, name: session.user.name ?? "Unnamed" };
+  await recordEvent({
+    eventType: "human.invited",
+    payload: {
+      name: invitation.name,
+      email: invitation.email,
+      workspaceId: invitation.workspaceId,
+      expiresAt: invitation.expiresAt,
+      createdBy: invitation.createdBy,
+      performedBy,
+    },
+    performedBy,
+  });
+
+  return { url: buildAdminUrl(`/invite/${rawToken}`) ?? `/invite/${rawToken}` };
+}
 
 export async function approveRegistrationAction(formData: FormData): Promise<void> {
   const session = await getServerSession(authOptions);

@@ -251,6 +251,18 @@ export const WEBHOOK_EVENTS: WebhookEventDef[] = [
     description: "An Actor's name, workspace, or profile was modified.",
     group: "Actors",
   },
+  {
+    type: "human.invited",
+    label: "Human invited",
+    description: "An admin created a single-use invite link for a human to onboard directly.",
+    group: "Actors",
+  },
+  {
+    type: "human.invitation_redeemed",
+    label: "Human invitation redeemed",
+    description: "A human completed onboarding by redeeming an invite link.",
+    group: "Actors",
+  },
   // ── Certificates (the CapabilityCertificate ledger,
   // docs/CERTIFICATE_WEB_OF_TRUST.md) ─────────────────────────────────────────
   {

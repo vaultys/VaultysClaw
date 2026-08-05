@@ -146,9 +146,16 @@ export default async function ActorsPage() {
         ];
         return sections.map((section) => (
           <section key={section.title}>
-            <h2 className="text-sm font-semibold text-foreground-700 mb-3">
-              {section.title} ({section.rows.length})
-            </h2>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-semibold text-foreground-700">
+                {section.title} ({section.rows.length})
+              </h2>
+              {section.title === "Humans" && (
+                <Link href="/admin/actors/invite" className="text-xs text-primary-600 hover:underline">
+                  Invite human →
+                </Link>
+              )}
+            </div>
             <div className="overflow-x-auto border border-neutral-200/60 rounded-xl">
               <table className="w-full text-sm bg-background-100">
                 <thead className="bg-background-200/40 text-left text-xs text-foreground-500 uppercase">

@@ -7,6 +7,7 @@ export class NotificationChannelDAO {
     description?: string | null;
     appriseKey: string;
     serviceUrls: string;
+    serviceTypes: string[];
     events: string[];
     createdBy: string;
   }): Promise<NotificationChannel> {
@@ -16,6 +17,7 @@ export class NotificationChannelDAO {
         description: data.description ?? null,
         appriseKey: data.appriseKey,
         serviceUrls: data.serviceUrls,
+        serviceTypes: data.serviceTypes,
         events: data.events,
         createdBy: data.createdBy,
       },
@@ -36,6 +38,7 @@ export class NotificationChannelDAO {
       name?: string;
       description?: string | null;
       serviceUrls?: string;
+      serviceTypes?: string[];
       events?: string[];
       isActive?: boolean;
     }

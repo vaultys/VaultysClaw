@@ -308,6 +308,11 @@ model NotificationChannel {
   // encrypted via lib/vault.ts — these often embed credentials (e.g. mailto://user:pass@host), so
   // never stored or logged in plaintext, and never re-displayed in full by the admin UI after entry.
   serviceUrls String
+  // The URL scheme(s) only (e.g. ["slack"], ["mailto", "pagerduty"]) — extracted from serviceUrls
+  // at write time, before encryption, and stored in plain. Not sensitive (it's a protocol name,
+  // not a credential), and it's what actually lets an admin tell channels apart in the list/detail
+  // UI without ever decrypting serviceUrls just to render the page.
+  serviceTypes Json    @default("[]")
   events      Json     @default("[]") // string[] of subscribed event types, same catalog Webhooks use
   isActive    Boolean  @default(true)
   createdBy   String // DID of the admin who created it

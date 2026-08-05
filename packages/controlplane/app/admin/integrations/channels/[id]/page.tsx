@@ -3,6 +3,7 @@ import { NotificationChannelDAO } from "@/db";
 import { CONTROLPLANE_WEBHOOK_EVENTS } from "@/lib/webhook-events";
 import PageChrome from "@/components/layout/PageChrome";
 import { updateChannelAction } from "../../actions";
+import ServiceTypeBadges from "../ServiceTypeBadges";
 
 const EVENT_GROUPS = Array.from(new Set(CONTROLPLANE_WEBHOOK_EVENTS.map((e) => e.group)));
 
@@ -23,9 +24,15 @@ export default async function ChannelDetailPage({ params }: { params: Promise<{ 
         ]}
       />
 
-      <div>
-        <div className="text-xs font-medium text-foreground-500 uppercase mb-1">Apprise key</div>
-        <code className="text-xs font-mono text-foreground-500">{channel.appriseKey}</code>
+      <div className="flex gap-8">
+        <div>
+          <div className="text-xs font-medium text-foreground-500 uppercase mb-1">Type</div>
+          <ServiceTypeBadges types={channel.serviceTypes as string[]} />
+        </div>
+        <div>
+          <div className="text-xs font-medium text-foreground-500 uppercase mb-1">Apprise key</div>
+          <code className="text-xs font-mono text-foreground-500">{channel.appriseKey}</code>
+        </div>
       </div>
 
       <form action={updateChannelAction} className="space-y-6">

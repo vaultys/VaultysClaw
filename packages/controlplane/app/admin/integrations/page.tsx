@@ -4,6 +4,7 @@ import { WebhookDAO, NotificationChannelDAO } from "@/db";
 import PageChrome from "@/components/layout/PageChrome";
 import { secretPreview } from "@/lib/webhook-secret";
 import { toggleWebhookActiveAction, deleteWebhookAction, toggleChannelActiveAction, deleteChannelAction } from "./actions";
+import ServiceTypeBadges from "./channels/ServiceTypeBadges";
 
 const TABS = [
   { id: "webhooks", label: "Webhooks" },
@@ -204,6 +205,7 @@ function ChannelsSection({ channels }: { channels: Awaited<ReturnType<typeof Not
           <thead className="bg-background-200/40 text-left text-xs text-foreground-500 uppercase">
             <tr>
               <th className="px-4 py-2 font-medium">Name</th>
+              <th className="px-4 py-2 font-medium">Type</th>
               <th className="px-4 py-2 font-medium">Apprise key</th>
               <th className="px-4 py-2 font-medium">Events</th>
               <th className="px-4 py-2 font-medium">Status</th>
@@ -213,6 +215,7 @@ function ChannelsSection({ channels }: { channels: Awaited<ReturnType<typeof Not
           <tbody>
             {channels.map((ch) => {
               const events = ch.events as string[];
+              const serviceTypes = ch.serviceTypes as string[];
               return (
                 <tr key={ch.id} className="border-t border-neutral-200/60 align-top">
                   <td className="px-4 py-2.5">
@@ -225,6 +228,9 @@ function ChannelsSection({ channels }: { channels: Awaited<ReturnType<typeof Not
                     {ch.description && (
                       <div className="text-xs text-foreground-400 mt-0.5">{ch.description}</div>
                     )}
+                  </td>
+                  <td className="px-4 py-2.5">
+                    <ServiceTypeBadges types={serviceTypes} />
                   </td>
                   <td className="px-4 py-2.5 text-foreground-500 font-mono text-xs">{ch.appriseKey}</td>
                   <td className="px-4 py-2.5 text-foreground-500">
@@ -270,7 +276,7 @@ function ChannelsSection({ channels }: { channels: Awaited<ReturnType<typeof Not
             })}
             {channels.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-foreground-400">
+                <td colSpan={6} className="px-4 py-6 text-center text-foreground-400">
                   No notification channels configured yet.
                 </td>
               </tr>

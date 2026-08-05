@@ -29,8 +29,20 @@ export interface ChromeToolbarConfig extends Omit<ToolbarConfig, "actions"> {
  * Bridges a server-rendered page's data into the toolbar/breadcrumb client
  * context. Server Components can't call the `useToolbar`/`useBreadcrumbs`
  * hooks directly, so pages render this leaf with pre-computed, serializable
- * props instead. Renders nothing — side effect only. Freshly mounted per
- * navigation, so an empty dependency list is correct (not just "run once ever").
+ * props instead. Renders nothing — side effect only.
+ *
+ * A route whose toolbar content depends on `searchParams` (e.g. a `?tab=`
+ * switch) only gets a fresh RSC render on navigation, not a remount of this
+ * already-mounted Client Component — so the dependency array can't be empty
+ * (that would freeze the toolbar at whatever it was on first mount) or the
+ * raw `toolbar`/`actions` objects (fresh references every render regardless
+ * of real changes, since callers always pass inline JSX literals — depending
+ * on those re-fires the effect every render, and each firing updates context
+ * state that itself triggers a re-render up the tree, looping forever).
+ * Instead this depends on a JSON key of just the serializable content
+ * (`icon`/`onClick` excluded — a ReactNode/function, and irrelevant to
+ * whether the toolbar's actual content changed), so the effect only re-runs
+ * when something a user would actually see has changed.
  */
 export default function PageChrome({
   toolbar,
@@ -47,9 +59,20 @@ export default function PageChrome({
       : { ...action, onClick: () => router.push(action.href) }
   );
 
+  const toolbarKey = JSON.stringify({
+    title: toolbar.title,
+    description: toolbar.description,
+    steps: toolbar.steps,
+    search: toolbar.search,
+    actions: toolbar.actions?.map((a) =>
+      a.kind === "badge" ? { kind: a.kind, id: a.id, label: a.label, tone: a.tone } : { kind: a.kind, id: a.id, label: a.label, href: a.href, variant: a.variant }
+    ),
+  });
+  const breadcrumbsKey = JSON.stringify(breadcrumbs);
+
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useToolbar({ ...toolbar, actions }, []);
+  useToolbar({ ...toolbar, actions }, [toolbarKey]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useBreadcrumbs(breadcrumbs, []);
+  useBreadcrumbs(breadcrumbs, [breadcrumbsKey]);
   return null;
 }

@@ -7,7 +7,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
 import { WebhookDAO, NotificationChannelDAO } from "@/db";
 import { generateWebhookSecret } from "@/lib/webhook-secret";
-import { pushAppriseConfig, deleteAppriseConfig } from "@/lib/apprise";
+import { pushAppriseConfig, deleteAppriseConfig, extractServiceTypes } from "@/lib/apprise";
 import { encryptSecret } from "@/lib/vault";
 
 /**
@@ -118,6 +118,7 @@ export async function createChannelAction(formData: FormData): Promise<void> {
     description: description || null,
     appriseKey,
     serviceUrls: encrypted,
+    serviceTypes: extractServiceTypes(serviceUrls),
     events,
     createdBy: session.user.did,
   });
@@ -150,7 +151,9 @@ export async function updateChannelAction(formData: FormData): Promise<void> {
     name,
     description: description || null,
     events,
-    ...(serviceUrls ? { serviceUrls: await encryptSecret(serviceUrls) } : {}),
+    ...(serviceUrls
+      ? { serviceUrls: await encryptSecret(serviceUrls), serviceTypes: extractServiceTypes(serviceUrls) }
+      : {}),
   });
 
   revalidatePath("/admin/integrations");

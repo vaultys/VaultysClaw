@@ -42,6 +42,14 @@ the Access Portal shell, and the design system (ported from `packages/control-pl
   itself. Toolbar button actions are described as `{ href }` (serializable), not `{ onClick }` — a
   plain closure can't cross the Server→Client Component boundary, only a Server Action or
   serializable data can; `PageChrome` converts `href` into a `router.push` client-side.
+  Its `useEffect`s key off a `JSON.stringify` of just the serializable toolbar/breadcrumb content
+  (title, description, actions minus `icon`/`onClick`), not an empty array or the raw prop
+  objects — a real bug, found on the Integrations `?tab=` switch (§ below): a route whose toolbar
+  depends on `searchParams` only gets a fresh RSC render on navigation, not a remount of this
+  already-mounted Client Component, so an empty array froze the toolbar at whatever it showed on
+  first mount (Integrations kept saying "webhooks" on every tab); the "obvious" fix of depending on
+  the raw objects instead crashed the page ("Maximum update depth exceeded") because inline JSX
+  object/array literals are fresh references every render, so that dependency never settles.
 - **Full nav shape** (`components/layout/Sidebar.tsx`): Overview, Actors, Sensors, Map,
   Certificates, Workspaces, Settings, and Integrations' Webhooks tab are real. Audit Log is still a
   real route rendering `components/layout/ComingSoon.tsx` with a description of what's planned, so
@@ -346,7 +354,12 @@ real sections, not one.
 - **Schema**: `NotificationChannel` (`prisma/schema.prisma`) — `appriseKey` (unique, plain, the
   identifier Apprise stores config under), `serviceUrls` (one or more `apprise://` URLs,
   newline-separated, **encrypted via `lib/vault.ts`** since they often embed credentials, e.g.
-  `mailto://user:pass@host`), `events` (same catalog as Webhooks), `isActive`, `createdBy`. Unlike
+  `mailto://user:pass@host`), `serviceTypes` (plain `string[]`, e.g. `["slack"]` —
+  `lib/apprise.ts`'s `extractServiceTypes` pulls just the URL scheme out of `serviceUrls` *before*
+  encrypting it; not sensitive, unlike the rest of the URL, and it's the one thing that actually
+  lets an admin tell channels apart in the list/detail UI — `ServiceTypeBadges.tsx` renders it via
+  `serviceTypeLabel`'s friendly-name map, falling back to the capitalized raw scheme for anything
+  not in that short list), `events` (same catalog as Webhooks), `isActive`, `createdBy`. Unlike
   a Webhook's `url`, the dispatcher never needs `serviceUrls` back — Apprise itself stores what an
   `appriseKey` points at, pushed once via `/add` at create/update time — so `db/notification-
   channel.dao.ts` and the dispatcher's own query both only ever touch `id`/`appriseKey`/`events`/

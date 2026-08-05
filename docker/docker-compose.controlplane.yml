@@ -1,0 +1,78 @@
+# packages/controlplane — dev infra stack: PostgreSQL + Redis + Apprise.
+#
+# Starts only the *backing services* the rebuilt control plane needs — not the app itself, which
+# still runs on the host via `pnpm --filter @vaultysclaw/controlplane dev` (or just
+# `pnpm controlplane:dev`, which does both).
+#
+# Quick start (from repo root):
+#   pnpm controlplane:docker:up      # postgres + redis + apprise, waits for healthy
+#   pnpm --filter @vaultysclaw/controlplane dev
+# or in one step:
+#   pnpm controlplane:dev
+#
+# Deliberately a SEPARATE stack from docker/docker-compose.yml (packages/control-plane's) —
+# different default host ports (5433/6381/8000 vs. 5432/6380/none) so both can run side by side
+# without any conflict, and so switching to this stack never risks colliding with a Postgres/Redis
+# you already have running on the classic ports for the old package.
+#
+# Services:
+#   PostgreSQL → localhost:5433 (override with PG_PORT)
+#   Redis      → localhost:6381 (override with REDIS_PORT)
+#   Apprise    → http://localhost:8000 (override with APPRISE_PORT)
+name: vaultysclaw-controlplane
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: vaultys
+      POSTGRES_PASSWORD: ${PG_PASSWORD:-vaultys_dev_secret}
+      POSTGRES_DB: vaultysclaw
+    ports:
+      - "${PG_PORT:-5433}:5432"
+    volumes:
+      - controlplane_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # -h 127.0.0.1 forces TCP (not unix socket) so the healthcheck only reports healthy once a
+      # real network connection actually works.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U vaultys -d vaultysclaw"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+      start_period: 10s
+
+  # BullMQ webhook queue (packages/controlplane/lib/webhook-queue.ts, prefix
+  # "vaultysclaw-controlplane" — see that package's CLAUDE.md).
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "${REDIS_PORT:-6381}:6379"
+    volumes:
+      - controlplane_redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Backs Notification Channels (docs/REBUILD_ARCHITECTURE.md §5) — never exposed beyond this
+  # host in dev; a real deployment keeps it on an internal network, reachable only from the
+  # control plane's admin API and packages/webhook-dispatcher.
+  apprise:
+    image: caronc/apprise:latest
+    ports:
+      - "${APPRISE_PORT:-8000}:8000"
+    volumes:
+      - controlplane_appriseconfig:/config
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8000/ >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+volumes:
+  controlplane_pgdata:
+  controlplane_redisdata:
+  controlplane_appriseconfig:

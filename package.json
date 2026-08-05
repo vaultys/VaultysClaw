@@ -7,6 +7,10 @@
   "scripts": {
     "-- DEV --": "",
     "vaultysclaw:dev": "pnpm --filter @vaultysclaw/control-plane dev --data-dir ../../.devdata | pino-pretty",
+    "controlplane:docker:up": "docker compose -f docker/docker-compose.controlplane.yml up -d --wait",
+    "controlplane:docker:down": "docker compose -f docker/docker-compose.controlplane.yml down",
+    "controlplane:docker:logs": "docker compose -f docker/docker-compose.controlplane.yml logs -f",
+    "controlplane:dev": "pnpm controlplane:docker:up && pnpm --filter @vaultysclaw/controlplane dev",
     "agent:dev": "pnpm --filter @vaultysclaw/agent-controller dev",
     "agent:start": "pnpm --filter @vaultysclaw/agent-controller start",
     "agent:web": "pnpm --filter @vaultysclaw/agent-controller dev:web",

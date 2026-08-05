@@ -28,6 +28,8 @@ VaultysClaw is a decentralized AI agent orchestration platform. A central **cont
 pnpm install
 pnpm dev                     # Start all packages (control plane + agent)
 pnpm vaultysclaw:dev         # Control plane only (preferred alias)
+pnpm controlplane:dev        # Rebuilt control plane (packages/controlplane): docker up --wait + dev server
+pnpm controlplane:docker:up  # Just its docker stack (postgres + redis + apprise, see that package's CLAUDE.md)
 pnpm agent:dev               # Agent controller only (headless)
 pnpm agent:web               # Agent controller with web UI (port 3002)
 pnpm agent:tui               # Agent controller with Ink TUI

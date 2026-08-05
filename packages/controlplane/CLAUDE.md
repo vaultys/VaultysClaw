@@ -6,6 +6,21 @@ at the core. See [`docs/REBUILD_ARCHITECTURE.md`](../../docs/REBUILD_ARCHITECTUR
 implements. Lives **alongside** `packages/control-plane`, not in place of it yet — nothing points
 production traffic here until the cutover is deliberate.
 
+## Development
+
+```bash
+pnpm controlplane:dev              # docker compose up --wait, then the dev server
+# or, separately:
+pnpm controlplane:docker:up        # postgres + redis + apprise only (docker/docker-compose.controlplane.yml)
+pnpm --filter @vaultysclaw/controlplane dev
+```
+
+`docker/docker-compose.controlplane.yml` is a **dedicated** dev stack — different default host
+ports (5433/6381/8000) than `packages/control-plane`'s own `docker/docker-compose.yml`
+(5432/6380/none), so both can run side by side with zero collision risk. Redis and Apprise are
+optional (`REDIS_URL`/`APPRISE_API_URL` unset just turns off Webhooks/Notification Channels, per
+their sections below); Postgres is required. See `.env.example` for the full variable set.
+
 ## Status
 
 Backend core, the WebSocket connection lifecycle, VaultysId QR login, the full admin navigation

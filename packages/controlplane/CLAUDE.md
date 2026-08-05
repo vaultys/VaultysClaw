@@ -21,6 +21,22 @@ ports (5433/6381/8000) than `packages/control-plane`'s own `docker/docker-compos
 optional (`REDIS_URL`/`APPRISE_API_URL` unset just turns off Webhooks/Notification Channels, per
 their sections below); Postgres is required. See `.env.example` for the full variable set.
 
+**Redis/Apprise being reachable is not enough on its own** — a `packages/webhook-dispatcher`
+instance also has to actually be running and consuming the queue, or events enqueue correctly and
+then just sit there forever (this exact gap shipped once — see the health check note under
+Notification Channels below). Start one with:
+
+```bash
+pnpm controlplane:webhook:dev
+```
+
+This copies `prisma/schema.prisma` into `packages/webhook-dispatcher/prisma/` and generates a
+client there first (`controlplane:webhook:prisma` — that package has no schema of its own locally;
+only Docker copies one in, at build time, per its own CLAUDE.md), then starts the worker with
+`REDIS_URL`/`BULLMQ_PREFIX`/`APPRISE_API_URL` pointed at this stack. Run it in its own terminal,
+same as `notifier:dev`/`webhook:dev` are separate from `vaultysclaw:dev` for the old control plane
+— it isn't wired into `controlplane:dev` itself.
+
 ## Status
 
 Backend core, the WebSocket connection lifecycle, VaultysId QR login, the full admin navigation
@@ -395,6 +411,17 @@ real sections, not one.
   whole notification-channel path is skipped, webhook delivery is unaffected either way. See that
   package's own CLAUDE.md for the full picture, including the real, documented limitation that
   Notification Channel failures aren't currently dead-lettered (only webhook failures are).
+- **Health check** (`lib/integrations-health.ts`, `channels/HealthPanel.tsx`, shown at the top of
+  the Notification Channels tab): Redis and Apprise being independently reachable is genuinely not
+  enough to know a channel will actually fire — an event can enqueue correctly and then sit
+  forever if no `packages/webhook-dispatcher` instance is running (exactly what happened once: the
+  producer worked, `enqueueWebhook` doesn't throw when nothing's consuming, so nothing surfaced
+  the gap until an admin noticed a specific notification never arrived). Redis/Apprise are checked
+  by direct reachability (`queue.client`'s resolved `status`, a `fetch` to the base URL);
+  "Dispatcher" is checked via BullMQ's `Queue.getWorkers()` on the same queue+prefix
+  (`vaultysclaw-controlplane`) — the one signal that actually answers "is anything consuming this
+  queue right now," which reachability alone can't. All three reuse `lib/webhook-queue.ts`'s
+  existing `getQueue()` singleton/connection rather than opening a second one just to check health.
 
 ## Verified
 
@@ -518,13 +545,12 @@ repeatable tests (see deferred).
   Integrations tabs are real. The certificate detail page (§1.5's signature-chain view) is built
   (`app/admin/certificates/[id]/page.tsx`) and its status-check-history section is real too — see
   `CertStatusCheckDAO` below.
-- **A dispatcher instance for this schema isn't part of this repo's deployment yet** — verified by
-  running throwaway ones (own `DATABASE_URL`, own BullMQ `prefix`, and for Notification Channels a
-  real throwaway Apprise container too) against a real Postgres, not by anything checked into
-  `docker/docker-compose.yml` or a Dockerfile. Wiring a real one up (its own compose entry, its own
-  `Dockerfile.webhook-dispatcher` variant pointed at this package's `prisma/schema.prisma`, an
-  actual `caronc/apprise` service) is a deployment-time decision for whenever this package actually
-  ships, not a code gap in `packages/webhook-dispatcher` itself.
+- **A committed *production* deployment for a dispatcher against this schema isn't part of this
+  repo yet** — `pnpm controlplane:webhook:dev` (see Development above) covers local dev, generating
+  a client from this package's schema into `packages/webhook-dispatcher` on the fly; there's no
+  compose entry or `Dockerfile.webhook-dispatcher` variant for actually deploying one yet. That's a
+  deployment-time decision for whenever this package ships, not a code gap in
+  `packages/webhook-dispatcher` itself — the dev script proves the same wiring works.
 - **Trust policy enforcement.** `/admin/settings` genuinely persists `trust.failMode`/
   `trust.stapleTtlSeconds` (trust doc §5.3), but nothing reads them yet — no verifier in this
   rebuild consumes `packages/policy`'s `verifyCertStatusResponseCert(vid, token, maxAgeMs)` with a

@@ -19,12 +19,12 @@ import { stripSensitive } from "./webhook-payloads";
  * never break the calling request flow — every call site uses
  * `enqueueWebhook`, which swallows and logs errors.
  */
-const QUEUE_PREFIX = "vaultysclaw-controlplane";
+export const QUEUE_PREFIX = "vaultysclaw-controlplane";
 
 let queue: Queue | null = null;
 let disabled = false;
 
-function connectionFromUrl(url: string): RedisOptions {
+export function connectionFromUrl(url: string): RedisOptions {
   const u = new URL(url);
   return {
     host: u.hostname,
@@ -35,7 +35,9 @@ function connectionFromUrl(url: string): RedisOptions {
   };
 }
 
-function getQueue(): Queue | null {
+/** Exported for lib/integrations-health.ts, which reuses this same singleton/connection to check
+ *  Redis reachability and dispatcher worker presence rather than opening a second connection. */
+export function getQueue(): Queue | null {
   if (disabled) return null;
   if (queue) return queue;
 

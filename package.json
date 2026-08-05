@@ -11,6 +11,8 @@
     "controlplane:docker:down": "docker compose -f docker/docker-compose.controlplane.yml down",
     "controlplane:docker:logs": "docker compose -f docker/docker-compose.controlplane.yml logs -f",
     "controlplane:dev": "pnpm controlplane:docker:up && pnpm --filter @vaultysclaw/controlplane dev",
+    "controlplane:webhook:prisma": "mkdir -p packages/webhook-dispatcher/prisma && cp packages/controlplane/prisma/schema.prisma packages/webhook-dispatcher/prisma/schema.prisma && pnpm --filter @vaultysclaw/webhook-dispatcher exec prisma generate",
+    "controlplane:webhook:dev": "pnpm controlplane:webhook:prisma && DATABASE_URL=postgresql://vaultys:vaultys_dev_secret@localhost:5432/vaultysclaw REDIS_URL=redis://localhost:6381 BULLMQ_PREFIX=vaultysclaw-controlplane APPRISE_API_URL=http://localhost:8000 pnpm --filter @vaultysclaw/webhook-dispatcher dev",
     "agent:dev": "pnpm --filter @vaultysclaw/agent-controller dev",
     "agent:start": "pnpm --filter @vaultysclaw/agent-controller start",
     "agent:web": "pnpm --filter @vaultysclaw/agent-controller dev:web",

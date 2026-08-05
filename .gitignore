@@ -7,6 +7,11 @@ package-lock.json
 temp/
 data/
 
+# packages/webhook-dispatcher has no schema of its own — Docker copies one in at build time
+# (docker/Dockerfile.webhook-dispatcher), and `controlplane:webhook:dev` does the same locally
+# for packages/controlplane's schema. Never commit whichever one happens to be copied in.
+packages/webhook-dispatcher/prisma/
+
 # Production
 dist
 build

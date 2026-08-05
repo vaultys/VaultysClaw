@@ -5,6 +5,7 @@ import PageChrome from "@/components/layout/PageChrome";
 import { secretPreview } from "@/lib/webhook-secret";
 import { toggleWebhookActiveAction, deleteWebhookAction, toggleChannelActiveAction, deleteChannelAction } from "./actions";
 import ServiceTypeBadges from "./channels/ServiceTypeBadges";
+import HealthPanel from "./channels/HealthPanel";
 
 const TABS = [
   { id: "webhooks", label: "Webhooks" },
@@ -200,6 +201,8 @@ function WebhooksSection({ webhooks }: { webhooks: Awaited<ReturnType<typeof Web
 function ChannelsSection({ channels }: { channels: Awaited<ReturnType<typeof NotificationChannelDAO.list>> }) {
   return (
     <div className="space-y-4">
+      <HealthPanel />
+
       <div className="overflow-x-auto border border-neutral-200/60 rounded-xl">
         <table className="w-full text-sm bg-background-100">
           <thead className="bg-background-200/40 text-left text-xs text-foreground-500 uppercase">

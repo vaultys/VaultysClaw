@@ -99,7 +99,7 @@ against that schema locally.
   real `caronc/apprise` image: `/notify/<key>` accepts `{title, body, type}`
   and returns `{"error": null}` on success.
 - **`src/render.ts`** — `renderNotification(job)` → `{title, body, type}` or
-  `null`. Templates for `packages/controlplane`'s event catalog (actor.*,
+  `null`. Templates for `packages/controlplane`'s event catalog (actor.*, human.*,
   certificate.*, workspace.*) only — `packages/control-plane`'s own domain
   (agent/model/etc.) doesn't have Notification Channels wired up yet; that
   migration (rebuild doc §8 step 4) would add its own templates here, keyed

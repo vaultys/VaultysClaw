@@ -3,7 +3,7 @@
  * human-facing half of the same event pipeline Webhooks use. Unlike a webhook (raw JSON, the
  * receiver interprets it), Apprise needs a rendered `{title, body, type}` to actually display.
  *
- * Covers packages/controlplane's event catalog (actor.*, certificate.*, workspace.*) — this
+ * Covers packages/controlplane's event catalog (actor.*, human.*, certificate.*, workspace.*) — this
  * package's own domain (packages/control-plane's agent/model/etc. events) doesn't have
  * Notification Channels wired up yet; that would need its own template set here, keyed the same
  * way, whenever that migration (rebuild doc §8 step 4) actually happens.
@@ -46,6 +46,16 @@ const RENDERERS: Record<string, Renderer> = {
     title: "Actor updated",
     body: `${str(p.name)}'s profile was modified.`,
     type: "info",
+  }),
+  "human.invited": (p) => ({
+    title: "Human invited",
+    body: `${str(p.name)} was invited to onboard${p.email ? ` (${str(p.email)})` : ""}.`,
+    type: "info",
+  }),
+  "human.invitation_redeemed": (p) => ({
+    title: "Human onboarded via invite",
+    body: `${str(p.name)} accepted their invite and is now active.`,
+    type: "success",
   }),
   "certificate.issued": (p) => {
     const caps = Array.isArray(p.capabilities) ? (p.capabilities as string[]) : [];

@@ -4,6 +4,7 @@ import { ArrowLeft, MapPin } from "lucide-react";
 import { CapabilityCertificateDAO, ActorDAO, ActorLinkDAO, UserDAO, WorkspaceDAO } from "@/db";
 import PageChrome from "@/components/layout/PageChrome";
 import { ActorKindBadge } from "@/components/ActorKindBadge";
+import ProxyConfigPanel from "@/components/proxy/ProxyConfigPanel";
 import { revokeCertificateAction } from "@/app/admin/certificates/actions";
 import {
   updateActorAction,
@@ -102,6 +103,12 @@ export default async function ActorDetailPage({
           </div>
         </div>
       </section>
+
+      {/* The kind extension (docs/REBUILD_ARCHITECTURE.md §4.3). Placed high on the
+          page, above Location and the certificate list: for a proxy this is the
+          section that decides whether traffic is refused, so it should not sit
+          below optional metadata. */}
+      {actor.kind === "proxy" && <ProxyConfigPanel actor={actor} />}
 
       <section className="space-y-3 border border-neutral-200/60 rounded-xl bg-background-100 p-4">
         <div className="flex items-center justify-between">

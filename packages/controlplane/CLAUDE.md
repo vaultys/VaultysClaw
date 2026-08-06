@@ -772,13 +772,23 @@ repeatable tests (see deferred).
   compose entry or `Dockerfile.webhook-dispatcher` variant for actually deploying one yet. That's a
   deployment-time decision for whenever this package ships, not a code gap in
   `packages/webhook-dispatcher` itself — the dev script proves the same wiring works.
-- **Trust policy enforcement.** `/admin/settings` genuinely persists `trust.failMode`/
-  `trust.stapleTtlSeconds` (trust doc §5.3), but nothing reads them yet — no verifier in this
-  rebuild consumes `packages/policy`'s `verifyCertStatusResponseCert(vid, token, maxAgeMs)` with a
-  `maxAgeMs` derived from the staple TTL. The Settings page says so directly rather than implying
-  enforcement that doesn't exist. Per-workspace override columns (trust doc §5.3's `Workspace.
-  certFailMode`/`certStapleTtlSeconds`) also aren't added to the schema yet — org-wide is the only
-  level today.
+- **Trust policy enforcement — partially real now.** `trust.failMode` has its first consumer:
+  `lib/actor-config.ts` translates it into the `actor_config` payload's `trust.failClosed`, which a
+  `kind: "proxy"` interception point enforces (docs/PROXY_ARCHITECTURE.md §7.1). Still unread:
+  `trust.stapleTtlSeconds` — and deliberately so rather than by omission. Its 0 means "force a live
+  status query every time" (trust doc §5.2), the strictest setting, and an interception point decides
+  offline by design and can never query live. Inheriting the number would hand the *loosest*
+  behaviour to the admin who asked for the strictest, so the proxy kind carries its own
+  `maxStatusAgeSeconds` in `kindConfig` instead, where 0 keeps its strict meaning and unbounded must
+  be written explicitly as a negative. No verifier here consumes `packages/policy`'s
+  `verifyCertStatusResponseCert(vid, token, maxAgeMs)` yet. Per-workspace override columns (trust doc
+  §5.3's `Workspace.certFailMode`/`certStapleTtlSeconds`) aren't in the schema — org-wide is still
+  the only level.
+- **The `proxy` kind's admin panel.** `lib/proxy-kind.ts` defines and validates the `kindConfig`
+  schema, `lib/proxy-rules.ts` signs the rule set, and `lib/ws-server.ts`'s `pushActorConfig` pushes
+  both — but there is no UI for authoring them yet, so a proxy's `kindConfig` has to be written
+  directly to `Actor.kindConfig`. `proxyKindConfigWarnings` exists specifically for that panel to
+  render.
 - Model Registry, OIDC/Entra — added to the schema and this package only once each is actually
   being built (Webhooks and Notification Channels already are, see above).
 - A Docker-gated integration test suite (mirroring the root project's `vitest.config.docker.mjs`

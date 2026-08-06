@@ -19,6 +19,8 @@ export const TYPE_COLOR: Record<string, string> = {
   sensor: "#f59e0b",
   mcp: "#3b82f6",
   device: "#eab308",
+  // Red: the one kind here that refuses traffic rather than only reporting it.
+  proxy: "#ef4444",
 };
 const DEFAULT_COLOR = "#94a3b8";
 export function typeColor(type: string): string {
@@ -31,6 +33,7 @@ export const TYPE_ONLINE_COLOR: Record<string, string> = {
   sensor: "#fbbf24",
   mcp: "#60a5fa",
   device: "#facc15",
+  proxy: "#f87171",
 };
 const DEFAULT_ONLINE_COLOR = "#cbd5e1";
 export function typeOnlineColor(type: string): string {
@@ -39,7 +42,7 @@ export function typeOnlineColor(type: string): string {
 
 /** Kinds in priority order, used for dominant-type and legend ordering — falls back to whatever
  *  other kind strings actually show up (docs §4.3: kinds are open-ended) after these known ones. */
-export const MARKER_TYPES = ["openclaw", "human", "sensor", "mcp", "device"] as const;
+export const MARKER_TYPES = ["openclaw", "human", "sensor", "mcp", "device", "proxy"] as const;
 
 export interface MapCluster {
   id: string;

@@ -56,13 +56,19 @@ export interface FieldChange {
  * (`toISOString()`), not object identity, so an unrelated `updatedAt` bump alone isn't reported
  * as every field having "changed."
  */
-export function diffFields(before: AnyRecord, after: AnyRecord, fields: string[]): FieldChange[] {
-  const normalize = (v: unknown) => (v instanceof Date ? v.toISOString() : (v ?? null));
+export function diffFields(
+  before: AnyRecord,
+  after: AnyRecord,
+  fields: string[]
+): FieldChange[] {
+  const normalize = (v: unknown) =>
+    v instanceof Date ? v.toISOString() : (v ?? null);
   const changes: FieldChange[] = [];
   for (const field of fields) {
     const from = normalize(before[field]);
     const to = normalize(after[field]);
-    if (JSON.stringify(from) !== JSON.stringify(to)) changes.push({ field, from, to });
+    if (JSON.stringify(from) !== JSON.stringify(to))
+      changes.push({ field, from, to });
   }
   return changes;
 }
@@ -129,5 +135,70 @@ export function workspacePayload(ws: AnyRecord): AnyRecord {
     color: ws.color ?? null,
     isDefault: ws.isDefault ?? false,
     createdAt: ws.createdAt ?? null,
+  };
+}
+
+/**
+ * A `kind: "proxy"` Actor's enforcement configuration, for
+ * `proxy.config_updated` (docs/PROXY_ARCHITECTURE.md §12).
+ *
+ * Unlike {@link actorPayload}, this one *does* include `kindConfig` content —
+ * a deliberate exception, not an oversight. `actorPayload` excludes it because a
+ * kind's config is arbitrary and not guaranteed safe to publish; here the shape
+ * is known (`lib/proxy-kind.ts`), contains only hostnames, ports, and effects,
+ * and is the entire point of the event. A rule change with the rules withheld
+ * would be an audit entry that records nothing useful.
+ *
+ * `ruleChanges` is a rule-level diff rather than a before/after blob, because
+ * "which rule was added or removed" is the question an auditor actually asks,
+ * and a whole-config diff of a thirty-rule set answers it very badly.
+ */
+/** The rule fields this builder reads. Structural rather than an import of
+ *  `lib/proxy-rules.ts`'s `ProxyRule`, keeping this module free of a dependency
+ *  on a single kind's types — the same reason it takes `AnyRecord` elsewhere. */
+interface RuleLike {
+  id: unknown;
+  effect?: unknown;
+  subject?: unknown;
+  workloadId?: unknown;
+  hosts?: unknown;
+  ports?: unknown;
+}
+
+export function proxyConfigPayload(
+  actor: AnyRecord,
+  before: { rules?: readonly RuleLike[] } | null,
+  after: {
+    mode?: unknown;
+    maxStatusAgeSeconds?: unknown;
+    rules?: readonly RuleLike[];
+  }
+): AnyRecord {
+  const beforeRules = before?.rules ?? [];
+  const afterRules = after.rules ?? [];
+  const beforeIds = new Set(beforeRules.map((r) => String(r.id)));
+  const afterIds = new Set(afterRules.map((r) => String(r.id)));
+
+  const summarise = (r: RuleLike) =>
+    `${r.effect} ${r.subject}${r.workloadId ? `:${r.workloadId}` : ""} ${
+      Array.isArray(r.hosts) ? r.hosts.join(",") : ""
+    }${Array.isArray(r.ports) && r.ports.length > 0 ? `:${r.ports.join(",")}` : ""}`;
+
+  return {
+    did: actor.did,
+    name: actor.name,
+    kind: actor.kind,
+    mode: after.mode ?? null,
+    maxStatusAgeSeconds: after.maxStatusAgeSeconds ?? null,
+    ruleCount: afterRules.length,
+    rules: afterRules.map((r) => ({ id: r.id, summary: summarise(r) })),
+    ruleChanges: {
+      added: afterRules
+        .filter((r) => !beforeIds.has(String(r.id)))
+        .map((r) => ({ id: r.id, summary: summarise(r) })),
+      removed: beforeRules
+        .filter((r) => !afterIds.has(String(r.id)))
+        .map((r) => ({ id: r.id, summary: summarise(r) })),
+    },
   };
 }

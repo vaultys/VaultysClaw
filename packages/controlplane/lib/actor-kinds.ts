@@ -45,6 +45,20 @@ export const ACTOR_KIND_META: Record<string, ActorKindMeta> = {
     category: "agent",
     badgeClass: "bg-warning-100 text-warning-700 border-warning-200",
   },
+  // An interception point running the intercept role — a CONNECT proxy that
+  // refuses agent traffic its certificate does not authorize
+  // (docs/PROXY_ARCHITECTURE.md §2). Unlike every other kind here it *enforces*
+  // rather than only reports, which is why its detail page has to state the
+  // zone semantics of §4.2 explicitly: a proxy governs everything pointed at
+  // it, so two agents behind one proxy are indistinguishable to the decision.
+  //
+  // Danger-coloured on purpose. The same binary in observe-only mode registers
+  // as `sensor`; this badge means traffic is being refused somewhere.
+  proxy: {
+    label: "proxy",
+    category: "agent",
+    badgeClass: "bg-danger-100 text-danger-700 border-danger-200",
+  },
 };
 
 const DEFAULT_BADGE_CLASS = "bg-neutral-100 text-foreground-600 border-neutral-200";

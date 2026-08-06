@@ -252,6 +252,18 @@ export const WEBHOOK_EVENTS: WebhookEventDef[] = [
     group: "Actors",
   },
   {
+    // Deliberately separate from actor.updated rather than folded into it: this
+    // one changes what traffic a `kind: "proxy"` Actor refuses. An operator who
+    // wants to be alerted when *enforcement* changes is a different subscriber
+    // from one watching renames and workspace moves, and conflating them would
+    // bury a rule change in routine profile churn.
+    type: "proxy.config_updated",
+    label: "Proxy configuration updated",
+    description:
+      "An interception point's enforcement configuration changed — its rules, mode, or certificate-status bound.",
+    group: "Actors",
+  },
+  {
     type: "human.invited",
     label: "Human invited",
     description: "An admin created a single-use invite link for a human to onboard directly.",

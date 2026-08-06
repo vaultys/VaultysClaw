@@ -100,6 +100,19 @@ func run(configPath string) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	// The intercept role starts before the poll loop and fails the process if it
+	// cannot start safely: an operator who enabled enforcement must not end up
+	// with a running observe-only sensor that looks identical (§3.2).
+	if cfg.Intercept.Enabled {
+		stopIntercept, err := startIntercept(ctx, cfg, logger)
+		if err != nil {
+			return fmt.Errorf("starting intercept role: %w", err)
+		}
+		defer stopIntercept()
+	} else {
+		logger.Debug("sensor: intercept role disabled; observe-only")
+	}
+
 	var wg sync.WaitGroup
 	if client != nil {
 		wg.Add(1)

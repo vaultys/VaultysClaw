@@ -32,6 +32,14 @@ export type ProtocolMessageType =
   // no equivalent in the kind-agnostic core and doesn't warrant inventing
   // one just to avoid a single exception.
   | "sensor_telemetry"
+  // Kind-specific configuration pushed down to a connected Actor
+  // (docs/PROXY_ARCHITECTURE.md §12). Deliberately kind-*agnostic* in this
+  // file even though `proxy` is its only consumer today: the payload is an
+  // opaque `kindConfig` plus signed policy artefacts, which is the same shape
+  // the `mcp` and `openclaw` kinds will want. A `proxy_config` message would
+  // have been a kind-specific exception in a file whose stated rule is that
+  // none belong here.
+  | "actor_config"
   | "error";
 
 export interface ProtocolMessage {
@@ -77,6 +85,49 @@ export interface CertStatusResponsePayload {
 
 export interface ErrorPayload {
   reason: string;
+}
+
+/**
+ * Kind-specific configuration for a connected Actor
+ * (docs/PROXY_ARCHITECTURE.md §12). Pushed on connect and whenever the
+ * Actor's `kindConfig`, certificates, or the org trust settings change.
+ *
+ * The two `*Token` fields are the load-bearing part, and they are tokens rather
+ * than decoded objects on purpose: each is signed by the control plane and
+ * verified offline by the recipient, so the transport carrying them never has to
+ * be trusted. That is the correction to the superseded proxy implementation,
+ * which wrote whatever arrived on the socket straight into its local database
+ * and enforced it (§9).
+ */
+export interface ActorConfigPayload {
+  /** Opaque, kind-owned settings — schema belongs to the kind (§4.3 of the rebuild doc). */
+  kindConfig: unknown;
+  /**
+   * The recipient's own capability grant, in packcert form
+   * (`packages/policy`'s `signCapabilityGrantCert`). Null when the Actor holds
+   * no packcert-format certificate — note that a challenger-format one does not
+   * substitute, since it carries no signed metadata and so cannot prove *what*
+   * was granted (§8.1).
+   */
+  grantToken: string | null;
+  /** A signed rule set (`lib/proxy-rules.ts`), or null when none is configured. */
+  ruleSetToken: string | null;
+  /**
+   * Org trust policy, resolved for this Actor.
+   *
+   * `maxStatusAgeSeconds` deliberately does **not** simply mirror
+   * `trust.stapleTtlSeconds`. That setting's 0 means "force a live status query
+   * every time" (trust doc §5.2) — the strictest choice available — and an
+   * interception point deciding offline cannot perform a live query at all. So
+   * the value is translated here rather than inherited, and 0 keeps its strict
+   * meaning on the recipient: no cached status is acceptable. Negative is
+   * unbounded, which has to be stated explicitly so it can never be reached by
+   * omission.
+   */
+  trust: {
+    failClosed: boolean;
+    maxStatusAgeSeconds: number;
+  };
 }
 
 /**

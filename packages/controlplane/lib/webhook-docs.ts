@@ -6,7 +6,12 @@
  */
 import type { WebhookEventDef } from "@vaultysclaw/shared";
 import { CONTROLPLANE_WEBHOOK_EVENTS } from "./webhook-events";
-import { actorPayload, certificatePayload, workspacePayload } from "./webhook-payloads";
+import {
+  actorPayload,
+  certificatePayload,
+  proxyConfigPayload,
+  workspacePayload,
+} from "./webhook-payloads";
 
 // ── Representative sample domain objects ────────────────────────────────────
 
@@ -56,6 +61,24 @@ const EXAMPLE_PAYLOADS: Record<string, Record<string, unknown>> = {
   "actor.approved": actorPayload(sampleActor),
   "actor.denied": { did: sampleActor.did, name: sampleActor.name, kind: sampleActor.kind },
   "actor.updated": actorPayload(sampleActor),
+  "proxy.config_updated": proxyConfigPayload(
+    { ...sampleActor, kind: "proxy", name: "edge-proxy-paris" },
+    { rules: [{ id: "deny-openai", subject: "any", hosts: [".openai.com"], effect: "deny" }] },
+    {
+      mode: "explicit",
+      maxStatusAgeSeconds: 3600,
+      rules: [
+        { id: "deny-openai", subject: "any", hosts: [".openai.com"], effect: "deny" },
+        {
+          id: "allow-github",
+          subject: "any",
+          hosts: ["api.github.com"],
+          ports: [443],
+          effect: "allow",
+        },
+      ],
+    }
+  ),
 
   "human.invited": {
     name: "Alice Martin",

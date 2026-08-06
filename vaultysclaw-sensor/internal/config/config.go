@@ -73,7 +73,68 @@ type Sensor struct {
 	MCPServers      []MCPRule            `yaml:"mcpServers"`
 	AgentFrameworks []AgentFrameworkRule `yaml:"agentFrameworks"`
 	BrowserProcess  []string             `yaml:"browserProcessNames"`
+
+	// Intercept configures the enforcement role. Disabled by default: a sensor
+	// that has always been observe-only must not start refusing traffic because
+	// it was upgraded (docs/PROXY_ARCHITECTURE.md §3.2).
+	Intercept Intercept `yaml:"intercept"`
 }
+
+// Intercept configures the intercept role — the tier-1 CONNECT proxy
+// (docs/PROXY_ARCHITECTURE.md §2, §8).
+//
+// The observe role can run without any of this, and does by default. Turning
+// Enabled on is what changes a component that cannot break the host into one
+// that can, which is why it is opt-in here *and* gated on a capability the
+// control plane must grant (§3.2).
+type Intercept struct {
+	Enabled bool `yaml:"enabled"`
+	// ListenAddr is where the CONNECT proxy binds, e.g. "127.0.0.1:8888".
+	// Loopback-only by default: a proxy reachable from the network is a very
+	// different exposure than one only local processes can use.
+	ListenAddr string `yaml:"listenAddr"`
+	// Mode is how traffic reaches the proxy: "explicit" (agents are configured
+	// to point here) or "system" (the host's proxy settings are pointed here).
+	// Only "explicit" is implemented — "system" requires the attribution and
+	// scope machinery of §5.2, without which it would govern the whole host.
+	Mode string `yaml:"mode"`
+	// AnchorPath is where the pinned control-plane identity lives (§8.1).
+	AnchorPath string `yaml:"anchorPath"`
+	// ControlPlaneID optionally provisions that anchor out of band, as standard
+	// base64 of the control plane's VaultysId. Setting it removes the
+	// trust-on-first-use window entirely.
+	ControlPlaneID string `yaml:"controlPlaneId"`
+	// GrantPath is the packcert capability-grant token authorizing this point.
+	GrantPath string `yaml:"grantPath"`
+	// RuleSetPath is the signed rule set (§5.2.0). Optional: with no rule set,
+	// every request is decided by the certificate alone.
+	RuleSetPath string `yaml:"ruleSetPath"`
+	// SpoolPath is the durable audit spool (G7).
+	SpoolPath string `yaml:"spoolPath"`
+	// MaxStatusAgeSeconds bounds how long an unrefreshed certificate status may
+	// back a decision (§7.1/§8.2).
+	//
+	// Zero is the *strictest* value, not the loosest — it means no cached status
+	// is acceptable, which under FailClosed denies every governed request. This
+	// mirrors `docs/CERTIFICATE_WEB_OF_TRUST.md` §5.2, where
+	// `stapleTtlSeconds: 0` means "force live query every time"; an offline
+	// decider cannot query live, so refusing is the faithful reading of that
+	// choice. Negative means unbounded, and has to be written explicitly so it
+	// can never be reached by leaving the field out.
+	MaxStatusAgeSeconds int `yaml:"maxStatusAgeSeconds"`
+	// FailClosed denies governed requests once MaxStatusAgeSeconds has elapsed.
+	FailClosed bool `yaml:"failClosed"`
+	// IdleTimeoutSeconds bounds how long an established tunnel may sit idle.
+	// Zero leaves tunnels open indefinitely, which long-lived streaming
+	// connections need.
+	IdleTimeoutSeconds int `yaml:"idleTimeoutSeconds"`
+}
+
+// Interception modes. Only ModeExplicit is implemented; see Intercept.Mode.
+const (
+	ModeExplicit = "explicit"
+	ModeSystem   = "system"
+)
 
 // Collector is the standalone reference collector's configuration.
 type Collector struct {
@@ -93,6 +154,27 @@ func DefaultSensorConfig() *Sensor {
 		TelemetryEnabled:    true,
 		IdentityPath:        defaultPath(".vaultysclaw-sensor/identity.key"),
 		BrowserProcess:      DefaultBrowserProcessNames,
+		Intercept: Intercept{
+			// Enabled stays false: enabling enforcement is always a deliberate
+			// act, never a consequence of upgrading an observe-only sensor.
+			Enabled: false,
+			// Loopback only. A CONNECT proxy reachable from the network is a
+			// materially different exposure than one only local processes reach.
+			ListenAddr:  "127.0.0.1:8888",
+			Mode:        ModeExplicit,
+			AnchorPath:  defaultPath(".vaultysclaw-sensor/control-plane-anchor.json"),
+			GrantPath:   defaultPath(".vaultysclaw-sensor/grant.token"),
+			RuleSetPath: defaultPath(".vaultysclaw-sensor/rules.token"),
+			SpoolPath:   defaultPath(".vaultysclaw-sensor/audit.jsonl"),
+			// FailClosed by default, which §7.1 argues is only tenable because
+			// `explicit` mode governs exactly the agents pointed at this proxy
+			// and nothing else on the host.
+			FailClosed: true,
+			// Unbounded by default, stated explicitly as a negative rather than left
+			// at zero: with no control-plane push yet there is no status refresh to be
+			// fresh against, and 0 would deny every request. Startup warns about it.
+			MaxStatusAgeSeconds: -1,
+		},
 		Providers: []ProviderRule{
 			{Name: "openai", Hosts: []string{"api.openai.com", "openai.com", "chatgpt.com", "chat.openai.com"}},
 			{Name: "anthropic", Hosts: []string{"api.anthropic.com", "claude.ai", "anthropic.com"}},
@@ -225,6 +307,32 @@ func (s *Sensor) applyEnvOverrides() {
 	if v := os.Getenv("VCS_AGENT_IDENTITY_PATH"); v != "" {
 		s.AgentIdentityPath = v
 	}
+	if v := os.Getenv("VCS_INTERCEPT_ENABLED"); v != "" {
+		s.Intercept.Enabled = parseBool(v, s.Intercept.Enabled)
+	}
+	if v := os.Getenv("VCS_INTERCEPT_LISTEN_ADDR"); v != "" {
+		s.Intercept.ListenAddr = v
+	}
+	if v := os.Getenv("VCS_INTERCEPT_MODE"); v != "" {
+		s.Intercept.Mode = v
+	}
+	if v := os.Getenv("VCS_INTERCEPT_CONTROL_PLANE_ID"); v != "" {
+		s.Intercept.ControlPlaneID = v
+	}
+	if v := os.Getenv("VCS_INTERCEPT_GRANT_PATH"); v != "" {
+		s.Intercept.GrantPath = v
+	}
+	if v := os.Getenv("VCS_INTERCEPT_RULESET_PATH"); v != "" {
+		s.Intercept.RuleSetPath = v
+	}
+	if v := os.Getenv("VCS_INTERCEPT_MAX_STATUS_AGE_SECONDS"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			s.Intercept.MaxStatusAgeSeconds = n
+		}
+	}
+	if v := os.Getenv("VCS_INTERCEPT_FAIL_CLOSED"); v != "" {
+		s.Intercept.FailClosed = parseBool(v, s.Intercept.FailClosed)
+	}
 }
 
 func (c *Collector) applyEnvOverrides() {
@@ -258,6 +366,40 @@ func (s *Sensor) Validate() error {
 	}
 	if strings.TrimSpace(s.IdentityPath) == "" {
 		return fmt.Errorf("config: identityPath must not be empty")
+	}
+	return s.Intercept.validate()
+}
+
+// validate rejects an intercept configuration that would enforce nothing while
+// looking configured, or that asks for the unimplemented mode.
+func (i *Intercept) validate() error {
+	if !i.Enabled {
+		return nil
+	}
+	if strings.TrimSpace(i.ListenAddr) == "" {
+		return fmt.Errorf("config: intercept.listenAddr is required when intercept.enabled is true")
+	}
+	switch i.Mode {
+	case ModeExplicit:
+	case ModeSystem:
+		// Refusing beats half-supporting: `system` mode sees all host traffic,
+		// so without §5.2's attribution and workload-scope machinery it would
+		// govern the browser and the package manager too.
+		return fmt.Errorf(
+			"config: intercept.mode %q is not implemented yet — it requires the attribution and workload-scope machinery of docs/PROXY_ARCHITECTURE.md §5.2; use %q",
+			ModeSystem, ModeExplicit,
+		)
+	default:
+		return fmt.Errorf("config: intercept.mode must be %q (got %q)", ModeExplicit, i.Mode)
+	}
+	if strings.TrimSpace(i.AnchorPath) == "" {
+		return fmt.Errorf("config: intercept.anchorPath is required when intercept.enabled is true")
+	}
+	if strings.TrimSpace(i.GrantPath) == "" {
+		return fmt.Errorf("config: intercept.grantPath is required when intercept.enabled is true")
+	}
+	if strings.TrimSpace(i.SpoolPath) == "" {
+		return fmt.Errorf("config: intercept.spoolPath is required when intercept.enabled is true")
 	}
 	return nil
 }

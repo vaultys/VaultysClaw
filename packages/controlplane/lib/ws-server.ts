@@ -40,6 +40,7 @@ import { persistChallengerCertificate } from "./certificates";
 import { recordEvent } from "./audit";
 import { buildAdminUrl } from "./webhook-payloads";
 import { WsSender, type AgentSender } from "./agent-sender";
+import { buildActorConfig } from "./actor-config";
 import type {
   AuthChallengePayload,
   AuthCompletePayload,
@@ -348,6 +349,13 @@ export class ControlPlaneWSServer {
 
         logger.info({ did, kind: existing.kind }, "Actor reconnected");
 
+        // A reconnecting interception point must not resume enforcing on state
+        // from before it went away — a certificate may have been revoked or a
+        // rule added while it was gone. Fire-and-forget: a failed push leaves the
+        // agent on its last *verified* config, which is the safe direction, and
+        // its own staleness bound is what caps how long that lasts (§7.1).
+        void this.pushActorConfig(did);
+
         // A grant may have been approved while this Actor was offline —
         // deliver it now that they're back (trust doc §3.2b).
         void this.deliverApprovedCapabilities(did);
@@ -555,6 +563,14 @@ export class ControlPlaneWSServer {
         capabilities: state.capabilities,
       } satisfies CertIssuedPayload);
       logger.info({ did: registration.did, certId }, "Capability certificate delivered via live exchange");
+
+      // A `proxy` Actor cannot enforce on what it just received here: a
+      // challenger-format certificate carries no signed capability metadata, so
+      // it proves live presence but not what was granted (§8.1). Follow up with
+      // an actor_config push, which carries the packcert grant it can actually
+      // re-verify offline — otherwise an admin would issue a certificate, see
+      // "delivered", and have a proxy that still refuses everything.
+      void this.pushActorConfig(registration.did);
     } catch (err) {
       logger.error({ err }, "Error during certificate issuance exchange");
       this.failCertIssuance(sender, state, "Internal error");
@@ -682,6 +698,56 @@ export class ControlPlaneWSServer {
   }
 
   // ─── Send helpers ────────────────────────────────────────────────────────
+
+  /**
+   * Push kind-specific configuration to a connected Actor
+   * (docs/PROXY_ARCHITECTURE.md §12).
+   *
+   * Called on reconnect, and by admin code after changing a proxy's
+   * `kindConfig`, issuing or revoking one of its certificates, or changing the
+   * org trust settings. Safe to call for any DID: it is a no-op for an Actor
+   * that is offline or of a kind with nothing to push.
+   *
+   * Returns whether a message was actually sent, so an admin action can report
+   * "applied now" versus "will apply when the proxy reconnects" instead of
+   * implying the former.
+   *
+   * Deliberately not throwing on a build failure. The recipient always holds a
+   * previously *verified* config and keeps enforcing it, bounded by its own
+   * staleness setting — so a failed push degrades to "unchanged", never to
+   * "unenforced".
+   */
+  async pushActorConfig(did: string): Promise<boolean> {
+    const actor = this.connected.get(did);
+    if (!actor) return false;
+
+    try {
+      const result = await buildActorConfig(did);
+      if (!result) return false;
+
+      for (const warning of result.warnings) {
+        // Warnings describe a proxy that will enforce less than its admin
+        // expects — the state that looks identical to a working one, so it has
+        // to be loud somewhere even when nobody is looking at the panel.
+        logger.warn({ did, warning }, "Proxy configuration warning");
+      }
+
+      this.sendMessage(actor.sender, "actor_config", result.payload);
+      logger.info(
+        {
+          did,
+          hasGrant: result.payload.grantToken !== null,
+          hasRuleSet: result.payload.ruleSetToken !== null,
+          failClosed: result.payload.trust.failClosed,
+        },
+        "Pushed actor config"
+      );
+      return true;
+    } catch (err) {
+      logger.error({ did, err }, "Failed to build actor config; the agent keeps its last verified config");
+      return false;
+    }
+  }
 
   private sendMessage(sender: AgentSender, type: ProtocolMessageType, payload: unknown): void {
     const message: ProtocolMessage = {

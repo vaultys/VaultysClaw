@@ -8,10 +8,6 @@ github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZb
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/stretchr/testify v1.11.1 h1:7s2iGBzp5EwR7/aIZr8ao5+dra3wiQyKjjFuvgVKu7U=
 github.com/stretchr/testify v1.11.1/go.mod h1:wZwfW3scLgRK+23gO65QZefKpKQRnfz6sD981Nm4B6U=
-github.com/vaultys/vaultysid/go v0.0.0-20260729103217-40a8ed77d9cc h1:ivXlII98h0I5WmnOSOpgzRKqw/LFEJ/czhwvGRHsKpE=
-github.com/vaultys/vaultysid/go v0.0.0-20260729103217-40a8ed77d9cc/go.mod h1:LCRW8ZjFA9RovgrK5irvVFNRgUyNiPajM7MQjXUF2bM=
-github.com/vaultys/vaultysid/go v0.0.0-20260729112258-6947785ec754 h1:zvDGb2ioNm3fO3ot7yX+jVsdeUdiyo3l+Ofgiow4Sec=
-github.com/vaultys/vaultysid/go v0.0.0-20260729112258-6947785ec754/go.mod h1:LCRW8ZjFA9RovgrK5irvVFNRgUyNiPajM7MQjXUF2bM=
 github.com/vaultys/vaultysid/go v0.0.0-20260729122600-9046639cc232 h1:jVrOu5w/8EALd4js55zIQwyCYM/ZUSlBDTxuIgiCN1M=
 github.com/vaultys/vaultysid/go v0.0.0-20260729122600-9046639cc232/go.mod h1:LCRW8ZjFA9RovgrK5irvVFNRgUyNiPajM7MQjXUF2bM=
 github.com/vmihailenco/msgpack/v5 v5.4.1 h1:cQriyiUvjTwOHg8QZaPihLWeRAAVoCpE00IUPn0Bjt8=

@@ -31,14 +31,12 @@ import { Challenger, VaultysId, crypto } from "@vaultys/id";
 
 const Buffer = crypto.Buffer;
 
-export type DevIdentityType = "software" | "software-pqc" | "passkey" | "hardware";
-
-export interface BrowserIdData {
-  did: string;
-  vid: string; // base64 public key
-  secret: string; // base64 secret
-  type: DevIdentityType;
-}
+// The stored shape and its one repair function live in a dependency-free module
+// so pure consumers (lib/identity-backup.ts and its Node tests) can use them
+// without pulling in @vaultys/channel-browser. Re-exported here so existing
+// importers keep working unchanged.
+export { normaliseIdentity, type BrowserIdData, type DevIdentityType } from "./dev-identity";
+import { normaliseIdentity, type BrowserIdData, type DevIdentityType } from "./dev-identity";
 
 const IDENTITIES_KEY = "vaultysclaw:devIdentities";
 const ACTIVE_KEY = "vaultysclaw:activeDevIdentityDid";
@@ -50,12 +48,12 @@ export const SERVER_URL = typeof window !== "undefined" ? window.location.origin
 function readIdentities(): BrowserIdData[] {
   if (typeof localStorage === "undefined") return [];
   const raw = localStorage.getItem(IDENTITIES_KEY);
-  const list: BrowserIdData[] = raw ? JSON.parse(raw) : [];
+  const list: BrowserIdData[] = (raw ? JSON.parse(raw) : []).map(normaliseIdentity);
 
   const legacyRaw = localStorage.getItem(LEGACY_KEY);
   if (legacyRaw) {
-    const legacy = JSON.parse(legacyRaw) as Omit<BrowserIdData, "type"> & { type?: DevIdentityType };
-    if (!list.some((i) => i.did === legacy.did)) list.push({ ...legacy, type: legacy.type ?? "software" });
+    const legacy = JSON.parse(legacyRaw) as Partial<BrowserIdData>;
+    if (!list.some((i) => i.did === legacy.did)) list.push(normaliseIdentity(legacy));
     localStorage.setItem(IDENTITIES_KEY, JSON.stringify(list));
     localStorage.removeItem(LEGACY_KEY);
   }
@@ -87,6 +85,28 @@ export function listStoredDevIdentities(): BrowserIdData[] {
 
 export function removeStoredDevIdentity(did: string): void {
   persistIdentities(readIdentities().filter((i) => i.did !== did));
+}
+
+/**
+ * Merge restored identities into this browser's set (see `lib/identity-backup.ts`).
+ *
+ * Merges rather than replaces, and skips a DID already present rather than
+ * overwriting it. A restore is normally run *because* something was lost, so the
+ * destructive reading of "restore" — wiping identities the backup predates — is
+ * the one thing it must not do. Skipping an existing DID is safe because a DID
+ * is derived from its key: same DID means same secret, so there is nothing to
+ * choose between.
+ */
+export function importDevIdentities(incoming: BrowserIdData[]): {
+  added: number;
+  alreadyPresent: number;
+} {
+  const existing = readIdentities();
+  const known = new Set(existing.map((i) => i.did));
+  const added = incoming.filter((i) => !known.has(i.did));
+
+  if (added.length > 0) persistIdentities([...existing, ...added]);
+  return { added: added.length, alreadyPresent: incoming.length - added.length };
 }
 
 /** Ported verbatim from packages/control-plane's `getPkCred` — the only difference between a

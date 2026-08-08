@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { ArrowLeft, Cpu, Fingerprint, KeyRound, Plus, Trash2, Usb, X } from "lucide-react";
+import { ArrowLeft, Download, Plus, Trash2, X } from "lucide-react";
 import {
   generateDevIdentity,
   listStoredDevIdentities,
@@ -10,33 +10,11 @@ import {
   type BrowserIdData,
   type DevIdentityType,
 } from "@/lib/browser-connect";
+import IdentityBackupPanel from "./IdentityBackupPanel";
+import { TYPE_META, TYPE_ORDER, typeMeta } from "./dev-identity-meta";
 
-const TYPE_META: Record<DevIdentityType, { label: string; icon: typeof KeyRound; description: string }> = {
-  software: {
-    label: "Software key",
-    icon: KeyRound,
-    description: "A key generated and stored in this browser.",
-  },
-  "software-pqc": {
-    label: "Post-quantum key",
-    icon: Cpu,
-    description: "Same, but a dilithium_ed25519 hybrid key instead of plain Ed25519.",
-  },
-  passkey: {
-    label: "Passkey",
-    icon: Fingerprint,
-    description: "Face ID, Touch ID, or another platform authenticator on this device.",
-  },
-  hardware: {
-    label: "Hardware key",
-    icon: Usb,
-    description: "A YubiKey or other cross-platform FIDO2 security key.",
-  },
-};
 
-const TYPE_ORDER: DevIdentityType[] = ["software", "software-pqc", "passkey", "hardware"];
-
-type View = "list" | "choose-type";
+type View = "list" | "choose-type" | "backup";
 
 /**
  * Dev-mode only: lets a developer pick which previously used VaultysID to connect as, or generate
@@ -112,7 +90,7 @@ export default function DevIdentityPicker({
     <div className="fixed inset-0 z-50 flex flex-col bg-background">
       <div className="flex items-center justify-between border-b border-neutral-200/60 px-6 py-5 sm:px-10">
         <div className="flex items-center gap-3">
-          {view === "choose-type" && (
+          {view !== "list" && (
             <button
               type="button"
               onClick={() => {
@@ -126,12 +104,18 @@ export default function DevIdentityPicker({
           )}
           <div>
             <h2 className="text-lg font-semibold text-foreground">
-              {view === "list" ? "Dev identities" : "Choose a key type"}
+              {view === "list"
+                ? "Dev identities"
+                : view === "backup"
+                  ? "Back up & restore"
+                  : "Choose a key type"}
             </h2>
             <p className="mt-0.5 text-sm text-foreground-500">
               {view === "list"
                 ? "Choose which VaultysID to connect as."
-                : "Real generation — passkey/hardware trigger an actual browser prompt."}
+                : view === "backup"
+                  ? "These files hold private keys, so they are always encrypted."
+                  : "Real generation — passkey/hardware trigger an actual browser prompt."}
             </p>
           </div>
         </div>
@@ -160,7 +144,7 @@ export default function DevIdentityPicker({
                 </p>
               )}
               {identities.map((identity) => {
-                const meta = TYPE_META[identity.type] ?? TYPE_META.software;
+                const meta = typeMeta(identity.type);
                 return (
                   <div
                     key={identity.did}
@@ -204,7 +188,24 @@ export default function DevIdentityPicker({
               <Plus className="h-4 w-4" />
               Generate new identity
             </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setView("backup");
+                setError(null);
+              }}
+              className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-medium text-foreground-500 transition-colors hover:bg-background-100 hover:text-foreground"
+            >
+              <Download className="h-4 w-4" />
+              Back up or restore identities
+            </button>
           </>
+        ) : view === "backup" ? (
+          <IdentityBackupPanel
+            identities={identities}
+            onIdentitiesChanged={() => setIdentities(listStoredDevIdentities())}
+          />
         ) : (
           <div className="space-y-2">
             {TYPE_ORDER.map((type) => {

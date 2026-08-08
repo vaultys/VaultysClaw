@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
 import { useEffect, useRef, useState, Fragment } from "react";
-import { LogOut, Sun, Moon, Monitor, ChevronDown, ChevronRight, User, Check } from "lucide-react";
+import { LogOut, Sun, Moon, Monitor, ChevronDown, ChevronRight, IdCard, User, Check } from "lucide-react";
 import { useTheme, type Theme } from "@/components/ThemeProvider";
 import { useBreadcrumbsState } from "./BreadcrumbContext";
 import { cn } from "@/lib/utils";
@@ -97,6 +97,19 @@ export default function TopBar() {
               )}
               <p className="text-xs text-foreground-700 font-mono truncate">{shortDid(did)}</p>
             </div>
+
+            {/* Session-gated only (app/identity/layout.tsx), so this link works for
+                anyone signed in — including someone holding neither
+                admin_console_access nor portal_access, who is exactly the person
+                most likely to want to check what they hold. */}
+            <Link
+              href="/identity"
+              onClick={() => setOpen(false)}
+              className="flex w-full items-center gap-2.5 border-b border-neutral-200 px-3 py-2.5 text-sm text-foreground-700 transition-colors hover:bg-background-200 hover:text-foreground"
+            >
+              <IdCard className="h-4 w-4" />
+              My identity
+            </Link>
 
             <div className="px-3 py-2 border-b border-neutral-200">
               <p className="text-xs text-foreground-700 uppercase tracking-wider mb-1.5 font-medium">

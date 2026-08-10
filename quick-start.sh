@@ -6,7 +6,9 @@
 #      any that are missing, with your confirmation.
 #   2. Writes packages/control-plane/.env (NEXTAUTH_SECRET generated via openssl).
 #   3. Installs workspace dependencies with pnpm (bootstrapped via corepack).
-#   4. Builds and starts the full Docker stack (docker/docker-compose.yml).
+#   4. Builds and starts the minimal Docker stack (docker/docker-compose.yml, default profile:
+#      Postgres + Redis + LiteLLM + Control Plane — not the full demo stack with MinIO/Docling/
+#      Prisma Studio/Notifier/Webhook Dispatcher, see --profile full in that file).
 #   5. Waits for the control plane, then opens http://localhost:3000/quick-start.
 #
 # Usage:
@@ -222,7 +224,7 @@ install_deps() {
 
 # ── 4. Build & start the Docker stack ──────────────────────────────────────────
 start_stack() {
-  info "Building and starting the Docker stack (this can take a few minutes)…"
+  info "Building and starting the control plane stack (this can take a few minutes)…"
   (
     cd "$SCRIPT_DIR/docker" &&
       PG_PASSWORD="$DB_PASSWORD" \

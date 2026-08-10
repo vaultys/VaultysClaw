@@ -1,6 +1,10 @@
 # VaultysClaw — all-in-one stack
 #
-# Starts: PostgreSQL · Redis · Prisma Studio · MinIO · Docling · LiteLLM · Control Plane · Notifier
+# Default (quickstart) profile builds/starts only what the control plane needs to boot and
+# serve the web UI: PostgreSQL · Redis · Control Plane. Everything else (Prisma Studio, MinIO,
+# Docling, Notifier, Webhook Dispatcher) is optional tooling the control plane never blocks on
+# (see packages/control-plane CLAUDE.md) and lives behind the "full" profile so a plain
+# `docker compose up --build` doesn't pull/build ~10G of images nobody asked for (#45).
 #
 # Quick start (from repo root):
 #   cp .env.compose.example .env.compose   # then fill NEXTAUTH_SECRET + LITELLM_MASTER_KEY
@@ -9,14 +13,20 @@
 # Or with generated defaults (dev/demo only — insecure secrets):
 #   docker compose -f docker/docker-compose.yml up --build
 #
-# Services:
+# Full demo stack (adds Prisma Studio, MinIO, Docling, Notifier, Webhook Dispatcher):
+#   docker compose -f docker/docker-compose.yml --profile full up --build
+#
+# Services (default profile):
 #   Control Plane   → http://localhost:3000   WS → ws://localhost:8080
+#   LiteLLM         → http://localhost:4000
+#   PostgreSQL      → localhost:5432
+#   Redis           → localhost:6380
+#
+# Services (--profile full only):
 #   Prisma Studio   → http://localhost:5555
 #   MinIO API       → http://localhost:9000
 #   MinIO Console   → http://localhost:9001   (minioadmin / minioadmin123)
 #   Docling         → http://localhost:5001
-#   LiteLLM         → http://localhost:4000
-#   PostgreSQL      → localhost:5432
 
 services:
   # ── PostgreSQL ────────────────────────────────────────────────────────────
@@ -55,8 +65,9 @@ services:
       timeout: 5s
       retries: 10
 
-  # ── Prisma Studio ─────────────────────────────────────────────────────────
+  # ── Prisma Studio (opt-in: dev-only DB browser, rebuilds the control-plane image again) ────
   prisma-studio:
+    profiles: ["full"]
     build:
       context: ..
       dockerfile: docker/Dockerfile.control-plane
@@ -79,8 +90,9 @@ services:
       - none
     restart: unless-stopped
 
-  # ── MinIO ─────────────────────────────────────────────────────────────────
+  # ── MinIO (opt-in: control-plane defaults to filesystem storage without it) ────────────────
   minio:
+    profiles: ["full"]
     image: minio/minio
     ports:
       - "9000:9000"
@@ -99,6 +111,7 @@ services:
 
   # Creates the default bucket on first start
   minio-init:
+    profiles: ["full"]
     image: minio/minio
     depends_on:
       minio:
@@ -114,8 +127,9 @@ services:
       "
     restart: "no"
 
-  # ── Docling ───────────────────────────────────────────────────────────────
+  # ── Docling (opt-in: only used lazily by per-workspace knowledge sync, ~3G image) ──────────
   docling:
+    profiles: ["full"]
     image: quay.io/docling-project/docling-serve
     ports:
       - "5001:5001"
@@ -164,8 +178,11 @@ services:
         condition: service_healthy
       litellm:
         condition: service_started
+      # MinIO is behind the "full" profile — the control plane defaults to filesystem storage
+      # when it isn't running, so don't block startup waiting for it (#45).
       minio:
         condition: service_healthy
+        required: false
       redis:
         condition: service_healthy
     environment:
@@ -188,8 +205,9 @@ services:
       start_period: 60s
     restart: unless-stopped
 
-  # ── Notifier ────────────────────────────────────────────────────────────────
+  # ── Notifier (opt-in: independent worker, control-plane never blocks on it) ────────────────
   notifier:
+    profiles: ["full"]
     build:
       context: ..
       dockerfile: docker/Dockerfile.notifier
@@ -208,7 +226,9 @@ services:
       NODE_ENV: production
     restart: unless-stopped
 
+  # ── Webhook dispatcher (opt-in: independent worker, control-plane never blocks on it) ──────
   webhook-dispatcher:
+    profiles: ["full"]
     build:
       context: ..
       dockerfile: docker/Dockerfile.webhook-dispatcher

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Info, UserPlus } from "lucide-react";
 import { ActorDAO, PendingRegistrationDAO } from "@/db";
 import PageChrome from "@/components/layout/PageChrome";
 import { ActorKindBadge } from "@/components/ActorKindBadge";
@@ -28,15 +29,48 @@ export default async function ActorsPage() {
           description: `${actors.length} registered · ${pending.length} pending approval${
             awaitingDelivery.length > 0 ? ` · ${awaitingDelivery.length} awaiting delivery` : ""
           }`,
+          actions: [
+            {
+              kind: "button",
+              id: "invite-human",
+              label: "Invite human",
+              variant: "primary",
+              icon: <UserPlus className="w-3.5 h-3.5" />,
+              href: "/admin/actors/invite",
+            },
+          ],
         }}
         breadcrumbs={[{ label: "Actors" }]}
       />
 
+      <section className="rounded-xl border border-primary-200 bg-primary-50 px-4 py-3">
+        <div className="flex gap-3">
+          <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary-700" />
+          <div>
+            <h2 className="text-sm font-semibold text-foreground">How actor onboarding works</h2>
+            <p className="mt-1 text-sm leading-6 text-foreground-600">
+              A registration only proves an identity is asking to join. Approval is where you decide
+              which capabilities, if any, should be granted and delivered as certificates.
+            </p>
+          </div>
+        </div>
+      </section>
+
       <section>
-        <h2 className="text-sm font-semibold text-foreground-700 mb-3">
-          Pending approval ({pending.length})
-        </h2>
-        {pending.length === 0 && <p className="text-sm text-foreground-400">Nothing pending.</p>}
+        <div className="mb-3">
+          <h2 className="text-sm font-semibold text-foreground-700">
+            Pending approval ({pending.length})
+          </h2>
+          <p className="mt-1 text-xs leading-5 text-foreground-500">
+            Review requested capabilities before allowing the actor into the trust graph.
+          </p>
+        </div>
+        {pending.length === 0 && (
+          <div className="rounded-xl border border-dashed border-neutral-300 bg-background-100 px-4 py-5 text-sm text-foreground-500">
+            Nothing pending. New agents, devices, and servers will appear here when they request
+            registration.
+          </div>
+        )}
         <div className="space-y-3">
           {pending.map((reg) => (
             <form

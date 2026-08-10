@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Info, Plus } from "lucide-react";
 import { CapabilityCertificateDAO, ActorDAO } from "@/db";
 import PageChrome from "@/components/layout/PageChrome";
 import { revokeCertificateAction } from "./actions";
@@ -44,6 +44,22 @@ export default async function CertificatesPage() {
         }}
         breadcrumbs={[{ label: "Certificates" }]}
       />
+
+      <section className="rounded-xl border border-primary-200 bg-primary-50 px-4 py-3">
+        <div className="flex gap-3">
+          <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary-700" />
+          <div>
+            <h2 className="text-sm font-semibold text-foreground">
+              Certificates are the permission ledger
+            </h2>
+            <p className="mt-1 text-sm leading-6 text-foreground-600">
+              A certificate says which actor can use which capability, in which scope, and until
+              when. Prefer short-lived grants; an expiry of "Never" is shown loudly because it
+              deserves a deliberate review.
+            </p>
+          </div>
+        </div>
+      </section>
 
       <div className="overflow-x-auto border border-neutral-200/60 rounded-xl">
       <table className="w-full text-sm bg-background-100">
@@ -120,7 +136,8 @@ export default async function CertificatesPage() {
           {certs.length === 0 && (
             <tr>
               <td colSpan={6} className="px-4 py-6 text-center text-foreground-400">
-                No certificates issued yet.
+                No certificates issued yet. Actors can be registered without being trusted; issue a
+                certificate when you are ready to grant a capability.
               </td>
             </tr>
           )}

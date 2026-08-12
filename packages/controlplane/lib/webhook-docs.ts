@@ -9,6 +9,7 @@ import { CONTROLPLANE_WEBHOOK_EVENTS } from "./webhook-events";
 import {
   actorPayload,
   certificatePayload,
+  modelPayload,
   proxyConfigPayload,
   workspacePayload,
 } from "./webhook-payloads";
@@ -47,6 +48,23 @@ const sampleWorkspace = {
   color: "#6366f1",
   isDefault: false,
   createdAt: "2026-07-16T09:00:00.000Z",
+};
+
+/** Shaped like `db/model.dao.ts`'s `SafeModel` — `workspaceAccess` rows and the
+ *  `hasApiKey` flag included, `apiKeyEnc` absent, exactly as the emission sites see it. */
+const sampleModel = {
+  id: "mdl_4b2c1a",
+  name: "GPT-4o",
+  description: "General-purpose model for the research team",
+  provider: "openai",
+  modelId: "gpt-4o",
+  baseUrl: "https://api.openai.com/v1",
+  litellmModelName: "openai/gpt-4o",
+  isActive: true,
+  hasApiKey: true,
+  workspaceAccess: [{ workspaceId: "ws_9f3a2b" }],
+  createdBy: "did:vaultys:0071ec50c977d4e05682764806c7fc03556de6af",
+  createdAt: "2026-07-16T09:10:00.000Z",
 };
 
 // ── event type → example payload (mirrors the emission sites) ───────────────
@@ -106,6 +124,17 @@ const EXAMPLE_PAYLOADS: Record<string, Record<string, unknown>> = {
   // Not wired yet — this rebuild has no workspace-delete action (see CLAUDE.md); shape shown for
   // reference, matching the emission-site convention this event already uses elsewhere.
   "workspace.deleted": { id: sampleWorkspace.id, name: sampleWorkspace.name },
+
+  "model.created": modelPayload(sampleModel),
+  "model.updated": modelPayload({ ...sampleModel, isActive: false }),
+  // Deletion sends the identifying fields only — by the time this fires the row is gone, so the
+  // emission site has nothing else left to report (same convention as workspace.deleted).
+  "model.deleted": {
+    id: sampleModel.id,
+    name: sampleModel.name,
+    provider: sampleModel.provider,
+    litellmModelName: sampleModel.litellmModelName,
+  },
 };
 
 export interface WebhookEventDoc extends WebhookEventDef {

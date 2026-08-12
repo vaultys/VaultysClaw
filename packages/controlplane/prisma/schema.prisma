@@ -1,10 +1,10 @@
 // VaultysClaw rebuilt control plane — schema.
 //
 // Deliberately minimal: only the models the current build slice actually uses.
-// See docs/REBUILD_ARCHITECTURE.md for the full target model list (Notification
-// Channels, Model Registry, etc.) — those get added to this schema as each
-// feature is actually built, not speculatively ahead of time. Webhooks already
-// landed (see below).
+// See docs/REBUILD_ARCHITECTURE.md for the full target model list — those get
+// added to this schema as each feature is actually built, not speculatively
+// ahead of time. Webhooks, Notification Channels and the Model Registry have
+// already landed (see below); OIDC/Entra identity linking has not.
 
 generator client {
   provider = "prisma-client-js"
@@ -270,6 +270,7 @@ model Workspace {
 
   actors       Actor[]
   certificates CapabilityCertificate[]
+  modelAccess  ModelWorkspaceAccess[]
 }
 
 // ─── Sensor telemetry ─────────────────────────────────────────────────────────
@@ -417,4 +418,72 @@ model AuditLogEntry {
   @@index([actorDid])
   @@index([eventType])
   @@index([targetType, targetId])
+}
+
+// ─── Model Registry ──────────────────────────────────────────────────────────
+// The org's catalogue of LLM endpoints (docs/PAGE_DESIGN.md §1.8: "unchanged
+// from today"), plus which workspaces may use each one. Postgres is the source
+// of truth; LiteLLM is a downstream target that gets *pushed* to (lib/litellm.ts)
+// and never read back into these rows — so an unconfigured or unreachable
+// LiteLLM degrades the registry to inert catalogue data rather than breaking it.
+//
+// Two deliberate divergences from packages/control-plane's `ModelRegistry`:
+//
+//  - `isActive Boolean` instead of its `status String @default("active")`.
+//    Every other toggleable row in this schema (Webhook, NotificationChannel)
+//    is already `isActive`, and a two-valued String column is a stringly-typed
+//    boolean — same semantics, one less convention in the codebase.
+//  - No `WorkspaceRouterKey`/per-Actor `litellm*` virtual-key columns. Those are
+//    the *enforcement* half of the old design (a minted LiteLLM key whose
+//    `models` allowlist is what actually gates inference), and they only mean
+//    something once this package pushes LLM config down to Actors. That path
+//    doesn't exist here yet, so a grant row below is an authorization record
+//    the admin console shows and audits — see packages/controlplane/CLAUDE.md
+//    for what that does and does not currently enforce.
+
+model ModelRegistry {
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+  // Free-form, matching `LlmProviderType` in @vaultysclaw/shared rather than a
+  // Prisma enum — the shared union is already the single source of truth the UI
+  // renders from, and a DB enum would need a migration to add a provider.
+  provider    String
+  // The upstream model identifier as the provider knows it, e.g. "gpt-4o".
+  modelId     String
+  baseUrl     String
+  // The provider API key, encrypted via lib/vault.ts. Never selected by the
+  // list/detail queries (see `SafeModel` in db/model.dao.ts) — only the LiteLLM
+  // push path decrypts it, and it is never re-displayed after entry.
+  apiKeyEnc   String?
+  // The name this model is registered under inside LiteLLM ("<provider>/<slug>"),
+  // and therefore the string a workspace's allowlist would name. Null when the
+  // model was never pushed (LiteLLM unconfigured, or push explicitly skipped).
+  litellmModelName String?
+  isActive    Boolean  @default(true)
+  metadata    Json     @default("{}")
+  createdBy   String? // DID of the admin who registered it
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspaceAccess ModelWorkspaceAccess[]
+
+  @@index([isActive])
+}
+
+// Which workspaces may use which model. A plain join table — access is a
+// property of the pair, so there is nothing else to put on the row beyond when
+// it was granted (the *who* is in the audit log, which is append-only and
+// therefore the honest place for it; this row gets deleted on revoke).
+
+model ModelWorkspaceAccess {
+  modelId     String
+  workspaceId String
+  grantedAt   DateTime @default(now())
+
+  model     ModelRegistry @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  workspace Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@id([modelId, workspaceId])
+  @@index([workspaceId])
 }

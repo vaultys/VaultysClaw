@@ -41,7 +41,8 @@ same as `notifier:dev`/`webhook:dev` are separate from `vaultysclaw:dev` for the
 
 Backend core, the WebSocket connection lifecycle, VaultysId QR login, the full admin navigation
 shape (real + placeholder pages), real Actors/Sensors/Map/Certificates/Workspaces/Settings pages,
-the Access Portal shell, and the design system (ported from `packages/control-plane`) are built.
+the Model Registry, the Access Portal shell, and the design system (ported from
+`packages/control-plane`) are built.
 
 - **Design system**: `app/theme.css` (the adaptive CSS-variable palette, light/dark via `.dark`),
   `tailwind.config.js` (semantic color tokens — `bg-primary-600`, `text-foreground-500`, etc.,
@@ -468,6 +469,65 @@ real sections, not one.
   queue right now," which reachability alone can't. All three reuse `lib/webhook-queue.ts`'s
   existing `getQueue()` singleton/connection rather than opening a second one just to check health.
 
+## Model Registry
+
+The org's catalogue of LLM endpoints and which workspaces may use each (docs/PAGE_DESIGN.md §1.8,
+"unchanged from today"). A third Integrations tab (`?tab=models`), same `TabLink` pattern as the
+other two. Postgres is the source of truth; **LiteLLM is pushed to, never read back** — nothing
+here writes the proxy's model list into `ModelRegistry`, so an unconfigured or unreachable proxy
+degrades the registry to inert catalogue data instead of breaking it.
+
+- **Schema**: `ModelRegistry` + `ModelWorkspaceAccess` (`prisma/schema.prisma`, migration
+  `add_model_registry`). Two deliberate divergences from packages/control-plane's version, both
+  documented on the models themselves: `isActive Boolean` rather than its `status String` (every
+  other toggleable row here is already `isActive`, and a two-valued String is a stringly-typed
+  boolean), and **no `WorkspaceRouterKey`/per-Actor `litellm*` virtual-key columns** — those are the
+  *enforcement* half of the old design and there is nothing in this package to consume a minted key
+  yet (no LLM-config push to Actors). A grant row is therefore an authorization record the console
+  shows and audits, not something enforced at inference time; the workspace-access UI says so in as
+  many words rather than implying a guarantee that doesn't exist.
+- **`apiKeyEnc` never leaks by accident** (`db/model.dao.ts`): every read path a page or action uses
+  returns `SafeModel`, which omits the column at the *query* level (a Prisma `select`, not a delete
+  after the fact) and exposes only `hasApiKey`. The one path that needs the ciphertext has to call
+  `findByIdWithSecret` by name, so handling a secret is greppable and obvious in a diff.
+- **LiteLLM client** (`lib/litellm.ts`): `registerModel`/`removeModel`/`healthCheck`/`listModels`
+  plus `probeProviderModels` (a direct provider probe for the form's "Test connection", which runs
+  server-side because the endpoint is often on a private network the admin's browser can't reach and
+  the key must never leave the server). Two things it deliberately does *not* port:
+  - **No module-level config cache / `setLiteLLMConfig` / service-lifecycle singleton.** The old
+    package resolves config from two mutable module globals seeded by an `initializeLiteLLMService()`
+    call in `server.ts` — wrong under Next.js, where a Server Action and a Server Component render
+    can be in different workers, so a config change is only visible to whichever one ran that call.
+    Here every call reads the `Setting` rows, so an edit takes effect on the next request everywhere.
+  - **No `createWorkspaceKey`/`createAgentKey`** — see the virtual-key note above.
+  - Config lives in `Setting` (`litellm.baseUrl`, `litellm.masterKeyEnc`, keys in `lib/org-settings.ts`)
+    with `LITELLM_BASE_URL`/`LITELLM_MASTER_KEY` as the deployment-time fallback, DB winning. Both
+    halves must resolve or the integration reports "not configured" — a base URL with no master key
+    can't authenticate against the proxy's admin API, and the panel says exactly that rather than
+    looking configured while silently pushing nothing.
+- **Bug fixed rather than ported**: control-plane's model-update route passes `updated.apiKeyEnc` —
+  the *encrypted* value — to LiteLLM (its create path correctly passes the plaintext), which
+  registers a model that can never authenticate upstream. Here `syncToLiteLLM` takes an explicitly
+  named `apiKeyPlain`, and the update path decrypts the stored key when re-pushing so an
+  endpoint/model-id edit doesn't silently drop the credential either.
+- **Admin UI** (`app/admin/integrations/{page.tsx,actions.ts,models/*}`): list + `LiteLLMPanel`
+  (three-state: connected / unreachable / not configured, plus "Re-push all models" to catch up
+  models registered while the proxy was off), a shared `ModelForm.tsx` for register and edit, and a
+  detail page with workspace-access toggles and delete. Provider is fixed after creation — it
+  determines the LiteLLM name and wire format, so changing it in place would orphan the upstream
+  registration. `lib/model-providers.ts` holds the per-provider defaults (lifted out of the old
+  package's form component so the action validating a submission and the form rendering it agree on
+  one list); agent-SDK providers are catalogued but never pushed, since they run a vendor harness
+  rather than an HTTP endpoint.
+- **Events**: `model.created`/`updated`/`deleted` — the shared catalog's own, so "Models" simply
+  joins `EMITTED_GROUPS` in `lib/webhook-events.ts`. `modelPayload` (`lib/webhook-payloads.ts`)
+  reports `hasProviderKey`, **not** `hasApiKey`: `stripSensitive` matches the substring `apikey`
+  case-insensitively, so a field named `hasApiKey` — a boolean carrying no secret at all — would be
+  silently deleted from every delivered payload. Renaming it was cheaper and more visible than
+  adding an exception to the blacklist. Workspace grant/revoke emits `model.updated` with an
+  explicit `workspaceAccess` diff rather than a new event type, since inventing one would mean
+  emitting an event the shared catalog doesn't define.
+
 ## Audit Log
 
 A unified, append-only log (docs/PAGE_DESIGN.md §1.6) — replaces the old app's split IntentLog
@@ -746,6 +806,20 @@ repeatable tests (see deferred).
   correctly showed `signed` (re-verified against the actual stored certificate bytes, not a stored
   flag). The Overview page's "Recent activity" feed correctly showed "Nothing yet." before either
   event and both entries, newest first, after.
+- **Model Registry**, end to end in a real browser against a live dev server and real Postgres:
+  registering a model through the actual form persisted the row with `litellmModelName`
+  auto-derived (`openai/gpt-4o-research`), redirected to the detail page, and produced a
+  `model.created` audit entry carrying `hasProviderKey: true` and **no trace of the key itself**;
+  granting the default workspace produced a `ModelWorkspaceAccess` row and a `model.updated` entry
+  whose diff was exactly `[{field: "workspaceAccess", from: [], to: ["default"]}]`, with the button
+  correctly re-rendering as "Granted"; renaming the model re-derived the LiteLLM name
+  (`openai/gpt-4o-research-v2`) and reported both `name` and `litellmModelName` in one diff; deleting
+  it removed the row, cascaded the access row away, and recorded `model.deleted`. The docs page
+  renders the new MODELS group with all three events, and a scripted pass over
+  `buildWebhookEventDocs()` confirmed every documented event still has a non-empty, secret-free
+  example (which is what caught the `hasApiKey` → `hasProviderKey` stripping issue above).
+  Not exercised against a real LiteLLM container — the proxy was unconfigured throughout, so the
+  push path was correctly a no-op and the panel reported "not configured".
 - **Caveat, not verified**: the actual PeerJS/WebRTC wire exchange with a real VaultysId wallet
   app (no physical wallet in this environment — the Challenger crypto itself is already proven via
   the WS-agent path). One incidental observation from testing against the public PeerJS relay: an
@@ -761,7 +835,7 @@ repeatable tests (see deferred).
   separate: `vaultysclaw-sensor` connecting is plain WS, not WebRTC — that's the one kind of remote
   agent actually wired end to end today, see Verified above.)
 - Everything the remaining placeholder pages describe: the rest of Integrations (OIDC/Entra, API
-  Keys, Model Registry — Webhooks and Notification Channels are now real, see above). Actors,
+  Keys — Webhooks, Notification Channels and the Model Registry are now real, see above). Actors,
   Sensors, Map, Certificates, Workspaces (Overview/Actors/Access tabs — Budgets & Model Access
   still a stub), Settings, Audit Log, and both Integrations tabs are real. The certificate detail
   page (§1.5's signature-chain view) is built (`app/admin/certificates/[id]/page.tsx`) and its
@@ -789,8 +863,14 @@ repeatable tests (see deferred).
   both — but there is no UI for authoring them yet, so a proxy's `kindConfig` has to be written
   directly to `Actor.kindConfig`. `proxyKindConfigWarnings` exists specifically for that panel to
   render.
-- Model Registry, OIDC/Entra — added to the schema and this package only once each is actually
-  being built (Webhooks and Notification Channels already are, see above).
+- **Model-access enforcement.** The Model Registry records which workspaces may use which model and
+  audits every change, but nothing enforces that at inference time — that needs the LiteLLM
+  virtual-key path (a minted per-workspace/per-Actor key whose `models` allowlist is the actual
+  gate) plus an LLM-config push down to Actors, neither of which exists here. See the Model Registry
+  section above; the workspace-access UI states this limitation directly rather than implying a
+  guarantee.
+- OIDC/Entra identity linking — added to the schema and this package only once actually being built
+  (Webhooks, Notification Channels and the Model Registry already are, see above).
 - A Docker-gated integration test suite (mirroring the root project's `vitest.config.docker.mjs`
   pattern) covering the DB layer, the WS handshake, and the admin flows.
 
@@ -801,3 +881,12 @@ repeatable tests (see deferred).
   today).
 - Humans are Actors (`kind: "human"`), not a separate identity/permission table — see the
   schema comment on `Actor`/`User` before reintroducing a parallel `role` concept.
+- **A Server Action must authorize itself.** `app/admin/layout.tsx`'s `admin_console_access` check
+  is what makes the console safe to *navigate*, and it is not enough: Next.js dispatches an action
+  as a POST to its own generated endpoint without re-running the layout of the route it's defined
+  under, so a merely-authenticated session (a `portal_access`-only human, say) can invoke an admin
+  action directly. Start every mutating admin action with `await requireAdmin()`
+  (`lib/require-admin.ts`), which checks the ledger and returns the `performedBy` shape
+  `recordEvent` wants, so the check and the audit attribution come from one call. The Model Registry
+  actions do this; the older webhook/channel/workspace/certificate actions still only test for
+  `session.user.did` and are being retrofitted.

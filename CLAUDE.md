@@ -141,7 +141,7 @@ The docs are only auto-generated from data you must keep current. Whenever you *
 | `NOTIFICATION_RETENTION_DAYS` | control-plane | Days after which **read** notifications are pruned (default 30) |
 | `PORT` / `WS_PORT` | control-plane | HTTP + WebSocket ports (default 3000/8080) |
 | `NEXTAUTH_SECRET` | control-plane | NextAuth session secret |
-| `LITELLM_BASE_URL` | control-plane | LiteLLM proxy URL |
+| `LITELLM_BASE_URL` / `LITELLM_MASTER_KEY` | control-plane, controlplane | LiteLLM proxy URL + admin master key. In `controlplane` these are only the deployment-time **fallback** for the Model Registry — the `Setting` rows an admin edits under Integrations → Models win, and the master key is stored encrypted there (`lib/vault.ts`). Unset and unconfigured means models are catalogued but never pushed to a proxy. |
 | `AGENT_NAME` | agent-controller | Agent display name |
 | `CONTROL_PLANE_URL` | agent-controller | Control plane base URL |
 | `LLM_MODEL` / `LLM_API_KEY` | agent-controller | LLM provider config |

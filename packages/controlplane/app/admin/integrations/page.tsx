@@ -1,15 +1,24 @@
 import Link from "next/link";
 import { Plus, BookText } from "lucide-react";
-import { WebhookDAO, NotificationChannelDAO } from "@/db";
+import { WebhookDAO, NotificationChannelDAO, ModelDAO } from "@/db";
 import PageChrome from "@/components/layout/PageChrome";
 import { secretPreview } from "@/lib/webhook-secret";
-import { toggleWebhookActiveAction, deleteWebhookAction, toggleChannelActiveAction, deleteChannelAction } from "./actions";
+import { isKnownProvider, PROVIDERS } from "@/lib/model-providers";
+import {
+  toggleWebhookActiveAction,
+  deleteWebhookAction,
+  toggleChannelActiveAction,
+  deleteChannelAction,
+  toggleModelActiveAction,
+} from "./actions";
 import ServiceTypeBadges from "./channels/ServiceTypeBadges";
 import HealthPanel from "./channels/HealthPanel";
+import LiteLLMPanel from "./models/LiteLLMPanel";
 
 const TABS = [
   { id: "webhooks", label: "Webhooks" },
   { id: "channels", label: "Notification Channels" },
+  { id: "models", label: "Models" },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -27,11 +36,44 @@ function TabLink({ id, active, label }: { id: string; active: boolean; label: st
   );
 }
 
+/** Per-tab toolbar copy + primary action, kept as data so the page body doesn't grow a
+ *  three-way ternary per field every time a tab is added. */
+const TAB_CHROME: Record<
+  TabId,
+  { count: (c: Counts) => string; newLabel: string; newHref: string; newId: string }
+> = {
+  webhooks: {
+    count: (c) => `${c.webhooks} webhook${c.webhooks === 1 ? "" : "s"} configured`,
+    newLabel: "New webhook",
+    newHref: "/admin/integrations/webhooks/new",
+    newId: "new-webhook",
+  },
+  channels: {
+    count: (c) => `${c.channels} channel${c.channels === 1 ? "" : "s"} configured`,
+    newLabel: "New channel",
+    newHref: "/admin/integrations/channels/new",
+    newId: "new-channel",
+  },
+  models: {
+    count: (c) => `${c.models} model${c.models === 1 ? "" : "s"} registered`,
+    newLabel: "Register model",
+    newHref: "/admin/integrations/models/new",
+    newId: "new-model",
+  },
+};
+
+interface Counts {
+  webhooks: number;
+  channels: number;
+  models: number;
+}
+
 /**
  * Integrations (docs/PAGE_DESIGN.md §1.8, docs/REBUILD_ARCHITECTURE.md §5) — Webhooks and
- * Notification Channels are the two slices built so far, both driven by the same event catalog
- * and the same `packages/webhook-dispatcher` worker (§5.1: "one event pipeline, not two"). OIDC/
- * Entra, API Keys, and Model Registry get their own tabs here once each is actually being built.
+ * Notification Channels share one event catalog and one `packages/webhook-dispatcher` worker
+ * (§5.1: "one event pipeline, not two"); Models is the LLM provider registry, whose only external
+ * dependency is the optional LiteLLM proxy. Identity (OIDC/Entra) and API Keys get their own tabs
+ * here once each is actually being built.
  */
 export default async function IntegrationsPage({
   searchParams,
@@ -41,35 +83,32 @@ export default async function IntegrationsPage({
   const { tab: tabParam } = await searchParams;
   const activeTab: TabId = TABS.some((t) => t.id === tabParam) ? (tabParam as TabId) : "webhooks";
 
-  const [webhooks, channels] = await Promise.all([WebhookDAO.list(), NotificationChannelDAO.list()]);
+  const [webhooks, channels, models] = await Promise.all([
+    WebhookDAO.list(),
+    NotificationChannelDAO.list(),
+    ModelDAO.list(),
+  ]);
+  const chrome = TAB_CHROME[activeTab];
 
   return (
     <div className="p-6 space-y-4">
       <PageChrome
         toolbar={{
           title: "Integrations",
-          description:
-            activeTab === "webhooks"
-              ? `${webhooks.length} webhook${webhooks.length === 1 ? "" : "s"} configured`
-              : `${channels.length} channel${channels.length === 1 ? "" : "s"} configured`,
+          description: chrome.count({
+            webhooks: webhooks.length,
+            channels: channels.length,
+            models: models.length,
+          }),
           actions: [
-            activeTab === "webhooks"
-              ? {
-                  kind: "button",
-                  id: "new-webhook",
-                  label: "New webhook",
-                  variant: "primary",
-                  icon: <Plus className="w-3.5 h-3.5" />,
-                  href: "/admin/integrations/webhooks/new",
-                }
-              : {
-                  kind: "button",
-                  id: "new-channel",
-                  label: "New channel",
-                  variant: "primary",
-                  icon: <Plus className="w-3.5 h-3.5" />,
-                  href: "/admin/integrations/channels/new",
-                },
+            {
+              kind: "button",
+              id: chrome.newId,
+              label: chrome.newLabel,
+              variant: "primary",
+              icon: <Plus className="w-3.5 h-3.5" />,
+              href: chrome.newHref,
+            },
           ],
         }}
         breadcrumbs={[{ label: "Integrations" }]}
@@ -81,11 +120,9 @@ export default async function IntegrationsPage({
         ))}
       </div>
 
-      {activeTab === "webhooks" ? (
-        <WebhooksSection webhooks={webhooks} />
-      ) : (
-        <ChannelsSection channels={channels} />
-      )}
+      {activeTab === "webhooks" && <WebhooksSection webhooks={webhooks} />}
+      {activeTab === "channels" && <ChannelsSection channels={channels} />}
+      {activeTab === "models" && <ModelsSection models={models} />}
     </div>
   );
 }
@@ -292,6 +329,94 @@ function ChannelsSection({ channels }: { channels: Awaited<ReturnType<typeof Not
         Human-facing alerts fanned out through a self-hosted Apprise API container — VaultysClaw
         renders a title and body and asks Apprise to deliver it; Apprise owns the actual email/
         Slack/PagerDuty/ntfy/etc. integration.
+      </p>
+    </div>
+  );
+}
+
+function ModelsSection({ models }: { models: Awaited<ReturnType<typeof ModelDAO.list>> }) {
+  return (
+    <div className="space-y-4">
+      <LiteLLMPanel />
+
+      <div className="overflow-x-auto border border-neutral-200/60 rounded-xl">
+        <table className="w-full text-sm bg-background-100">
+          <thead className="bg-background-200/40 text-left text-xs text-foreground-500 uppercase">
+            <tr>
+              <th className="px-4 py-2 font-medium">Name</th>
+              <th className="px-4 py-2 font-medium">Provider</th>
+              <th className="px-4 py-2 font-medium">Model ID</th>
+              <th className="px-4 py-2 font-medium">Workspaces</th>
+              <th className="px-4 py-2 font-medium">Key</th>
+              <th className="px-4 py-2 font-medium">Status</th>
+              <th className="px-4 py-2 font-medium">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {models.map((m) => (
+              <tr key={m.id} className="border-t border-neutral-200/60 align-top">
+                <td className="px-4 py-2.5">
+                  <Link
+                    href={`/admin/integrations/models/${m.id}`}
+                    className="text-foreground font-medium hover:text-primary-600 hover:underline"
+                  >
+                    {m.name}
+                  </Link>
+                  {m.description && (
+                    <div className="text-xs text-foreground-400 mt-0.5">{m.description}</div>
+                  )}
+                </td>
+                <td className="px-4 py-2.5 text-foreground-500">
+                  {isKnownProvider(m.provider) ? PROVIDERS[m.provider].label : m.provider}
+                </td>
+                <td className="px-4 py-2.5 text-foreground-500 font-mono text-xs">{m.modelId}</td>
+                <td className="px-4 py-2.5 text-foreground-500">
+                  {m.workspaceAccess.length > 0 ? m.workspaceAccess.length : "—"}
+                </td>
+                <td className="px-4 py-2.5 text-foreground-500 text-xs">
+                  {m.hasApiKey ? "Set" : "—"}
+                </td>
+                <td className="px-4 py-2.5">
+                  <form action={toggleModelActiveAction}>
+                    <input type="hidden" name="id" value={m.id} />
+                    <input type="hidden" name="isActive" value={(!m.isActive).toString()} />
+                    <button
+                      type="submit"
+                      className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
+                        m.isActive
+                          ? "bg-success-100 text-success-700 border-success-200 hover:bg-success-200/60"
+                          : "bg-neutral-100 text-foreground-500 border-neutral-200 hover:bg-neutral-200/60"
+                      }`}
+                    >
+                      ● {m.isActive ? "Active" : "Disabled"}
+                    </button>
+                  </form>
+                </td>
+                <td className="px-4 py-2.5">
+                  <Link
+                    href={`/admin/integrations/models/${m.id}`}
+                    className="text-xs px-2 py-1 border border-neutral-200 rounded hover:bg-background-200/60 transition-colors"
+                  >
+                    Edit
+                  </Link>
+                </td>
+              </tr>
+            ))}
+            {models.length === 0 && (
+              <tr>
+                <td colSpan={7} className="px-4 py-6 text-center text-foreground-400">
+                  No models registered yet.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      <p className="text-xs text-foreground-400">
+        The org&apos;s catalogue of LLM endpoints and which workspaces may use each one. Provider
+        keys are encrypted at rest and never redisplayed. Deleting a model here also deregisters it
+        from the LiteLLM proxy, when one is connected.
       </p>
     </div>
   );

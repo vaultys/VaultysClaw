@@ -138,6 +138,40 @@ export function workspacePayload(ws: AnyRecord): AnyRecord {
   };
 }
 
+export function modelAdminUrl(id: string): string | null {
+  return buildAdminUrl(`/admin/integrations/models/${id}`);
+}
+
+/**
+ * A Model Registry entry (`model.*` events). `apiKeyEnc` is never included —
+ * it isn't even selected by the read path these call sites use
+ * (`db/model.dao.ts`'s `SafeModel`), and `stripSensitive` would drop it anyway
+ * on both its `apikey` and `enc$` rules.
+ *
+ * `hasProviderKey` is deliberately named around `stripSensitive` rather than the
+ * DAO's own `hasApiKey`: that recursive pass matches the substring `apikey`
+ * case-insensitively, so a field called `hasApiKey` — a boolean carrying no
+ * secret at all — would be silently deleted from the delivered payload. Renaming
+ * it here is cheaper and more visible than adding an exception to the blacklist.
+ */
+export function modelPayload(m: AnyRecord): AnyRecord {
+  const access = Array.isArray(m.workspaceAccess) ? (m.workspaceAccess as AnyRecord[]) : [];
+  return {
+    id: m.id,
+    name: m.name,
+    description: m.description ?? null,
+    provider: m.provider,
+    modelId: m.modelId,
+    baseUrl: m.baseUrl,
+    litellmModelName: m.litellmModelName ?? null,
+    isActive: m.isActive ?? true,
+    hasProviderKey: !!m.hasApiKey,
+    workspaceIds: access.map((a) => a.workspaceId).filter(Boolean),
+    createdBy: m.createdBy ?? null,
+    createdAt: m.createdAt ?? null,
+  };
+}
+
 /**
  * A `kind: "proxy"` Actor's enforcement configuration, for
  * `proxy.config_updated` (docs/PROXY_ARCHITECTURE.md §12).

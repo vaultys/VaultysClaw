@@ -10,6 +10,11 @@ export const SETTINGS_KEYS = {
   orgName: "org.name",
   trustFailMode: "trust.failMode",
   trustStapleTtlSeconds: "trust.stapleTtlSeconds",
+  /** Model Registry → LiteLLM proxy (lib/litellm.ts). The master key is stored
+   *  encrypted via lib/vault.ts, hence the `Enc` suffix — the key name itself is
+   *  part of the contract, so it lives here rather than inline in that file. */
+  litellmBaseUrl: "litellm.baseUrl",
+  litellmMasterKeyEnc: "litellm.masterKeyEnc",
 } as const;
 
 export const DEFAULT_ORG_NAME = "VaultysClaw";

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Plus, BookText } from "lucide-react";
-import { WebhookDAO, NotificationChannelDAO, ModelDAO } from "@/db";
+import { WebhookDAO, NotificationChannelDAO, ModelDAO, SsoConnectionDAO } from "@/db";
 import PageChrome from "@/components/layout/PageChrome";
 import { secretPreview } from "@/lib/webhook-secret";
 import { isKnownProvider, PROVIDERS } from "@/lib/model-providers";
@@ -11,6 +11,7 @@ import {
   deleteChannelAction,
   toggleModelActiveAction,
 } from "./actions";
+import { toggleSsoConnectionAction } from "./identity/actions";
 import ServiceTypeBadges from "./channels/ServiceTypeBadges";
 import HealthPanel from "./channels/HealthPanel";
 import LiteLLMPanel from "./models/LiteLLMPanel";
@@ -19,6 +20,7 @@ const TABS = [
   { id: "webhooks", label: "Webhooks" },
   { id: "channels", label: "Notification Channels" },
   { id: "models", label: "Models" },
+  { id: "identity", label: "Identity" },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -60,12 +62,19 @@ const TAB_CHROME: Record<
     newHref: "/admin/integrations/models/new",
     newId: "new-model",
   },
+  identity: {
+    count: (c) => `${c.identity} identity provider${c.identity === 1 ? "" : "s"} configured`,
+    newLabel: "Add provider",
+    newHref: "/admin/integrations/identity/new",
+    newId: "new-sso",
+  },
 };
 
 interface Counts {
   webhooks: number;
   channels: number;
   models: number;
+  identity: number;
 }
 
 /**
@@ -83,10 +92,11 @@ export default async function IntegrationsPage({
   const { tab: tabParam } = await searchParams;
   const activeTab: TabId = TABS.some((t) => t.id === tabParam) ? (tabParam as TabId) : "webhooks";
 
-  const [webhooks, channels, models] = await Promise.all([
+  const [webhooks, channels, models, connections] = await Promise.all([
     WebhookDAO.list(),
     NotificationChannelDAO.list(),
     ModelDAO.list(),
+    SsoConnectionDAO.list(),
   ]);
   const chrome = TAB_CHROME[activeTab];
 
@@ -99,6 +109,7 @@ export default async function IntegrationsPage({
             webhooks: webhooks.length,
             channels: channels.length,
             models: models.length,
+            identity: connections.length,
           }),
           actions: [
             {
@@ -123,6 +134,7 @@ export default async function IntegrationsPage({
       {activeTab === "webhooks" && <WebhooksSection webhooks={webhooks} />}
       {activeTab === "channels" && <ChannelsSection channels={channels} />}
       {activeTab === "models" && <ModelsSection models={models} />}
+      {activeTab === "identity" && <IdentitySection connections={connections} />}
     </div>
   );
 }
@@ -417,6 +429,100 @@ function ModelsSection({ models }: { models: Awaited<ReturnType<typeof ModelDAO.
         The org&apos;s catalogue of LLM endpoints and which workspaces may use each one. Provider
         keys are encrypted at rest and never redisplayed. Deleting a model here also deregisters it
         from the LiteLLM proxy, when one is connected.
+      </p>
+    </div>
+  );
+}
+
+function IdentitySection({
+  connections,
+}: {
+  connections: Awaited<ReturnType<typeof SsoConnectionDAO.list>>;
+}) {
+  return (
+    <div className="space-y-4">
+      <div className="overflow-x-auto border border-neutral-200/60 rounded-xl">
+        <table className="w-full text-sm bg-background-100">
+          <thead className="bg-background-200/40 text-left text-xs text-foreground-500 uppercase">
+            <tr>
+              <th className="px-4 py-2 font-medium">Name</th>
+              <th className="px-4 py-2 font-medium">Type</th>
+              <th className="px-4 py-2 font-medium">Issuer</th>
+              <th className="px-4 py-2 font-medium">Client ID</th>
+              <th className="px-4 py-2 font-medium">Status</th>
+              <th className="px-4 py-2 font-medium">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {connections.map((c) => (
+              <tr key={c.id} className="border-t border-neutral-200/60 align-top">
+                <td className="px-4 py-2.5">
+                  <Link
+                    href={`/admin/integrations/identity/${c.id}`}
+                    className="text-foreground font-medium hover:text-primary-600 hover:underline"
+                  >
+                    {c.name}
+                  </Link>
+                </td>
+                <td className="px-4 py-2.5">
+                  <span
+                    className={`text-xs px-2 py-0.5 rounded-full border ${
+                      c.kind === "entra"
+                        ? "bg-primary-100 text-primary-700 border-primary-200"
+                        : "bg-neutral-100 text-foreground-600 border-neutral-200"
+                    }`}
+                  >
+                    {c.kind === "entra" ? "Entra ID" : "OIDC"}
+                  </span>
+                </td>
+                <td className="px-4 py-2.5 text-foreground-500 font-mono text-xs max-w-xs truncate">
+                  {c.issuer}
+                </td>
+                <td className="px-4 py-2.5 text-foreground-500 font-mono text-xs max-w-[12rem] truncate">
+                  {c.clientId}
+                </td>
+                <td className="px-4 py-2.5">
+                  <form action={toggleSsoConnectionAction}>
+                    <input type="hidden" name="id" value={c.id} />
+                    <input type="hidden" name="isActive" value={(!c.isActive).toString()} />
+                    <button
+                      type="submit"
+                      className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
+                        c.isActive
+                          ? "bg-success-100 text-success-700 border-success-200 hover:bg-success-200/60"
+                          : "bg-neutral-100 text-foreground-500 border-neutral-200 hover:bg-neutral-200/60"
+                      }`}
+                    >
+                      ● {c.isActive ? "Enabled" : "Disabled"}
+                    </button>
+                  </form>
+                </td>
+                <td className="px-4 py-2.5">
+                  <Link
+                    href={`/admin/integrations/identity/${c.id}`}
+                    className="text-xs px-2 py-1 border border-neutral-200 rounded hover:bg-background-200/60 transition-colors"
+                  >
+                    Edit
+                  </Link>
+                </td>
+              </tr>
+            ))}
+            {connections.length === 0 && (
+              <tr>
+                <td colSpan={6} className="px-4 py-6 text-center text-foreground-400">
+                  No identity providers configured — humans sign in with a VaultysId only.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      <p className="text-xs text-foreground-400">
+        OIDC and Microsoft Entra ID establish <em>who</em> a human is; they never grant access on
+        their own. A person signing in for the first time is asked to bind a VaultysId, and from
+        then on every permission they hold comes from the certificate ledger like anyone
+        else&apos;s — a freshly bound human gets Access Portal only until an admin issues more.
       </p>
     </div>
   );

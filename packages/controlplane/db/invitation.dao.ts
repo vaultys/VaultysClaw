@@ -21,6 +21,8 @@ export class InvitationDAO {
     workspaceId?: string | null;
     createdBy: string;
     expiresAt: Date;
+    /** Set only by the SSO binding flow (`lib/sso.ts`) — see the schema comment. */
+    ssoIdentityId?: string | null;
   }): Promise<{ invitation: Invitation; rawToken: string }> {
     const rawToken = crypto.randomBytes(32).toString("hex");
     const invitation = await prisma.invitation.create({
@@ -32,9 +34,28 @@ export class InvitationDAO {
         workspaceId: input.workspaceId ?? null,
         createdBy: input.createdBy,
         expiresAt: input.expiresAt,
+        ssoIdentityId: input.ssoIdentityId ?? null,
       },
     });
     return { invitation, rawToken };
+  }
+
+  /**
+   * Drop any still-unredeemed binding invitations for an SSO identity.
+   *
+   * Called immediately before minting a fresh one, because the raw token is
+   * never persisted (only its hash), so a previously issued link can't be
+   * *reused* — it can only be left lying around. Clearing them keeps exactly one
+   * live binding link per identity: a user who abandons the flow and signs in
+   * again doesn't accumulate a pile of independently-valid links, and any link
+   * already sitting in a browser history or a proxy log stops working the moment
+   * a newer one is issued.
+   */
+  static async deletePendingForSsoIdentity(ssoIdentityId: string): Promise<number> {
+    const result = await prisma.invitation.deleteMany({
+      where: { ssoIdentityId, redeemedAt: null },
+    });
+    return result.count;
   }
 
   /** Only returns a row that's genuinely still redeemable — not found, expired, or already

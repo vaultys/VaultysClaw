@@ -15,3 +15,4 @@ export { NotificationChannelDAO } from "./notification-channel.dao";
 export { AuditLogDAO, type AuditLogFilter } from "./audit-log.dao";
 export { ModelDAO, type SafeModel } from "./model.dao";
 export { InvitationDAO } from "./invitation.dao";
+export { SsoConnectionDAO, SsoIdentityDAO } from "./sso.dao";

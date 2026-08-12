@@ -41,10 +41,38 @@ type Phase = "loading" | "waiting" | "dev-connecting" | "success" | "failure";
  * physical wallet needed. Same Challenger primitive either way, just a
  * different transport (lib/browser-connect.ts, HTTP instead of WebRTC).
  */
+interface SsoProviderOption {
+  id: string;
+  name: string;
+  kind: string;
+}
+
 export default function LoginPage() {
   const [phase, setPhase] = useState<Phase>("loading");
   const [qrUrl, setQrUrl] = useState<string>();
+  const [ssoProviders, setSsoProviders] = useState<SsoProviderOption[]>([]);
   const cancelled = useRef(false);
+
+  // Fetched rather than server-rendered: this page is a Client Component driving
+  // the whole Challenger handshake, and the provider list is public, tiny, and
+  // must not delay the QR code appearing. A failure here just means no SSO
+  // buttons — never a broken login page.
+  useEffect(() => {
+    let ignore = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/public/sso/providers");
+        if (!res.ok) return;
+        const { providers } = (await res.json()) as { providers: SsoProviderOption[] };
+        if (!ignore) setSsoProviders(providers ?? []);
+      } catch {
+        // No providers shown; the VaultysID path is unaffected.
+      }
+    })();
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   const pollAndSignIn = useCallback(async (token: string, key: string) => {
     for (let i = 0; i < 180 && !cancelled.current; i++) {
@@ -225,6 +253,32 @@ export default function LoginPage() {
               </button>
               <div>
                 <DevIdentityPicker onSelect={(identity) => startDevLogin(identity)} />
+              </div>
+            </div>
+          )}
+
+          {/* SSO is an alternative way to *establish who you are*, never a
+              different kind of account — a first sign-in here comes straight back
+              to this same VaultysID handshake to bind a DID. Rendered below the
+              QR rather than above it because the wallet path remains the primary
+              one, and hidden entirely when no provider is configured. */}
+          {ssoProviders.length > 0 && phase !== "success" && (
+            <div className="mt-8 space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="h-px flex-1 bg-neutral-200/60" />
+                <span className="text-xs text-foreground-400">or continue with</span>
+                <div className="h-px flex-1 bg-neutral-200/60" />
+              </div>
+              <div className="space-y-2">
+                {ssoProviders.map((provider) => (
+                  <button
+                    key={provider.id}
+                    onClick={() => void signIn(provider.id, { callbackUrl: "/" })}
+                    className="w-full px-4 py-2 border border-neutral-200 rounded-lg text-sm font-medium text-foreground hover:bg-background-200/60 transition-colors"
+                  >
+                    {provider.name}
+                  </button>
+                ))}
               </div>
             </div>
           )}

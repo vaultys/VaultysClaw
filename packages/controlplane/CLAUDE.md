@@ -41,8 +41,8 @@ same as `notifier:dev`/`webhook:dev` are separate from `vaultysclaw:dev` for the
 
 Backend core, the WebSocket connection lifecycle, VaultysId QR login, the full admin navigation
 shape (real + placeholder pages), real Actors/Sensors/Map/Certificates/Workspaces/Settings pages,
-the Model Registry, the Access Portal shell, and the design system (ported from
-`packages/control-plane`) are built.
+the Model Registry, OIDC/Entra ID single sign-on, the Access Portal shell, and the design system
+(ported from `packages/control-plane`) are built.
 
 - **Design system**: `app/theme.css` (the adaptive CSS-variable palette, light/dark via `.dark`),
   `tailwind.config.js` (semantic color tokens — `bg-primary-600`, `text-foreground-500`, etc.,
@@ -528,6 +528,76 @@ degrades the registry to inert catalogue data instead of breaking it.
   explicit `workspaceAccess` diff rather than a new event type, since inventing one would mean
   emitting an event the shared catalog doesn't define.
 
+## Identity: OIDC + Microsoft Entra ID
+
+SSO as an **identity-establishment** path, never a parallel trust tier
+(docs/CERTIFICATE_WEB_OF_TRUST.md §6.3). A fourth Integrations tab (`?tab=identity`).
+
+**Entra ID is not a second protocol.** It's an OIDC IdP whose issuer is a function of the tenant
+(`https://login.microsoftonline.com/<tenantId>/v2.0`), so there is one connector and one code path;
+`SsoConnection.kind` exists only so the form asks for a tenant ID instead of a raw issuer URL (an
+admin can't paste a subtly wrong Microsoft URL) and so Entra-specific features have somewhere to
+hang later. This is deliberately unlike packages/control-plane, where OIDC is a NextAuth provider
+and "Entra" is an entirely separate Microsoft Graph directory-sync feature with its own panel.
+
+- **Schema**: `SsoConnection` + `SsoIdentity`, plus a nullable `Invitation.ssoIdentityId`. A real
+  model rather than the old package's flat `Setting` rows (`oidc_issuer`, `oidc_client_id`, …),
+  which allowed exactly **one** IdP per deployment — an org running both an in-house OIDC provider
+  and Entra had to choose. Rows also make each connection independently enable/disable-able and
+  auditable. `clientSecretEnc` is encrypted via `lib/vault.ts` — note the old package encrypts the
+  OIDC secret but stores the **Entra** client secret in plaintext (`entra_client_secret`); that is
+  not carried over.
+- **The unbound-identity problem, and why it isn't solved with a nullable DID.** An IdP can tell us
+  who someone is before they hold a VaultysId, and this schema has nowhere to put such a person:
+  `Actor.did`/`User.did` are primary keys and `Session.user.did` is non-nullable, because every
+  authorization decision here is a ledger lookup keyed by DID. packages/control-plane's answer was a
+  nullable `User.did` plus a "claim your account later" state — i.e. a signed-in user who is not yet
+  anybody in the trust model, exactly the parallel tier §6.3 rules out. **So an unbound SSO login
+  never produces a session.** `lib/sso.ts`'s `resolveSsoLogin` returns either `{kind: "signin", did}`
+  or `{kind: "bind", url}`, and the NextAuth `signIn` callback returns that URL — NextAuth turns a
+  string return into a redirect. The binding URL is a system-issued, 1-hour `Invitation` carrying the
+  IdP's own name/email, redeemed through **the existing invite flow** (wallet QR, or a dev identity
+  in development); that handshake mints the Actor, and `registerHumanFromInvitation` then binds the
+  external identity to the new DID. Every later login is an ordinary DID session with no SSO-specific
+  path at all.
+- **Security properties worth not regressing**: `bindDid` is a conditional `updateMany` on
+  `did: null`, so a completed binding is never silently repointed at a different DID (which is what
+  would let a replayed binding link take over an account) — losing that race leaves the existing
+  binding intact. Each new unbound login deletes the previous pending binding invitation, so exactly
+  one live link exists per identity (the raw token is never persisted, only its hash, so an old link
+  can't be *reused* — but it can be left lying around, and this stops that). The recorded issuer is
+  the connection's configured value, never the token's `iss` claim, so a token from elsewhere can't
+  launder its origin. A freshly bound human holds `portal_access` **only** (`BINDING_CAPABILITIES`),
+  deliberately not configurable per connection — "which IdP you came from" is not a good reason to
+  hold more capability, and making it a knob would quietly turn SSO config into permission config.
+- **Consequence to be explicit about**: anyone your IdP will authenticate can obtain an Actor (with
+  no capabilities). That's the same trust boundary as the IdP itself, which is the point of
+  federating — but a connection should point at a directory whose membership you control, not a
+  public multi-tenant issuer.
+- **NextAuth wiring**: `buildAuthOptions()` (`lib/auth-config.ts`) builds providers **per request
+  from the DB**, and `app/api/auth/[...nextauth]/route.ts` awaits it — so adding or disabling a
+  connection takes effect on the next login, not the next deploy, and multiple IdPs can coexist.
+  Everything that merely *verifies* a session keeps importing the static `authOptions`; a JWT check
+  needs no provider list. A connection whose secret can't be decrypted is dropped with a log line
+  rather than thrown, so one broken connection can't take down the login page (including the
+  VaultysId path, which doesn't depend on it).
+- **UI**: `app/admin/integrations/identity/*` — one form with a kind switch (not two panels, which
+  is also what stops the two drifting), live discovery "Test connection", and the **redirect URI**
+  shown on the detail page with a copy button, since a mismatch there is the most common reason a
+  new connection fails at first login. Creating/re-pointing a connection **refuses to save** against
+  an issuer whose discovery document doesn't resolve or lacks authorization/token/JWKS endpoints —
+  unlike a webhook URL, an IdP is live infrastructure, and a bad one produces a login button that
+  fails only for whoever clicks it first. The login page fetches `/api/public/sso/providers` (id +
+  display name + kind only — never issuer or client id) and renders buttons below the QR; the invite
+  page swaps its copy when `?sso=1`, since "you've been invited" is the wrong thing to tell someone
+  who just authenticated with their own corporate account and is mid-flow.
+- **Not built**: Entra **directory sync** (Microsoft Graph client-credentials user/group
+  pre-provisioning, `lib/entra-sync.ts` in the old package). Login works without it; sync is a
+  separate feature for pre-creating accounts, and porting it means porting Graph paging and a second
+  credential path. No `sso.*` webhook events either — the shared catalog defines none, and inventing
+  some here would emit events packages/control-plane's catalog doesn't know; connection changes are
+  audited via `recordEvent` instead, and those payloads never carry the client secret.
+
 ## Audit Log
 
 A unified, append-only log (docs/PAGE_DESIGN.md §1.6) — replaces the old app's split IntentLog
@@ -820,6 +890,26 @@ repeatable tests (see deferred).
   example (which is what caught the `hasApiKey` → `hasProviderKey` stripping issue above).
   Not exercised against a real LiteLLM container — the proxy was unconfigured throughout, so the
   push path was correctly a no-op and the panel reported "not configured".
+- **Identity / SSO**, partly against Microsoft's real infrastructure: creating an Entra connection
+  through the actual form derived the issuer from the tenant, **live-verified Microsoft's real
+  discovery document** (`https://login.microsoftonline.com/common/v2.0`, all three required
+  endpoints present), and persisted the client secret encrypted (SALTPACK ciphertext, verified in
+  the DB — not plaintext). `GET /api/auth/providers` then listed the DB-driven provider, proving
+  `buildAuthOptions()` reaches NextAuth, and a real CSRF-authenticated sign-in POST returned a
+  `302` to `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=…&scope=openid
+  %20email%20profile&response_type=code&redirect_uri=…` — i.e. the whole OAuth entry path is wired,
+  not just configured. `/api/public/sso/providers` returns id/name/kind only (no issuer, no client
+  id), and the audit entry for the change carries no secret.
+  The binding half — which can't be reached without real tenant credentials — was verified directly
+  against the live database instead (13 assertions, all passing): an unknown subject yields a
+  `?sso=1` binding URL and an unbound `SsoIdentity`, never a session; the minted invitation is
+  linked to that identity, carries the IdP's name/email, and grants `portal_access` only; a second
+  unbound login issues a fresh link **and invalidates the previous one**; binding returns
+  `{kind: "signin", did}` on every later login; and `bindDid` refuses to repoint an
+  already-bound identity, leaving the original binding intact. Deleting the connection cascaded its
+  identities away and emptied the login-page provider list.
+  **Not verified**: an end-to-end login against a real tenant (no Entra app registration available
+  here), so the id_token→claims→`signIn` callback hop is proven only at its two ends.
 - **Caveat, not verified**: the actual PeerJS/WebRTC wire exchange with a real VaultysId wallet
   app (no physical wallet in this environment — the Challenger crypto itself is already proven via
   the WS-agent path). One incidental observation from testing against the public PeerJS relay: an
@@ -834,8 +924,9 @@ repeatable tests (see deferred).
   implemented. (The login flow's own PeerJS/WebRTC usage is separate and already built. Also
   separate: `vaultysclaw-sensor` connecting is plain WS, not WebRTC — that's the one kind of remote
   agent actually wired end to end today, see Verified above.)
-- Everything the remaining placeholder pages describe: the rest of Integrations (OIDC/Entra, API
-  Keys — Webhooks, Notification Channels and the Model Registry are now real, see above). Actors,
+- Everything the remaining placeholder pages describe: the rest of Integrations (**API Keys** is the
+  only tab left — Webhooks, Notification Channels, the Model Registry and Identity are now real, see
+  above). Actors,
   Sensors, Map, Certificates, Workspaces (Overview/Actors/Access tabs — Budgets & Model Access
   still a stub), Settings, Audit Log, and both Integrations tabs are real. The certificate detail
   page (§1.5's signature-chain view) is built (`app/admin/certificates/[id]/page.tsx`) and its
@@ -869,8 +960,17 @@ repeatable tests (see deferred).
   gate) plus an LLM-config push down to Actors, neither of which exists here. See the Model Registry
   section above; the workspace-access UI states this limitation directly rather than implying a
   guarantee.
-- OIDC/Entra identity linking — added to the schema and this package only once actually being built
-  (Webhooks, Notification Channels and the Model Registry already are, see above).
+- **API Keys** (docs/CERTIFICATE_WEB_OF_TRUST.md §6.2) — the last placeholder Integrations tab. Not
+  a port: the old package's `ApiKey` is a hashed bearer token scoped by `allowedRoutes` derived from
+  its ts-rest `appContract`, and this package has neither a ts-rest contract nor **any REST API
+  surface at all** (`app/api/*` is NextAuth plus the public login/invite/SSO routes; everything else
+  is Server Actions + DAOs). §6.2's design — a service DID holding an `api_call`
+  `CapabilityCertificate` scoped by `CertScope.resourcePattern`, authenticated per request with a
+  signature over `method + path + bodyHash + timestamp + nonce` rather than a bearer secret — needs a
+  REST surface to scope against before the tab means anything.
+  Note for whoever builds it: do **not** carry over the old package's api-keys admin routes, whose
+  `list`/`update`/`remove` handlers never call `getAuthContext` at all and are therefore
+  unauthenticated.
 - A Docker-gated integration test suite (mirroring the root project's `vitest.config.docker.mjs`
   pattern) covering the DB layer, the WS handshake, and the admin flows.
 

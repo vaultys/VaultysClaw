@@ -72,6 +72,7 @@ model Actor {
   linksFrom       ActorLink[]              @relation("ActorLinkFrom")
   linksTo         ActorLink[]              @relation("ActorLinkTo")
   ownedActors     Actor[]                  @relation("ActorOwnership")
+  ssoIdentity     SsoIdentity?
 
   @@index([kind])
   @@index([workspaceId])
@@ -253,6 +254,11 @@ model Invitation {
   // could silently mint an unrelated second account instead of failing loudly.
   redeemedAt   DateTime?
   redeemedDid  String?
+  // Set only on the system-issued invitations minted by an unbound SSO login
+  // (`lib/sso.ts`) — redeeming one binds that external identity to the DID that
+  // just completed the handshake, instead of leaving the two unconnected. Null
+  // for every ordinary admin-issued invite.
+  ssoIdentityId String?
 
   @@index([expiresAt])
 }
@@ -418,6 +424,85 @@ model AuditLogEntry {
   @@index([actorDid])
   @@index([eventType])
   @@index([targetType, targetId])
+}
+
+// ─── SSO / external identity ────────────────────────────────────────────────
+// OIDC and Microsoft Entra ID (Azure AD) as **identity-establishment** paths,
+// never as a parallel trust tier (docs/CERTIFICATE_WEB_OF_TRUST.md §6.3): SSO
+// answers "who is this human", and from the moment that's answered every
+// authorization decision goes through the same DID + certificate ledger as
+// everything else. Entra is not a separate protocol here — it *is* an OIDC IdP
+// (issuer `https://login.microsoftonline.com/<tenantId>/v2.0`), so it shares one
+// connector rather than getting a second login path; `kind` exists only so the
+// admin UI can ask for a tenant ID instead of a raw issuer URL, and so
+// Entra-specific features (Graph directory sync) have somewhere to hang later.
+//
+// Unlike packages/control-plane, this is a real model rather than a handful of
+// flat `Setting` rows (`oidc_issuer`, `oidc_client_id`, …). That design allowed
+// exactly one IdP per deployment; an org with both an in-house OIDC provider and
+// Entra had to pick. Rows also let each connection be enabled/disabled and
+// audited independently.
+
+model SsoConnection {
+  id   String @id @default(cuid())
+  /// "oidc" (generic) | "entra" (Microsoft Entra ID / Azure AD)
+  kind String
+  /// Label on the login button, e.g. "Acme SSO" or "Microsoft".
+  name String
+  /// Discovery base — `{issuer}/.well-known/openid-configuration` must resolve.
+  /// For `kind: "entra"` this is derived from `tenantId`, never typed by hand.
+  issuer          String
+  clientId        String
+  /// Encrypted via lib/vault.ts, like every other admin-supplied credential here
+  /// (packages/control-plane stored the *Entra* client secret in plaintext — not
+  /// carried over).
+  clientSecretEnc String
+  /// Entra only. The directory this connection authenticates against.
+  tenantId        String?
+  isActive        Boolean  @default(true)
+  createdBy       String // DID of the admin who configured it
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  identities SsoIdentity[]
+
+  @@unique([issuer, clientId])
+  @@index([isActive])
+}
+
+// One external identity, and the DID it has been bound to (if any).
+//
+// `did` is nullable and that is the whole point: a human can authenticate to the
+// IdP before they hold a VaultysId, and this schema has nowhere to put such a
+// person — `Actor.did`/`User.did` are primary keys, so nothing human-shaped can
+// exist before a DID does. So an unbound SSO login does not create a session; it
+// mints a system-issued `Invitation` and sends the user through the existing
+// redemption flow to bind a DID, after which this row points at it and every
+// later login is an ordinary DID session. See `lib/sso.ts`.
+
+model SsoIdentity {
+  id           String @id @default(cuid())
+  connectionId String
+  /// The IdP's `sub` claim — stable per issuer, unlike email.
+  subject      String
+  /// Denormalized from the connection so a re-pointed connection can't silently
+  /// re-bind an identity issued by a different IdP.
+  issuer       String
+  email        String?
+  name         String?
+  /// The Actor this external identity resolves to. Null until bound. Unique —
+  /// one DID is never reachable through two different SSO identities.
+  did          String?   @unique
+  createdAt    DateTime  @default(now())
+  lastLoginAt  DateTime?
+
+  connection SsoConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  /// SetNull, not Cascade: deleting an Actor unbinds the external identity rather
+  /// than deleting the record that it ever logged in.
+  actor      Actor?        @relation(fields: [did], references: [did], onDelete: SetNull)
+
+  @@unique([connectionId, subject])
+  @@index([did])
 }
 
 // ─── Model Registry ──────────────────────────────────────────────────────────

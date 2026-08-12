@@ -33,6 +33,7 @@ import {
   persistChallengerCertificate,
 } from "./certificates";
 import { recordEvent } from "./audit";
+import { bindSsoIdentity } from "./sso";
 import { actorPayload } from "./webhook-payloads";
 import type { AuthCertificate } from "@prisma/client";
 
@@ -91,6 +92,22 @@ async function registerHumanFromInvitation(
 
   const actor = await UserDAO.ensureExists(did, invitation.name, invitation.email, publicKey);
   await InvitationDAO.markRedeemed(invitation.tokenHash, did);
+
+  // A binding invitation minted by an unbound SSO login (lib/sso.ts): now that a
+  // DID exists, point the external identity at it so every later login through
+  // that IdP is an ordinary DID session. A false return means the identity was
+  // bound by a concurrent redemption — the Actor above still exists and is
+  // usable, it just isn't reachable via SSO, which is the safe way to lose this
+  // race rather than repointing an existing binding at a new DID.
+  if (invitation.ssoIdentityId) {
+    const bound = await bindSsoIdentity(invitation.ssoIdentityId, did);
+    if (!bound) {
+      logger.warn(
+        { did, ssoIdentityId: invitation.ssoIdentityId },
+        "SSO identity was already bound — leaving the existing binding in place"
+      );
+    }
+  }
   // Already has a real name/email from the invite — skip the first-login profile-completion
   // prompt (app/welcome) entirely, unlike the plain self-registration path.
   await UserDAO.markProfileCompleted(did);

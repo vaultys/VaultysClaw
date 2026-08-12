@@ -1,6 +1,7 @@
 "use client";
 
 import { use, useCallback, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { QRCodeSVG } from "qrcode.react";
 import { signIn } from "next-auth/react";
 import { connectWithoutApp, type BrowserIdData } from "@/lib/browser-connect";
@@ -24,6 +25,11 @@ type Phase = "checking" | "invalid" | "loading" | "waiting" | "dev-connecting" |
  */
 export default function InvitePage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = use(params);
+  // `?sso=1` marks an invitation minted by an unbound SSO login (lib/sso.ts) rather
+  // than one an admin sent. Purely presentational — the redemption mechanics are
+  // identical, but "you've been invited" is the wrong thing to tell someone who
+  // just authenticated with their own corporate account and is mid-flow.
+  const isSsoBinding = useSearchParams().get("sso") === "1";
   const [phase, setPhase] = useState<Phase>("checking");
   const [invalidReason, setInvalidReason] = useState<InvalidReason>("not_found");
   const [inviteeName, setInviteeName] = useState<string>();
@@ -120,11 +126,19 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
           </span>
           <div>
             <h1 className="text-xl font-semibold text-foreground">
-              {inviteeName ? `You've been invited, ${inviteeName}` : "You've been invited to VaultysClaw"}
+              {isSsoBinding
+                ? inviteeName
+                  ? `Almost there, ${inviteeName}`
+                  : "One more step"
+                : inviteeName
+                  ? `You've been invited, ${inviteeName}`
+                  : "You've been invited to VaultysClaw"}
             </h1>
             {phase !== "invalid" && (
               <p className="text-sm text-foreground-500 mt-1">
-                Open your VaultysID app and scan the QR code below to accept
+                {isSsoBinding
+                  ? "Your sign-in was verified. Link a VaultysID to finish creating your account — it's the identity every permission you're given is attached to."
+                  : "Open your VaultysID app and scan the QR code below to accept"}
               </p>
             )}
           </div>

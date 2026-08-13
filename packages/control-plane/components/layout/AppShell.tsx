@@ -16,7 +16,6 @@ const STANDALONE_PATHS = [
   "/",
   "/login",
   "/admin/setup",
-  "/quick-start",
   "/admin/mission-control/fullscreen",
   "/invite/*",
 ];

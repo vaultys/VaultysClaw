@@ -96,17 +96,35 @@ You should see output like:
 ✓ Registration pending admin approval
 ```
 
-## 5. Approve the agent
+## 5. First login
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-1. Sign in (first user automatically gets global admin)
-2. Navigate to **Agents** → **Pending Registrations**
-3. Click **Approve** on your agent, selecting the capabilities to grant
+For local testing, you can sign in **without the VaultysId app** — a simplified, fast way to get going. This is **less secure** and should **not be used in production**; it's ideal for testing the solution.
+
+You'll also be offered **Software** security (no passkey, no hardware key) — again, less secure, but simpler and faster to set up.
+
+:::danger Local testing only
+Anyone with access to this browser can sign in with this method. Use it only for local testing — never on a public or production deployment.
+:::
+
+<video controls playsInline preload="metadata" style={{ width: "100%", borderRadius: "12px" }}>
+  <source src="/video/login-quick-start.mp4" type="video/mp4" />
+  Your browser does not support the video tag.
+</video>
+
+*Logging in without the VaultysId app.*
+
+The first user to sign in automatically gets global admin.
+
+## 6. Approve the agent
+
+1. Navigate to **Agents** → **Pending Registrations**
+2. Click **Approve** on your agent, selecting the capabilities to grant
 
 The agent will immediately receive its signed policy and become active.
 
-## 6. Send your first intent
+## 7. Send your first intent
 
 ```bash
 curl -X POST http://localhost:3000/api/intents \
@@ -129,7 +147,7 @@ Response:
 }
 ```
 
-## 7. Chat with your agent
+## 8. Chat with your agent
 
 Open [http://localhost:3000/chat](http://localhost:3000/chat), select your agent, and start a conversation.
 

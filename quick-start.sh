@@ -22,7 +22,7 @@ DB_USER="vaultys"
 DB_PASSWORD="vaultys_dev_secret"
 DB_NAME="vaultysclaw"
 CONTROL_PLANE_URL="http://localhost:3000"
-QUICK_START_URL="https://docs.vaultys.io/docs/guides/quickstart"
+QUICK_START_URL="https://docs.vaultys.ai/docs/guides/control-plane-first-login"
 HEALTH_URL="$CONTROL_PLANE_URL/api/public/health"
 
 ASSUME_YES=false

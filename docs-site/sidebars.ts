@@ -45,6 +45,7 @@ const sidebars: SidebarsConfig = {
       collapsed: false,
       items: [
         "guides/quickstart",
+        "guides/control-plane-first-login",
         "guides/dev-setup-demo",
         "guides/configuration",
         "guides/deploying-agents",

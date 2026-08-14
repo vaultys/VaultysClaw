@@ -7,7 +7,7 @@
 #   2. Writes packages/control-plane/.env (NEXTAUTH_SECRET generated via openssl).
 #   3. Installs workspace dependencies with pnpm (bootstrapped via corepack).
 #   4. Builds and starts the full Docker stack (docker/docker-compose.yml).
-#   5. Waits for the control plane, then opens http://localhost:3000/quick-start.
+#   5. Waits for the control plane, then opens the Quick Start guide in the docs.
 #
 # Usage:
 #   ./quick-start.sh
@@ -22,7 +22,7 @@ DB_USER="vaultys"
 DB_PASSWORD="vaultys_dev_secret"
 DB_NAME="vaultysclaw"
 CONTROL_PLANE_URL="http://localhost:3000"
-QUICK_START_URL="$CONTROL_PLANE_URL/quick-start"
+QUICK_START_URL="https://docs.vaultys.ai/docs/guides/control-plane-first-login"
 HEALTH_URL="$CONTROL_PLANE_URL/api/public/health"
 
 ASSUME_YES=false
@@ -245,8 +245,8 @@ wait_and_open() {
   info "Waiting for the control plane at $HEALTH_URL …"
   for _ in $(seq 1 120); do
     if curl -sf "$HEALTH_URL" >/dev/null 2>&1; then
-      info "Control plane is up."
-      info "Opening $QUICK_START_URL"
+      info "Control plane is up on $CONTROL_PLANE_URL."
+      info "Opening the Quick Start guide: $QUICK_START_URL"
       open_browser "$QUICK_START_URL"
       return 0
     fi
@@ -254,7 +254,7 @@ wait_and_open() {
   done
   warn "Timed out waiting for the control plane."
   warn "Check progress with: cd docker && docker compose logs -f control-plane"
-  warn "Once it is up, open: $QUICK_START_URL"
+  warn "Once it is up, open $CONTROL_PLANE_URL and follow: $QUICK_START_URL"
 }
 
 # ── Main ───────────────────────────────────────────────────────────────────────

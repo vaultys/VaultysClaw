@@ -1,238 +1,133 @@
 ---
-sidebar_position: 4
-title: Production Deployment
-description: Deploy VaultysClaw to production with TLS, reverse proxy, and monitoring.
+sidebar_position: 10
+title: Deployment
+description: Processes, environment variables, network posture, and what to back up.
 ---
 
-# Production Deployment
+# Deployment
 
-This guide covers hardening and deploying VaultysClaw for production use.
+## Processes
 
-## Architecture overview
+| Process | Required | Notes |
+|---|---|---|
+| **Control plane** | Yes | Next.js + WebSocket in one custom-server process |
+| **Postgres** | Yes | The ledger, the audit log, everything |
+| **Webhook dispatcher** | For event delivery | Separate process. Without it, events enqueue and sit. |
+| **Redis** | For webhooks & channels | Unset disables both, silently and safely |
+| **Apprise** | For notification channels | Unset disables channels only |
+| **LiteLLM proxy** | Optional | Model registry degrades to catalogue data without it |
 
-```mermaid
-graph TD
-  Internet["Internet / Corporate LAN"]
-  RP["Reverse Proxy\nnginx / Caddy / Traefik\nTerminates TLS"]
-  CP["Control Plane\nNode.js / Next.js\nInternal :3000 / :8080"]
-  DB[("Data Volume\n/data/vaultysclaw/")]
-  A1["Agent Controller\non-premises"]
-  A2["Agent Controller\nremote / cloud"]
+## Environment variables
 
-  Internet --> RP
-  RP -->|HTTP :3000| CP
-  RP -->|WS upgrade :8080| CP
-  CP --- DB
-  CP -- "WSS outbound" --> A1
-  CP -- "WSS outbound" --> A2
-```
+| Variable | Required | Purpose |
+|---|---|---|
+| `DATABASE_URL` | ✅ | Postgres connection string |
+| `NEXTAUTH_SECRET` | ✅ | Session secret. Generate a real one. |
+| `NEXTAUTH_URL` | ✅ | Browser-facing base URL |
+| `APP_URL` | — | Overrides `NEXTAUTH_URL` when building deep links in webhook payloads and alerts |
+| `CONTROLPLANE_PORT` | — | HTTP port, default 3001 |
+| `CONTROLPLANE_WS_PORT` | — | WebSocket port, default 8081 |
+| `REDIS_URL` | — | BullMQ queue. Unset ⇒ webhooks and channels no-op. |
+| `APPRISE_API_URL` | — | Apprise base URL. Unset ⇒ notification channels off. |
+| `NEXT_PUBLIC_WALLET_URL` | — | Wallet app URL used to build the QR deep link |
+| `LITELLM_BASE_URL` / `LITELLM_MASTER_KEY` | — | Deployment-time **fallback** only — settings edited in the console win |
 
-Agents connect outbound — no inbound rules needed on agent machines.
+### Dispatcher
 
-## Step-by-step
+| Variable | Purpose |
+|---|---|
+| `DATABASE_URL` | Point at **this** control plane's database |
+| `REDIS_URL` | Same Redis as the producer |
+| `BULLMQ_PREFIX` | Must be `vaultysclaw-controlplane` for this schema |
+| `APPRISE_API_URL` | Unset ⇒ notification fan-out is skipped; webhooks unaffected |
+| `WEBHOOK_TIMEOUT_MS` | Per-endpoint delivery timeout, default 10000 |
 
-### 1. Build the control plane
+:::danger Get the prefix right on a shared Redis
+The rebuilt control plane and the older one use the **same queue name** with
+different prefixes, and their databases are entirely separate. A dispatcher with
+the wrong prefix will consume the other application's jobs against the wrong
+schema.
 
-```bash
-pnpm build -F @vaultysclaw/control-plane
-```
-
-### 2. Configure production environment
-
-```env
-# /etc/vaultysclaw/control-plane.env
-NODE_ENV=production
-PORT=3000
-WS_PORT=8080
-HOSTNAME=127.0.0.1
-
-NEXTAUTH_URL=https://vaultysclaw.acme.com
-NEXTAUTH_SECRET=<openssl rand -base64 64>
-
-DATABASE_URL=sqlite:/data/vaultysclaw/db.sqlite
-VAULTYS_ID_PATH=/data/vaultysclaw/.vaultys/control-plane.id
-
-LOG_LEVEL=info
-```
-
-### 3. Set up nginx reverse proxy
-
-```nginx
-# /etc/nginx/sites-available/vaultysclaw
-server {
-    listen 443 ssl http2;
-    server_name vaultysclaw.acme.com;
-
-    ssl_certificate     /etc/ssl/acme/vaultysclaw.crt;
-    ssl_certificate_key /etc/ssl/acme/vaultysclaw.key;
-    ssl_protocols       TLSv1.2 TLSv1.3;
-
-    # HTTP traffic → control plane
-    location / {
-        proxy_pass         http://127.0.0.1:3000;
-        proxy_set_header   Host              $host;
-        proxy_set_header   X-Real-IP         $remote_addr;
-        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
-        proxy_set_header   X-Forwarded-Proto $scheme;
-    }
-
-    # WebSocket upgrade → WS hub
-    location /ws {
-        proxy_pass         http://127.0.0.1:8080;
-        proxy_http_version 1.1;
-        proxy_set_header   Upgrade    $http_upgrade;
-        proxy_set_header   Connection "upgrade";
-        proxy_set_header   Host       $host;
-        proxy_read_timeout 3600s;
-    }
-}
-
-server {
-    listen 80;
-    server_name vaultysclaw.acme.com;
-    return 301 https://$host$request_uri;
-}
-```
-
-:::tip Using Caddy?
-Caddy handles TLS automatically. A minimal `Caddyfile`:
-
-```
-vaultysclaw.acme.com {
-    reverse_proxy /ws localhost:8080 {
-        header_up Upgrade {>Upgrade}
-        header_up Connection {>Connection}
-    }
-    reverse_proxy localhost:3000
-}
-```
-
+This is a deployment-time configuration difference, not a code change.
 :::
 
-### 4. Run the control plane as a service
-
-```ini
-# /etc/systemd/system/vaultysclaw-control-plane.service
-[Unit]
-Description=VaultysClaw Control Plane
-After=network.target
-
-[Service]
-Type=simple
-User=vaultys
-WorkingDirectory=/opt/vaultysclaw
-ExecStart=/usr/bin/node packages/control-plane/.next/standalone/server.js
-Restart=always
-RestartSec=5
-EnvironmentFile=/etc/vaultysclaw/control-plane.env
-
-[Install]
-WantedBy=multi-user.target
-```
-
-```bash
-sudo systemctl enable --now vaultysclaw-control-plane
-```
-
-### 5. Configure agents for production
-
-```env
-CONTROL_PLANE_WS_HOST=vaultysclaw.acme.com
-CONTROL_PLANE_WS_PORT=443
-NODE_TLS_REJECT_UNAUTHORIZED=1
-NODE_ENV=production
-```
-
-## Docker Compose (full stack)
-
-A reference Docker Compose file is provided:
-
-```bash
-cd docker
-cp .env.docker.example .env
-# Edit .env
-docker compose up -d
-```
-
-The Compose file starts:
-
-- `control-plane` — the Next.js app + WebSocket hub
-- `caddy` — reverse proxy with automatic HTTPS (Let's Encrypt)
-
-Agents are deployed separately (they typically run close to your data sources).
-
-## Agent reconnect flow
+## Network posture
 
 ```mermaid
-sequenceDiagram
-  participant A as Agent
-  participant CP as Control Plane
-
-  A->>CP: WS connect + "register"
-  CP-->>A: "register_ack" (policy + certs)
-
-  Note over A,CP: Connection drops
-
-  A->>A: Wait 1s (back-off)
-  A->>CP: WS reconnect + "register" (same VaultysId)
-  CP-->>A: "register_ack" (no re-approval needed)
-  Note over A,CP: Resumes normally
+flowchart LR
+  subgraph pub["Public / agent-reachable"]
+    CP["Control plane<br/>HTTPS + WSS"]
+  end
+  subgraph int["Internal only — no public port"]
+    PG[("Postgres")]
+    RD[("Redis")]
+    AP["Apprise"]
+    DISP["Webhook dispatcher"]
+    LL["LiteLLM"]
+  end
+  AGENTS["Actors"] --> CP
+  CP --- PG
+  CP --- RD
+  CP --- AP
+  CP --- LL
+  DISP --- RD
+  DISP --- PG
+  DISP --- AP
+  DISP -->|signed HTTPS| SIEM["Your endpoints"]
 ```
 
-## Database backups
+**Apprise must never be exposed externally.** It has no authentication of its own
+by design — that is what keeps it a genuinely swappable container. It is reachable
+only from the control plane's admin API and the dispatcher.
 
-SQLite is a single file. Back it up with:
+Agents need only the HTTPS and WebSocket ports.
 
-```bash
-# Safe online backup (no service interruption)
-sqlite3 /data/vaultysclaw/db.sqlite ".backup /backups/db-$(date +%Y%m%d-%H%M%S).sqlite"
-```
+## Backups and recovery
 
-Schedule this as a cron job or use a tool like `litestream` for continuous replication to S3.
+Back up two things.
 
-## VaultysId backup
+### 1. Postgres
 
-The control plane identity file (`control-plane.id`) is the root of trust. If it is lost, all existing delegation certificates become unverifiable.
+The ledger, the audit log, Actors, settings, and every encrypted secret.
 
-```bash
-# Encrypt and back up the identity file
-gpg --symmetric /data/vaultysclaw/.vaultys/control-plane.id
-# Store the encrypted file in your secrets manager
-```
+### 2. The server identity
 
-## Monitoring
+The control plane's own VaultysId is the root issuer for the entire ledger **and**
+the key that encrypts every vault secret.
 
-### Structured logging
+:::danger Losing the server identity is unrecoverable
+Without it you cannot decrypt LiteLLM master keys, SSO client secrets, or Apprise
+service URLs, and you cannot issue certificates that verify against existing ones.
+Restoring the database alone does not restore the deployment.
+:::
 
-In production, Pino outputs newline-delimited JSON:
+There is also **no admin recovery path**. Authority is keyed to DIDs; there is no
+password to reset and no support account with standing authority. Issue a second
+`admin_console_access` certificate to a separate identity as your first
+administrative act.
 
-```json
-{"level":30,"time":1716...,"msg":"Agent connected","did":"did:vaultys:..."}
-```
+## Production checklist
 
-Pipe to your SIEM:
+- [ ] A real `NEXTAUTH_SECRET`, not the example value
+- [ ] TLS terminated in front of both HTTP and WebSocket
+- [ ] Postgres, Redis, and Apprise on an internal network with no public ports
+- [ ] A dispatcher running, with the correct `BULLMQ_PREFIX`, and the health panel
+      showing all three checks green
+- [ ] The bootstrap certificate reviewed — reissued with an expiry, or consciously
+      kept
+- [ ] A second admin identity issued
+- [ ] The server identity backed up
+- [ ] Trust policy reviewed under **Settings** — `closed` is the default and the
+      stricter choice
 
-```bash
-# Datadog
-node server.js | dd-log-agent
+## Known state
 
-# Elastic
-node server.js | filebeat
-```
-
-### Health endpoints
-
-| Endpoint                      | Returns                  |
-| ----------------------------- | ------------------------ |
-| `GET /api/public/health`             | Control plane health     |
-| `GET /api/agents?online=true` | List of connected agents |
-
-## Upgrade procedure
-
-1. Pull the latest release: `git pull && git checkout <tag>`
-2. Install dependencies: `pnpm install --frozen-lockfile`
-3. Build: `pnpm build -F @vaultysclaw/control-plane`
-4. Restart the service: `sudo systemctl restart vaultysclaw-control-plane`
-5. Verify agents reconnect automatically (they will, within their reconnect back-off window)
-
-Database migrations run automatically on startup. Always review the changelog before upgrading.
+- **No production deployment artefacts for the dispatcher against this schema
+  exist in the repository yet** — no compose entry, no dedicated Dockerfile
+  variant. The dev script proves the wiring; packaging it is a deployment-time
+  decision.
+- **Per-workspace trust policy overrides are not in the schema.** Org-wide is the
+  only level.
+- **The Server Action authorisation retrofit is incomplete.** Until it lands,
+  treat `portal_access` as "can reach the application", not "cannot reach admin
+  mutations". See the [roadmap](/docs/zero-trust/roadmap).

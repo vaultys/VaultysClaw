@@ -1,195 +1,132 @@
 ---
-sidebar_position: 15
+sidebar_position: 6
 title: Webhooks
-description: Deliver signed HTTP POSTs to your own services when things happen in VaultysClaw. Configure endpoints, subscribe to events, and verify the HMAC signature — with automatic retries and a dead-letter queue for failed deliveries.
+description: Signed HTTP delivery of every domain event to an endpoint you control.
 ---
 
 # Webhooks
 
-Webhooks let VaultysClaw notify **your own services** over HTTP when something
-happens on the platform — a workspace is created, an agent is approved, a
-workflow fails, a user signs in. Where [notifications](./notifications.md) reach
-*people* (in-app / email / push), webhooks reach *machines*: each subscribed
-endpoint receives a signed `POST` request it can verify and act on.
+Raw, signed JSON delivered to a URL you fully control — your SIEM, your own
+endpoint. VaultysClaw does not know or care what is on the other end.
 
-Webhooks are **org-global** and configured by admins — they are not per-user and
-have no notion of level or audience. A subscription simply lists the event types
-it cares about and the URL to deliver them to.
+Configured under **Integrations → Webhooks**.
 
-## Configuring a webhook
+## Setting one up
 
-Go to **Admin → Settings → Integrations → Webhooks** (Admin or Owner only). Each
-webhook has:
+1. Name, description, and endpoint URL.
+2. Pick event types. Only events this control plane actually emits are offered —
+   you cannot subscribe to something that will never arrive.
+3. Save. **The signing secret is shown exactly once.** Store it now; regenerating
+   is the only way to see a new one.
 
-- **Name / description** — for your own reference.
-- **URL** — the HTTPS endpoint that will receive the `POST` requests.
-- **Events** — the list of event types this endpoint subscribes to.
-- **Active** — a toggle to pause deliveries without deleting the configuration.
+## Verifying the signature
 
-When you create a webhook (or regenerate its secret) a **signing secret**
-(`whsec_…`) is shown **once, in clear**. Copy it immediately — it is never
-displayed again. You need it to verify incoming deliveries (see below).
+```
+X-VaultysClaw-Signature: sha256=<hmac-sha256(secret, timestamp + "." + rawBody)>
+```
 
-The **Docs** button on the Webhooks tab opens an in-app reference with the exact
-example payload for every event, generated from the real payload builders so the
-examples never drift from what is actually sent.
+Compute over the **raw body**, not a re-serialised parse. Compare in constant
+time, and reject a timestamp outside your tolerance window to bound replay.
 
-## The delivery request
+```ts
+import { createHmac, timingSafeEqual } from "node:crypto";
 
-Each delivery is an HTTP `POST` with a JSON body and a set of signature headers.
+function verify(rawBody: string, timestamp: string, header: string, secret: string) {
+  const expected = "sha256=" + createHmac("sha256", secret)
+    .update(`${timestamp}.${rawBody}`)
+    .digest("hex");
+  const a = Buffer.from(expected);
+  const b = Buffer.from(header);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+```
 
-**Headers:**
+## Payload shape
 
-| Header | Meaning |
-|--------|---------|
-| `Content-Type` | Always `application/json` |
-| `User-Agent` | `VaultysClaw-Webhooks/1.0` |
-| `X-VaultysClaw-Event` | The event type, e.g. `workspace.created` |
-| `X-VaultysClaw-Delivery` | A unique id for this delivery attempt |
-| `X-VaultysClaw-Timestamp` | Millisecond epoch used in the signature |
-| `X-VaultysClaw-Signature` | `sha256=<hmac>` — see [Verifying the signature](#verifying-the-signature) |
+Payloads are built by **explicit per-entity allow-list builders** — never by
+serialising a database row. On top of that, a recursive key blacklist strips
+anything secret-shaped as defence in depth.
 
-**Body:**
+An Actor payload deliberately excludes `kindConfig` (kind-specific, not guaranteed
+safe or meaningful) and location fields. A certificate payload deliberately
+excludes the certificate bytes themselves.
+
+Beyond the entity, each event carries:
+
+| Field | Meaning |
+|---|---|
+| `performedBy` | `{did, name}` of the admin who acted — **absent** for events with no human origin, such as an Actor's own registration attempt |
+| `adminUrl` | Absolute deep link back to the relevant console page |
+| `changes` | Field-level diff, `[{field, from, to}]`, for update events |
+| `grantedCapabilities` | For `actor.approved` — the filtered set actually persisted, not the raw submission |
 
 ```json
 {
-  "event": "workspace.created",
-  "occurredAt": "2026-07-16T10:00:00.000Z",
+  "eventType": "actor.approved",
+  "timestamp": "2026-08-17T09:14:22.031Z",
   "data": {
-    "id": "ws-1",
-    "name": "Marketing"
+    "did": "did:vaultys:…",
+    "name": "edge-sensor-04",
+    "kind": "sensor",
+    "workspaceId": "default",
+    "grantedCapabilities": ["process_read"],
+    "performedBy": { "did": "did:vaultys:…", "name": "admin test" },
+    "adminUrl": "https://controlplane.example.com/admin/actors/…"
   }
 }
 ```
 
-- `event` — the event type (matches the `X-VaultysClaw-Event` header).
-- `occurredAt` — ISO 8601 timestamp of when the domain event happened.
-- `data` — an explicitly-built, **sanitized** payload for the event. It only ever
-  contains safe fields — never a secret, password, token or key. The exact shape
-  per event is in the in-app **Docs** reference.
+The console's built-in reference generates its examples by running **the real
+payload builders** over sample objects, so a documented example cannot drift from
+what is actually sent.
 
-## Verifying the signature
+## Events
 
-The signature scheme mirrors Stripe/GitHub: an HMAC-SHA256 over
-`` `${timestamp}.${rawBody}` `` using your webhook's signing secret, hex-encoded
-and prefixed with `sha256=`.
+| Group | Events |
+|---|---|
+| Actors | `actor.registration_requested`, `actor.approved`, `actor.denied`, `actor.updated`, `human.invited`, `human.invitation_redeemed` |
+| Certificates | `certificate.issued`, `certificate.revoked` |
+| Workspaces | `workspace.created`, `workspace.updated` |
+| Models | `model.created`, `model.updated`, `model.deleted` |
+| Proxy | `proxy.config_updated` |
 
-To verify a delivery, recompute the HMAC from the **raw request body** (before any
-JSON parsing) and the `X-VaultysClaw-Timestamp` header, then compare it to the
-`X-VaultysClaw-Signature` header using a constant-time comparison:
+Full detail: [webhook event reference](/docs/reference/webhook-events).
 
-```javascript
-import crypto from "node:crypto";
+## Delivery requires a running dispatcher
 
-function verify(secret, req, rawBody) {
-  const timestamp = req.headers["x-vaultysclaw-timestamp"];
-  const received = req.headers["x-vaultysclaw-signature"];
-  const expected =
-    "sha256=" +
-    crypto.createHmac("sha256", secret).update(`${timestamp}.${rawBody}`).digest("hex");
+The control plane **enqueues**; a separate worker delivers.
 
-  // Constant-time comparison to avoid timing attacks.
-  return (
-    received.length === expected.length &&
-    crypto.timingSafeEqual(Buffer.from(received), Buffer.from(expected))
-  );
-}
+```bash
+pnpm controlplane:webhook:dev
 ```
 
-:::tip Use the raw body
-Sign and verify against the exact bytes received, not a re-serialized object —
-re-encoding JSON can reorder keys or change whitespace and break the signature.
-Reject the request if the signature does not match.
+Without a running dispatcher, events enqueue correctly and sit in the queue
+forever. Enqueueing does not throw when nothing is consuming, so nothing surfaces
+the gap on its own.
+
+:::tip The health panel checks the right thing
+Integrations shows three independent checks. Redis and Apprise are checked by
+direct reachability. **Dispatcher** is checked by asking the queue whether any
+worker is registered on it — the only signal that actually answers "is anything
+consuming this right now", which reachability cannot.
 :::
 
-You can also reject deliveries whose `X-VaultysClaw-Timestamp` is too old to
-guard against replay of captured requests.
+## Queue isolation
 
-## Retries and delivery guarantees
+The rebuilt control plane uses a distinct BullMQ prefix,
+`vaultysclaw-controlplane`, on the same queue name as the older package. A shared
+Redis must never let one dispatcher treat two apps' jobs as one queue, since their
+databases are entirely separate.
 
-Delivery is **at-least-once per endpoint**. If your endpoint is slow or returns a
-non-2xx status, the delivery is retried automatically:
+Running a dispatcher for this schema is a **deployment-time configuration
+difference**, not a code change: point it at this database and set the matching
+prefix.
 
-- Each event is attempted up to **5 times** with exponential backoff.
-- When an event fans out to several endpoints and only some fail, a retry only
-  re-sends to the endpoints that **actually failed** — endpoints that already
-  received the event successfully are **not** delivered to again.
-- If an endpoint keeps failing after all attempts, the event is moved to a
-  **dead-letter queue** for inspection and manual replay rather than being
-  silently dropped.
+## Operational notes
 
-Design your receiver to be **idempotent**: use `X-VaultysClaw-Delivery` (or a
-natural id inside `data`) to detect and ignore a delivery you have already
-processed. Respond with a `2xx` status as soon as you have durably accepted the
-event; do heavy processing asynchronously so you don't trip the delivery timeout
-(`WEBHOOK_TIMEOUT_MS`, 10 s by default).
-
-## How it works
-
-Like notifications, webhooks are processed out of band so the action that
-triggers an event returns immediately. A dedicated **webhook-dispatcher** service
-does the fan-out, signing and delivery.
-
-```mermaid
-sequenceDiagram
-  participant CP as Control Plane
-  participant Q as Redis (BullMQ queue)
-  participant D as Webhook dispatcher
-  participant DB as Database
-  participant EP as Your endpoint
-
-  CP->>Q: enqueue event { eventType, payload }
-  Q->>D: deliver job
-  D->>DB: load active webhook subscriptions
-  D->>D: filter by subscribed event type
-  loop each matching endpoint
-    D->>EP: POST signed payload
-    EP-->>D: 2xx (ack) / error
-  end
-  Note over D,Q: on failure → retry (skip already-delivered endpoints)
-  Note over D,Q: exhausted retries → dead-letter queue
-```
-
-- The **control plane** only enqueues events; it never blocks on delivery, and if
-  Redis is not configured it simply no-ops (the triggering request is unaffected).
-- The **webhook-dispatcher** loads every active subscription, keeps the ones
-  subscribed to the event, and POSTs a signed request to each.
-
-## Requirements
-
-- **Redis** must be running — it backs the BullMQ webhook queue. It is included in
-  the Docker stack (`docker/docker-compose.yml`).
-- The **webhook-dispatcher** service must be running to deliver events
-  (`pnpm webhook:dev`, or the `webhook-dispatcher` service in Docker).
-
-## Available events
-
-| Event | Group | Description |
-|-------|-------|-------------|
-| `user.login`   | Authentication | A user successfully signed in |
-| `user.logout`  | Authentication | A user signed out |
-| `user.created` | Users | A new user account was created |
-| `user.updated` | Users | A user account was modified |
-| `user.deleted` | Users | A user account was deleted |
-| `user.joined`  | Users | A user completed onboarding and joined the organization |
-| `agent.approval_requested` | Agents | An agent registered and is awaiting admin approval |
-| `agent.created` | Agents | An agent was approved and created |
-| `agent.updated` | Agents | An agent's configuration was modified |
-| `agent.deleted` | Agents | An agent was deleted |
-| `workspace.created` | Workspaces | A workspace was created |
-| `workspace.updated` | Workspaces | A workspace was modified |
-| `workspace.deleted` | Workspaces | A workspace was deleted |
-| `model.created` | Models | A model was added to the registry |
-| `model.updated` | Models | A model in the registry was modified |
-| `model.deleted` | Models | A model was removed from the registry |
-| `knowledge.created` | Knowledge | A knowledge source was added |
-| `knowledge.deleted` | Knowledge | A knowledge source was removed |
-| `skill.created` | Skills | A skill was added to the org library |
-| `skill.updated` | Skills | A skill in the org library was modified |
-| `skill.deleted` | Skills | A skill was removed from the org library |
-| `workflow.succeeded` | Workflows | A workflow run completed successfully |
-| `workflow.failed` | Workflows | A workflow run failed |
-
-New events are added to the shared catalog
-(`packages/shared/src/webhooks.ts`); see the webhook-dispatcher package
-documentation for the developer workflow.
+- Requests time out per endpoint, configurable.
+- Failed webhook deliveries are dead-lettered. **Notification-channel failures
+  currently are not** — a documented limitation, not an oversight.
+- Regenerating a secret invalidates the old one immediately and reveals the new
+  one once.
+- Deactivating a webhook stops delivery without losing its configuration.

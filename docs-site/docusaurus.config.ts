@@ -4,7 +4,7 @@ import type * as Preset from "@docusaurus/preset-classic";
 
 const config: Config = {
   title: "VaultysClaw",
-  tagline: "Decentralised AI Agent Orchestration — Secured by VaultysId",
+  tagline: "A Zero Trust plane for AI agents — cryptographic identity, signed capability certificates, live revocation",
   favicon: "img/favicon.ico",
 
   url: "https://docs.vaultys.io",
@@ -14,6 +14,11 @@ const config: Config = {
   projectName: "vaultysclaw",
 
   onBrokenLinks: "throw",
+  onBrokenAnchors: "throw",
+
+  // Note: `markdown.hooks.onBrokenMarkdownLinks` is the Docusaurus v4 home for
+  // this option, but 3.10.1's types don't declare it yet — keep it here until
+  // the type catches up, and the deprecation warning with it.
   onBrokenMarkdownLinks: "warn",
 
   markdown: {
@@ -76,10 +81,15 @@ const config: Config = {
           label: "Documentation",
         },
         {
-          type: "docSidebar",
-          sidebarId: "apiSidebar",
+          to: "/docs/zero-trust/matrix",
           position: "left",
-          label: "API Reference",
+          label: "Zero Trust",
+        },
+        {
+          type: "docSidebar",
+          sidebarId: "referenceSidebar",
+          position: "left",
+          label: "Reference",
         },
         {
           href: "https://github.com/vaultys/vaultysclaw",
@@ -96,21 +106,21 @@ const config: Config = {
       style: "dark",
       links: [
         {
-          title: "Documentation",
+          title: "Zero Trust",
           items: [
-            { label: "Getting Started", to: "/docs/intro" },
-            { label: "Architecture", to: "/docs/overview/architecture" },
-            { label: "VaultysId Security", to: "/docs/security/vaultys-id" },
-            { label: "API Reference", to: "/docs/api/overview" },
+            { label: "Overview", to: "/docs/zero-trust/overview" },
+            { label: "Compliance matrix", to: "/docs/zero-trust/matrix" },
+            { label: "Gaps and roadmap", to: "/docs/zero-trust/roadmap" },
           ],
         },
         {
-          title: "Guides",
+          title: "Documentation",
           items: [
-            { label: "Quick Start", to: "/docs/guides/quickstart" },
-            { label: "Configuration", to: "/docs/guides/configuration" },
-            { label: "AI Governance", to: "/docs/guides/governance" },
-            { label: "Deployment", to: "/docs/guides/deployment" },
+            { label: "Introduction", to: "/docs/intro" },
+            { label: "Certificates", to: "/docs/concepts/certificates" },
+            { label: "Architecture", to: "/docs/architecture/overview" },
+            { label: "Quickstart", to: "/docs/guides/quickstart" },
+            { label: "Reference", to: "/docs/reference/websocket-protocol" },
           ],
         },
         {

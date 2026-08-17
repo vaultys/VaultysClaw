@@ -15,7 +15,7 @@ import {
 /* ────────────────────────────────────────────────────────────
    Data
    ──────────────────────────────────────────────────────────── */
-type Status = "active" | "partial" | "roadmap";
+type Status = "active" | "partial" | "absent";
 
 const DOMAINS: {
   id: string;
@@ -28,97 +28,97 @@ const DOMAINS: {
     id: "01",
     name: "Agent Identity & Authentication",
     status: "active",
-    summary: "Every agent has a non-transferable cryptographic DID.",
+    summary: "Every party holds a VaultysId DID and proves possession of the key.",
     detail:
-      "VaultysId assigns each agent a self-sovereign DID backed by an ECDSA key pair that never leaves the agent. Authentication is mutual challenge-response — no shared secrets, no API keys, no session tokens that can be stolen or replayed.",
+      "Identity is proven per connection by an SRP-style Challenger handshake — no bearer tokens, no shared secrets, nothing that works for whoever holds it. The public key observed during the handshake is persisted, so anything that Actor later signs can be re-verified offline with no live connection. Post-quantum identities (dilithium_ed25519) are a real, selectable type. Not present: mutual TLS with certificate pinning, and hardware-backed credentials for agents (humans can use real WebAuthn/FIDO2).",
   },
   {
     id: "02",
-    name: "Access Control & Privileges",
+    name: "Access Control & Privilege",
     status: "active",
-    summary: "Capability-based least-privilege, revocable in real time.",
+    summary: "Attribute-scoped certificates resolved as a set — the strongest domain.",
     detail:
-      "Each agent holds an explicit signed capability grant: internet_access, file_access, api_call, code_execution, mail_send, and more. Capabilities are enforced server-side before any intent is dispatched. Revocation takes effect immediately — no restart required.",
+      "There is no role table. An Actor's permissions are the union of the signed CapabilityCertificate rows naming it as subject, resolved per action over the whole set by resolvePermission — which returns which specific certificate granted the action. CertScope narrows a grant to a resource, pattern, use count, or purpose, so a ten-second single-file grant is an ordinary auditable ledger row. Whether a human may open the admin console is decided by the same code path as whether an agent may read a file.",
   },
   {
     id: "03",
     name: "Resource Perimeter & Blast Radius",
     status: "active",
-    summary: "Workspace isolation contains lateral movement by design.",
+    summary: "Workspace tenancy, per-kind capability allow-lists, and enforcing network interception.",
     detail:
-      "Agents are scoped to workspaces. A compromised agent cannot reach agents, data, or workflows in other workspaces. Policy signatures prevent trust escalation across boundaries, and per-agent budget caps limit resource consumption.",
+      "Workspaces bound tenancy. Per-kind allow-lists are applied server-side at approval time, so a sensor cannot be granted system_command by any route — including a crafted form post. For the network dimension, the proxy Actor kind is an interception point that refuses agent traffic its signed rule set and certificate do not authorise. Not present: container or hypervisor isolation per agent, and per-workspace trust policy overrides.",
   },
   {
     id: "04",
     name: "Observability & Audit",
     status: "active",
-    summary: "Immutable, cryptographically attributed audit trail on every action.",
+    summary: "One append-only trail that also drives every alert, so the two cannot disagree.",
     detail:
-      "All intents, results, policy changes, and delegation events are signed by their emitter and appended to an append-only log. Every entry is attributable to a specific DID — no ambiguity about who did what, even under delegation chains.",
+      "One recordEvent() call writes the audit row and drives the webhook and notification pipeline from the same sanitised payload — an alert cannot exist without a matching audit row. Entries carry DID attribution, field-level diffs, and a live-recomputed signature badge on certificate events, re-derived from the stored bytes rather than a stored flag. Honest limitation: the log is append-only by discipline, not by storage — rows are not signed or hash-chained.",
   },
   {
     id: "05",
-    name: "Tool Access & Security",
-    status: "active",
-    summary: "Tools are declared, schema-validated, and policy-gated per agent.",
+    name: "Behavioural Monitoring",
+    status: "partial",
+    summary: "Shadow-AI discovery is real; anomaly detection is not.",
     detail:
-      "Built-in tools (file ops, shell, HTTP, code runner, remote-agent calls) are registered with Zod schemas. No implicit tool access — each tool requires an explicit capability grant. Execution is logged and bounded by the agent's policy.",
+      "Endpoint sensors classify AI and agent workloads on real hosts and correlate them against the ledger — a workload whose identity evidence resolves to a known Actor is managed, one that does not is shadow. That is a genuine governance capability. But nothing establishes a behavioural baseline, nothing alerts on a threshold, and nothing contains an Actor automatically. Response is entirely manual revocation.",
   },
   {
     id: "06",
     name: "Input Validation",
-    status: "active",
-    summary: "Zod-enforced type-safe contracts at every system boundary.",
+    status: "partial",
+    summary: "Closed protocol union and strict config parsing; the admin surface is uneven.",
     detail:
-      "Intent payloads are validated against strict Zod schemas at the control-plane boundary before dispatch. Type-safe ts-rest contracts on all API routes prevent malformed or injected inputs from reaching agent logic.",
+      "The WebSocket protocol is a small closed message union — unknown types are rejected, not routed — and configuration blobs are parsed by validators that reject malformed input rather than dropping it silently. The gap is the admin surface: it is Server Actions over DAOs with hand-written, non-uniform validation, and a known authorisation retrofit is still in progress because Next.js dispatches an action without re-running its route's layout gate.",
   },
   {
     id: "07",
-    name: "Agent Memory Protection",
-    status: "active",
-    summary: "Per-agent isolated memory store — no cross-agent access.",
+    name: "Output Filtering & Leak Prevention",
+    status: "absent",
+    summary: "Not built. Nothing inspects what an agent returns.",
     detail:
-      "Each agent's semantic memory (SQLite + vector index) is fully isolated. Retrieval is scoped to the agent's own store; no agent can query another's memory. Memory summarisation runs inside the agent boundary.",
+      "No partial credit here. Secret handling on the platform's own outputs is careful — encrypted keys are omitted at the query level, webhook payloads pass explicit allow-lists plus a recursive secret strip, generated secrets are revealed once — and capability gating limits what an agent can reach in the first place. None of that inspects agent output. Nothing scans a result for PII, credentials, or exfiltration patterns. This is the largest single gap in the assessment.",
   },
   {
     id: "08",
-    name: "AI Governance Policies",
-    status: "partial",
-    summary: "Signed policy distribution and budget enforcement implemented; LLM output governance in progress.",
+    name: "Tool Access & Security",
+    status: "active",
+    summary: "Deny by default, allow-listed per kind, and proven to gate on a real binary.",
     detail:
-      "Policy documents are cryptographically signed and distributed to agents, which verify signatures before storing. Budget caps, capability grants, and workflow-level human approval gates are enforced. Full prompt-injection detection and LLM output content governance are in active development.",
+      "A capability an Actor does not hold authorises nothing, and every capability it does hold passed an explicit admin approval. The gate is demonstrably real, not asserted: the Go sensor logs that it is skipping its poll cycle until process_read is granted, reads no process information at all in that window, and begins polling in the same second the certificate exchange completes. Not present: rate limiting on tool calls, and per-tool sandboxing.",
   },
   {
     id: "09",
     name: "Credential Protection",
-    status: "partial",
-    summary: "Private keys never leave the agent; LLM key injection via env — vault integration planned.",
+    status: "active",
+    summary: "One vault primitive, write-only fields, and a confined decrypt capability.",
     detail:
-      "VaultysId private keys are generated and stored locally on each agent — they are never transmitted. LLM API keys are currently injected via environment variables at startup. Secrets vault integration (e.g. HashiCorp Vault, AWS Secrets Manager) and automated key rotation are on the near-term roadmap.",
+      "Agents hold a private key, not a platform secret — there is nothing to leak in the agent path. Stored secrets (LLM provider keys, SSO client secrets, Apprise service URLs) all use one signcrypt-to-self primitive rather than several code paths, and the decrypt capability never leaves the control-plane process. Encrypted columns are omitted at the query level, not deleted after the fact. Not present: automatic rotation, external secrets managers, per-agent credential isolation.",
   },
   {
     id: "10",
     name: "Integrity & Recovery",
-    status: "partial",
-    summary: "Signed state and WAL recovery in place; distributed consistency is partial.",
+    status: "active",
+    summary: "Signed, offline-verifiable artefacts, and a decision function verified across two languages.",
     detail:
-      "Agent certificates, policies, and delegation chains are signed and independently verifiable offline. Control-plane state is backed by SQLite WAL mode with crash recovery. Full distributed state consistency, multi-node failover, and automated recovery orchestration are partially implemented.",
+      "Both certificate formats are independently verifiable offline with no control-plane call. A proxy's rule set is signed at push time, deliberately leaving the stored copy unsigned since a stale signature is indistinguishable from a tampered one. The permission-resolution function exists in TypeScript and Go and both run the same committed conformance vectors — a divergence is a release blocker. Not present: automated rollback, configuration history for settings rows.",
   },
   {
     id: "11",
-    name: "Behavioural Monitoring",
-    status: "partial",
-    summary: "Token usage and intent logging implemented; anomaly detection in development.",
+    name: "Agent Memory Protection",
+    status: "absent",
+    summary: "Out of scope for the control plane — and no credit claimed for it.",
     detail:
-      "Per-agent token consumption, task history, and intent logs are tracked and surfaced in the control-plane dashboard. Statistical anomaly detection and behavioural baseline alerting are in active development and will ship as part of the observability roadmap.",
+      "Agent memory is a property of the agent runtime, not the control plane, and this assessment does not claim credit for something a different process owns. What the control plane contributes: memory contents never transit it, because the chat and channel surface that would have carried them was removed, and there is no cross-Actor read path in the platform at all. Integrity verification, encryption at rest, and poisoning detection for stored memory are absent at every tier.",
   },
   {
     id: "12",
-    name: "Output Filtering & Data Leak Prevention",
-    status: "roadmap",
-    summary: "Planned: LLM output scanning, PII detection, exfiltration prevention.",
+    name: "AI Governance",
+    status: "active",
+    summary: "Shadow-AI visibility, a model inventory, and federation that binds to the trust model.",
     detail:
-      "Currently, data exposure is limited through capability-gating (agents only access data they have explicit grants for). Dedicated output filtering — automated PII detection, sensitive data redaction, and prompt-injection response scanning — is on the public roadmap.",
+      "Governance uses the same mechanism as identity, so there is no separate engine to drift from the access model. Sensors surface unmanaged AI on real hosts; the Model Registry catalogues every sanctioned LLM endpoint; every change is audited and exportable. An SSO login that cannot be bound to a DID never produces a session — there is deliberately no 'signed in but not yet anybody' state. Stated plainly: model-workspace access is recorded and audited, but not enforced at inference time.",
   },
 ];
 
@@ -127,7 +127,7 @@ const STATUS_CONFIG: Record<
   { label: string; color: string; bg: string; border: string; Icon: React.ComponentType<{ size: number; strokeWidth: number; style?: React.CSSProperties }> }
 > = {
   active: {
-    label: "Active",
+    label: "Built",
     color: "#3fb950",
     bg: "rgba(63,185,80,0.1)",
     border: "rgba(63,185,80,0.25)",
@@ -140,18 +140,18 @@ const STATUS_CONFIG: Record<
     border: "rgba(245,158,11,0.25)",
     Icon: Clock,
   },
-  roadmap: {
-    label: "Roadmap",
-    color: "#3b82f6",
-    bg: "rgba(59,130,246,0.1)",
-    border: "rgba(59,130,246,0.25)",
-    Icon: Sparkles,
+  absent: {
+    label: "Not built",
+    color: "#f85149",
+    bg: "rgba(248,81,73,0.1)",
+    border: "rgba(248,81,73,0.25)",
+    Icon: XCircle,
   },
 };
 
 const ACTIVE_COUNT  = DOMAINS.filter((d) => d.status === "active").length;
 const PARTIAL_COUNT = DOMAINS.filter((d) => d.status === "partial").length;
-const ROADMAP_COUNT = DOMAINS.filter((d) => d.status === "roadmap").length;
+const ABSENT_COUNT  = DOMAINS.filter((d) => d.status === "absent").length;
 
 const ANTHROPIC_DOC_URL = "https://claude.com/blog/zero-trust-for-ai-agents";
 
@@ -162,7 +162,7 @@ function ScoreBar() {
   const total = DOMAINS.length;
   const activePct  = (ACTIVE_COUNT  / total) * 100;
   const partialPct = (PARTIAL_COUNT / total) * 100;
-  const roadmapPct = (ROADMAP_COUNT / total) * 100;
+  const absentPct  = (ABSENT_COUNT  / total) * 100;
 
   return (
     <div
@@ -177,7 +177,7 @@ function ScoreBar() {
     >
       <div style={{ width: `${activePct}%`,  background: "#3fb950", borderRadius: "100px 0 0 100px" }} />
       <div style={{ width: `${partialPct}%`, background: "#f59e0b" }} />
-      <div style={{ width: `${roadmapPct}%`, background: "#3b82f6", borderRadius: "0 100px 100px 0" }} />
+      <div style={{ width: `${absentPct}%`,  background: "#f85149", borderRadius: "0 100px 100px 0" }} />
     </div>
   );
 }
@@ -193,19 +193,21 @@ function Hero() {
         <div style={{ maxWidth: 780, margin: "0 auto", textAlign: "center" }}>
           <div className="hero-badge">
             <ShieldCheck size={12} strokeWidth={2.5} />
-            Anthropic Zero Trust AI Agents Framework · May 2026
+            Anthropic Zero Trust for AI Agents · self-assessment
           </div>
 
           <h1 className="hero-title">
             12 domains.
             <br />
-            <span className="gradient-text">11 covered today.</span>
+            <span className="gradient-text">Including the ones we fail.</span>
           </h1>
 
-          <p className="hero-subtitle" style={{ maxWidth: 640, margin: "0 auto 32px" }}>
-            Anthropic published a Zero Trust security framework for AI agents
-            covering 12 critical domains. VaultysClaw fully covers 7, partially
-            covers 4, and has the remaining 1 on the public roadmap.
+          <p className="hero-subtitle" style={{ maxWidth: 660, margin: "0 auto 32px" }}>
+            Anthropic's Zero Trust framework for AI agents defines 12 control
+            domains. This is our self-assessment against it — built where it is
+            built, and empty where it is empty. Two domains score zero, and
+            saying so is the point: a Zero Trust claim without the failures is
+            not an assessment.
           </p>
 
           {/* Score stats */}
@@ -221,7 +223,7 @@ function Hero() {
             {[
               { count: ACTIVE_COUNT,  label: "Active",   color: "#3fb950" },
               { count: PARTIAL_COUNT, label: "Partial",  color: "#f59e0b" },
-              { count: ROADMAP_COUNT, label: "Roadmap",  color: "#3b82f6" },
+              { count: ABSENT_COUNT,  label: "Not built", color: "#f85149" },
             ].map(({ count, label, color }) => (
               <div key={label} style={{ textAlign: "center" }}>
                 <div style={{ fontSize: "2.4rem", fontWeight: 900, color, lineHeight: 1 }}>
@@ -253,8 +255,8 @@ function Hero() {
               Read the Anthropic framework{" "}
               <ExternalLink size={15} strokeWidth={2.5} />
             </a>
-            <Link className="btn-secondary" to="/docs/security/security-model">
-              Our security model
+            <Link className="btn-secondary" to="/docs/zero-trust/matrix">
+              Read the full matrix
             </Link>
           </div>
         </div>
@@ -279,19 +281,21 @@ function FrameworkSummary() {
               Anthropic's Zero Trust AI Agents Framework
             </h2>
             <p className="section-subtitle" style={{ marginBottom: 16 }}>
-              Published in May 2026, this framework defines the security
-              requirements organisations should demand of any AI agent platform.
-              It draws directly from Zero Trust principles established by NIST
-              and extends them to the specific threat model of autonomous AI
-              agents: prompt injection, capability abuse, lateral movement,
-              identity spoofing, and data exfiltration.
+              The framework adapts Zero Trust — never trust, always verify — to
+              a setting where the thing being verified is a non-deterministic,
+              tool-using, network-connected process acting on a human's behalf.
+              It defines twelve control domains across three maturity tiers,
+              covering the specific threat model of autonomous agents: prompt
+              injection, capability abuse, lateral movement, identity spoofing,
+              and data exfiltration.
             </p>
             <p className="section-subtitle" style={{ marginBottom: 24 }}>
-              The 12 domains range from foundational identity controls (DIDs,
-              mutual authentication) through runtime protections (tool gating,
-              input validation, memory isolation) to governance and recovery
-              capabilities. No other open-source agent platform covers this
-              surface area today.
+              VaultysClaw is built against it, and publishes the assessment
+              rather than claiming compliance in the abstract. Three rules keep
+              it honest: a control counts only if it is enforced rather than
+              merely recorded; only if it has been exercised end to end against
+              real infrastructure; and scope is stated, so a property owned by
+              the agent runtime is marked as such instead of quietly claimed.
             </p>
             <a
               href={ANTHROPIC_DOC_URL}
@@ -307,7 +311,7 @@ function FrameworkSummary() {
                 textDecoration: "none",
               }}
             >
-              Download the full PDF{" "}
+              Read the Anthropic framework{" "}
               <ExternalLink size={14} strokeWidth={2.5} />
             </a>
           </div>
@@ -342,7 +346,7 @@ function FrameworkSummary() {
                   marginTop: 4,
                 }}
               >
-                {(["active", "partial", "roadmap"] as Status[]).map((s) => {
+                {(["active", "partial", "absent"] as Status[]).map((s) => {
                   const cfg = STATUS_CONFIG[s];
                   const count = DOMAINS.filter((d) => d.status === s).length;
                   return (
@@ -388,8 +392,9 @@ function FrameworkSummary() {
                   lineHeight: 1.55,
                 }}
               >
-                Evaluated against Anthropic's Zero Trust AI Agents Framework,
-                May 2026.
+                Evaluated against Anthropic's Zero Trust for AI Agents
+                framework. A control counts only if it is enforced rather than
+                recorded, and only if it has been exercised end to end.
               </div>
             </div>
           </div>
@@ -546,9 +551,9 @@ function CTA() {
             marginBottom: 16,
           }}
         >
-          The most complete Zero Trust coverage
+          Zero Trust for agents,
           <br />
-          for AI agents — out of the box.
+          assessed in the open.
         </h2>
         <p
           style={{
@@ -559,8 +564,9 @@ function CTA() {
             lineHeight: 1.7,
           }}
         >
-          No security team to hire. No SPIRE cluster to maintain. Deploy in
-          five minutes and tick 11 of 12 Anthropic framework domains on day one.
+          Self-hosted, no agent traffic through anyone else's servers, and an
+          assessment you can check against the code. Run it locally in about ten
+          minutes.
         </p>
         <div
           style={{
@@ -593,8 +599,8 @@ function CTA() {
 export default function ZeroTrustScore(): React.ReactElement {
   return (
     <Layout
-      title="Zero Trust Score — VaultysClaw vs. Anthropic Framework"
-      description="VaultysClaw covers 11 of 12 domains from Anthropic's Zero Trust AI Agents Framework (May 2026). See how each domain is addressed."
+      title="Zero Trust assessment — VaultysClaw vs. Anthropic's framework"
+      description="VaultysClaw's per-domain self-assessment against Anthropic's Zero Trust for AI Agents framework — including the two domains that score zero."
     >
       <Hero />
       <FrameworkSummary />

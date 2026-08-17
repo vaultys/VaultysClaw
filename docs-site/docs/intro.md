@@ -1,60 +1,107 @@
 ---
 sidebar_position: 1
 title: Introduction
-description: What is VaultysClaw, and why should your organisation care?
+description: VaultysClaw is a certificate-based trust plane for AI agents — cryptographic identity, signed capability grants, and a live revocation protocol.
 ---
 
 # VaultysClaw
 
-**VaultysClaw** is an open-source, enterprise-grade platform for deploying, orchestrating, and governing AI agents across your organisation. It provides a central control plane that coordinates any number of distributed agent controllers — each capable of using different LLM providers — while enforcing security policies through cryptographically-verified decentralised identity.
+**VaultysClaw is a trust plane for AI agents.** It gives every agent, device, sensor,
+and human in your organisation a cryptographic identity, records every permission
+any of them holds as a signed, revocable certificate in one append-only ledger, and
+provides a protocol that lets anyone — the control plane, another agent, a third
+party — check whether a given permission is still valid *right now*.
 
-## Why VaultysClaw?
+It is deliberately **not** an agent framework, a workflow engine, or a chat product.
+Those exist and are good. What is missing at most organisations is the answer to four
+questions, and that is all VaultysClaw is built to answer:
 
-Running AI agents at enterprise scale introduces problems that most frameworks ignore:
+| Question | VaultysClaw's answer |
+|---|---|
+| **Who is this agent?** | A VaultysId DID, proven per connection by an SRP-style challenge/response handshake. Not an API key. |
+| **What is it allowed to do?** | A `CapabilityCertificate` — signed by the control plane *and* by the agent itself, independently verifiable offline by anyone. |
+| **Is that still true?** | The `cert_status` protocol: a signed, timestamped status response any party can request, cache, or forward. Revocation is a ledger write, not a hopeful push. |
+| **What actually happened?** | One append-only audit log, every entry attributed to a DID, keyed to the exact certificate that authorised the action. |
 
-| Problem                         | How VaultysClaw solves it                                                                        |
-| ------------------------------- | ------------------------------------------------------------------------------------------------- |
-| **Who authorised this action?** | Every intent is signed by the issuer's VaultysId key — tamper-evident, non-repudiable             |
-| **Can I trust this agent?**     | Agents carry non-transferable DID identities; impersonation is cryptographically impossible       |
-| **How do I revoke access?**     | Capability grants and policies are revoked instantly from the control plane and pushed to agents  |
-| **LLM vendor lock-in**          | Per-agent LLM configuration: OpenAI, Anthropic, Gemini, Ollama, or any OpenAI-compatible endpoint |
-| **Multi-team isolation**        | Workspaces provide hard boundaries between teams; role-based access from member to global admin       |
-| **Audit trail**                 | Every intent, result, and approval is logged and cryptographically attributable                   |
+## The Zero Trust framing
 
-## Core components
+VaultysClaw is designed against **Anthropic's "Zero Trust for AI Agents"**
+guidance, and we publish our self-assessment against it rather than claiming
+compliance in the abstract.
 
+That assessment is a living document, not marketing copy: it names what is built,
+what is partial, and what is not there at all — including the domains where we
+currently score zero.
+
+- **[Zero Trust overview](/docs/zero-trust/overview)** — the framework, and how VaultysClaw maps onto it
+- **[The compliance matrix](/docs/zero-trust/matrix)** — all twelve domains, tier by tier, with current status
+- **[Gaps and roadmap](/docs/zero-trust/roadmap)** — what is missing and in what order it is being closed
+
+## What is in the box
+
+```mermaid
+flowchart TB
+  subgraph CP["Control plane (Next.js + WebSocket, one process)"]
+    LEDGER[("CapabilityCertificate ledger<br/>append-only, signed")]
+    ADMIN["Admin console<br/>admin_console_access"]
+    PORTAL["Access Portal<br/>portal_access"]
+    AUDIT[("Audit log")]
+    WS["WS server<br/>register / auth / cert_status"]
+  end
+
+  OPENCLAW["openclaw agent<br/>LLM-driven"]
+  MCP["mcp actor<br/>MCP server"]
+  SENSOR["sensor<br/>Go binary, telemetry"]
+  PROXY["proxy<br/>enforcing interception point"]
+  DEVICE["device<br/>browser / host"]
+  HUMAN["human<br/>VaultysId wallet or SSO"]
+
+  OPENCLAW <--> WS
+  MCP <--> WS
+  SENSOR <--> WS
+  PROXY <--> WS
+  DEVICE <--> WS
+  HUMAN --> ADMIN
+  HUMAN --> PORTAL
+
+  WS --- LEDGER
+  ADMIN --- LEDGER
+  PORTAL --- LEDGER
+  LEDGER --- AUDIT
+
+  CP -->|signed webhooks| SIEM["Your SIEM / endpoint"]
+  CP -->|Apprise| ALERTS["Slack / email / PagerDuty"]
 ```
-Control Plane (Next.js + WebSocket hub)
-    ├── REST API  — manage agents, users, policies, workflows
-    ├── Dashboard — live visibility across the fleet
-    └── WS Hub   — bidirectional real-time channel to agents
 
-Agent Controller (Node.js)
-    ├── Identity   — VaultysId (non-transferable DID)
-    ├── LLM engine — multi-provider, per-agent config
-    ├── Executor   — policy-checked action execution
-    └── Signer     — signs results before returning them
-```
+Everything on that diagram is an **[Actor](/docs/concepts/actors)** — one entity,
+one registration flow, one ledger, one audit trail. Humans are Actors too. A
+sensor is not a special table; a proxy is not a special protocol. The only thing
+that differs per kind is the configuration it carries and the admin panel that
+edits it.
 
-## Key concepts
+## Where to start
 
-- **VaultysId** — The decentralised identity system at the heart of VaultysClaw. Every participant (user, control plane, agent) has a cryptographic key pair. All messages are signed and verified using these keys. See [VaultysId Security](/docs/security/vaultys-id).
+**Evaluating VaultysClaw?** Read the [Zero Trust matrix](/docs/zero-trust/matrix)
+first — it is the most honest single page on this site — then
+[Concepts → Certificates](/docs/concepts/certificates).
 
-- **Agent** — A process running the agent controller package. It connects outbound to the control plane WebSocket hub, receives signed intents, and executes them within its granted capabilities.
+**Deploying it?** [Quickstart](/docs/guides/quickstart), then
+[Bootstrapping the first admin](/docs/guides/bootstrap) and
+[Onboarding actors](/docs/guides/onboarding-actors).
 
-- **Intent** — A signed, structured request to execute an action on one or more agents. Intents are the primary unit of work.
+**Building an agent against it?** [Agent kinds](/docs/architecture/agent-kinds)
+and the [WebSocket protocol](/docs/reference/websocket-protocol).
 
-- **Policy** — A signed document pushed from the control plane to an agent that defines which capabilities the agent is allowed to use, resource limits, and optional time windows.
+## A note on maturity
 
-- **Workspace** — An organisational scope (team, department, project) that groups agents, users, and workflows with isolated access control.
+VaultysClaw is in **public alpha**, and the control plane described by these docs
+is a **ground-up rebuild** (`packages/controlplane`) that lives alongside the
+older proof-of-concept (`packages/control-plane`). The rebuild deliberately
+removed a large amount of product surface — workflow orchestration, human chat
+channels, Teams bridges, the in-app notification stack, and the ts-rest REST API —
+to do a much smaller thing properly.
 
-- **Capability** — A specific permission granted to an agent, such as `file_access`, `internet_access`, or `code_execution`.
-
-- **Skill** — A named unit of reusable agent behaviour attached to a workspace. Skills carry Markdown instructions that are automatically injected into agent system prompts at runtime — no code changes required. Skills can be authored manually or imported from the public [skills library](https://skills-library.com).
-
-## Next steps
-
-- [Architecture](/docs/overview/architecture) — how the control plane and agents communicate
-- [VaultysId](/docs/security/vaultys-id) — the decentralised identity backbone
-- [Quick Start](/docs/guides/quickstart) — run the platform in under 5 minutes
-- [API Reference](/docs/api/overview) — integrate with your own applications
+If you are looking for docs on those features, see
+[What was removed, and why](/docs/reference/removed-surface). They are not coming
+back; VaultysClaw's job is agent identity and trust, and orchestration is better
+served by tools built for it.

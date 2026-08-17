@@ -890,10 +890,10 @@ const FEATURES: {
     desc: "Grant exactly the permissions each agent needs — file access, internet, code execution — and revoke them in one click, no restart required.",
   },
   {
-    Icon: Workflow,
+    Icon: FileCheck,
     iconColor: "blue",
-    title: "Automate your processes",
-    desc: "Build multi-step workflows that mirror your real business processes. Agents hand off to each other exactly the way your best teams do.",
+    title: "Prove it after the fact",
+    desc: "Every grant is a signed certificate anyone can verify offline, and every action lands in one append-only trail citing the exact certificate that authorised it.",
   },
   {
     Icon: CheckCircle2,
@@ -1000,7 +1000,7 @@ function ArchitectureSection() {
               ))}
             </ul>
             <div style={{ marginTop: "28px" }}>
-              <Link className="btn-secondary" to="/docs/overview/architecture">
+              <Link className="btn-secondary" to="/docs/architecture/overview">
                 Deep dive into the architecture <ChevronRight size={15} />
               </Link>
             </div>
@@ -1051,14 +1051,13 @@ const MOCK_AGENTS = [
 
 const NAV_ITEMS = [
   { Icon: Network, label: "Overview", active: false },
-  { Icon: Bot, label: "Agents", active: true },
-  { Icon: Send, label: "Intents", active: false },
-  { Icon: ShieldCheck, label: "Policies", active: false },
-  { Icon: Workflow, label: "Workflows", active: false },
-  { Icon: MessageSquare, label: "Chat", active: false },
-  { Icon: CheckCircle2, label: "Approvals", active: false },
+  { Icon: Bot, label: "Actors", active: true },
+  { Icon: Bot, label: "Sensors", active: false },
+  { Icon: Globe, label: "Map", active: false },
+  { Icon: FileCheck, label: "Certificates", active: false },
   { Icon: Building2, label: "Workspaces", active: false },
-  { Icon: Users, label: "Users", active: false },
+  { Icon: ShieldCheck, label: "Audit Log", active: false },
+  { Icon: Key, label: "Integrations", active: false },
 ];
 
 function DashboardMockup() {
@@ -1306,14 +1305,14 @@ function SecuritySection() {
 
             <Link
               className="btn-secondary"
-              to="/docs/security/vaultys-id"
+              to="/docs/concepts/certificates"
               style={{
                 display: "inline-flex",
                 alignItems: "center",
                 gap: "6px",
               }}
             >
-              How VaultysId works <ChevronRight size={15} />
+              How certificates work <ChevronRight size={15} />
             </Link>
           </div>
 
@@ -1477,8 +1476,8 @@ const { intentId, sentTo } = await response.json();
               makes your organisation unique.
             </p>
             <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
-              <Link className="btn-primary" to="/docs/api/overview">
-                Explore the API <ChevronRight size={16} strokeWidth={2.5} />
+              <Link className="btn-primary" to="/docs/reference/websocket-protocol">
+                Explore the protocol <ChevronRight size={16} strokeWidth={2.5} />
               </Link>
               <Link className="btn-secondary" to="/docs/guides/quickstart">
                 5-minute quickstart
@@ -2014,7 +2013,7 @@ function CTASection() {
           <Link className="btn-primary" to="/docs/guides/quickstart">
             Get started free <ArrowRight size={16} strokeWidth={2.5} />
           </Link>
-          <Link className="btn-secondary" to="/docs/overview/architecture">
+          <Link className="btn-secondary" to="/docs/architecture/overview">
             Read the architecture
           </Link>
           <a

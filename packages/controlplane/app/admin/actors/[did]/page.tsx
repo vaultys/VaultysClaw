@@ -4,6 +4,7 @@ import { ArrowLeft, MapPin } from "lucide-react";
 import { CapabilityCertificateDAO, ActorDAO, ActorLinkDAO, UserDAO, WorkspaceDAO } from "@/db";
 import PageChrome from "@/components/layout/PageChrome";
 import { ActorKindBadge } from "@/components/ActorKindBadge";
+import ActorSearchSelect from "@/components/ActorSearchSelect";
 import ProxyConfigPanel from "@/components/proxy/ProxyConfigPanel";
 import { revokeCertificateAction } from "@/app/admin/certificates/actions";
 import {
@@ -236,18 +237,17 @@ export default async function ActorDetailPage({
           {actor.kind !== "human" && (
             <div>
               <label className="block text-sm font-medium text-foreground mb-1.5">Owned by</label>
-              <select
+              <ActorSearchSelect
                 name="ownerDid"
                 defaultValue={actor.ownerDid ?? ""}
-                className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background"
-              >
-                <option value="">No owner</option>
-                {linkableActors.map((a) => (
-                  <option key={a.did} value={a.did}>
-                    {a.name} ({a.kind})
-                  </option>
-                ))}
-              </select>
+                actors={linkableActors.map((a) => ({
+                  did: a.did,
+                  name: a.name,
+                  kind: a.kind,
+                }))}
+                emptyLabel="No owner"
+                placeholder="Search owners by name, kind, or DID..."
+              />
               <p className="text-xs text-foreground-400 mt-1">
                 The actor this one belongs to / acts for (e.g. a device belonging to a human or an
                 agent) — descriptive only today, not yet enforced by any certificate.
@@ -475,17 +475,17 @@ export default async function ActorDetailPage({
             </div>
             <div className="flex-1 min-w-[200px]">
               <label className="block text-xs text-foreground-500 mb-1">Target Actor</label>
-              <select
+              <ActorSearchSelect
                 name="toDid"
                 required
-                className="w-full border border-neutral-200 rounded-lg px-3 py-1.5 text-sm bg-background"
-              >
-                {linkableActors.map((a) => (
-                  <option key={a.did} value={a.did}>
-                    {a.name} ({a.kind})
-                  </option>
-                ))}
-              </select>
+                actors={linkableActors.map((a) => ({
+                  did: a.did,
+                  name: a.name,
+                  kind: a.kind,
+                }))}
+                emptyLabel="Select a target actor"
+                placeholder="Search target actors..."
+              />
             </div>
             <button
               type="submit"

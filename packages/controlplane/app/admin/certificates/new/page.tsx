@@ -1,6 +1,6 @@
 import { ActorDAO } from "@/db";
 import PageChrome from "@/components/layout/PageChrome";
-import { categoryForKind } from "@/lib/actor-kinds";
+import ActorSearchSelect from "@/components/ActorSearchSelect";
 import { issueCertificateAction } from "../actions";
 
 const AGENT_CAPABILITIES = [
@@ -29,8 +29,6 @@ export default async function NewCertificatePage({
   searchParams: Promise<{ resource?: string; agentDid?: string }>;
 }) {
   const [actors, { resource, agentDid }] = await Promise.all([ActorDAO.list(), searchParams]);
-  const humanActors = actors.filter((p) => categoryForKind(p.kind) === "human");
-  const agentActors = actors.filter((p) => categoryForKind(p.kind) !== "human");
 
   return (
     <div className="p-6 max-w-2xl">
@@ -45,27 +43,20 @@ export default async function NewCertificatePage({
       <form action={issueCertificateAction} className="space-y-6">
         <div>
           <label className="block text-sm font-medium text-foreground mb-1.5">Actor</label>
-          <select
+          <ActorSearchSelect
             name="agentDid"
             required
-            className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background"
-          >
-            <option value="">Select an Actor…</option>
-            <optgroup label="Humans">
-              {humanActors.map((p) => (
-                <option key={p.did} value={p.did} selected={p.did === agentDid}>
-                  {p.name} ({p.kind}) — {p.did}
-                </option>
-              ))}
-            </optgroup>
-            <optgroup label="Agents & Devices">
-              {agentActors.map((p) => (
-                <option key={p.did} value={p.did} selected={p.did === agentDid}>
-                  {p.name} ({p.kind}) — {p.did}
-                </option>
-              ))}
-            </optgroup>
-          </select>
+            defaultValue={agentDid ?? ""}
+            actors={actors.map((actor) => ({
+              did: actor.did,
+              name: actor.name,
+              kind: actor.kind,
+            }))}
+            emptyLabel="Select an actor"
+          />
+          <p className="text-xs text-foreground-400 mt-1">
+            Search by name, actor kind, or full DID. Large directories only render the first matches.
+          </p>
         </div>
 
         <div>

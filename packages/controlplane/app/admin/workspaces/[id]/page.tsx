@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { WorkspaceDAO, ActorDAO, CapabilityCertificateDAO } from "@/db";
 import PageChrome from "@/components/layout/PageChrome";
 import { ActorKindBadge } from "@/components/ActorKindBadge";
+import ActorSearchSelect from "@/components/ActorSearchSelect";
 import { encodeDidParam } from "@/lib/actor-route";
 import { categoryForKind } from "@/lib/actor-kinds";
 import { updateWorkspaceAction, assignActorWorkspaceAction } from "../actions";
@@ -210,17 +211,16 @@ export default async function WorkspaceDetailPage({
                 <label className="block text-sm font-medium text-foreground mb-1.5">
                   Assign an actor
                 </label>
-                <select
+                <ActorSearchSelect
                   name="did"
                   required
-                  className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background"
-                >
-                  {unassignedActors.map((a) => (
-                    <option key={a.did} value={a.did}>
-                      {a.name} ({a.kind}) — {a.did}
-                    </option>
-                  ))}
-                </select>
+                  actors={unassignedActors.map((a) => ({
+                    did: a.did,
+                    name: a.name,
+                    kind: a.kind,
+                  }))}
+                  emptyLabel="Select an actor to assign"
+                />
               </div>
               <button
                 type="submit"

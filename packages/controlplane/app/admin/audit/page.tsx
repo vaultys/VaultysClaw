@@ -6,6 +6,7 @@ import { inspectCertificate } from "@/lib/cert-inspect";
 import { encodeDidParam } from "@/lib/actor-route";
 import PageChrome from "@/components/layout/PageChrome";
 import { ActorKindBadge } from "@/components/ActorKindBadge";
+import ActorSearchSelect from "@/components/ActorSearchSelect";
 
 function JsonBlock({ value }: { value: unknown }) {
   return (
@@ -48,24 +49,18 @@ export default async function AuditLogPage({
     to: to ? new Date(to) : undefined,
   };
 
-  const [entries, eventTypes, total] = await Promise.all([
+  const [entries, eventTypes, total, allActors] = await Promise.all([
     AuditLogDAO.list(filter, 50),
     AuditLogDAO.distinctEventTypes(),
     AuditLogDAO.count(filter),
+    ActorDAO.list(),
   ]);
 
   // Batch-resolve actor kind badges and live-reverify certificate-related entries' signatures —
   // one query each for the whole page, not N+1 per row.
-  const actorDids = [...new Set(entries.map((e) => e.actorDid).filter((d): d is string => !!d))];
   const certIds = [...new Set(entries.filter((e) => e.targetType === "certificate" && e.targetId).map((e) => e.targetId as string))];
-  const [actors, certs] = await Promise.all([
-    ActorDAO.findManyByDid(actorDids),
-    CapabilityCertificateDAO.findManyByIds(certIds),
-  ]);
-  const actorByDid = new Map(actors.map((a) => [a.did, a]));
-  const certActorDids = [...new Set(certs.map((c) => c.agentDid))];
-  const certActors = await ActorDAO.findManyByDid(certActorDids);
-  const certActorByDid = new Map(certActors.map((a) => [a.did, a]));
+  const certs = await CapabilityCertificateDAO.findManyByIds(certIds);
+  const actorByDid = new Map(allActors.map((a) => [a.did, a]));
   const verifiedByCertId = new Map<string, boolean>(
     await Promise.all(
       certs.map(async (c): Promise<[string, boolean]> => {
@@ -73,7 +68,7 @@ export default async function AuditLogPage({
           c.certFormat as "packcert" | "challenger",
           c.certificate,
           c.requestCertificate,
-          certActorByDid.get(c.agentDid)?.publicKey ?? null
+          actorByDid.get(c.agentDid)?.publicKey ?? null
         );
         return [c.id, inspected.grantVerified];
       })
@@ -105,13 +100,19 @@ export default async function AuditLogPage({
         </div>
         <div>
           <label className="block text-xs font-medium text-foreground-500 uppercase mb-1">Actor DID</label>
-          <input
-            type="text"
-            name="actorDid"
-            defaultValue={actorDid ?? ""}
-            placeholder="did:vaultys:…"
-            className="border border-neutral-200 rounded-lg px-2.5 py-1.5 text-sm bg-background font-mono w-56"
-          />
+          <div className="w-72">
+            <ActorSearchSelect
+              name="actorDid"
+              defaultValue={actorDid ?? ""}
+              actors={allActors.map((actor) => ({
+                did: actor.did,
+                name: actor.name,
+                kind: actor.kind,
+              }))}
+              emptyLabel="All actors"
+              placeholder="Filter actors by name, kind, or DID..."
+            />
+          </div>
         </div>
         <div>
           <label className="block text-xs font-medium text-foreground-500 uppercase mb-1">From</label>

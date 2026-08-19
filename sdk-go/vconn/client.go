@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/vaultys/vaultysclaw-sensor/internal/identity"
-	"github.com/vaultys/vaultysclaw-sensor/internal/telemetry"
+	"github.com/vaultys/VaultysClaw/sdk-go/identity"
+	"github.com/vaultys/VaultysClaw/sdk-go/telemetry"
 )
 
 // ClientConfig configures the sensor-side connection.
@@ -24,6 +24,14 @@ type ClientConfig struct {
 	// admin UI.
 	Name    string
 	Version string
+	// Kind is the Actor kind declared in the register step — "openclaw",
+	// "mcp", "sensor", "device", "proxy", or any future kind
+	// (packages/controlplane/lib/actor-kinds.ts). It decides which capability
+	// allow-list the control plane filters an approval against, and which
+	// admin panel the Actor gets. Defaults to "openclaw", matching the control
+	// plane's own default for an unset kind; the sensor sets "sensor"
+	// explicitly.
+	Kind string
 
 	MaxQueueSize  int // bounded; oldest events dropped on overflow
 	BatchSize     int
@@ -47,10 +55,16 @@ type ClientConfig struct {
 
 func (c *ClientConfig) setDefaults() {
 	if c.Name == "" {
-		c.Name = "vaultysclaw-sensor"
+		// Neutral default now that this is a general-purpose SDK rather than
+		// the sensor's own package — an Actor that doesn't name itself shows
+		// up in the admin console as this, not as a sensor it isn't.
+		c.Name = "vaultysclaw-actor"
 	}
 	if c.Version == "" {
 		c.Version = "0.1.0"
+	}
+	if c.Kind == "" {
+		c.Kind = "openclaw"
 	}
 	if c.MaxQueueSize <= 0 {
 		c.MaxQueueSize = 1000
@@ -67,9 +81,10 @@ func (c *ClientConfig) setDefaults() {
 	if c.ReconnectMaxDelay <= 0 {
 		c.ReconnectMaxDelay = 30 * time.Second
 	}
-	if len(c.RequestedCapabilities) == 0 {
-		c.RequestedCapabilities = []string{"process_read"}
-	}
+	// Deliberately no default: an SDK that silently asks for a capability the
+	// caller never named would be requesting authority on their behalf. An
+	// empty list means "ask for nothing" — a valid state, and what a
+	// telemetry-only Actor approved with zero capabilities actually holds.
 	if c.Logger == nil {
 		c.Logger = slog.Default()
 	}
@@ -239,7 +254,7 @@ func (c *ClientConn) connectAndServe(ctx context.Context) (everConnected bool, e
 	// (internal/vconn/server.go) ever sent — against the real control
 	// plane that first read simply hung forever, since nothing arrives
 	// until the server has something to react to.
-	regEnv, err := NewEnvelope(MsgRegister, RegisterPayload{Name: c.cfg.Name, Version: c.cfg.Version, Kind: "sensor"})
+	regEnv, err := NewEnvelope(MsgRegister, RegisterPayload{Name: c.cfg.Name, Version: c.cfg.Version, Kind: c.cfg.Kind})
 	if err != nil {
 		return false, err
 	}

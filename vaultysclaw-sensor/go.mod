@@ -2,8 +2,15 @@ module github.com/vaultys/vaultysclaw-sensor
 
 go 1.25.5
 
+// The SDK half of this codebase (connection lifecycle, offline certificate
+// verification, permission resolution) lives in the sibling sdk-go module so
+// third parties can import it — Go's internal/ rule made it sensor-only. The
+// replace keeps local development working from a checkout of this repo.
+replace github.com/vaultys/VaultysClaw/sdk-go => ../sdk-go
+
 require (
 	github.com/gorilla/websocket v1.5.3
+	github.com/vaultys/VaultysClaw/sdk-go v0.0.0-00010101000000-000000000000
 	github.com/vaultys/vaultysid/go v0.0.0-20260729122600-9046639cc232
 	github.com/vmihailenco/msgpack/v5 v5.4.1
 	gopkg.in/yaml.v3 v3.0.1

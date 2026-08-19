@@ -22,7 +22,7 @@ import (
 // value is a rule that silently does not apply — and a `deny` rule that does not
 // apply is an enforcement failure with no error anywhere
 // (docs/PROXY_ARCHITECTURE.md §3.3).
-const fixturePath = "../../../conformance/rules-fixture.json"
+const fixturePath = "../../conformance/rules-fixture.json"
 
 type rulesFixture struct {
 	ServerIDBase64 string `json:"serverIdBase64"`

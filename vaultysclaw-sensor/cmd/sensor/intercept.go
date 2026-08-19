@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/vaultys/vaultysclaw-sensor/internal/config"
-	"github.com/vaultys/vaultysclaw-sensor/internal/grant"
+	"github.com/vaultys/VaultysClaw/sdk-go/grant"
 	"github.com/vaultys/vaultysclaw-sensor/internal/intercept"
 )
 

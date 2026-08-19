@@ -130,10 +130,10 @@ sequenceDiagram
   participant CP as Control plane
   participant Admin
 
-  A->>CP: register {did, kind, publicKey}
+  A->>CP: register {name, kind}
   CP->>A: auth_challenge (Challenger, service:"auth")
   A->>CP: challenge response
-  Note over CP: identity proven — publicKey persisted
+  Note over CP: identity proven — DID + publicKey<br/>derived from the handshake, not claimed
   alt unknown DID
     CP->>A: registration_pending
     CP-->>Admin: actor.registration_requested

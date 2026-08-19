@@ -16,13 +16,11 @@ const config: Config = {
   onBrokenLinks: "throw",
   onBrokenAnchors: "throw",
 
-  // Note: `markdown.hooks.onBrokenMarkdownLinks` is the Docusaurus v4 home for
-  // this option, but 3.10.1's types don't declare it yet — keep it here until
-  // the type catches up, and the deprecation warning with it.
-  onBrokenMarkdownLinks: "warn",
-
   markdown: {
     mermaid: true,
+    hooks: {
+      onBrokenMarkdownLinks: "warn",
+    },
   },
 
   themes: ["@docusaurus/theme-mermaid"],

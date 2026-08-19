@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/vaultys/vaultysclaw-sensor/internal/authz"
-	"github.com/vaultys/vaultysclaw-sensor/internal/rules"
+	"github.com/vaultys/VaultysClaw/sdk-go/authz"
+	"github.com/vaultys/VaultysClaw/sdk-go/rules"
 )
 
 var now = time.Date(2026, 8, 6, 12, 0, 0, 0, time.UTC)

@@ -20,7 +20,9 @@ flowchart TD
 
   subgraph io["I/O — persistence, transport, UI"]
     CP["@vaultysclaw/controlplane<br/>Next.js + WS, Prisma, admin console"]
-    RUNTIME["@vaultysclaw/agent-runtime<br/>connection, auth, intent routing"]
+    SDK["@vaultysclaw/sdk<br/>ActorRuntime — connection, auth,<br/>certificates, local decisions"]
+    SDKGO["sdk-go<br/>the same, in Go"]
+    OLDRT["@vaultysclaw/agent-runtime<br/>previous runtime — old control plane"]
     DISPATCH["@vaultysclaw/webhook-dispatcher<br/>BullMQ worker"]
   end
 
@@ -34,12 +36,13 @@ flowchart TD
   CP --> TRUST
   CP --> POLICY
   CP --> SHARED
-  RUNTIME --> POLICY
-  RUNTIME --> SHARED
+  SDK --> TRUST
+  SDK --> POLICY
+  SDKGO -.->|"port of resolvePermission,<br/>shared conformance vectors"| TRUST
   DISPATCH --> SHARED
-  CONTROLLER --> RUNTIME
-  GATEWAY --> RUNTIME
-  SENSOR -.->|"Go port of resolvePermission,<br/>shared conformance vectors"| TRUST
+  CONTROLLER --> OLDRT
+  GATEWAY --> OLDRT
+  SENSOR --> SDKGO
 ```
 
 ## The layering rule
@@ -53,8 +56,8 @@ self-contained artefact with property-based tests over random certificate-set
 combinations — rather than at a function tangled into a web framework's request
 lifecycle.
 
-The control plane fetches rows and acts on decisions. The agent runtime evaluates
-locally with no database in the loop. Both consume the same function.
+The control plane fetches rows and acts on decisions. An SDK evaluates locally
+with no database in the loop. Both consume the same function.
 
 ## The packages
 
@@ -108,20 +111,27 @@ Architectural notes worth knowing before reading the code:
 
 See [Control plane](/docs/architecture/control-plane).
 
-### `@vaultysclaw/agent-runtime`
+### `@vaultysclaw/sdk` and `sdk-go`
 
-The transport and authentication layer every Actor implementation builds on.
-Loads or generates a local VaultysId, connects over WebSocket or PeerJS, drives
-`register` → pending → approval → `auth_complete`, holds the resulting
-capabilities and limits, and composes the policy enforcer.
+The two SDKs: everything a third party needs to build an Actor. Identity,
+transport, the `register` → approval → certificate lifecycle, reconnection, and
+local permission decisions.
 
-You extend it by subclassing `BaseAgentRuntime` and implementing two methods —
-`executeIntent` and `executeChat` — plus whichever optional hooks your kind needs.
+You **instantiate** an `ActorRuntime`; there is nothing to subclass, because the
+control plane dispatches no work.
 
-It has deliberately no LLM, tool, or skill concepts, and bundles no WebRTC
-polyfill: the caller's entry point polyfills RTC globals before importing.
+The Go SDK additionally carries offline certificate verification (`grant`),
+signed rule sets (`rules`), and a full port of the permission resolver
+(`authz`) — both languages run the same `/conformance` vectors, and a divergence
+is a release blocker.
 
 See [Building an Actor](/docs/architecture/building-an-actor).
+
+:::note `@vaultysclaw/agent-runtime` is the *previous* runtime
+It targets the older control plane and cannot connect to this one. It remains in
+the repository, unchanged, because `agent-controller` and `mcp-gateway` still
+depend on it.
+:::
 
 ### `@vaultysclaw/webhook-dispatcher`
 
@@ -153,6 +163,8 @@ blocker.
 ### `@vaultysclaw/agent-controller` and `@vaultysclaw/mcp-gateway`
 
 The reference implementations of the `openclaw` and `mcp` kinds respectively.
+Both still target the **previous** control plane via `@vaultysclaw/agent-runtime`;
+migrating them onto `@vaultysclaw/sdk` is outstanding work.
 
 ## What the rebuild removed
 

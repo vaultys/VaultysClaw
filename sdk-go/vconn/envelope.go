@@ -16,7 +16,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/vaultys/vaultysclaw-sensor/internal/telemetry"
+	"github.com/vaultys/VaultysClaw/sdk-go/telemetry"
 )
 
 // MessageType identifies the kind of message carried in an Envelope.
@@ -200,7 +200,7 @@ func NewEnvelope(t MessageType, payload any) (Envelope, error) {
 		return Envelope{}, fmt.Errorf("vconn: encoding %s payload: %w", t, err)
 	}
 	return Envelope{
-		MessageID: newMessageID(),
+		MessageID: NewMessageID(),
 		Type:      t,
 		Payload:   raw,
 		Timestamp: time.Now(),
@@ -212,7 +212,10 @@ func (e Envelope) Decode(v any) error {
 	return json.Unmarshal(e.Payload, v)
 }
 
-func newMessageID() string {
+// NewMessageID returns a random 16-hex-character token. Exported because a
+// consumer building its own server side of this protocol (the sensor's
+// reference collector) needs the same generator for session ids.
+func NewMessageID() string {
 	b := make([]byte, 8)
 	_, _ = rand.Read(b)
 	return hex.EncodeToString(b)

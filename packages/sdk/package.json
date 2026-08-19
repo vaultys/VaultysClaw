@@ -1,0 +1,40 @@
+{
+  "name": "@vaultysclaw/sdk",
+  "version": "0.0.1",
+  "description": "VaultysClaw SDK — build an Actor that connects to the control plane, holds a capability certificate, and decides permissions locally",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "tsx": "./src/index.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc && node ../../scripts/fix-esm-extensions.mjs dist",
+    "type-check": "tsc --noEmit",
+    "example": "tsx example/minimal.ts",
+    "lint": "eslint src --ext .ts"
+  },
+  "dependencies": {
+    "@vaultys/id": "3.0.0-beta6",
+    "@vaultysclaw/policy": "workspace:*",
+    "@vaultysclaw/trust": "workspace:*",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/ws": "^8.5.13",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

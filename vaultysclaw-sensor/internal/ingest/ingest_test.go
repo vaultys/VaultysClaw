@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/vaultys/vaultysclaw-sensor/internal/telemetry"
+	"github.com/vaultys/VaultysClaw/sdk-go/telemetry"
 )
 
 func TestStore_UpsertWorkload_ComputesShadowStatus(t *testing.T) {

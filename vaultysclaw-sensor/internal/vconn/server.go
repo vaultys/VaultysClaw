@@ -9,9 +9,10 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/vaultys/vaultysclaw-sensor/internal/identity"
+	"github.com/vaultys/VaultysClaw/sdk-go/identity"
+	"github.com/vaultys/VaultysClaw/sdk-go/telemetry"
+	sdkvconn "github.com/vaultys/VaultysClaw/sdk-go/vconn"
 	"github.com/vaultys/vaultysclaw-sensor/internal/ingest"
-	"github.com/vaultys/vaultysclaw-sensor/internal/telemetry"
 )
 
 // pendingApprovalTimeout bounds how long a held connection waits for an
@@ -85,8 +86,8 @@ func (s *Server) HandleWS(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) run(conn *websocket.Conn) error {
-	sessionID := newMessageID()
-	hs := NewHandshake(s.identity.VaultysID())
+	sessionID := sdkvconn.NewMessageID()
+	hs := sdkvconn.NewHandshake(s.identity.VaultysID())
 
 	// No proactive greeting: packages/controlplane's real ws-server.ts sends
 	// nothing at all until it receives "register" (handleConnection just
@@ -121,7 +122,7 @@ func (s *Server) run(conn *websocket.Conn) error {
 		s.store.EnsureDevice(did, time.Now())
 	}
 
-	completeEnv, err := NewEnvelope(MsgAuthComplete, AuthCompletePayload{DID: did})
+	completeEnv, err := sdkvconn.NewEnvelope(sdkvconn.MsgAuthComplete, sdkvconn.AuthCompletePayload{DID: did})
 	if err != nil {
 		return err
 	}
@@ -139,29 +140,29 @@ func (s *Server) run(conn *websocket.Conn) error {
 // sent, and no other message type is accepted, until register arrives).
 // Acknowledges it with the session id and returns the *next* message as
 // the first handshake envelope.
-func (s *Server) readFirstHandshakeMessage(conn *websocket.Conn, sessionID string) (Envelope, error) {
-	var env Envelope
+func (s *Server) readFirstHandshakeMessage(conn *websocket.Conn, sessionID string) (sdkvconn.Envelope, error) {
+	var env sdkvconn.Envelope
 	if err := conn.ReadJSON(&env); err != nil {
-		return Envelope{}, fmt.Errorf("reading first message: %w", err)
+		return sdkvconn.Envelope{}, fmt.Errorf("reading first message: %w", err)
 	}
-	if env.Type != MsgRegister {
-		return Envelope{}, fmt.Errorf("expected register as the first message, got %q", env.Type)
+	if env.Type != sdkvconn.MsgRegister {
+		return sdkvconn.Envelope{}, fmt.Errorf("expected register as the first message, got %q", env.Type)
 	}
 
-	var payload RegisterPayload
+	var payload sdkvconn.RegisterPayload
 	_ = env.Decode(&payload)
 	s.logger.Info("vconn: client registering", "name", payload.Name, "kind", payload.Kind)
 
-	ack, err := NewEnvelope(MsgAuthChallenge, AuthChallengePayload{SessionID: sessionID, Data: ""})
+	ack, err := sdkvconn.NewEnvelope(sdkvconn.MsgAuthChallenge, sdkvconn.AuthChallengePayload{SessionID: sessionID, Data: ""})
 	if err != nil {
-		return Envelope{}, err
+		return sdkvconn.Envelope{}, err
 	}
 	if err := conn.WriteJSON(ack); err != nil {
-		return Envelope{}, fmt.Errorf("sending register ack: %w", err)
+		return sdkvconn.Envelope{}, fmt.Errorf("sending register ack: %w", err)
 	}
 
 	if err := conn.ReadJSON(&env); err != nil {
-		return Envelope{}, fmt.Errorf("reading message after register ack: %w", err)
+		return sdkvconn.Envelope{}, fmt.Errorf("reading message after register ack: %w", err)
 	}
 	return env, nil
 }
@@ -170,27 +171,27 @@ func (s *Server) readFirstHandshakeMessage(conn *websocket.Conn, sessionID strin
 // the handshake completes (the peer completes on its own next Accept,
 // server-side that's exactly the message that got us here). first is the
 // already-read message that follows the (optional) register step.
-func (s *Server) driveHandshake(conn *websocket.Conn, sessionID string, hs *Handshake, first Envelope) error {
+func (s *Server) driveHandshake(conn *websocket.Conn, sessionID string, hs *sdkvconn.Handshake, first sdkvconn.Envelope) error {
 	env := first
 	for !hs.IsComplete() {
-		if env.Type != MsgAuthChallenge {
+		if env.Type != sdkvconn.MsgAuthChallenge {
 			return fmt.Errorf("unexpected message type %q during handshake", env.Type)
 		}
-		var payload AuthChallengePayload
+		var payload sdkvconn.AuthChallengePayload
 		if err := env.Decode(&payload); err != nil {
 			return fmt.Errorf("decoding handshake payload: %w", err)
 		}
 
 		nextB64, err := hs.Accept(payload.Data)
 		if err != nil {
-			failEnv, encErr := NewEnvelope(MsgAuthFailed, AuthFailedPayload{Reason: err.Error()})
+			failEnv, encErr := sdkvconn.NewEnvelope(sdkvconn.MsgAuthFailed, sdkvconn.AuthFailedPayload{Reason: err.Error()})
 			if encErr == nil {
 				_ = conn.WriteJSON(failEnv)
 			}
 			return fmt.Errorf("handshake failed: %w", err)
 		}
 		if nextB64 != "" {
-			resp, err := NewEnvelope(MsgAuthChallenge, AuthChallengePayload{SessionID: sessionID, Data: nextB64})
+			resp, err := sdkvconn.NewEnvelope(sdkvconn.MsgAuthChallenge, sdkvconn.AuthChallengePayload{SessionID: sessionID, Data: nextB64})
 			if err != nil {
 				return err
 			}
@@ -224,7 +225,7 @@ func (s *Server) awaitApproval(conn *websocket.Conn, did string) error {
 		s.mu.Unlock()
 	}()
 
-	pendingEnv, err := NewEnvelope(MsgPendingApproval, PendingApprovalPayload{DID: did})
+	pendingEnv, err := sdkvconn.NewEnvelope(sdkvconn.MsgPendingApproval, sdkvconn.PendingApprovalPayload{DID: did})
 	if err != nil {
 		return err
 	}
@@ -236,7 +237,7 @@ func (s *Server) awaitApproval(conn *websocket.Conn, did string) error {
 	select {
 	case d := <-sess.decision:
 		if !d.approved {
-			failEnv, encErr := NewEnvelope(MsgAuthFailed, AuthFailedPayload{Reason: d.reason})
+			failEnv, encErr := sdkvconn.NewEnvelope(sdkvconn.MsgAuthFailed, sdkvconn.AuthFailedPayload{Reason: d.reason})
 			if encErr == nil {
 				_ = conn.WriteJSON(failEnv)
 			}
@@ -244,7 +245,7 @@ func (s *Server) awaitApproval(conn *websocket.Conn, did string) error {
 		}
 		return nil
 	case <-time.After(pendingApprovalTimeout):
-		failEnv, encErr := NewEnvelope(MsgAuthFailed, AuthFailedPayload{Reason: "approval timeout"})
+		failEnv, encErr := sdkvconn.NewEnvelope(sdkvconn.MsgAuthFailed, sdkvconn.AuthFailedPayload{Reason: "approval timeout"})
 		if encErr == nil {
 			_ = conn.WriteJSON(failEnv)
 		}
@@ -256,13 +257,13 @@ func (s *Server) awaitApproval(conn *websocket.Conn, did string) error {
 // closes, feeding events straight into the ingest.Store.
 func (s *Server) receiveTelemetry(conn *websocket.Conn, did string) error {
 	for {
-		var env Envelope
+		var env sdkvconn.Envelope
 		if err := conn.ReadJSON(&env); err != nil {
 			return fmt.Errorf("connection closed: %w", err)
 		}
 		switch env.Type {
-		case MsgSensorTelemetry:
-			var payload SensorTelemetryPayload
+		case sdkvconn.MsgSensorTelemetry:
+			var payload sdkvconn.SensorTelemetryPayload
 			if err := env.Decode(&payload); err != nil {
 				s.logger.Warn("vconn: malformed telemetry payload", "did", did, "error", err)
 				continue
@@ -279,7 +280,7 @@ func (s *Server) receiveTelemetry(conn *websocket.Conn, did string) error {
 				accepted++
 			}
 			s.logger.Info("vconn: telemetry accepted", "did", did, "events", accepted)
-		case MsgHeartbeat:
+		case sdkvconn.MsgHeartbeat:
 			// keepalive only
 		default:
 			s.logger.Warn("vconn: unexpected message type after connect", "did", did, "type", env.Type)

@@ -11,7 +11,7 @@ import (
 	"github.com/vaultys/vaultysid/go/pkg/vaultysid"
 	"github.com/vmihailenco/msgpack/v5"
 
-	"github.com/vaultys/vaultysclaw-sensor/internal/authz"
+	"github.com/vaultys/VaultysClaw/sdk-go/authz"
 )
 
 // signBody builds a packcert token the way packages/policy's signCert does:

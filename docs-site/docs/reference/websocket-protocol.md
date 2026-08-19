@@ -16,8 +16,10 @@ implement.
 
 ```ts
 interface ProtocolMessage {
+  messageId: string;
   type: ProtocolMessageType;
-  // type-specific payload fields
+  payload: unknown;
+  timestamp: string; // ISO 8601
 }
 ```
 
@@ -25,7 +27,7 @@ interface ProtocolMessage {
 
 | Type | Direction | Purpose |
 |---|---|---|
-| `register` | Actor → CP | Announce DID, kind, public key |
+| `register` | Actor → CP | Announce a display name and kind — **not** an identity |
 | `auth_challenge` | CP ↔ Actor | `Challenger` round, `service: "auth"` |
 | `auth_complete` | CP → Actor | Identity proven, connection established |
 | `auth_failed` | CP → Actor | Handshake rejected |
@@ -45,14 +47,25 @@ interface ProtocolMessage {
 
 ```ts
 interface RegisterPayload {
-  did: string;
+  name: string;      // display label shown in the admin console
+  version?: string;
   kind: string;      // open-ended: "openclaw" | "mcp" | "sensor" | "proxy" | "device" | …
-  publicKey: string; // base64 raw key
 }
 ```
 
-`kind` is open-ended by design — a new kind requires no protocol change. `human`
-is not valid here; humans onboard through login.
+:::tip No DID, and no public key
+A client **cannot assert who it is.** The registration payload carries only a
+display name and a kind; the DID and public key are derived from the *completed
+Challenger handshake* and persisted by the control plane from there.
+
+This is a security property, not a detail of the encoding. A client that could
+name its own DID at registration could claim to be an Actor whose key it does not
+hold.
+:::
+
+`kind` is open-ended by design — a new kind requires no protocol change, and it
+decides which capability allow-list an approval is filtered against. `human` is
+not valid here; humans onboard through login.
 
 ## Authentication
 
@@ -61,10 +74,15 @@ challenge; both sides exchange rounds until identity is proven.
 
 ```ts
 interface AuthChallengePayload {
+  sessionId: string;
   // Base64 Challenger certificate bytes, or "" for the server's opening message.
-  certificate: string;
+  data: string;
 }
 ```
+
+The **client is the initiator** (`pk1`) and creates the challenge with
+`protocol: "p2p"`, `service: "auth"`. The server never speaks first on the socket
+at all — see the traps below.
 
 Handshake state is held **in memory per connection**, not round-tripped through a
 database session row. This is a long-lived process, not a stateless function.
@@ -171,6 +189,24 @@ the envelope.
 Observations upsert by device and workload fingerprint — current state, not an
 append-only log. Host metadata from the batch merges into the Actor's
 `kindConfig`; kind-specific fields do not get their own columns.
+
+## Integration traps
+
+Each of these has caused a real bug in a client. Both SDKs handle them; a
+hand-rolled client must too.
+
+| # | Fact | Consequence |
+|---|---|---|
+| 1 | The server sends **nothing** on socket open | Send `register` unprompted. Waiting for a greeting hangs forever. |
+| 2 | `register` carries `{name, version, kind}` | No DID, no public key — identity is derived from the handshake, never self-asserted. |
+| 3 | The client is the Challenger **initiator** on both exchanges | `createChallenge("p2p", "auth", 0)`, then a **fresh** challenger with `("p2p", "certificate", 0)`. The server hard-rejects any other service string. |
+| 4 | The certificate round is **server-initiated** with `data: ""` | The client builds its challenger in response and replies on the same `sessionId`. |
+| 5 | On reconnect, `auth_complete` arrives **before** the final `auth_challenge` | Do not tear down the challenger on `auth_complete`. Once it is complete, **ignore** any trailing round — feeding it to `update()` throws. |
+| 6 | `registration_pending` is **not terminal** | `auth_complete` arrives later, out of band, on admin approval. Hold the socket open. |
+| 7 | Granted capabilities come from `cert_issued.capabilities` | Never from certificate metadata — see the warning above. |
+| 8 | `challenger.update()` **throws** | Checking `hasFailed()` alone does not catch everything. |
+| 9 | Two challengers live concurrently | Auth session and certificate session, keyed by distinct `sessionId`s. |
+| 10 | `auth_complete` carries `{ did }` only | No agent id, no capabilities. |
 
 ## Transport
 

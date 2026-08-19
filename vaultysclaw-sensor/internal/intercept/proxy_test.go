@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/vaultys/vaultysclaw-sensor/internal/authz"
-	"github.com/vaultys/vaultysclaw-sensor/internal/rules"
+	"github.com/vaultys/VaultysClaw/sdk-go/authz"
+	"github.com/vaultys/VaultysClaw/sdk-go/rules"
 )
 
 // testRecorder collects events so a test can assert on what the audit trail

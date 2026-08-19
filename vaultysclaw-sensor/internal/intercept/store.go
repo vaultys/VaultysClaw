@@ -8,9 +8,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/vaultys/vaultysclaw-sensor/internal/authz"
-	"github.com/vaultys/vaultysclaw-sensor/internal/grant"
-	"github.com/vaultys/vaultysclaw-sensor/internal/rules"
+	"github.com/vaultys/VaultysClaw/sdk-go/authz"
+	"github.com/vaultys/VaultysClaw/sdk-go/grant"
+	"github.com/vaultys/VaultysClaw/sdk-go/rules"
 )
 
 // Store holds the verified decision inputs and reloads them from disk.

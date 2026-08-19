@@ -17,8 +17,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/vaultys/VaultysClaw/sdk-go/identity"
 	"github.com/vaultys/vaultysclaw-sensor/internal/config"
-	"github.com/vaultys/vaultysclaw-sensor/internal/identity"
 	"github.com/vaultys/vaultysclaw-sensor/internal/ingest"
 	"github.com/vaultys/vaultysclaw-sensor/internal/vconn"
 )

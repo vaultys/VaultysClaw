@@ -9,9 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/vaultys/vaultysclaw-sensor/internal/identity"
+	"github.com/vaultys/VaultysClaw/sdk-go/identity"
+	"github.com/vaultys/VaultysClaw/sdk-go/telemetry"
+	sdkvconn "github.com/vaultys/VaultysClaw/sdk-go/vconn"
 	"github.com/vaultys/vaultysclaw-sensor/internal/ingest"
-	"github.com/vaultys/vaultysclaw-sensor/internal/telemetry"
 )
 
 func newTestIdentity(t *testing.T) *identity.Provider {
@@ -63,7 +64,7 @@ func TestE2E_UnknownDID_PendingApproveTelemetryFlow(t *testing.T) {
 	env := setupCollector(t)
 	sensorID := newTestIdentity(t)
 
-	client := NewClientConn(ClientConfig{
+	client := sdkvconn.NewClientConn(sdkvconn.ClientConfig{
 		CollectorURL:  env.httpSrv.URL,
 		Identity:      sensorID,
 		BatchInterval: 50 * time.Millisecond,
@@ -114,7 +115,7 @@ func TestE2E_Reject_DeviceNeverBecomesKnown(t *testing.T) {
 	env := setupCollector(t)
 	sensorID := newTestIdentity(t)
 
-	client := NewClientConn(ClientConfig{CollectorURL: env.httpSrv.URL, Identity: sensorID, Logger: discardLogger()})
+	client := sdkvconn.NewClientConn(sdkvconn.ClientConfig{CollectorURL: env.httpSrv.URL, Identity: sensorID, Logger: discardLogger()})
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go client.Run(ctx)
@@ -139,7 +140,7 @@ func TestE2E_KnownDID_AutoConnectsWithoutApproval(t *testing.T) {
 	env := setupCollector(t)
 	sensorID := newTestIdentity(t)
 
-	client1 := NewClientConn(ClientConfig{CollectorURL: env.httpSrv.URL, Identity: sensorID, Logger: discardLogger()})
+	client1 := sdkvconn.NewClientConn(sdkvconn.ClientConfig{CollectorURL: env.httpSrv.URL, Identity: sensorID, Logger: discardLogger()})
 	ctx1, cancel1 := context.WithCancel(context.Background())
 	go client1.Run(ctx1)
 
@@ -150,7 +151,7 @@ func TestE2E_KnownDID_AutoConnectsWithoutApproval(t *testing.T) {
 	waitFor(t, 3*time.Second, func() bool { return env.store.HasDevice(sensorID.DID()) })
 	cancel1() // drop the first connection
 
-	client2 := NewClientConn(ClientConfig{
+	client2 := sdkvconn.NewClientConn(sdkvconn.ClientConfig{
 		CollectorURL:  env.httpSrv.URL,
 		Identity:      sensorID,
 		BatchInterval: 50 * time.Millisecond,

@@ -16,8 +16,8 @@ import (
 	"net"
 	"time"
 
-	"github.com/vaultys/vaultysclaw-sensor/internal/authz"
-	"github.com/vaultys/vaultysclaw-sensor/internal/rules"
+	"github.com/vaultys/VaultysClaw/sdk-go/authz"
+	"github.com/vaultys/VaultysClaw/sdk-go/rules"
 )
 
 // Outcome is the verdict for one request, in the shape the audit record needs.

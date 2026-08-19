@@ -32,7 +32,7 @@ import (
 	"github.com/vaultys/vaultysid/go/pkg/vaultysid"
 	"github.com/vmihailenco/msgpack/v5"
 
-	"github.com/vaultys/vaultysclaw-sensor/internal/grant"
+	"github.com/vaultys/VaultysClaw/sdk-go/grant"
 )
 
 // Subject is whom a rule applies to.

@@ -19,7 +19,7 @@ import (
 // It lives outside this Go module deliberately: like the permission vectors, it
 // is a contract between two implementations rather than a fixture belonging to
 // either (docs/PROXY_ARCHITECTURE.md §3.3).
-const fixturePath = "../../../conformance/grant-fixture.json"
+const fixturePath = "../../conformance/grant-fixture.json"
 
 type grantFixture struct {
 	Version        int    `json:"version"`

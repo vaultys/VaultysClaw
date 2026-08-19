@@ -17,14 +17,14 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/vaultys/VaultysClaw/sdk-go/identity"
+	"github.com/vaultys/VaultysClaw/sdk-go/telemetry"
+	"github.com/vaultys/VaultysClaw/sdk-go/vconn"
 	"github.com/vaultys/vaultysclaw-sensor/internal/collector"
 	"github.com/vaultys/vaultysclaw-sensor/internal/config"
 	"github.com/vaultys/vaultysclaw-sensor/internal/correlation"
-	"github.com/vaultys/vaultysclaw-sensor/internal/identity"
 	"github.com/vaultys/vaultysclaw-sensor/internal/platformselect"
 	"github.com/vaultys/vaultysclaw-sensor/internal/state"
-	"github.com/vaultys/vaultysclaw-sensor/internal/telemetry"
-	"github.com/vaultys/vaultysclaw-sensor/internal/vconn"
 )
 
 func main() {
@@ -87,11 +87,17 @@ func run(configPath string) error {
 		// Lives alongside the identity secret — both are per-device, private state.
 		capStatePath := filepath.Join(filepath.Dir(cfg.IdentityPath), "capabilities.json")
 		client = vconn.NewClientConn(vconn.ClientConfig{
-			CollectorURL:        cfg.CollectorURL,
-			Identity:            id,
-			Name:                deviceName,
-			Logger:              logger,
-			CapabilityStatePath: capStatePath,
+			CollectorURL: cfg.CollectorURL,
+			Identity:     id,
+			Name:         deviceName,
+			// Declared explicitly now that the connection lives in the shared
+			// SDK: it defaults to "openclaw" there, and neither the kind nor
+			// the capability set a sensor needs is something a general-purpose
+			// SDK should assume on a caller's behalf.
+			Kind:                  "sensor",
+			RequestedCapabilities: []string{"process_read"},
+			Logger:                logger,
+			CapabilityStatePath:   capStatePath,
 		})
 	} else {
 		logger.Warn("sensor: telemetry disabled by config; running in local-detection-only mode")

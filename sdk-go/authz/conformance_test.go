@@ -9,7 +9,7 @@ import (
 
 // vectorsPath is the shared TS/Go contract, deliberately outside this Go
 // module: it belongs to neither implementation (docs/PROXY_ARCHITECTURE.md §3.3).
-const vectorsPath = "../../../conformance/permission-vectors.json"
+const vectorsPath = "../../conformance/permission-vectors.json"
 
 type vectorExpectation struct {
 	Allowed        bool   `json:"allowed"`

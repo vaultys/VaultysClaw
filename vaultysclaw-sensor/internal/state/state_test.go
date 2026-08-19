@@ -6,7 +6,7 @@ import (
 
 	"github.com/vaultys/vaultysclaw-sensor/internal/collector"
 	"github.com/vaultys/vaultysclaw-sensor/internal/detector"
-	"github.com/vaultys/vaultysclaw-sensor/internal/telemetry"
+	"github.com/vaultys/VaultysClaw/sdk-go/telemetry"
 )
 
 func TestComputeFingerprint_StableAcrossPIDChange(t *testing.T) {

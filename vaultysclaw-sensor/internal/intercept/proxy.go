@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/vaultys/vaultysclaw-sensor/internal/rules"
+	"github.com/vaultys/VaultysClaw/sdk-go/rules"
 )
 
 const (

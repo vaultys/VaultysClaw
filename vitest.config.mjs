@@ -22,6 +22,7 @@ export default defineConfig({
         __dirname,
         "packages/agent-runtime/src/index.ts"
       ),
+      "@vaultysclaw/sdk": resolve(__dirname, "packages/sdk/src/index.ts"),
       // @msgpack/msgpack — pnpm hoists it to the workspace root node_modules.
       "@msgpack/msgpack": resolve(__dirname, "node_modules/@msgpack/msgpack"),
       // The AI SDK — hoisted to the workspace root. Alias it here so tests in

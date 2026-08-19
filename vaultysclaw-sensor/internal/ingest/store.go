@@ -15,7 +15,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/vaultys/vaultysclaw-sensor/internal/telemetry"
+	"github.com/vaultys/VaultysClaw/sdk-go/telemetry"
 )
 
 // Device is the collector's view of a sensor installation. ID is the

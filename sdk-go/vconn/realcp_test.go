@@ -112,7 +112,12 @@ func TestClient_RealControlPlaneProtocol(t *testing.T) {
 		CollectorURL: httpSrv.URL,
 		Identity:     sensorID,
 		Name:         "test-device",
-		Logger:       slog.New(slog.NewTextHandler(io.Discard, nil)),
+		// Set explicitly: Kind used to be hardcoded to "sensor" here, back when
+		// this package was the sensor's own. As a general-purpose SDK it
+		// defaults to "openclaw" instead, and what this asserts is that the
+		// caller's chosen kind is what actually reaches the wire.
+		Kind:   "sensor",
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
 	})
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -122,7 +127,7 @@ func TestClient_RealControlPlaneProtocol(t *testing.T) {
 	select {
 	case kind := <-registeredKind:
 		if kind != "sensor" {
-			t.Fatalf("expected register kind=sensor, got %q", kind)
+			t.Fatalf("expected the configured kind=sensor on the wire, got %q", kind)
 		}
 	case <-time.After(3 * time.Second):
 		t.Fatal("mock server never received a register message")

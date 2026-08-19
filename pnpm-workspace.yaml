@@ -17,3 +17,5 @@ allowBuilds:
   tree-sitter-json: false
   unrs-resolver: false
   wrtc: true
+  msgpackr-extract: false
+  protobufjs: false

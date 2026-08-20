@@ -14,6 +14,9 @@ import {
 import { ActorDAO, PendingRegistrationDAO, CapabilityCertificateDAO, AuditLogDAO } from "@/db";
 import { getWebhookEvent } from "@vaultysclaw/shared";
 import PageChrome from "@/components/layout/PageChrome";
+import TiltCard from "@/components/ui/TiltCard";
+import FloatingOrbs from "@/components/ui/FloatingOrbs";
+import ProgressRing3D from "@/components/ui/ProgressRing3D";
 
 /**
  * Overview (docs/PAGE_DESIGN.md §1.2) — posture summary, guided setup, and
@@ -168,7 +171,8 @@ export default async function AdminOverviewPage() {
   ].filter((item): item is NonNullable<typeof item> => item !== null);
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="relative p-6 space-y-6">
+      <FloatingOrbs className="-z-10" count={5} />
       <PageChrome
         toolbar={{
           title: "Overview",
@@ -177,7 +181,7 @@ export default async function AdminOverviewPage() {
         breadcrumbs={[{ label: "Overview" }]}
       />
 
-      <section className="overflow-hidden rounded-xl border border-neutral-200/60 bg-background-100">
+      <section className="relative overflow-hidden rounded-2xl border border-neutral-200/60 bg-background-100">
         <div className="grid gap-0 lg:grid-cols-[1.4fr_0.9fr]">
           <div className="p-6">
             <div className="inline-flex items-center gap-2 rounded-full border border-primary-200 bg-primary-50 px-3 py-1 text-xs font-medium text-primary-700">
@@ -216,14 +220,12 @@ export default async function AdminOverviewPage() {
                 </p>
                 <p className="mt-1 text-3xl font-semibold text-foreground">{completedSteps}/4</p>
               </div>
-              <div className="flex h-14 w-14 items-center justify-center rounded-xl border border-neutral-200 bg-background-100">
-                <ShieldCheck className="h-7 w-7 text-primary-600" />
-              </div>
-            </div>
-            <div className="mt-5 h-2 overflow-hidden rounded-full bg-background-300">
-              <div
-                className="h-full rounded-full bg-primary-600 transition-all"
-                style={{ width: `${(completedSteps / setupSteps.length) * 100}%` }}
+              <ProgressRing3D
+                progress={(completedSteps / setupSteps.length) * 100}
+                size={80}
+                strokeWidth={6}
+                progressColor="rgb(var(--primary-600))"
+                trackColor="rgb(var(--neutral-200) / 0.5)"
               />
             </div>
             <p className="mt-3 text-xs leading-5 text-foreground-500">
@@ -236,31 +238,39 @@ export default async function AdminOverviewPage() {
 
       <div className="grid gap-4 md:grid-cols-3">
         {tiles.map((tile) => (
-          <Link
+          <TiltCard
             key={tile.label}
-            href={tile.href}
-            className={`group rounded-xl border ${toneClasses[tile.tone].border} ${toneClasses[tile.tone].bg} p-5 transition-colors hover:border-primary-300`}
+            className={`group rounded-xl border ${toneClasses[tile.tone].border} ${toneClasses[tile.tone].bg}`}
+            maxTilt={6}
+            scale={1.01}
+            perspective={1000}
+            speed={200}
           >
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <div className={`text-3xl font-semibold ${toneClasses[tile.tone].text}`}>
-                  {tile.value}
+            <Link
+              href={tile.href}
+              className="block p-5 transition-colors hover:border-primary-300"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className={`text-3xl font-semibold ${toneClasses[tile.tone].text}`}>
+                    {tile.value}
+                  </div>
+                  <div className="mt-1 text-sm font-medium text-foreground">{tile.label}</div>
                 </div>
-                <div className="mt-1 text-sm font-medium text-foreground">{tile.label}</div>
+                <span
+                  className={`flex h-9 w-9 items-center justify-center rounded-lg ${toneClasses[tile.tone].ring} text-white`}
+                >
+                  <tile.icon className="h-4 w-4" />
+                </span>
               </div>
-              <span
-                className={`flex h-9 w-9 items-center justify-center rounded-lg ${toneClasses[tile.tone].ring} text-white`}
-              >
-                <tile.icon className="h-4 w-4" />
-              </span>
-            </div>
-            <p className="mt-3 text-xs leading-5 text-foreground-500">{tile.detail}</p>
-          </Link>
+              <p className="mt-3 text-xs leading-5 text-foreground-500">{tile.detail}</p>
+            </Link>
+          </TiltCard>
         ))}
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
-        <section className="rounded-xl border border-neutral-200/60 bg-background-100">
+        <section className="relative rounded-2xl border border-neutral-200/60 bg-background-100 transition-all hover:shadow-xl">
           <div className="border-b border-neutral-200/60 px-5 py-4">
             <h2 className="text-sm font-semibold text-foreground-800">Onboarding checklist</h2>
             <p className="mt-1 text-xs leading-5 text-foreground-500">
@@ -272,7 +282,7 @@ export default async function AdminOverviewPage() {
               <Link
                 key={step.title}
                 href={step.href}
-                className="group flex gap-4 px-5 py-4 transition-colors hover:bg-background-200/40"
+                className="group flex gap-4 px-5 py-4 transition-all duration-200 hover:bg-background-200/40 hover:-translate-x-1 hover:shadow-md"
               >
                 <div className="pt-0.5">
                   {step.done ? (
@@ -300,7 +310,13 @@ export default async function AdminOverviewPage() {
         </section>
 
         <aside className="space-y-4">
-          <section className="rounded-xl border border-neutral-200/60 bg-background-100 p-5">
+          <TiltCard
+            className="rounded-xl border border-neutral-200/60 bg-background-100 p-5"
+            maxTilt={4}
+            scale={1.01}
+            perspective={800}
+            speed={150}
+          >
             <h2 className="text-sm font-semibold text-foreground-800">Needs attention</h2>
             <p className="mt-1 text-xs leading-5 text-foreground-500">
               Items here are safe to handle from their source page; the overview only points.
@@ -315,7 +331,7 @@ export default async function AdminOverviewPage() {
                 <Link
                   key={item.title}
                   href={item.href}
-                  className={`block rounded-lg border px-3 py-3 transition-colors hover:border-primary-300 ${
+                  className={`block rounded-lg border px-3 py-3 transition-all duration-200 hover:border-primary-300 hover:-translate-y-0.5 hover:shadow-md ${
                     item.tone === "warning"
                       ? "border-warning-200 bg-warning-50"
                       : "border-primary-200 bg-primary-50"
@@ -326,9 +342,15 @@ export default async function AdminOverviewPage() {
                 </Link>
               ))}
             </div>
-          </section>
+          </TiltCard>
 
-          <section className="rounded-xl border border-neutral-200/60 bg-background-100 p-5">
+          <TiltCard
+            className="rounded-xl border border-neutral-200/60 bg-background-100 p-5"
+            maxTilt={4}
+            scale={1.01}
+            perspective={800}
+            speed={150}
+          >
             <h2 className="text-sm font-semibold text-foreground-800">Actor mix</h2>
             <p className="mt-1 text-xs leading-5 text-foreground-500">
               A healthy deployment usually has humans for oversight, sensors for observation, and
@@ -341,17 +363,17 @@ export default async function AdminOverviewPage() {
               {Object.entries(byKind).map(([kind, count]) => (
                 <span
                   key={kind}
-                  className="rounded-full border border-neutral-200 bg-background px-3 py-1 text-sm text-foreground-700"
+                  className="rounded-full border border-neutral-200 bg-background px-3 py-1 text-sm text-foreground-700 transition-all hover:scale-105 hover:shadow-sm"
                 >
                   {kind}: {count}
                 </span>
               ))}
             </div>
-          </section>
+          </TiltCard>
         </aside>
       </div>
 
-      <section className="rounded-xl border border-neutral-200/60 bg-background-100">
+      <section className="relative rounded-2xl border border-neutral-200/60 bg-background-100 transition-all hover:shadow-xl">
         <div className="flex items-center justify-between border-b border-neutral-200/60 px-5 py-4">
           <div>
             <h2 className="text-sm font-semibold text-foreground-800">Recent activity</h2>
@@ -367,7 +389,7 @@ export default async function AdminOverviewPage() {
           {recentActivity.map((entry) => (
             <div
               key={entry.id}
-              className="grid gap-2 px-5 py-3 text-sm sm:grid-cols-[150px_1fr_auto] sm:items-center"
+              className="grid gap-2 px-5 py-3 text-sm sm:grid-cols-[150px_1fr_auto] sm:items-center transition-all duration-200 hover:bg-background-200/40 hover:-translate-x-1"
             >
               <span className="text-xs text-foreground-400">
                 {entry.createdAt.toISOString().replace("T", " ").slice(0, 19)}

@@ -10,7 +10,7 @@
 import type { AgentCapability } from "@vaultysclaw/policy";
 import { PendingRegistrationDAO, ActorDAO } from "@/db";
 import { getWSServerInstance } from "./ws-server";
-import { allowedCapabilitiesForKind } from "./capabilities";
+import { grantableCapabilitiesForKind } from "./capabilities";
 import { recordEvent } from "./audit";
 import { actorPayload, actorAdminUrl, buildAdminUrl, type PerformedBy } from "./webhook-payloads";
 
@@ -34,10 +34,11 @@ export async function approvePendingRegistration(
 
   // Filtered against an allow-list per kind, not trusted as-is — a sensor's only capability
   // today is "process_read" (lib/capabilities.ts); anything else submitted for it is dropped
-  // rather than granted, even via a direct form post.
-  const grantedCapabilities = capabilities.filter((c) =>
-    allowedCapabilitiesForKind(registration.kind).includes(c)
-  );
+  // rather than granted, even via a direct form post. The allow-list now also spans the
+  // custom-capability registry, so a `vendor:action` name deleted between rendering the form and
+  // submitting it grants nothing (docs/CUSTOM_CAPABILITIES.md).
+  const grantable = await grantableCapabilitiesForKind(registration.kind);
+  const grantedCapabilities = capabilities.filter((c) => grantable.includes(c));
 
   await recordEvent({
     eventType: "actor.approved",

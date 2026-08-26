@@ -11,13 +11,20 @@ import {
 /**
  * Settings (docs/PAGE_DESIGN.md §1.9). Server identity is fully real — it's
  * a plain read of the same VaultysId every certificate is already signed
- * with. Trust policy is genuinely persisted (org-wide `Setting` rows, trust
- * doc §5.3) but — unlike everything else on this page — not yet *read* by
- * any verifier anywhere in this rebuild; the only consumer that exists so
- * far is `packages/policy`'s `verifyCertStatusResponseCert(vid, token,
- * maxAgeMs)` primitive, which nothing here calls yet. Said plainly rather
- * than left implicit, per the "loud, not silent" rule this project applies
- * to every other not-yet-enforced state (e.g. a no-expiry certificate).
+ * with.
+ *
+ * Trust policy is now genuinely enforced, not merely persisted. Both settings
+ * reach connected Actors through `lib/actor-config.ts` (`trust.failMode` →
+ * `failClosed`; `trust.stapleTtlSeconds` → `maxStatusAgeSeconds` for every kind
+ * except `proxy`, which carries its own — see that file for why the two differ),
+ * and `packages/sdk`'s `ActorRuntime` acts on them: it refreshes its certificate
+ * status on that cadence, verifies the response with
+ * `verifyCertStatusResponseCert(vid, token, maxAgeMs)`, and denies everything
+ * once a staple ages out under fail-closed.
+ *
+ * Still true, and worth keeping loud: enforcement is **client-side**. These
+ * settings govern how promptly a well-behaved Actor notices a revocation; they
+ * are not a server-side gate on what a compromised one attempts.
  */
 export default async function SettingsPage() {
   const [serverVid, orgName, failMode, stapleTtlSeconds] = await Promise.all([

@@ -6,9 +6,10 @@ and `@msgpack/msgpack`. Import via `@vaultysclaw/policy`.
 
 ## What lives here
 
-- **`src/types.ts`** — canonical `AgentCapability`, `ResourceLimits`,
-  `PolicyResourceLimits`, `PolicyEntry`. `@vaultysclaw/shared` and the
-  control-plane policy contract re-export these for backward compatibility.
+- **`src/types.ts`** — canonical `AgentCapability`, `CertScope`, `ResourceLimits`,
+  `PolicyResourceLimits`, `PolicyEntry`. `@vaultysclaw/trust` imports `CertScope`
+  from here rather than redeclaring it — it is part of the wire format, not the
+  decision logic.
 - **`src/certs/`** — the single implementation of the signed-cert wire format
   `base64( 4-byte-LE len | msgpack(body) | signature )`:
   - `codec.ts` — `packCert` / `unpackCert`
@@ -31,16 +32,25 @@ and `@msgpack/msgpack`. Import via `@vaultysclaw/policy`.
 
 ## Who consumes it
 
-- `packages/agent-runtime` — `base-agent.ts` composes `PolicyEnforcer`;
-  `intent-verify.ts` / `peer-grant-verify.ts` are thin wrappers over the cert
-  layer (construct a `VaultysId` from the server public key, then delegate).
-- `packages/control-plane` — `lib/intent-signing.ts` / `lib/delegation.ts` are
-  DB-aware wrappers that resolve the server identity from `serverSecret` and
-  delegate to the cert layer.
+- `packages/controlplane` — `lib/certificates.ts` (issuance), `lib/cert-inspect.ts`
+  (re-verification for the certificate detail page), `lib/ws-server.ts` (the
+  `cert_status_request`/`cert_status_response` protocol), `lib/proxy-rules.ts`
+  (signed rule sets). It resolves the server identity from the DB, then delegates
+  to the cert layer here.
+- `packages/trust` — imports the capability/scope types; `resolvePermission`
+  decides over them.
+- `packages/sdk` — verifies what it receives with no DB in the loop.
+- `sdk-go/grant` — the Go port of the packcert verification, held to this package
+  by `conformance/grant-fixture.json`.
 
-Persistence (`PolicyDAO`), distribution (`ws-server.applyPolicy`), API routes,
-and governance UI intentionally stay in `control-plane` — this package is the
-engine, not the plumbing.
+Persistence, distribution and UI intentionally stay in `packages/controlplane` —
+this package is the engine, not the plumbing.
+
+Some of the surface here (`intent.ts`, `delegation.ts`, `peer-grant.ts`,
+`PolicyEnforcer`'s token/rate gates) has **no consumer in this repo today** — it
+was built for the agent runtime that has since been removed. It is kept because
+the wire formats are stable and independently tested, but do not assume a caller
+exists; check before extending it.
 
 ## Design rules
 

@@ -4,155 +4,181 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-VaultysClaw is a decentralized AI agent orchestration platform. A central **control plane** (Next.js + WebSocket server) manages lightweight **agent controllers** that connect via WebSocket, execute LLM-driven intents using tools, and maintain cryptographic identity via [VaultysId](https://github.com/vaultys/id).
+VaultysClaw is an **agent identity and trust** platform. A **control plane** (Next.js + WebSocket
+server) maintains an append-only ledger of signed **capability certificates** bound to
+[VaultysId](https://github.com/vaultys/id) DIDs, and decides what every Actor — agent, device,
+sensor, or human — is allowed to do. Clients connect over WebSocket, prove their identity with a
+Challenger handshake, and receive certificates they can verify offline.
 
-**Monorepo**: pnpm workspaces + Turborepo. Main packages:
+**Monorepo**: pnpm workspaces + Turborepo.
 
 | Package | Description | CLAUDE.md |
 |---|---|---|
-| `packages/shared` | Types, security utils, channel protocol definitions | [→](packages/shared/CLAUDE.md) |
-| `packages/policy` | Policy engine: capability/resource-limit types, cert signing/verification, runtime enforcement gates | [→](packages/policy/CLAUDE.md) |
-| `packages/trust` | Trust ledger engine: ABAC/multi-certificate permission resolution over the `CapabilityCertificate` ledger | [→](packages/trust/CLAUDE.md) |
-| `packages/control-plane` | Next.js App Router dashboard + WebSocket server (port 3000 / WS 8080) | [→](packages/control-plane/CLAUDE.md) |
-| `packages/controlplane` | **In progress** — rebuilt control plane per `docs/REBUILD_ARCHITECTURE.md`; lives alongside `packages/control-plane`, not a replacement yet | [→](packages/controlplane/CLAUDE.md) |
-| `packages/control-plane/app/api` | REST API routes (ts-rest pattern) | [→](packages/control-plane/app/api/CLAUDE.md) |
-| `packages/agent-controller` | Agent runtime CLI, tools, skills, memory | [→](packages/agent-controller/CLAUDE.md) |
-| `packages/mcp-gateway` | MCP server exposing VaultysClaw agents as tools | [→](packages/mcp-gateway/CLAUDE.md) |
-| `packages/notifier` | Standalone worker: consumes notification events from BullMQ and delivers email / in-app / push (SSE) | [→](packages/notifier/CLAUDE.md) |
-| `packages/webhook-dispatcher` | Standalone worker: consumes webhook events from BullMQ, signs them (HMAC) and POSTs to configured endpoints | [→](packages/webhook-dispatcher/CLAUDE.md) |
+| `packages/policy` | Certificate wire format (sign/verify/pack), `AgentCapability`, `CertScope`, resource limits, runtime enforcement gates. Pure, no I/O. | [→](packages/policy/CLAUDE.md) |
+| `packages/trust` | Trust ledger engine: ABAC/multi-certificate permission resolution (`resolvePermission`) over the `CapabilityCertificate` ledger. Pure, no I/O. | [→](packages/trust/CLAUDE.md) |
+| `packages/shared` | The webhook event catalog + the LLM provider union. Deliberately tiny. | [→](packages/shared/CLAUDE.md) |
+| `packages/controlplane` | The control plane: Next.js App Router admin console + WebSocket server, Prisma/Postgres, the certificate ledger. | [→](packages/controlplane/CLAUDE.md) |
+| `packages/sdk` | TypeScript client for the control plane's protocol — handshake, capability state, certificate-status refresh, `resolvePermission`. The counterpart of `sdk-go/`. | [→](packages/sdk/CLAUDE.md) |
+| `packages/webhook-dispatcher` | Standalone worker: consumes events from BullMQ, signs them (HMAC) and POSTs to endpoints; also fans out to Apprise notification channels. | [→](packages/webhook-dispatcher/CLAUDE.md) |
+
+Outside the pnpm workspace:
+
+| Directory | Description |
+|---|---|
+| `sdk-go/` | Go client SDK — `authz` (a port of `resolvePermission`), `grant` (offline packcert verification), `rules` (signed rule sets). |
+| `vaultysclaw-sensor/` | Go workload sensor: detects local AI/agent processes and reports classified telemetry to the control plane. Also hosts the tier-1 interception proxy. |
+| `conformance/` | The TS↔Go contract. `permission-vectors.json` (37 cases) is run by **both** `packages/trust` and `sdk-go/authz`; `capability-names.json` (27 cases) by **both** `packages/policy` and `sdk-go/capability`; `grant-fixture.json` and `rules-fixture.json` are TypeScript-signed fixtures the Go side verifies. Never change a fixture without re-running both suites. |
+| `docs-site/` | Docusaurus documentation site. |
 
 ## Commands
 
 ```bash
 # Development
 pnpm install
-pnpm dev                     # Start all packages (control plane + agent)
-pnpm vaultysclaw:dev         # Control plane only (preferred alias)
-pnpm controlplane:dev        # Rebuilt control plane (packages/controlplane): docker up --wait + dev server
-pnpm controlplane:docker:up  # Just its docker stack (postgres + redis + apprise, see that package's CLAUDE.md)
-pnpm agent:dev               # Agent controller only (headless)
-pnpm agent:web               # Agent controller with web UI (port 3002)
-pnpm agent:tui               # Agent controller with Ink TUI
-pnpm mcp:dev                 # MCP gateway (stdio, reads VC_CONTROL_PLANE_URL + VC_API_KEY)
-pnpm notifier:dev            # Notifier worker (reads DATABASE_URL + REDIS_URL; needs Redis running)
-pnpm webhook:dev             # Webhook dispatcher worker (reads DATABASE_URL + REDIS_URL; needs Redis running)
-pnpm mcp:build               # Build MCP gateway to dist/
+pnpm controlplane:dev          # docker up --wait + control plane dev server
+pnpm controlplane:docker:up    # just its docker stack (postgres 5433 / redis 6381 / apprise 8000)
+pnpm controlplane:docker:down
+pnpm controlplane:webhook:dev  # webhook dispatcher against the controlplane schema (own terminal)
+pnpm sensor:start              # the Go sensor against a local collector
 
-# Demo / Simulator
-pnpm simulator:up            # Full demo stack: PostgreSQL + MinIO + Docling + LiteLLM + Grafana + 30 agents
-pnpm simulator:seed          # Seed DB (8 workspaces, 200+ users, 30 agents, 15 workflows) — idempotent
-pnpm simulator:start         # Connect 30 simulated agents (control plane must be running)
-pnpm simulator:full          # seed + start
-./demo/setup.sh              # Minimal demo: 3 real agents for recording / quick exploration
-
-# Build
-pnpm build                   # All packages via Turborepo
-pnpm agent:build:binaries    # Build standalone agent CLI binaries
-
-# Testing
-pnpm test                    # Run all tests (Vitest, no watch)
-pnpm test:ui                 # Vitest interactive UI
-pnpm test:docker             # Docker integration tests
-pnpm test:litellm            # LiteLLM integration tests
-pnpm vitest run __tests__/channels.test.ts  # Single test file
-
-# Code quality
+# Build / quality
+pnpm build                     # all packages via Turborepo
 pnpm lint
 pnpm type-check
 pnpm format
+
+# Testing — every suite is per-package; there is no root __tests__ directory
+pnpm test                                            # turbo run test, all packages
+pnpm --filter @vaultysclaw/policy test
+pnpm --filter @vaultysclaw/trust test                # includes the conformance vectors
+pnpm --filter @vaultysclaw/controlplane test
+pnpm --filter @vaultysclaw/webhook-dispatcher test
+cd sdk-go && go test ./...                           # the Go half of conformance
+cd vaultysclaw-sensor && go test ./...
 ```
+
+The dispatcher must point at the **same Postgres the control plane writes to**, not just one with
+the same schema — otherwise jobs are consumed and every event reports zero targets while the
+console shows an active subscription. `controlplane:webhook:dev` sources
+`packages/controlplane/.env` for exactly this reason; don't write that URL down a second time.
+
+`packages/webhook-dispatcher` has **no Prisma schema of its own** — run
+`pnpm controlplane:webhook:prisma` (or the `controlplane:webhook:dev` script, which does it for
+you) to copy the control plane's schema in and generate a client, or its type-check and tests fail
+on a missing `PrismaClient` export.
 
 ## Communication Protocol
 
-Agents connect to the control plane via WebSocket on port 8080. All messages follow a typed envelope defined in `packages/shared/src/channel-types.ts`. Critical messages (policies, intents) carry ECDSA signatures verified against the sender's VaultysId public key.
+Clients connect to the control plane via WebSocket. Messages follow the typed envelope in
+`packages/controlplane/lib/protocol.ts` — deliberately small: identity, registration, the
+certificate/status protocol, `actor_config`, and `sensor_telemetry`.
 
-**Agent lifecycle**:
+**Actor lifecycle**:
 
-1. Agent connects → sends `register` with its public key
-2. Admin approves in UI → control plane sends `register_ack` + certificate
-3. Control plane routes `intent` messages to agents
-4. Agent executes via LLM + tools → sends `result` back
-5. Policies distributed as `policy_update` messages; agents verify signatures before storing
+1. Client connects → `register` → VaultysId Challenger handshake (`auth_challenge`)
+2. Unknown DID → `PendingRegistration` row + `registration_pending`; known DID → `auth_complete`
+3. Admin approves, choosing capabilities → the control plane starts a second, independent
+   `service: "certificate"` Challenger exchange (`cert_challenge`) → `cert_issued`
+4. A client re-checks its grant with `cert_status_request` → a control-plane-signed
+   `cert_status_response` it can verify, cache, or staple
+5. Kind-specific config (and signed policy artefacts) arrive as `actor_config`
 
-## Notifications
+Certificates are signed artefacts, not session state: `packages/policy` verifies them with no
+network and no database. See `docs/CERTIFICATE_WEB_OF_TRUST.md`.
 
-Users choose, per event, how they are notified — **in-app** (bell + DB-backed), **email** (SMTP), and **push** (system notification via SSE while the app is open). Each event carries a **level** (`user` / `admin` / `owner`) — which controls who may *configure* it (a Member sees only `user` events, an Admin `user`+`admin`, an Owner all) — and an **audience** (`target` / `workspaceMembers` / `admins` / `owners`) — which controls who *receives* it. The two are decoupled: a workspace-scoped event is configurable by any user but delivered only to members of the affected workspace.
+## Capabilities
 
-Pipeline (decoupled through a queue):
+A capability is either a **built-in** (a closed list in `packages/policy/src/types.ts`) or an
+admin-defined **custom** `vendor:action` name from the control plane's registry
+(`docs/CUSTOM_CAPABILITIES.md`). Both travel through identical machinery — the same certificates,
+`CertScope` scoping, expiry, revocation and `resolvePermission`.
+
+Three things to know before touching this area:
+
+- **`AgentCapability` is no longer a closed union**, so exhaustiveness checking does not apply. A
+  `switch` or `Record<AgentCapability, …>` over it silently stops being checked instead of failing
+  to compile — always give such a map an explicit fallback.
+- **Never validate a capability name by hand.** `assertValidCapabilityName` / `isCustomCapability`
+  in `packages/policy` are the only grammar, mirrored in `sdk-go/capability` and pinned by
+  `conformance/capability-names.json`. Changing the grammar means changing both and the table.
+- **Deleting a registry entry is a mass revoke.** `handleCertStatusRequest` filters held custom
+  capabilities against the live registry before signing a `cert_status_response`, so a deleted name
+  stops resolving on every holder's next refresh. That signed response — not the stored certificate
+  row — is what a client keeps.
+
+## Webhooks & Notification Channels
+
+One event pipeline, two kinds of delivery. A domain event is recorded in the audit log and enqueued
+on a BullMQ queue; a standalone worker delivers it as a signed HTTP POST **and** as a rendered
+human-facing alert through Apprise.
 
 ```
-domain event → enqueueNotification()  → BullMQ queue "notifications" (Redis)
- (control-plane)                         → notifier service:
-                                            resolve recipients (by audience) → read prefs
-                                            → email (SMTP) / in-app (DB row) / push
-                                            → Redis pub/sub  notif:user:<id>
-                                                                   │
-browser ── SSE /api/notifications/stream (subscribes Redis) ◄──────┘
-   bell (in-app) + Notification API (push)
+domain event → recordEvent()          → AuditLogEntry row (awaited)
+ (controlplane/lib/audit.ts)          → enqueueWebhook() → BullMQ "webhooks" (Redis)
+                                          → webhook-dispatcher:
+                                             load active Webhook subscriptions → filter by event
+                                             → sign (HMAC-SHA256) + POST
+                                             load active NotificationChannels → render
+                                             → POST to the Apprise API
 ```
 
-- **Event catalog is the single source of truth**: `packages/shared/src/notifications.ts` (`NOTIFICATION_EVENTS`, `NotificationLevel`, `LEVELS_FOR_ROLE`, `eventsForRole`, `userNotificationChannel`). Add an event there, then emit it with `enqueueNotification({ eventType, data })` (`packages/control-plane/lib/notification-queue.ts`) at the domain site, and (if needed) add a template in `packages/notifier/src/render.ts`.
-- **Producer** is best-effort/fire-and-forget: if `REDIS_URL` is unset it silently no-ops and never breaks the request.
-- **Notifier** is a separate worker package — see [packages/notifier/CLAUDE.md](packages/notifier/CLAUDE.md).
-- **Settings UI is split by audience**: user settings live under `app/app/settings/*` (Profile, Security, Notifications, Appearance — reachable by any authenticated user); admin-only settings (API Keys, Integrations) stay under `app/admin/settings/*` (proxy-gated). Never put a user-facing page under `/admin/*`.
-- Requires **Redis** (added to `docker/docker-compose.yml`).
-
-## Webhooks
-
-Outgoing HTTP webhooks mirror the notification pipeline but deliver **signed HTTP POSTs** to admin-configured endpoints instead of notifying users. Same decoupling: a domain event is enqueued on a BullMQ queue and a standalone worker delivers it.
-
-```
-domain event → enqueueWebhook({ eventType, payload })  → BullMQ queue "webhooks" (Redis)
- (control-plane)                                          → webhook-dispatcher service:
-                                                             load active Webhook subscriptions
-                                                             → filter by subscribed eventType
-                                                             → sign (HMAC-SHA256) + POST to each endpoint
-```
-
-- **Event catalog is the single source of truth**: `packages/shared/src/webhooks.ts` (`WEBHOOK_EVENTS`, `WebhookEventDef`, `WebhookJob`, `WEBHOOK_QUEUE_NAME`, `getWebhookEvent`). It is **independent** of the notification catalog (no level/audience/channels; some events like `user.login`/`user.logout` are webhook-only).
-- **Emit an event**: `void enqueueWebhook({ eventType, payload })` (`packages/control-plane/lib/webhook-queue.ts`) at the domain site, alongside any existing `enqueueNotification`. Fire-and-forget; no-ops when `REDIS_URL` is unset.
-- **Sanitized payloads**: build the payload with an explicit per-entity helper in `packages/control-plane/lib/webhook-payloads.ts` (`workspacePayload`, `agentPayload`, `modelPayload`, `userPayload`, `knowledgePayload`, `skillPayload`, `workflowPayload`) — only safe fields, never secrets. `enqueueWebhook` additionally runs `stripSensitive` (recursive key blacklist) as defence-in-depth.
-- **Config storage**: `Webhook` model in Prisma (`webhooks` table: name, description, url, secret, events[], isActive). CRUD via admin ts-rest contract `adminContract.webhooks` (`app/api/admin/webhooks/*`, `db/webhook.dao.ts`). The signing secret is returned in clear **only** on create / regenerate.
-- **Config UI**: the **Webhooks** tab under `app/admin/settings/integrations` (`components/integrations/webhooks-panel.tsx`), org-global.
-- **Dispatcher** is a separate worker package — see [packages/webhook-dispatcher/CLAUDE.md](packages/webhook-dispatcher/CLAUDE.md). Signature header `X-VaultysClaw-Signature: sha256=<hmac(timestamp + "." + rawBody)>`.
-- **Docs**: the admin webhook reference lives at `app/admin/webhooks/docs/page.tsx` (linked from the Webhooks tab). Its content — envelope, headers, signature verification, and the per-event example payloads — is generated by `lib/webhook-docs.ts`, which feeds sample objects through the real payload builders so examples never drift.
-- Requires **Redis**.
+- **Event catalog is the single source of truth**: `packages/shared/src/webhooks.ts`
+  (`WEBHOOK_EVENTS`, `WebhookEventDef`, `WebhookJob`, `WEBHOOK_QUEUE_NAME`, `getWebhookEvent`).
+- **Emit** via `recordEvent({ eventType, payload, performedBy, targetType, targetId })`
+  (`packages/controlplane/lib/audit.ts`) — never `enqueueWebhook` directly from a domain site. One
+  call drives both the audit trail and delivery.
+- **Sanitized payloads**: build with an explicit per-entity helper in
+  `packages/controlplane/lib/webhook-payloads.ts` — allow-lists only, never a secret.
+  `enqueueWebhook` additionally runs `stripSensitive` as defence in depth.
+- **BullMQ prefix**: the control plane's producer uses `prefix: "vaultysclaw-controlplane"`; a
+  dispatcher instance serving it must set `BULLMQ_PREFIX` to the same value.
+- Requires **Redis**. Producers are fire-and-forget and no-op when `REDIS_URL` is unset.
 
 ### Adding or changing a webhook event — ALWAYS update the docs
 
-The docs are only auto-generated from data you must keep current. Whenever you **add, remove, or change the payload of** a webhook event, do all of the following in the same change so the reference at `/admin/webhooks/docs` stays correct:
+The `/admin/integrations/webhooks/docs` reference is generated from data you must keep current.
+Whenever you **add, remove, or change the payload of** an event, do all of this in the same change:
 
-1. **Catalog** — add/edit the entry in `packages/shared/src/webhooks.ts` (`WEBHOOK_EVENTS`): `type`, `label`, `description`, `group`. This drives both the config UI and the docs event list.
-2. **Emit** — add/adjust the `void enqueueWebhook({ eventType, payload })` call at the domain site.
-3. **Payload builder** — if the payload shape changes, update the matching helper in `packages/control-plane/lib/webhook-payloads.ts` (keep it an explicit allow-list — never add a secret field).
-4. **Docs example** — update `EXAMPLE_PAYLOADS` in `packages/control-plane/lib/webhook-docs.ts` for the event so the documented example matches what is actually sent (reuse the builder + a sample object; add a new sample object if it's a new entity). A new event with no entry falls back to `{}` in the docs — that is a bug, not acceptable.
-5. **Verify** — run the docs builder to confirm every event has a non-empty, secret-free example (e.g. a quick `buildWebhookEventDocs()` check, as in the docs page). Confirm `pnpm type-check` is clean.
+1. **Catalog** — add/edit the entry in `packages/shared/src/webhooks.ts` (`type`, `label`,
+   `description`, `group`). This drives both the config UI and the docs.
+2. **Emit** — add/adjust the `recordEvent` call at the domain site.
+3. **Payload builder** — update the matching helper in
+   `packages/controlplane/lib/webhook-payloads.ts` (explicit allow-list — never add a secret field).
+4. **Notification template** — add a renderer to `RENDERERS` in
+   `packages/webhook-dispatcher/src/render.ts`, or the event silently never reaches a channel.
+5. **Docs example** — update `EXAMPLE_PAYLOADS` in
+   `packages/controlplane/lib/webhook-docs.ts`. A new event with no entry falls back to `{}` in the
+   docs — that is a bug, not acceptable.
+6. **Verify** — confirm every event has a non-empty, secret-free example, and `pnpm type-check` is
+   clean.
+
+Note `stripSensitive` matches the substring `apikey` case-insensitively, so a boolean field named
+`hasApiKey` is silently deleted from delivered payloads. Name such flags `hasProviderKey`.
 
 ## Environment Variables
 
 | Variable | Package | Purpose |
 |---|---|---|
-| `DATABASE_URL` | control-plane, notifier, webhook-dispatcher | PostgreSQL connection string (Prisma) |
-| `REDIS_URL` | control-plane, controlplane, notifier, webhook-dispatcher | Redis URL for the BullMQ notification + webhook queues + pub/sub. `controlplane`'s webhook queue uses BullMQ `prefix: "vaultysclaw-controlplane"` so its jobs never mix with control-plane's on a shared Redis. |
+| `DATABASE_URL` | controlplane, webhook-dispatcher | PostgreSQL connection string (Prisma) |
+| `REDIS_URL` | controlplane, webhook-dispatcher | Redis URL for the BullMQ webhook queue |
+| `BULLMQ_PREFIX` | webhook-dispatcher | Must match the producer's prefix (`vaultysclaw-controlplane`) |
 | `WEBHOOK_TIMEOUT_MS` | webhook-dispatcher | Per-endpoint delivery timeout (default 10000) |
-| `APPRISE_API_URL` | controlplane, webhook-dispatcher | Base URL of the self-hosted Apprise API container (`caronc/apprise`) backing `controlplane`'s Notification Channels (docs/REBUILD_ARCHITECTURE.md §5). Unset means the feature is off — `controlplane` can't push/delete Apprise config, and the dispatcher skips notification fan-out entirely (webhook delivery is unaffected either way). Not used by `control-plane` (no `NotificationChannel` model there yet). |
-| `BULLMQ_PREFIX` | webhook-dispatcher | Namespaces every BullMQ key this process touches. Unset for the existing `control-plane` deployment; a dispatcher instance serving `controlplane`'s schema sets this to `"vaultysclaw-controlplane"` (matching its producer, see `controlplane/lib/webhook-queue.ts`) so a shared Redis never mixes the two apps' jobs. |
-| `NEXTAUTH_URL` / `APP_URL` | control-plane, notifier | Browser-facing base URL; the notifier uses it to build deep-link buttons in emails (`APP_URL` overrides `NEXTAUTH_URL`) |
-| `NOTIFICATION_RETENTION_DAYS` | control-plane | Days after which **read** notifications are pruned (default 30) |
-| `PORT` / `WS_PORT` | control-plane | HTTP + WebSocket ports (default 3000/8080) |
-| `NEXTAUTH_SECRET` | control-plane | NextAuth session secret |
-| `LITELLM_BASE_URL` / `LITELLM_MASTER_KEY` | control-plane, controlplane | LiteLLM proxy URL + admin master key. In `controlplane` these are only the deployment-time **fallback** for the Model Registry — the `Setting` rows an admin edits under Integrations → Models win, and the master key is stored encrypted there (`lib/vault.ts`). Unset and unconfigured means models are catalogued but never pushed to a proxy. |
-| `AGENT_NAME` | agent-controller | Agent display name |
-| `CONTROL_PLANE_URL` | agent-controller | Control plane base URL |
-| `LLM_MODEL` / `LLM_API_KEY` | agent-controller | LLM provider config |
-| `VAULTYS_ID_PATH` | agent-controller | Path to agent VaultysId identity file |
+| `APPRISE_API_URL` | controlplane, webhook-dispatcher | Self-hosted Apprise API base URL. Unset turns Notification Channels off entirely; webhook delivery is unaffected. |
+| `NEXTAUTH_URL` / `APP_URL` | controlplane | Browser-facing base URL; used to build `adminUrl` deep links (`APP_URL` wins) |
+| `NEXTAUTH_SECRET` | controlplane | NextAuth session secret |
+| `PORT` / `WS_PORT` | controlplane | HTTP + WebSocket ports |
+| `LITELLM_BASE_URL` / `LITELLM_MASTER_KEY` | controlplane | Deployment-time **fallback** for the Model Registry. The `Setting` rows an admin edits under Integrations → Models win, and the master key is stored encrypted there (`lib/vault.ts`). |
 
-## Testing
+## Design rules
 
-Tests live in `__tests__/` at the repo root and use Vitest. They test integration paths (API routes, tool execution, workflow logic). Test files import from packages directly using the `@vaultysclaw/shared` path alias.
-
-Multiple vitest configs for different test scopes:
-
-- `vitest.config.mjs` — default (no Docker)
-- `vitest.config.docker.mjs` — requires running Docker stack
-- `vitest.config.litellm.mjs` — requires LiteLLM proxy (`docker-compose.litellm.yml`)
+- **`packages/policy` and `packages/trust` stay pure.** No Prisma, Next.js, or WebSocket coupling;
+  signing takes a `VaultysId`, enforcement takes an injected clock. `packages/controlplane` is the
+  only place their outputs get persisted or driven by I/O.
+- **Humans are Actors** (`kind: "human"`), not a separate identity or permission table. There is no
+  `role` field anywhere — access is a ledger lookup (`lib/access-control.ts`'s `hasCapability`).
+- **A Server Action must authorize itself.** Next.js dispatches an action as a POST to its own
+  endpoint without re-running the layout it is defined under, so the `admin_console_access` gate in
+  `app/admin/layout.tsx` does not protect it. Start every mutating admin action with
+  `await requireAdmin()` (`lib/require-admin.ts`).
+- **Never change a `conformance/` fixture on one side only** — the TS and Go suites both consume
+  them, and that is the entire point.

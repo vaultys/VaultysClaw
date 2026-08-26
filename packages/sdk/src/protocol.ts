@@ -45,11 +45,26 @@ export interface ProtocolMessage<P = unknown> {
  * hold the key for. `name` is a display label; `kind` decides which capability
  * allow-list an approval is filtered against.
  */
+/**
+ * One capability an Actor's application declares it needs (docs/CUSTOM_CAPABILITIES.md).
+ *
+ * A **declaration**, not a request and certainly not a grant: the control plane records it so an
+ * admin can see what an Actor wants — and, for a custom name that isn't in the registry yet,
+ * create it — but nothing here makes a name grantable or grants it. That stays an admin action.
+ */
+export interface DeclaredCapability {
+  name: string;
+  label?: string;
+  description?: string;
+}
+
 export interface RegisterPayload {
   name: string;
   version?: string;
   /** "openclaw" | "mcp" | "sensor" | "device" | "proxy" | future kinds. Server defaults to "openclaw". */
   kind: string;
+  /** The Actor's whole capability manifest, if it has one. See {@link DeclaredCapability}. */
+  declaredCapabilities?: DeclaredCapability[];
 }
 
 /** One round of a Challenger exchange. `data` is "" for the server's opening message. */

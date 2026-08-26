@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Plus, BookText } from "lucide-react";
-import { WebhookDAO, NotificationChannelDAO, ModelDAO, SsoConnectionDAO } from "@/db";
+import { WebhookDAO, NotificationChannelDAO, ModelDAO, SsoConnectionDAO, CustomCapabilityDAO } from "@/db";
 import PageChrome from "@/components/layout/PageChrome";
 import { secretPreview } from "@/lib/webhook-secret";
 import { isKnownProvider, PROVIDERS } from "@/lib/model-providers";
@@ -21,6 +21,7 @@ const TABS = [
   { id: "channels", label: "Notification Channels" },
   { id: "models", label: "Models" },
   { id: "identity", label: "Identity" },
+  { id: "capabilities", label: "Capabilities" },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -68,6 +69,12 @@ const TAB_CHROME: Record<
     newHref: "/admin/integrations/identity/new",
     newId: "new-sso",
   },
+  capabilities: {
+    count: (c) => `${c.capabilities} custom capabilit${c.capabilities === 1 ? "y" : "ies"} registered`,
+    newLabel: "Add capability",
+    newHref: "/admin/integrations/capabilities/new",
+    newId: "new-capability",
+  },
 };
 
 interface Counts {
@@ -75,6 +82,7 @@ interface Counts {
   channels: number;
   models: number;
   identity: number;
+  capabilities: number;
 }
 
 /**
@@ -92,11 +100,12 @@ export default async function IntegrationsPage({
   const { tab: tabParam } = await searchParams;
   const activeTab: TabId = TABS.some((t) => t.id === tabParam) ? (tabParam as TabId) : "webhooks";
 
-  const [webhooks, channels, models, connections] = await Promise.all([
+  const [webhooks, channels, models, connections, capabilities] = await Promise.all([
     WebhookDAO.list(),
     NotificationChannelDAO.list(),
     ModelDAO.list(),
     SsoConnectionDAO.list(),
+    CustomCapabilityDAO.list(),
   ]);
   const chrome = TAB_CHROME[activeTab];
 
@@ -110,6 +119,7 @@ export default async function IntegrationsPage({
             channels: channels.length,
             models: models.length,
             identity: connections.length,
+            capabilities: capabilities.length,
           }),
           actions: [
             {
@@ -135,6 +145,74 @@ export default async function IntegrationsPage({
       {activeTab === "channels" && <ChannelsSection channels={channels} />}
       {activeTab === "models" && <ModelsSection models={models} />}
       {activeTab === "identity" && <IdentitySection connections={connections} />}
+      {activeTab === "capabilities" && <CapabilitiesSection capabilities={capabilities} />}
+    </div>
+  );
+}
+
+/**
+ * The custom-capability registry (docs/CUSTOM_CAPABILITIES.md).
+ *
+ * Read-only here: a row makes a name grantable *and* resolvable, and deleting one revokes every
+ * grant of it, so both edit and delete live behind the detail page where the affected-grant count
+ * is shown. No inline toggle for the same reason — there is no "disabled but still resolving"
+ * state to toggle into, by design.
+ */
+function CapabilitiesSection({
+  capabilities,
+}: {
+  capabilities: Awaited<ReturnType<typeof CustomCapabilityDAO.list>>;
+}) {
+  return (
+    <div className="space-y-4">
+      <div className="rounded-xl border border-neutral-200/60 bg-background-100 p-4 text-xs text-foreground-500">
+        Admin-defined <code>vendor:action</code> capabilities. They travel through the same
+        certificates, scoping and revocation as built-in ones &mdash; the control plane governs who
+        may hold each name, and the application that binds an operation to it decides what it does.
+        A name deleted here stops resolving on every holder&rsquo;s next status check.
+      </div>
+
+      {capabilities.length === 0 ? (
+        <div className="rounded-xl border border-neutral-200/60 bg-background-100 p-8 text-center text-sm text-foreground-400">
+          No custom capabilities yet. Built-in capabilities are always available &mdash; add one here
+          only when an application needs to gate something the built-ins don&rsquo;t describe.
+        </div>
+      ) : (
+        <div className="overflow-x-auto border border-neutral-200/60 rounded-xl">
+          <table className="w-full text-sm bg-background-100">
+            <thead className="bg-background-200/40 text-left text-xs text-foreground-500 uppercase">
+              <tr>
+                <th className="px-4 py-2 font-medium">Name</th>
+                <th className="px-4 py-2 font-medium">Label</th>
+                <th className="px-4 py-2 font-medium">Vendor</th>
+                <th className="px-4 py-2 font-medium">Group</th>
+              </tr>
+            </thead>
+            <tbody>
+              {capabilities.map((cap) => (
+                <tr key={cap.id} className="border-t border-neutral-200/60 align-top">
+                  <td className="px-4 py-2.5">
+                    <Link
+                      href={`/admin/integrations/capabilities/${cap.id}`}
+                      className="font-mono text-foreground hover:text-primary-600 hover:underline"
+                    >
+                      {cap.name}
+                    </Link>
+                  </td>
+                  <td className="px-4 py-2.5 text-foreground">
+                    {cap.label}
+                    {cap.description && (
+                      <div className="text-xs text-foreground-400 mt-0.5">{cap.description}</div>
+                    )}
+                  </td>
+                  <td className="px-4 py-2.5 text-foreground-500">{cap.vendor}</td>
+                  <td className="px-4 py-2.5 text-foreground-500">{cap.group ?? "\u2014"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

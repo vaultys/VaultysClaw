@@ -7,10 +7,11 @@
  *
  * "Models" joined the list when the Model Registry was built here; its `model.*` events are the
  * shared catalog's own, unchanged, since the entity means the same thing in both packages.
+ * "Capabilities" is the custom-capability registry (docs/CUSTOM_CAPABILITIES.md).
  */
 import { WEBHOOK_EVENTS, type WebhookEventDef } from "@vaultysclaw/shared";
 
-const EMITTED_GROUPS = new Set(["Actors", "Certificates", "Workspaces", "Models"]);
+const EMITTED_GROUPS = new Set(["Actors", "Certificates", "Workspaces", "Models", "Capabilities"]);
 
 export const CONTROLPLANE_WEBHOOK_EVENTS: WebhookEventDef[] = WEBHOOK_EVENTS.filter((e) =>
   EMITTED_GROUPS.has(e.group)

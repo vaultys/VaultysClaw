@@ -1,9 +1,12 @@
-import { ActorDAO } from "@/db";
+import { ActorDAO, CustomCapabilityDAO } from "@/db";
 import PageChrome from "@/components/layout/PageChrome";
 import ActorSearchSelect from "@/components/ActorSearchSelect";
 import { issueCertificateAction } from "../actions";
 
-const AGENT_CAPABILITIES = [
+/** The built-in names this form offers. Custom `vendor:action` capabilities are not listed here —
+ *  they come from the registry (docs/CUSTOM_CAPABILITIES.md) and are rendered in their own section
+ *  below, so the two can never drift out of sync with what is actually grantable. */
+const BUILTIN_CAPABILITIES = [
   "file_access",
   "internet_access",
   "browser_control",
@@ -21,6 +24,21 @@ const AGENT_CAPABILITIES = [
   "non_delegatable",
 ] as const;
 
+/** Group registry entries by their free-text `group`, falling back to the vendor — so a grouping
+ *  an admin didn't set still produces something meaningful rather than one flat "Other" bucket. */
+function groupCapabilities(
+  caps: Awaited<ReturnType<typeof CustomCapabilityDAO.list>>
+): [string, typeof caps][] {
+  const byGroup = new Map<string, typeof caps>();
+  for (const cap of caps) {
+    const key = cap.group?.trim() || cap.vendor;
+    const bucket = byGroup.get(key);
+    if (bucket) bucket.push(cap);
+    else byGroup.set(key, [cap]);
+  }
+  return [...byGroup.entries()].sort(([a], [b]) => a.localeCompare(b));
+}
+
 /** Issue certificate flow (docs/PAGE_DESIGN.md §1.5). `resource`/`agentDid` query params let
  *  another page (e.g. a workspace's Access tab) deep-link here with the scope pre-filled. */
 export default async function NewCertificatePage({
@@ -28,6 +46,7 @@ export default async function NewCertificatePage({
 }: {
   searchParams: Promise<{ resource?: string; agentDid?: string }>;
 }) {
+  const customCapabilities = await CustomCapabilityDAO.list();
   const [actors, { resource, agentDid }] = await Promise.all([ActorDAO.list(), searchParams]);
 
   return (
@@ -62,7 +81,7 @@ export default async function NewCertificatePage({
         <div>
           <label className="block text-sm font-medium text-foreground mb-1.5">Capabilities</label>
           <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm border border-neutral-200 rounded-lg p-3">
-            {AGENT_CAPABILITIES.map((cap) => (
+            {BUILTIN_CAPABILITIES.map((cap) => (
               <label key={cap} className="flex items-center gap-1.5 text-foreground-700">
                 <input type="checkbox" name="capabilities" value={cap} className="accent-primary-600" />
                 {cap}
@@ -70,6 +89,43 @@ export default async function NewCertificatePage({
             ))}
           </div>
         </div>
+
+        {customCapabilities.length > 0 && (
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1.5">
+              Custom capabilities
+            </label>
+            <div className="space-y-3 text-sm border border-neutral-200 rounded-lg p-3">
+              {groupCapabilities(customCapabilities).map(([group, caps]) => (
+                <div key={group}>
+                  <div className="text-xs uppercase text-foreground-400 mb-1">{group}</div>
+                  <div className="flex flex-wrap gap-x-4 gap-y-2">
+                    {caps.map((cap) => (
+                      <label
+                        key={cap.id}
+                        className="flex items-center gap-1.5 text-foreground-700"
+                        title={cap.description ?? undefined}
+                      >
+                        <input
+                          type="checkbox"
+                          name="capabilities"
+                          value={cap.name}
+                          className="accent-primary-600"
+                        />
+                        <span>{cap.label}</span>
+                        <code className="text-xs text-foreground-400">{cap.name}</code>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-foreground-400 mt-1">
+              Defined under Integrations &rarr; Capabilities. Scoping, expiry and revocation apply
+              exactly as they do to a built-in.
+            </p>
+          </div>
+        )}
 
         <div>
           <label className="block text-sm font-medium text-foreground mb-1.5">

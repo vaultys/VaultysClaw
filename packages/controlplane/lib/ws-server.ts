@@ -25,6 +25,7 @@ import pino from "pino";
 import {
   verifyCertStatusRequestCert,
   signCertStatusResponseCert,
+  filterAgainstRegistry,
   type AgentCapability,
   type CertificateStatus,
 } from "@vaultysclaw/policy";
@@ -35,6 +36,7 @@ import {
   CertStatusCheckDAO,
   SensorWorkloadDAO,
   ServerIdentityDAO,
+  CustomCapabilityDAO,
 } from "@/db";
 import { persistChallengerCertificate } from "./certificates";
 import { recordEvent } from "./audit";
@@ -54,6 +56,7 @@ import type {
   ErrorPayload,
   ProtocolMessage,
   ProtocolMessageType,
+  DeclaredCapability,
   RegisterPayload,
   RegistrationPendingPayload,
   SensorTelemetryPayload,
@@ -77,6 +80,8 @@ interface PendingConnection {
   sessionId: string;
   name: string;
   kind: string;
+  /** From `register`, held until the handshake proves a DID to attribute it to. */
+  declaredCapabilities?: DeclaredCapability[];
   challenger: Challenger | null;
   timer: ReturnType<typeof setTimeout>;
 }
@@ -155,7 +160,15 @@ export class ControlPlaneWSServer {
   async deliverApprovedCapabilities(did: string): Promise<boolean> {
     const approved = await PendingRegistrationDAO.findApprovedUndelivered(did);
     if (!approved) return false;
-    const capabilities = approved.assignedCapabilities as AgentCapability[];
+    // Re-filter at delivery time, not just at approval: a custom capability can be deleted from
+    // the registry in the window between an admin approving an offline Actor and that Actor
+    // reconnecting to collect its grant. Without this, delivery would mint a certificate carrying
+    // a name the very next status refresh strips out (docs/CUSTOM_CAPABILITIES.md Phase 3a).
+    const registryNames = new Set(await CustomCapabilityDAO.listNames());
+    const capabilities = filterAgainstRegistry(
+      approved.assignedCapabilities as string[],
+      registryNames
+    );
 
     for (const [sender, awaiting] of this.awaitingApproval) {
       if (awaiting.did !== did) continue;
@@ -272,6 +285,11 @@ export class ControlPlaneWSServer {
       sessionId,
       name: payload.name ?? "unknown",
       kind: payload.kind ?? "openclaw",
+      // Held until the handshake proves a DID — there is nobody to attribute a declaration to
+      // before that, and an unauthenticated socket must not be able to write to any Actor row.
+      declaredCapabilities: Array.isArray(payload.declaredCapabilities)
+        ? payload.declaredCapabilities
+        : undefined,
       challenger: null,
       timer,
     });
@@ -329,6 +347,12 @@ export class ControlPlaneWSServer {
       const existing = await ActorDAO.findByDid(did);
       if (existing) {
         await ActorDAO.touchLastSeen(did);
+        // Recorded now that the DID is cryptographically proven. Informational only — it drives
+        // the "wanted / registered / granted" diff on the Actor page and nothing else; an Actor
+        // cannot grant itself anything by declaring it (docs/CUSTOM_CAPABILITIES.md Phase 4).
+        if (pending.declaredCapabilities) {
+          void ActorDAO.setDeclaredCapabilities(did, pending.declaredCapabilities);
+        }
         this.connected.set(did, {
           did,
           name: existing.name,
@@ -621,12 +645,27 @@ export class ControlPlaneWSServer {
       status = "expired";
     }
 
+    // Fail closed on a custom capability the registry no longer knows about
+    // (docs/CUSTOM_CAPABILITIES.md). This is the *authoritative* propagation path for a
+    // registry deletion: the row on the certificate is left untouched, but what we sign
+    // here — and therefore what the holder keeps after its next refresh — omits the name.
+    //
+    // If the filter empties the list we still report the row's real `status`. "An active
+    // certificate with nothing left on it" is the honest answer; collapsing it to `revoked`
+    // would misreport the ledger, and the holder's own fail-closed handling of an empty
+    // capability set is what actually stops it acting.
+    const registryNames = new Set(await CustomCapabilityDAO.listNames());
+    const effectiveCapabilities = filterAgainstRegistry(
+      cert.capabilities as string[],
+      registryNames
+    );
+
     const serverVid = await ServerIdentityDAO.getServerVaultysId();
     const responseToken = await signCertStatusResponseCert(serverVid, {
       certId: cert.id,
       agentDid: cert.agentDid,
       status,
-      capabilities: cert.capabilities as never,
+      capabilities: effectiveCapabilities,
       resourceLimits: cert.resourceLimits as never,
       scope: cert.scope as never,
       expiresAt: cert.expiresAt ? cert.expiresAt.getTime() : null,

@@ -1,7 +1,15 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, MapPin } from "lucide-react";
-import { CapabilityCertificateDAO, ActorDAO, ActorLinkDAO, UserDAO, WorkspaceDAO } from "@/db";
+import {
+  CapabilityCertificateDAO,
+  ActorDAO,
+  ActorLinkDAO,
+  UserDAO,
+  WorkspaceDAO,
+  CustomCapabilityDAO,
+} from "@/db";
+import { isCustomCapability } from "@vaultysclaw/policy";
 import PageChrome from "@/components/layout/PageChrome";
 import { ActorKindBadge } from "@/components/ActorKindBadge";
 import ActorSearchSelect from "@/components/ActorSearchSelect";
@@ -40,15 +48,33 @@ export default async function ActorDetailPage({
   const actor = await ActorDAO.findByDid(did);
   if (!actor) notFound();
 
-  const [certs, workspaces, human, links, allActors] = await Promise.all([
+  const [certs, workspaces, human, links, allActors, registryNames] = await Promise.all([
     CapabilityCertificateDAO.list({ agentDid: did }),
     WorkspaceDAO.list(),
     actor.kind === "human" ? UserDAO.findByDid(did) : Promise.resolve(null),
     ActorLinkDAO.listForActor(did),
     ActorDAO.list(),
+    CustomCapabilityDAO.listNames(),
   ]);
 
   const activeCount = certs.filter((c) => c.status === "active").length;
+
+  // The "wanted / registered / granted" diff (docs/CUSTOM_CAPABILITIES.md Phase 4). `declared` is
+  // what the Actor's own manifest reported at registration; `held` is what it actually has.
+  const declared = (actor.declaredCapabilities ?? []) as {
+    name: string;
+    label?: string;
+    description?: string;
+  }[];
+  const held = new Set(
+    certs.filter((c) => c.status === "active").flatMap((c) => c.capabilities as string[])
+  );
+  const registry = new Set(registryNames);
+  const declaredStatus = declared.map((d) => ({
+    ...d,
+    inRegistry: !isCustomCapability(d.name) || registry.has(d.name),
+    granted: held.has(d.name),
+  }));
   const hasLocation = actor.locationLat !== null && actor.locationLon !== null;
   const linkableActors = allActors.filter((a) => a.did !== did);
   const owner = actor.ownerDid ? allActors.find((a) => a.did === actor.ownerDid) : null;
@@ -262,6 +288,73 @@ export default async function ActorDetailPage({
           </button>
         </form>
       </section>
+
+      {declaredStatus.length > 0 && (
+        <section>
+          <h2 className="text-sm font-semibold text-foreground-700 mb-1">
+            Declared capabilities ({declaredStatus.length})
+          </h2>
+          <p className="text-xs text-foreground-400 mb-3">
+            What this Actor&rsquo;s application says it needs, reported when it connected. A
+            declaration is not a request and grants nothing &mdash; it is here so you can see what
+            is wanted.
+          </p>
+          <div className="overflow-x-auto border border-neutral-200/60 rounded-xl">
+            <table className="w-full text-sm bg-background-100">
+              <thead className="bg-background-200/40 text-left text-xs text-foreground-500 uppercase">
+                <tr>
+                  <th className="px-4 py-2 font-medium">Capability</th>
+                  <th className="px-4 py-2 font-medium">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {declaredStatus.map((d) => (
+                  <tr key={d.name} className="border-t border-neutral-200/60 align-top">
+                    <td className="px-4 py-2.5">
+                      <code className="font-mono text-foreground">{d.name}</code>
+                      {d.label && <div className="text-xs text-foreground-500 mt-0.5">{d.label}</div>}
+                      {d.description && (
+                        <div className="text-xs text-foreground-400 mt-0.5">{d.description}</div>
+                      )}
+                    </td>
+                    <td className="px-4 py-2.5">
+                      {d.granted ? (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-success-100 text-success-700 border border-success-200">
+                          Granted
+                        </span>
+                      ) : d.inRegistry ? (
+                        <>
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-background-200 text-foreground-500 border border-neutral-200/60">
+                            Not granted
+                          </span>
+                          <Link
+                            href={`/admin/certificates/new?agentDid=${encodeURIComponent(did)}`}
+                            className="ml-2 text-xs text-primary-600 hover:underline"
+                          >
+                            Issue &rarr;
+                          </Link>
+                        </>
+                      ) : (
+                        <>
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-warning-100 text-warning-700 border border-warning-200">
+                            Not in registry
+                          </span>
+                          <Link
+                            href="/admin/integrations/capabilities/new"
+                            className="ml-2 text-xs text-primary-600 hover:underline"
+                          >
+                            Add to registry &rarr;
+                          </Link>
+                        </>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
 
       <section>
         <div className="flex items-center justify-between mb-3">

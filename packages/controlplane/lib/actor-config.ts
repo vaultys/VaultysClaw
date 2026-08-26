@@ -15,7 +15,14 @@
  * received a push, because both go through the same verification. The push saves
  * an operator a manual step; it does not confer any authority the files lacked.
  */
-import { CapabilityCertificateDAO, ActorDAO, ServerIdentityDAO, SettingsDAO } from "@/db";
+import {
+  CapabilityCertificateDAO,
+  ActorDAO,
+  ServerIdentityDAO,
+  SettingsDAO,
+  CustomCapabilityDAO,
+} from "@/db";
+import { isCustomCapability } from "@vaultysclaw/policy";
 import {
   DEFAULT_STAPLE_TTL_SECONDS,
   DEFAULT_TRUST_FAIL_MODE,
@@ -56,15 +63,36 @@ export interface ActorConfigResult {
 /**
  * Build the `actor_config` payload for an Actor.
  *
- * Returns null when the Actor does not exist, or is of a kind that has no
- * configuration to push — there is nothing to say to an `openclaw` or `sensor`
- * Actor through this message yet.
+ * Returns null only when the Actor does not exist.
+ *
+ * Every kind gets a payload, because the `trust` block is meaningful to all of them: a client that
+ * re-checks its certificate status needs to know the org's fail mode and how stale a stapled status
+ * may be (docs/CUSTOM_CAPABILITIES.md Phase 3). Before that, this message was proxy-only and the
+ * org-wide `trust.stapleTtlSeconds` an admin edits under Settings reached nothing at all.
+ *
+ * Only `proxy` gets a `kindConfig`/`ruleSetToken`/`grantToken` — those are that kind's offline
+ * enforcement inputs and mean nothing to anyone else.
  */
 export async function buildActorConfig(did: string): Promise<ActorConfigResult | null> {
   const actor = await ActorDAO.findByDid(did);
-  if (!actor || actor.kind !== "proxy") return null;
+  if (!actor) return null;
 
   const warnings: string[] = [];
+
+  if (actor.kind !== "proxy") {
+    return {
+      payload: {
+        kindConfig: {},
+        // A non-proxy client already holds its own certificate from `cert_issued`; it doesn't need
+        // a second copy to know what it was granted, and it doesn't enforce on anyone else's
+        // behalf, so there is nothing for a grant token to authorize here.
+        grantToken: null,
+        ruleSetToken: null,
+        trust: await resolveOrgTrust(),
+      },
+      warnings,
+    };
+  }
 
   let kindConfig: ProxyKindConfig;
   try {
@@ -125,7 +153,37 @@ async function resolveGrantToken(did: string, warnings: string[]): Promise<strin
     return null;
   }
 
+  // A stale custom capability can't be filtered out of a packcert the way it can out of a
+  // `cert_status_response`: the capability list here is *inside* the signature, so removing a name
+  // would mean re-minting the certificate under a new id. Rather than push a grant that asserts,
+  // to an offline verifier, a capability the registry has deleted — the one place where fail-closed
+  // would otherwise silently not hold — withhold it and say why. The same shape as the
+  // challenger-format refusal above: no authority, and a warning an admin actually sees.
+  const stale = await staleCustomCapabilities(verifiable.capabilities as string[]);
+  if (stale.length > 0) {
+    warnings.push(
+      `This proxy's certificate grants ${stale.join(", ")}, which ${
+        stale.length === 1 ? "is" : "are"
+      } no longer in the custom-capability registry. ` +
+        `Its capabilities are baked into the signature and cannot be filtered, so the grant is withheld and the proxy will refuse every governed request. ` +
+        `Re-add the capability, or revoke this certificate and issue a replacement.`
+    );
+    return null;
+  }
+
   return verifiable.certificate;
+}
+
+/**
+ * Which of these capabilities are custom names the registry no longer knows about.
+ *
+ * Skips the DB round-trip entirely for the common case of a certificate carrying only built-ins.
+ */
+async function staleCustomCapabilities(capabilities: string[]): Promise<string[]> {
+  const custom = capabilities.filter(isCustomCapability);
+  if (custom.length === 0) return [];
+  const known = new Set(await CustomCapabilityDAO.listNames());
+  return custom.filter((c) => !known.has(c));
 }
 
 /** Sign the rule set from the stored config, or null when there are no rules. */
@@ -147,20 +205,41 @@ async function signRuleSet(config: ProxyKindConfig): Promise<string | null> {
  *
  * `trust.failMode` maps cleanly: `closed` → `failClosed: true`.
  *
- * `trust.stapleTtlSeconds` does **not** map, and this is the one place that
- * mismatch is handled. Its 0 means "force a live status query every time"
+ * `trust.stapleTtlSeconds` does **not** map *for this kind*, and this is the one place that
+ * mismatch is handled — see `resolveOrgTrust` below for every other kind, where it does map. Its 0 means "force a live status query every time"
  * (`CERTIFICATE_WEB_OF_TRUST.md` §5.2) — the strictest option — and an
  * interception point deciding offline cannot query anything. Inheriting the
  * number would either hand the loosest behaviour to the admin who asked for the
  * strictest, or make every proxy deny everything by default. So the proxy's own
  * `maxStatusAgeSeconds` is authoritative for this kind, and the org-wide staple
- * TTL is deliberately not consulted here.
+ * TTL is deliberately not consulted here (it is, for other kinds).
  */
 async function resolveTrust(config: ProxyKindConfig): Promise<ActorConfigPayload["trust"]> {
-  const failMode = (await SettingsDAO.get(SETTINGS_KEYS.trustFailMode)) ?? DEFAULT_TRUST_FAIL_MODE;
-  void DEFAULT_STAPLE_TTL_SECONDS; // referenced by the doc comment above, deliberately unused
   return {
-    failClosed: failMode !== "open",
+    failClosed: await resolveFailClosed(),
     maxStatusAgeSeconds: config.maxStatusAgeSeconds,
   };
+}
+
+/**
+ * The trust block for every kind that is **not** a proxy.
+ *
+ * Here the org-wide `trust.stapleTtlSeconds` maps directly, and its 0 keeps its strict meaning:
+ * "force a live status query every time" is something an online client genuinely can do, unlike an
+ * interception point deciding offline (which is the whole reason the proxy kind carries its own
+ * number instead — see `resolveTrust` above). A negative value stays unbounded, and has to be
+ * written explicitly to mean that, so it can never be reached by omission.
+ */
+async function resolveOrgTrust(): Promise<ActorConfigPayload["trust"]> {
+  const raw = await SettingsDAO.get(SETTINGS_KEYS.trustStapleTtlSeconds);
+  const parsed = raw === null || raw === undefined ? Number.NaN : Number.parseInt(raw, 10);
+  return {
+    failClosed: await resolveFailClosed(),
+    maxStatusAgeSeconds: Number.isFinite(parsed) ? parsed : DEFAULT_STAPLE_TTL_SECONDS,
+  };
+}
+
+async function resolveFailClosed(): Promise<boolean> {
+  const failMode = (await SettingsDAO.get(SETTINGS_KEYS.trustFailMode)) ?? DEFAULT_TRUST_FAIL_MODE;
+  return failMode !== "open";
 }

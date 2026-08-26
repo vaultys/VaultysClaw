@@ -26,17 +26,19 @@ isolation.
 - **`src/resolve-permission.ts`** — `resolvePermission(action, activeCerts, now)`: the core
   decision function. Returns the first active, non-expired, capability- and scope-matching
   certificate that authorizes the action, or a denial with a reason.
-- **`src/renewal.ts`** — `isEligibleForProactiveRenewal`: which certs the renewal scan
+- **`src/renewal.ts`** — `isEligibleForProactiveRenewal`: which certs a renewal scan
   (control-plane side) should even consider — standing grants only, never scoped/ephemeral ones,
   never certs with `expiresAt: null`.
 
 ## Who consumes it
 
-- `packages/control-plane` — a DB-aware wrapper fetches the current `CapabilityCertificate` rows
-  for a Principal and calls `resolvePermission` before dispatching/accepting an action (closes the
-  gap described in the trust doc §4.3).
-- `packages/agent-runtime` — local decisions with no DB in the loop, e.g. `peer-manager.ts`
-  evaluating a `cert_status_response` against its own locally-held cert set (trust doc §4.4).
+- `packages/controlplane` — `lib/access-control.ts`'s `hasCapability` fetches the current
+  `CapabilityCertificate` rows for a Principal (`db/certificate.dao.ts`'s `toLite`) and calls
+  `resolvePermission`. This is the **only** authorization mechanism in the console — there is no
+  role check anywhere to keep in sync with it.
+- `packages/sdk` — local decisions with no DB in the loop, over the certificate the client holds.
+- `sdk-go/authz` — the Go port, held to this package by `conformance/permission-vectors.json`
+  (25 cases, run by both suites). Never change a vector on one side only.
 
 ## Design rules
 

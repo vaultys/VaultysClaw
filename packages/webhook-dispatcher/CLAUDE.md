@@ -13,7 +13,7 @@ delivery happen here, out of band.
 
 ## Delivery, retries & dead-letter
 
-BullMQ's retry policy is set on the **producer** job (`control-plane/lib/webhook-queue.ts`:
+BullMQ's retry policy is set on the **producer** job (`controlplane/lib/webhook-queue.ts`:
 5 attempts, exponential backoff, base 2 s). This worker retries the **whole job**
 when any endpoint fails (throws → BullMQ re-runs the job).
 
@@ -52,19 +52,31 @@ pnpm webhook:dev     # from repo root — node --import tsx --watch src/index.ts
 pnpm webhook:start   # node --import tsx src/index.ts
 ```
 
-Requires `DATABASE_URL` (Postgres) and `REDIS_URL`. Optional `WEBHOOK_TIMEOUT_MS`
-(default 10000), `BULLMQ_PREFIX` (namespaces every BullMQ key this process
-touches — unset for the standard control-plane deployment; set it when running
-a second instance against a different app's schema on shared Redis, e.g.
-`"vaultysclaw-controlplane"` for `packages/controlplane`, matching that
-producer's own prefix), and `APPRISE_API_URL` (base URL of the self-hosted
-Apprise API container — unset disables Notification Channel fan-out entirely,
-webhook delivery is unaffected either way). In Docker it's the
-`webhook-dispatcher` service (`docker/Dockerfile.webhook-dispatcher` +
-`docker/docker-compose.yml`).
+> **The dispatcher's `DATABASE_URL` must be the *same database the control plane writes to*,**
+> not merely a database with the right schema. Subscriptions (`webhooks`,
+> `notification_channels`) are read from here, so pointing at the right Redis but the
+> wrong Postgres produces the most confusing possible symptom: jobs arrive and are
+> processed, and every one reports `webhookTargets: 0, notificationTargets: 0` while the
+> admin console plainly shows a configured, active channel. No error anywhere — the
+> tables exist, they are just empty in *that* database.
+>
+> This is why `pnpm controlplane:webhook:dev` sources `packages/controlplane/.env` rather
+> than hardcoding a URL. It used to hardcode one, which is exactly how the two drifted
+> apart (a `.env` on 5432 against a compose default of 5433). Do not reintroduce a second
+> place where this URL is written down.
 
-> **Run it with `node --import tsx`, not the bare `tsx` CLI** — same reason as the
-> notifier: `shared`'s `"tsx"` export condition resolves inconsistently. `shared`
+Requires `DATABASE_URL` (Postgres) and `REDIS_URL`. Also set `BULLMQ_PREFIX` to
+`"vaultysclaw-controlplane"` — it namespaces every BullMQ key this process
+touches and **must match** `packages/controlplane/lib/webhook-queue.ts`'s
+producer prefix, or this worker sits on an empty queue while jobs pile up under
+the other name. Optional: `WEBHOOK_TIMEOUT_MS` (default 10000) and
+`APPRISE_API_URL` (base URL of the self-hosted Apprise API container — unset
+disables Notification Channel fan-out entirely, webhook delivery is unaffected
+either way). The image is `docker/Dockerfile.webhook-dispatcher`; there is no
+compose service for it yet (see Prisma in Docker below).
+
+> **Run it with `node --import tsx`, not the bare `tsx` CLI** — `shared`'s
+> `"tsx"` export condition resolves inconsistently under the bare CLI. `shared`
 > must stay a native-ESM build.
 
 **This package has no `prisma/schema.prisma` of its own locally** — only Docker copies one in (see
@@ -100,10 +112,10 @@ against that schema locally.
   and returns `{"error": null}` on success.
 - **`src/render.ts`** — `renderNotification(job)` → `{title, body, type}` or
   `null`. Templates for `packages/controlplane`'s event catalog (actor.*, human.*,
-  certificate.*, workspace.*) only — `packages/control-plane`'s own domain
-  (agent/model/etc.) doesn't have Notification Channels wired up yet; that
-  migration (rebuild doc §8 step 4) would add its own templates here, keyed
-  the same way. Every rendered body gets a uniform footer appended
+  certificate.*, workspace.*) only — Model Registry events (`model.*`) are in the
+  catalog but have **no template here**, so they reach webhooks and never a
+  notification channel; add one, keyed the same way, if that matters for your
+  deployment. Every rendered body gets a uniform footer appended
   (`appendFooter`, not repeated per template), in this order: field-level
   changes (`appendChanges`, from `job.payload.changes: FieldChange[]` — only
   present on `*.updated` events, "Changes:\n  field: from → to" per entry,
@@ -123,7 +135,7 @@ against that schema locally.
 
 ## Tests
 
-`__tests__/webhook-dispatcher.test.ts` (repo root, default vitest config — no
+`__tests__/dispatcher.test.ts` (this package, own `vitest.config.mjs` — no
 Redis/DB/network). Covers `delivery.ts` + `sign.ts` through their injectable
 seams: signature round-trip, request/header construction, target selection,
 per-endpoint delivery outcomes (2xx / non-2xx / network error), the retry-skip
@@ -133,7 +145,7 @@ Notification Channel side (`renderNotification`, `selectNotificationTargets`,
 fan-out, mixed success/failure, retry-skip). `index.ts` (the BullMQ/Prisma
 wiring) is intentionally not imported by the tests — keep new delivery logic in
 `delivery.ts` so it stays testable. Run:
-`pnpm vitest run __tests__/webhook-dispatcher.test.ts`.
+`pnpm --filter @vaultysclaw/webhook-dispatcher test`.
 
 Also verified against real infrastructure (not committed as a repeatable
 test): a real `caronc/apprise` container + a local HTTP listener, pushing a
@@ -163,8 +175,8 @@ and the raw request body, and compare to the `X-VaultysClaw-Signature` header.
 
 The catalog lives in `@vaultysclaw/shared` (`src/webhooks.ts`), not here. Add it
 there, then emit it from the control plane via `enqueueWebhook` at the domain
-site (build the payload with a helper in `control-plane/lib/webhook-payloads.ts`,
-or `controlplane/lib/webhook-payloads.ts` for that package's own events).
+site (build the payload with a helper in
+`packages/controlplane/lib/webhook-payloads.ts`).
 **Webhooks need no change here** — that half of the dispatcher is
 event-agnostic, it just forwards whatever's in `payload`.
 
@@ -189,11 +201,9 @@ admin-CRUD side (schema, encryption, `/add`/`/del`). Two things worth knowing
 if you're deploying this:
 
 - **Requires the target schema to have a `NotificationChannel` model.**
-  `packages/controlplane`'s schema has one; `packages/control-plane`'s doesn't
-  yet (that's a future step-4 migration for that package, rebuild doc §8). Set
-  `APPRISE_API_URL` only for a deployment whose schema actually has the table
-  — this code doesn't defensively check for the table's existence before
-  querying it.
+  `packages/controlplane`'s schema has one. Set `APPRISE_API_URL` only for a
+  deployment whose schema actually has the table — this code doesn't
+  defensively check for the table's existence before querying it.
 - **The real `caronc/apprise` image is POST-only on `/del`** (a bare `DELETE`
   returns 405) — confirmed empirically, not assumed from
   docs/REBUILD_ARCHITECTURE.md's description of that endpoint. Not this
@@ -202,10 +212,12 @@ if you're deploying this:
 
 ## Prisma in Docker
 
-Same trick as the notifier: the image copies the control-plane schema into
+The image copies `packages/controlplane/prisma/schema.prisma` into
 `packages/webhook-dispatcher/prisma/` and runs `prisma generate --generator
-client` (only the `client` generator). A `packages/controlplane`-flavored
-deployment needs its own Dockerfile variant copying that package's
-`prisma/schema.prisma` instead — not built/committed yet (this package's own
-deployment story is still "throwaway instance for verification", see Tests
-above), tracked in `packages/controlplane/CLAUDE.md`'s deferred list.
+client`. Locally, `pnpm controlplane:webhook:prisma` (root `package.json`) does
+the same copy-and-generate step — run it after any `pnpm install`, which
+relocates the generated client and leaves this package's type-check failing on a
+missing `PrismaClient` export until you do.
+
+There is no compose service or deployment manifest for this worker yet; its
+story is still "run an instance pointed at the control plane's schema".

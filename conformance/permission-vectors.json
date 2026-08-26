@@ -5,42 +5,58 @@
     "Shared conformance vectors for the capability-certificate permission decision.",
     "",
     "Two implementations must agree on every case here, byte-for-byte including deny",
-    "reason strings (docs/PROXY_ARCHITECTURE.md §3.3):",
+    "reason strings (docs/PROXY_ARCHITECTURE.md \u00a73.3):",
     "  - TypeScript: packages/trust/src/resolve-permission.ts",
     "      run by packages/trust/__tests__/conformance.test.ts",
-    "  - Go:         vaultysclaw-sensor/internal/authz/resolve.go",
-    "      run by vaultysclaw-sensor/internal/authz/conformance_test.go",
+    "  - Go:         sdk-go/authz/resolve.go",
+    "      run by sdk-go/authz/conformance_test.go",
     "",
     "A vector that passes in one language and fails in the other is a release blocker,",
     "not a test to adjust: two implementations of an authorization function that disagree",
     "are a vulnerability. Add cases here first, then make both sides pass.",
     "",
     "Times are milliseconds since epoch, matching the TypeScript number representation.",
-    "`expiresAt` is always present and is either a number or null — never absent.",
+    "`expiresAt` is always present and is either a number or null \u2014 never absent.",
     "An absent `resource` on an action means 'no resource', which is NOT the same as an",
-    "empty string (see the empty-resource cases below); both are pinned deliberately."
+    "empty string (see the empty-resource cases below); both are pinned deliberately.",
+    "",
+    "Custom capabilities (docs/CUSTOM_CAPABILITIES.md) are admin-defined `vendor:action`",
+    "names. resolvePermission is name-agnostic and MUST treat them exactly like a built-in:",
+    "the cases below pin that, including that a deny reason quotes the name verbatim and",
+    "that scope/expiry/maxUses/status behave identically. Whether a custom name is still in",
+    "the control plane's registry is NOT decided here \u2014 that filtering happens before a",
+    "certificate reaches this function (see the cert_status_response filter)."
   ],
   "cases": [
     {
       "name": "unscoped active certificate grants the capability",
       "now": 1000,
-      "action": { "capability": "internet_access" },
+      "action": {
+        "capability": "internet_access"
+      },
       "certs": [
         {
           "id": "c1",
           "agentDid": "did:vaultys:proxy",
-          "capabilities": ["internet_access"],
+          "capabilities": [
+            "internet_access"
+          ],
           "status": "active",
           "issuedAt": 0,
           "expiresAt": null
         }
       ],
-      "expect": { "allowed": true, "grantingCertId": "c1" }
+      "expect": {
+        "allowed": true,
+        "grantingCertId": "c1"
+      }
     },
     {
       "name": "no certificates at all denies",
       "now": 1000,
-      "action": { "capability": "internet_access" },
+      "action": {
+        "capability": "internet_access"
+      },
       "certs": [],
       "expect": {
         "allowed": false,
@@ -50,12 +66,17 @@
     {
       "name": "certificate without the requested capability denies",
       "now": 1000,
-      "action": { "capability": "internet_access" },
+      "action": {
+        "capability": "internet_access"
+      },
       "certs": [
         {
           "id": "c1",
           "agentDid": "did:vaultys:proxy",
-          "capabilities": ["api_call", "knowledge_search"],
+          "capabilities": [
+            "api_call",
+            "knowledge_search"
+          ],
           "status": "active",
           "issuedAt": 0,
           "expiresAt": null
@@ -69,12 +90,16 @@
     {
       "name": "expired certificate denies",
       "now": 5000,
-      "action": { "capability": "internet_access" },
+      "action": {
+        "capability": "internet_access"
+      },
       "certs": [
         {
           "id": "c1",
           "agentDid": "did:vaultys:proxy",
-          "capabilities": ["internet_access"],
+          "capabilities": [
+            "internet_access"
+          ],
           "status": "active",
           "issuedAt": 0,
           "expiresAt": 4999
@@ -88,12 +113,16 @@
     {
       "name": "expiresAt exactly equal to now is already expired",
       "now": 5000,
-      "action": { "capability": "internet_access" },
+      "action": {
+        "capability": "internet_access"
+      },
       "certs": [
         {
           "id": "c1",
           "agentDid": "did:vaultys:proxy",
-          "capabilities": ["internet_access"],
+          "capabilities": [
+            "internet_access"
+          ],
           "status": "active",
           "issuedAt": 0,
           "expiresAt": 5000
@@ -107,28 +136,39 @@
     {
       "name": "expiresAt one millisecond in the future still grants",
       "now": 5000,
-      "action": { "capability": "internet_access" },
+      "action": {
+        "capability": "internet_access"
+      },
       "certs": [
         {
           "id": "c1",
           "agentDid": "did:vaultys:proxy",
-          "capabilities": ["internet_access"],
+          "capabilities": [
+            "internet_access"
+          ],
           "status": "active",
           "issuedAt": 0,
           "expiresAt": 5001
         }
       ],
-      "expect": { "allowed": true, "grantingCertId": "c1" }
+      "expect": {
+        "allowed": true,
+        "grantingCertId": "c1"
+      }
     },
     {
       "name": "revoked certificate denies",
       "now": 1000,
-      "action": { "capability": "internet_access" },
+      "action": {
+        "capability": "internet_access"
+      },
       "certs": [
         {
           "id": "c1",
           "agentDid": "did:vaultys:proxy",
-          "capabilities": ["internet_access"],
+          "capabilities": [
+            "internet_access"
+          ],
           "status": "revoked",
           "issuedAt": 0,
           "expiresAt": null
@@ -142,12 +182,16 @@
     {
       "name": "superseded certificate denies",
       "now": 1000,
-      "action": { "capability": "internet_access" },
+      "action": {
+        "capability": "internet_access"
+      },
       "certs": [
         {
           "id": "c1",
           "agentDid": "did:vaultys:proxy",
-          "capabilities": ["internet_access"],
+          "capabilities": [
+            "internet_access"
+          ],
           "status": "superseded",
           "issuedAt": 0,
           "expiresAt": null
@@ -161,33 +205,50 @@
     {
       "name": "scoped certificate matches an exact resource",
       "now": 1000,
-      "action": { "capability": "internet_access", "resource": "api.openai.com:443" },
+      "action": {
+        "capability": "internet_access",
+        "resource": "api.openai.com:443"
+      },
       "certs": [
         {
           "id": "c1",
           "agentDid": "did:vaultys:proxy",
-          "capabilities": ["internet_access"],
+          "capabilities": [
+            "internet_access"
+          ],
           "status": "active",
           "issuedAt": 0,
           "expiresAt": null,
-          "scope": { "resource": "api.openai.com:443" }
+          "scope": {
+            "resource": "api.openai.com:443"
+          }
         }
       ],
-      "expect": { "allowed": true, "grantingCertId": "c1" }
+      "expect": {
+        "allowed": true,
+        "grantingCertId": "c1"
+      }
     },
     {
       "name": "scoped certificate denies a different resource",
       "now": 1000,
-      "action": { "capability": "internet_access", "resource": "evil.example:443" },
+      "action": {
+        "capability": "internet_access",
+        "resource": "evil.example:443"
+      },
       "certs": [
         {
           "id": "c1",
           "agentDid": "did:vaultys:proxy",
-          "capabilities": ["internet_access"],
+          "capabilities": [
+            "internet_access"
+          ],
           "status": "active",
           "issuedAt": 0,
           "expiresAt": null,
-          "scope": { "resource": "api.openai.com:443" }
+          "scope": {
+            "resource": "api.openai.com:443"
+          }
         }
       ],
       "expect": {
@@ -198,16 +259,22 @@
     {
       "name": "scoped certificate denies an action carrying no resource",
       "now": 1000,
-      "action": { "capability": "internet_access" },
+      "action": {
+        "capability": "internet_access"
+      },
       "certs": [
         {
           "id": "c1",
           "agentDid": "did:vaultys:proxy",
-          "capabilities": ["internet_access"],
+          "capabilities": [
+            "internet_access"
+          ],
           "status": "active",
           "issuedAt": 0,
           "expiresAt": null,
-          "scope": { "resource": "api.openai.com:443" }
+          "scope": {
+            "resource": "api.openai.com:443"
+          }
         }
       ],
       "expect": {
@@ -218,49 +285,74 @@
     {
       "name": "unscoped certificate matches any resource",
       "now": 1000,
-      "action": { "capability": "internet_access", "resource": "anything.at.all:443" },
+      "action": {
+        "capability": "internet_access",
+        "resource": "anything.at.all:443"
+      },
       "certs": [
         {
           "id": "c1",
           "agentDid": "did:vaultys:proxy",
-          "capabilities": ["internet_access"],
+          "capabilities": [
+            "internet_access"
+          ],
           "status": "active",
           "issuedAt": 0,
           "expiresAt": null
         }
       ],
-      "expect": { "allowed": true, "grantingCertId": "c1" }
+      "expect": {
+        "allowed": true,
+        "grantingCertId": "c1"
+      }
     },
     {
       "name": "resourcePattern with a trailing wildcard matches",
       "now": 1000,
-      "action": { "capability": "api_call", "resource": "mcp://github/create_issue" },
+      "action": {
+        "capability": "api_call",
+        "resource": "mcp://github/create_issue"
+      },
       "certs": [
         {
           "id": "c1",
           "agentDid": "did:vaultys:proxy",
-          "capabilities": ["api_call"],
+          "capabilities": [
+            "api_call"
+          ],
           "status": "active",
           "issuedAt": 0,
           "expiresAt": null,
-          "scope": { "resourcePattern": "mcp://github/*" }
+          "scope": {
+            "resourcePattern": "mcp://github/*"
+          }
         }
       ],
-      "expect": { "allowed": true, "grantingCertId": "c1" }
+      "expect": {
+        "allowed": true,
+        "grantingCertId": "c1"
+      }
     },
     {
       "name": "resourcePattern denies a non-matching resource",
       "now": 1000,
-      "action": { "capability": "api_call", "resource": "mcp://gitlab/create_issue" },
+      "action": {
+        "capability": "api_call",
+        "resource": "mcp://gitlab/create_issue"
+      },
       "certs": [
         {
           "id": "c1",
           "agentDid": "did:vaultys:proxy",
-          "capabilities": ["api_call"],
+          "capabilities": [
+            "api_call"
+          ],
           "status": "active",
           "issuedAt": 0,
           "expiresAt": null,
-          "scope": { "resourcePattern": "mcp://github/*" }
+          "scope": {
+            "resourcePattern": "mcp://github/*"
+          }
         }
       ],
       "expect": {
@@ -271,34 +363,51 @@
     {
       "name": "resourcePattern with several wildcards matches",
       "now": 1000,
-      "action": { "capability": "api_call", "resource": "mcp://github/issues/create" },
+      "action": {
+        "capability": "api_call",
+        "resource": "mcp://github/issues/create"
+      },
       "certs": [
         {
           "id": "c1",
           "agentDid": "did:vaultys:proxy",
-          "capabilities": ["api_call"],
+          "capabilities": [
+            "api_call"
+          ],
           "status": "active",
           "issuedAt": 0,
           "expiresAt": null,
-          "scope": { "resourcePattern": "mcp://*/issues/*" }
+          "scope": {
+            "resourcePattern": "mcp://*/issues/*"
+          }
         }
       ],
-      "expect": { "allowed": true, "grantingCertId": "c1" }
+      "expect": {
+        "allowed": true,
+        "grantingCertId": "c1"
+      }
     },
     {
       "name": "regex metacharacters in a pattern are matched literally, not as regex",
-      "$why": "A '.' in a pattern must not match an arbitrary character — otherwise 'a.b' would authorize 'axb'.",
+      "$why": "A '.' in a pattern must not match an arbitrary character \u2014 otherwise 'a.b' would authorize 'axb'.",
       "now": 1000,
-      "action": { "capability": "api_call", "resource": "mcp://sxrv/tool" },
+      "action": {
+        "capability": "api_call",
+        "resource": "mcp://sxrv/tool"
+      },
       "certs": [
         {
           "id": "c1",
           "agentDid": "did:vaultys:proxy",
-          "capabilities": ["api_call"],
+          "capabilities": [
+            "api_call"
+          ],
           "status": "active",
           "issuedAt": 0,
           "expiresAt": null,
-          "scope": { "resourcePattern": "mcp://s.rv/*" }
+          "scope": {
+            "resourcePattern": "mcp://s.rv/*"
+          }
         }
       ],
       "expect": {
@@ -309,33 +418,51 @@
     {
       "name": "a pattern with no wildcard is an exact match, metacharacters included",
       "now": 1000,
-      "action": { "capability": "api_call", "resource": "mcp://s.rv/tool" },
+      "action": {
+        "capability": "api_call",
+        "resource": "mcp://s.rv/tool"
+      },
       "certs": [
         {
           "id": "c1",
           "agentDid": "did:vaultys:proxy",
-          "capabilities": ["api_call"],
+          "capabilities": [
+            "api_call"
+          ],
           "status": "active",
           "issuedAt": 0,
           "expiresAt": null,
-          "scope": { "resourcePattern": "mcp://s.rv/tool" }
+          "scope": {
+            "resourcePattern": "mcp://s.rv/tool"
+          }
         }
       ],
-      "expect": { "allowed": true, "grantingCertId": "c1" }
+      "expect": {
+        "allowed": true,
+        "grantingCertId": "c1"
+      }
     },
     {
       "name": "maxUses exhausted denies",
       "now": 1000,
-      "action": { "capability": "api_call", "resource": "mcp://github/create_issue" },
+      "action": {
+        "capability": "api_call",
+        "resource": "mcp://github/create_issue"
+      },
       "certs": [
         {
           "id": "c1",
           "agentDid": "did:vaultys:proxy",
-          "capabilities": ["api_call"],
+          "capabilities": [
+            "api_call"
+          ],
           "status": "active",
           "issuedAt": 0,
           "expiresAt": null,
-          "scope": { "resourcePattern": "mcp://github/*", "maxUses": 2 },
+          "scope": {
+            "resourcePattern": "mcp://github/*",
+            "maxUses": 2
+          },
           "usedCount": 2
         }
       ],
@@ -347,48 +474,74 @@
     {
       "name": "maxUses not yet reached grants",
       "now": 1000,
-      "action": { "capability": "api_call", "resource": "mcp://github/create_issue" },
+      "action": {
+        "capability": "api_call",
+        "resource": "mcp://github/create_issue"
+      },
       "certs": [
         {
           "id": "c1",
           "agentDid": "did:vaultys:proxy",
-          "capabilities": ["api_call"],
+          "capabilities": [
+            "api_call"
+          ],
           "status": "active",
           "issuedAt": 0,
           "expiresAt": null,
-          "scope": { "resourcePattern": "mcp://github/*", "maxUses": 2 },
+          "scope": {
+            "resourcePattern": "mcp://github/*",
+            "maxUses": 2
+          },
           "usedCount": 1
         }
       ],
-      "expect": { "allowed": true, "grantingCertId": "c1" }
+      "expect": {
+        "allowed": true,
+        "grantingCertId": "c1"
+      }
     },
     {
       "name": "absent usedCount is treated as zero",
       "now": 1000,
-      "action": { "capability": "api_call", "resource": "mcp://github/create_issue" },
+      "action": {
+        "capability": "api_call",
+        "resource": "mcp://github/create_issue"
+      },
       "certs": [
         {
           "id": "c1",
           "agentDid": "did:vaultys:proxy",
-          "capabilities": ["api_call"],
+          "capabilities": [
+            "api_call"
+          ],
           "status": "active",
           "issuedAt": 0,
           "expiresAt": null,
-          "scope": { "resourcePattern": "mcp://github/*", "maxUses": 1 }
+          "scope": {
+            "resourcePattern": "mcp://github/*",
+            "maxUses": 1
+          }
         }
       ],
-      "expect": { "allowed": true, "grantingCertId": "c1" }
+      "expect": {
+        "allowed": true,
+        "grantingCertId": "c1"
+      }
     },
     {
       "name": "the first usable matching certificate wins",
       "$why": "Pins iteration order: the decision must be stable across implementations, not 'any matching cert'.",
       "now": 1000,
-      "action": { "capability": "internet_access" },
+      "action": {
+        "capability": "internet_access"
+      },
       "certs": [
         {
           "id": "skipped-revoked",
           "agentDid": "did:vaultys:proxy",
-          "capabilities": ["internet_access"],
+          "capabilities": [
+            "internet_access"
+          ],
           "status": "revoked",
           "issuedAt": 0,
           "expiresAt": null
@@ -396,7 +549,9 @@
         {
           "id": "skipped-wrong-capability",
           "agentDid": "did:vaultys:proxy",
-          "capabilities": ["api_call"],
+          "capabilities": [
+            "api_call"
+          ],
           "status": "active",
           "issuedAt": 0,
           "expiresAt": null
@@ -404,7 +559,9 @@
         {
           "id": "first-match",
           "agentDid": "did:vaultys:proxy",
-          "capabilities": ["internet_access"],
+          "capabilities": [
+            "internet_access"
+          ],
           "status": "active",
           "issuedAt": 0,
           "expiresAt": null
@@ -412,24 +569,33 @@
         {
           "id": "also-matches",
           "agentDid": "did:vaultys:proxy",
-          "capabilities": ["internet_access"],
+          "capabilities": [
+            "internet_access"
+          ],
           "status": "active",
           "issuedAt": 0,
           "expiresAt": null
         }
       ],
-      "expect": { "allowed": true, "grantingCertId": "first-match" }
+      "expect": {
+        "allowed": true,
+        "grantingCertId": "first-match"
+      }
     },
     {
       "name": "invariant: adding a revoked certificate never grants more access",
-      "$why": "packages/trust/CLAUDE.md invariant 1 — must hold in both implementations.",
+      "$why": "packages/trust/CLAUDE.md invariant 1 \u2014 must hold in both implementations.",
       "now": 1000,
-      "action": { "capability": "system_command" },
+      "action": {
+        "capability": "system_command"
+      },
       "certs": [
         {
           "id": "c-revoked",
           "agentDid": "did:vaultys:proxy",
-          "capabilities": ["system_command"],
+          "capabilities": [
+            "system_command"
+          ],
           "status": "revoked",
           "issuedAt": 0,
           "expiresAt": null
@@ -437,7 +603,9 @@
         {
           "id": "c-active-other",
           "agentDid": "did:vaultys:proxy",
-          "capabilities": ["internet_access"],
+          "capabilities": [
+            "internet_access"
+          ],
           "status": "active",
           "issuedAt": 0,
           "expiresAt": null
@@ -450,35 +618,50 @@
     },
     {
       "name": "invariant: adding an unrelated certificate never removes access",
-      "$why": "packages/trust/CLAUDE.md invariant 2 — a narrow scoped cert alongside a broad one must not shadow it.",
+      "$why": "packages/trust/CLAUDE.md invariant 2 \u2014 a narrow scoped cert alongside a broad one must not shadow it.",
       "now": 1000,
-      "action": { "capability": "internet_access", "resource": "api.anthropic.com:443" },
+      "action": {
+        "capability": "internet_access",
+        "resource": "api.anthropic.com:443"
+      },
       "certs": [
         {
           "id": "c-narrow",
           "agentDid": "did:vaultys:proxy",
-          "capabilities": ["internet_access"],
+          "capabilities": [
+            "internet_access"
+          ],
           "status": "active",
           "issuedAt": 0,
           "expiresAt": null,
-          "scope": { "resource": "api.openai.com:443" }
+          "scope": {
+            "resource": "api.openai.com:443"
+          }
         },
         {
           "id": "c-broad",
           "agentDid": "did:vaultys:proxy",
-          "capabilities": ["internet_access"],
+          "capabilities": [
+            "internet_access"
+          ],
           "status": "active",
           "issuedAt": 0,
           "expiresAt": null
         }
       ],
-      "expect": { "allowed": true, "grantingCertId": "c-broad" }
+      "expect": {
+        "allowed": true,
+        "grantingCertId": "c-broad"
+      }
     },
     {
       "name": "an empty-string resource takes the short deny message",
       "$why": "The TS reason picks its form with a truthiness check on action.resource, so '' behaves like absent. Pinned so the Go port does not use a nil check and silently diverge.",
       "now": 1000,
-      "action": { "capability": "internet_access", "resource": "" },
+      "action": {
+        "capability": "internet_access",
+        "resource": ""
+      },
       "certs": [],
       "expect": {
         "allowed": false,
@@ -488,21 +671,333 @@
     {
       "name": "a scoped certificate does not match an empty-string resource",
       "now": 1000,
-      "action": { "capability": "internet_access", "resource": "" },
+      "action": {
+        "capability": "internet_access",
+        "resource": ""
+      },
       "certs": [
         {
           "id": "c1",
           "agentDid": "did:vaultys:proxy",
-          "capabilities": ["internet_access"],
+          "capabilities": [
+            "internet_access"
+          ],
           "status": "active",
           "issuedAt": 0,
           "expiresAt": null,
-          "scope": { "resource": "api.openai.com:443" }
+          "scope": {
+            "resource": "api.openai.com:443"
+          }
         }
       ],
       "expect": {
         "allowed": false,
         "reason": "No active certificate grants 'internet_access'"
+      }
+    },
+    {
+      "name": "custom capability on an unscoped certificate grants it like a built-in",
+      "now": 1000,
+      "action": {
+        "capability": "acme:invoice.approve"
+      },
+      "certs": [
+        {
+          "id": "c1",
+          "agentDid": "did:vaultys:proxy",
+          "capabilities": [
+            "acme:invoice.approve"
+          ],
+          "status": "active",
+          "issuedAt": 0,
+          "expiresAt": null
+        }
+      ],
+      "expect": {
+        "allowed": true,
+        "grantingCertId": "c1"
+      }
+    },
+    {
+      "name": "custom capability not held denies, quoting the name verbatim",
+      "now": 1000,
+      "action": {
+        "capability": "acme:invoice.approve"
+      },
+      "certs": [
+        {
+          "id": "c1",
+          "agentDid": "did:vaultys:proxy",
+          "capabilities": [
+            "acme:invoice.read"
+          ],
+          "status": "active",
+          "issuedAt": 0,
+          "expiresAt": null
+        }
+      ],
+      "expect": {
+        "allowed": false,
+        "reason": "No active certificate grants 'acme:invoice.approve'"
+      }
+    },
+    {
+      "name": "a built-in grant does not imply any custom capability",
+      "now": 1000,
+      "action": {
+        "capability": "acme:invoice.approve"
+      },
+      "certs": [
+        {
+          "id": "c1",
+          "agentDid": "did:vaultys:proxy",
+          "capabilities": [
+            "api_call",
+            "file_access"
+          ],
+          "status": "active",
+          "issuedAt": 0,
+          "expiresAt": null
+        }
+      ],
+      "expect": {
+        "allowed": false,
+        "reason": "No active certificate grants 'acme:invoice.approve'"
+      }
+    },
+    {
+      "name": "a custom grant does not imply the built-in it resembles",
+      "now": 1000,
+      "action": {
+        "capability": "api_call"
+      },
+      "certs": [
+        {
+          "id": "c1",
+          "agentDid": "did:vaultys:proxy",
+          "capabilities": [
+            "acme:api_call"
+          ],
+          "status": "active",
+          "issuedAt": 0,
+          "expiresAt": null
+        }
+      ],
+      "expect": {
+        "allowed": false,
+        "reason": "No active certificate grants 'api_call'"
+      }
+    },
+    {
+      "name": "custom capability scoped by resourcePattern matches",
+      "now": 1000,
+      "action": {
+        "capability": "acme:invoice.approve",
+        "resource": "crm://accounts/eu-42"
+      },
+      "certs": [
+        {
+          "id": "c1",
+          "agentDid": "did:vaultys:proxy",
+          "capabilities": [
+            "acme:invoice.approve"
+          ],
+          "status": "active",
+          "issuedAt": 0,
+          "expiresAt": null,
+          "scope": {
+            "resourcePattern": "crm://accounts/eu-*"
+          }
+        }
+      ],
+      "expect": {
+        "allowed": true,
+        "grantingCertId": "c1"
+      }
+    },
+    {
+      "name": "custom capability scoped by resourcePattern denies a non-matching resource",
+      "now": 1000,
+      "action": {
+        "capability": "acme:invoice.approve",
+        "resource": "crm://accounts/us-42"
+      },
+      "certs": [
+        {
+          "id": "c1",
+          "agentDid": "did:vaultys:proxy",
+          "capabilities": [
+            "acme:invoice.approve"
+          ],
+          "status": "active",
+          "issuedAt": 0,
+          "expiresAt": null,
+          "scope": {
+            "resourcePattern": "crm://accounts/eu-*"
+          }
+        }
+      ],
+      "expect": {
+        "allowed": false,
+        "reason": "No active certificate grants 'acme:invoice.approve' for resource 'crm://accounts/us-42'"
+      }
+    },
+    {
+      "name": "custom capability with maxUses exhausted denies",
+      "now": 1000,
+      "action": {
+        "capability": "acme:invoice.approve"
+      },
+      "certs": [
+        {
+          "id": "c1",
+          "agentDid": "did:vaultys:proxy",
+          "capabilities": [
+            "acme:invoice.approve"
+          ],
+          "status": "active",
+          "issuedAt": 0,
+          "expiresAt": null,
+          "scope": {
+            "maxUses": 2
+          },
+          "usedCount": 2
+        }
+      ],
+      "expect": {
+        "allowed": false,
+        "reason": "No active certificate grants 'acme:invoice.approve'"
+      }
+    },
+    {
+      "name": "expired certificate carrying a custom capability denies",
+      "now": 5000,
+      "action": {
+        "capability": "acme:invoice.approve"
+      },
+      "certs": [
+        {
+          "id": "c1",
+          "agentDid": "did:vaultys:proxy",
+          "capabilities": [
+            "acme:invoice.approve"
+          ],
+          "status": "active",
+          "issuedAt": 0,
+          "expiresAt": 4000
+        }
+      ],
+      "expect": {
+        "allowed": false,
+        "reason": "No active certificate grants 'acme:invoice.approve'"
+      }
+    },
+    {
+      "name": "revoked certificate carrying a custom capability denies",
+      "now": 1000,
+      "action": {
+        "capability": "acme:invoice.approve"
+      },
+      "certs": [
+        {
+          "id": "c1",
+          "agentDid": "did:vaultys:proxy",
+          "capabilities": [
+            "acme:invoice.approve"
+          ],
+          "status": "revoked",
+          "issuedAt": 0,
+          "expiresAt": null
+        }
+      ],
+      "expect": {
+        "allowed": false,
+        "reason": "No active certificate grants 'acme:invoice.approve'"
+      }
+    },
+    {
+      "name": "custom and built-in capabilities coexist on one certificate",
+      "now": 1000,
+      "action": {
+        "capability": "acme:invoice.approve"
+      },
+      "certs": [
+        {
+          "id": "c1",
+          "agentDid": "did:vaultys:proxy",
+          "capabilities": [
+            "api_call",
+            "acme:invoice.approve",
+            "non_delegatable"
+          ],
+          "status": "active",
+          "issuedAt": 0,
+          "expiresAt": null
+        }
+      ],
+      "expect": {
+        "allowed": true,
+        "grantingCertId": "c1"
+      }
+    },
+    {
+      "name": "a scoped custom grant is skipped for a second cert that stands unscoped",
+      "now": 1000,
+      "action": {
+        "capability": "acme:invoice.approve",
+        "resource": "crm://accounts/us-1"
+      },
+      "certs": [
+        {
+          "id": "scoped",
+          "agentDid": "did:vaultys:proxy",
+          "capabilities": [
+            "acme:invoice.approve"
+          ],
+          "status": "active",
+          "issuedAt": 0,
+          "expiresAt": null,
+          "scope": {
+            "resourcePattern": "crm://accounts/eu-*"
+          }
+        },
+        {
+          "id": "standing",
+          "agentDid": "did:vaultys:proxy",
+          "capabilities": [
+            "acme:invoice.approve"
+          ],
+          "status": "active",
+          "issuedAt": 0,
+          "expiresAt": null
+        }
+      ],
+      "expect": {
+        "allowed": true,
+        "grantingCertId": "standing"
+      }
+    },
+    {
+      "name": "a malformed capability name is never granted by a look-alike certificate",
+      "now": 1000,
+      "action": {
+        "capability": "acme:"
+      },
+      "certs": [
+        {
+          "id": "c1",
+          "agentDid": "did:vaultys:proxy",
+          "capabilities": [
+            "acme:invoice.approve"
+          ],
+          "status": "active",
+          "issuedAt": 0,
+          "expiresAt": null
+        }
+      ],
+      "expect": {
+        "allowed": false,
+        "reason": "No active certificate grants 'acme:'"
       }
     }
   ]

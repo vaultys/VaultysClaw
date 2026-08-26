@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { resolvePermission } from "../src/resolve-permission";
+import { BUILTIN_CAPABILITIES, isCustomCapability } from "@vaultysclaw/policy";
 import type { AgentCapability } from "@vaultysclaw/policy";
 import type { CapabilityCertificateLite, RequestedAction } from "../src/types";
 
@@ -105,23 +106,45 @@ describe("conformance vector coverage", () => {
     // Guards against a vector pinning behaviour for a capability that was
     // renamed or never existed — which would pass in both languages (both treat
     // the catalog as opaque strings) while testing nothing real.
-    const known: AgentCapability[] = [
-      "file_access",
-      "internet_access",
-      "browser_control",
-      "api_call",
-      "mail_send",
-      "code_execution",
-      "system_command",
-      "agent_communication",
-      "knowledge_search",
-      "admin_console_access",
-      "portal_access",
-      "process_read",
-      "non_delegatable",
-      "delegation",
-    ];
+    //
+    // Custom `vendor:action` names (docs/CUSTOM_CAPABILITIES.md) can't be checked
+    // against a catalog — they are admin-defined per deployment — so they're
+    // accepted on being *well-formed* instead. That keeps the guard meaningful:
+    // a typo'd built-in still fails, and a typo'd custom name fails too unless it
+    // happens to be legal, which is the one case the grammar can't distinguish
+    // from a deliberate one.
+    const known: readonly AgentCapability[] = BUILTIN_CAPABILITIES;
 
+    // Split by position. A capability appearing on a *certificate* is something
+    // the vector claims is granted, so it must be a real name. A capability
+    // appearing only in an *action* may legitimately be a name nothing grants —
+    // that's how "an unknown or malformed name is denied" is pinned at all.
+    const granted = new Set<string>();
+    const requested = new Set<string>();
+    for (const c of vectors.cases) {
+      requested.add(c.action.capability);
+      for (const cert of c.certs as Array<{ capabilities?: string[] }>) {
+        for (const cap of cert.capabilities ?? []) granted.add(cap);
+      }
+    }
+
+    const legal = (cap: string) =>
+      known.includes(cap as AgentCapability) || isCustomCapability(cap);
+
+    // Nothing is ever granted under an illegal name.
+    expect([...granted].filter((cap) => cap !== "" && !legal(cap))).toEqual([]);
+
+    // An action may name an illegal capability only if no certificate anywhere
+    // grants it — i.e. it is deliberately testing the denial path, not a typo of
+    // something a vector meant to exercise.
+    expect(
+      [...requested].filter((cap) => cap !== "" && !legal(cap) && granted.has(cap))
+    ).toEqual([]);
+  });
+
+  it("exercises custom `vendor:action` capabilities, not only built-ins", () => {
+    // The whole point of the custom-capability cases: if a refactor dropped them,
+    // both implementations would still agree — on nothing.
     const used = new Set<string>();
     for (const c of vectors.cases) {
       used.add(c.action.capability);
@@ -129,9 +152,6 @@ describe("conformance vector coverage", () => {
         for (const cap of cert.capabilities ?? []) used.add(cap);
       }
     }
-
-    expect([...used].filter((cap) => cap !== "" && !known.includes(cap as AgentCapability))).toEqual(
-      []
-    );
+    expect([...used].filter((cap) => isCustomCapability(cap)).length).toBeGreaterThan(0);
   });
 });

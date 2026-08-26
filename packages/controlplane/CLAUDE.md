@@ -1,10 +1,18 @@
 # packages/controlplane
 
-The rebuilt VaultysClaw control plane — administration-first, the `CapabilityCertificate` ledger
+The VaultysClaw control plane — administration-first, the `CapabilityCertificate` ledger
 at the core. See [`docs/REBUILD_ARCHITECTURE.md`](../../docs/REBUILD_ARCHITECTURE.md) and
 [`docs/CERTIFICATE_WEB_OF_TRUST.md`](../../docs/CERTIFICATE_WEB_OF_TRUST.md) for the design this
-implements. Lives **alongside** `packages/control-plane`, not in place of it yet — nothing points
-production traffic here until the cutover is deliberate.
+implements.
+
+**This is now the only control plane.** `packages/control-plane` — the pre-rebuild app this one was
+built alongside — has been deleted from this branch, along with `packages/agent-runtime`,
+`packages/agent-controller`, `packages/mcp-gateway` and `packages/notifier`. Notes below that say
+"ported from `packages/control-plane`" or compare against it are **provenance, not navigation**:
+that code is only on older branches, so don't try to open it. A handful of deferred items below are
+phrased as "not ported yet"; read those as "not built".
+
+The client half of the protocol lives in `packages/sdk` (TypeScript) and `sdk-go/` (Go).
 
 ## Development
 
@@ -15,9 +23,9 @@ pnpm controlplane:docker:up        # postgres + redis + apprise only (docker/doc
 pnpm --filter @vaultysclaw/controlplane dev
 ```
 
-`docker/docker-compose.controlplane.yml` is a **dedicated** dev stack — different default host
-ports (5433/6381/8000) than `packages/control-plane`'s own `docker/docker-compose.yml`
-(5432/6380/none), so both can run side by side with zero collision risk. Redis and Apprise are
+`docker/docker-compose.controlplane.yml` is the dev stack — Postgres on **5433**, Redis on
+**6381**, Apprise on **8000** (the non-default ports date from when a second control plane's stack
+held 5432/6380; they are kept so an existing local `.env` keeps working). Redis and Apprise are
 optional (`REDIS_URL`/`APPRISE_API_URL` unset just turns off Webhooks/Notification Channels, per
 their sections below); Postgres is required. See `.env.example` for the full variable set.
 
@@ -31,11 +39,11 @@ pnpm controlplane:webhook:dev
 ```
 
 This copies `prisma/schema.prisma` into `packages/webhook-dispatcher/prisma/` and generates a
-client there first (`controlplane:webhook:prisma` — that package has no schema of its own locally;
-only Docker copies one in, at build time, per its own CLAUDE.md), then starts the worker with
-`REDIS_URL`/`BULLMQ_PREFIX`/`APPRISE_API_URL` pointed at this stack. Run it in its own terminal,
-same as `notifier:dev`/`webhook:dev` are separate from `vaultysclaw:dev` for the old control plane
-— it isn't wired into `controlplane:dev` itself.
+client there first (`controlplane:webhook:prisma` — that package has no schema of its own locally),
+then starts the worker with `REDIS_URL`/`BULLMQ_PREFIX`/`APPRISE_API_URL` pointed at this stack.
+Run it in its own terminal — it is deliberately not wired into `controlplane:dev`, so remember it
+exists: without a dispatcher consuming the queue, events enqueue correctly and then sit there
+forever (see the health-check note under Notification Channels).
 
 ## Status
 
@@ -598,6 +606,60 @@ and "Entra" is an entirely separate Microsoft Graph directory-sync feature with 
   some here would emit events packages/control-plane's catalog doesn't know; connection changes are
   audited via `recordEvent` instead, and those payloads never carry the client secret.
 
+## Custom Capabilities
+
+Admin-defined `vendor:action` capability names (`docs/CUSTOM_CAPABILITIES.md`), carried by the
+same certificates, scoping, expiry and revocation as built-in ones. The control plane governs who
+may hold a name; what it *permits* is decided by whichever application binds an operation to it.
+
+- **Grammar and helpers** live in `@vaultysclaw/policy`, not here: `AgentCapability` is now
+  `BuiltinCapability | \`${string}:${string}\``, with `CUSTOM_CAPABILITY_RE`,
+  `assertValidCapabilityName`, `parseCustomCapability` and `filterAgainstRegistry` as the single
+  source of truth. `sdk-go/capability` is the Go half, held to it by
+  `conformance/capability-names.json` (27 cases, run by both suites).
+  **Widening the union disabled exhaustiveness checking** over capabilities — a `switch` or
+  `Record<AgentCapability, …>` silently stops being checked rather than failing to compile. Nothing
+  in this package relied on it, but anything mapping a capability to a label or icon now needs an
+  explicit fallback.
+- **Registry**: `CustomCapability` (`prisma/schema.prisma`, migration `add_custom_capability`) +
+  `db/custom-capability.dao.ts`. Org-global, admin-managed. **No `isActive`, no soft-delete** — the
+  decision is hard fail-closed, and a "deprecated but still resolving" state would reintroduce
+  exactly the grandfathering that was rejected. `name` is immutable; renaming is delete-and-recreate,
+  which reads as (and is) a revoke.
+- **Grantable set**: `lib/capabilities.ts`'s `grantableCapabilitiesForKind(kind)` = the kind's
+  built-ins + every registry name. Custom names are deliberately **not** partitioned by kind — a
+  `vendor:action` is meaningful to whichever application binds it, and a per-kind allow-list for
+  admin-defined names would be a second registry to keep in sync for no security gain. Both
+  issuance paths filter against it (`lib/registrations.ts`, `app/admin/certificates/actions.ts`),
+  so a name deleted while a form was open grants nothing.
+- **Fail closed, via the status protocol.** `lib/ws-server.ts`'s `handleCertStatusRequest` filters
+  a certificate's custom capabilities against the live registry before signing the
+  `cert_status_response` — that signed response, not the stored row, is what a holder keeps. This
+  is the authoritative propagation path: deleting a registry row stops those grants resolving on
+  every holder's next refresh, whether or not the revocation reached them. `deliverApprovedCapabilities`
+  re-filters too, so a reconnect can't re-hydrate a name deleted while the Actor was offline.
+  - **One place it can't hold, and says so**: `lib/actor-config.ts`'s `grantToken` is a packcert
+    whose capabilities are *inside* the signature, so a stale name can't be filtered out without
+    re-minting under a new id. That grant is **withheld** with an admin-visible warning instead —
+    same shape as the existing challenger-format refusal.
+- **Deletion is a mass revoke and the UI says so.** `app/admin/integrations/capabilities/[id]`
+  shows the affected-grant count, requires the name typed to confirm, then revokes each affected
+  certificate and pushes `actor_config` to connected holders. Steps beyond the delete are belt and
+  braces; the status filter is what actually enforces it.
+- **`actor_config` is no longer proxy-only.** Every kind now receives one, because the `trust`
+  block is meaningful to anything that re-checks its own status. `resolveOrgTrust` maps the org-wide
+  `trust.stapleTtlSeconds` for non-proxy kinds (0 keeps its strict "no cached status is acceptable"
+  meaning, negative is unbounded); `proxy` keeps its own `maxStatusAgeSeconds` for the reason
+  documented in that file. Before this, the Settings knob reached nothing at all.
+- **Declared capabilities**: an Actor reports its manifest in `register`
+  (`RegisterPayload.declaredCapabilities`), stored on `Actor.declaredCapabilities` once the
+  handshake proves the DID. Purely informational — it drives the wanted/registered/granted table on
+  the Actor detail page and the "requested but not grantable" hint on the approval list. **An Actor
+  cannot declare a capability into existence**; an admin still creates the registry entry and
+  issues the grant.
+- **Events**: `capability.created` / `updated` / `deleted` (group "Capabilities" in the shared
+  catalog). `capability.deleted` carries `affectedGrants`.
+
 ## Audit Log
 
 A unified, append-only log (docs/PAGE_DESIGN.md §1.6) — replaces the old app's split IntentLog
@@ -937,18 +999,9 @@ repeatable tests (see deferred).
   compose entry or `Dockerfile.webhook-dispatcher` variant for actually deploying one yet. That's a
   deployment-time decision for whenever this package ships, not a code gap in
   `packages/webhook-dispatcher` itself — the dev script proves the same wiring works.
-- **Trust policy enforcement — partially real now.** `trust.failMode` has its first consumer:
-  `lib/actor-config.ts` translates it into the `actor_config` payload's `trust.failClosed`, which a
-  `kind: "proxy"` interception point enforces (docs/PROXY_ARCHITECTURE.md §7.1). Still unread:
-  `trust.stapleTtlSeconds` — and deliberately so rather than by omission. Its 0 means "force a live
-  status query every time" (trust doc §5.2), the strictest setting, and an interception point decides
-  offline by design and can never query live. Inheriting the number would hand the *loosest*
-  behaviour to the admin who asked for the strictest, so the proxy kind carries its own
-  `maxStatusAgeSeconds` in `kindConfig` instead, where 0 keeps its strict meaning and unbounded must
-  be written explicitly as a negative. No verifier here consumes `packages/policy`'s
-  `verifyCertStatusResponseCert(vid, token, maxAgeMs)` yet. Per-workspace override columns (trust doc
-  §5.3's `Workspace.certFailMode`/`certStapleTtlSeconds`) aren't in the schema — org-wide is still
-  the only level.
+- **Per-workspace trust overrides** (trust doc §5.3's `Workspace.certFailMode`/
+  `certStapleTtlSeconds`) aren't in the schema — org-wide is still the only level. Both org
+  settings *are* now enforced end to end, see Custom Capabilities below.
 - **The `proxy` kind's admin panel.** `lib/proxy-kind.ts` defines and validates the `kindConfig`
   schema, `lib/proxy-rules.ts` signs the rule set, and `lib/ws-server.ts`'s `pushActorConfig` pushes
   both — but there is no UI for authoring them yet, so a proxy's `kindConfig` has to be written

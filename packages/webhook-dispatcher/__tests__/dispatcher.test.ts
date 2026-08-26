@@ -8,7 +8,7 @@
 import crypto from "node:crypto";
 import { describe, it, expect, vi } from "vitest";
 import type { WebhookJob } from "@vaultysclaw/shared";
-import { sign } from "../packages/webhook-dispatcher/src/sign";
+import { sign } from "../src/sign";
 import {
   buildDeadLetter,
   buildDeliveryRequest,
@@ -22,8 +22,8 @@ import {
   type NotificationDeps,
   type WebhookSubscription,
   type NotificationChannelSubscription,
-} from "../packages/webhook-dispatcher/src/delivery";
-import { renderNotification } from "../packages/webhook-dispatcher/src/render";
+} from "../src/delivery";
+import { renderNotification } from "../src/render";
 
 const SECRET = "whsec_test_123";
 

@@ -182,6 +182,25 @@ export const WEBHOOK_EVENTS: WebhookEventDef[] = [
   },
   // ── Knowledge ─────────────────────────────────────────────────────────────
   {
+    type: "capability.created",
+    label: "Custom capability created",
+    description: "An admin added a `vendor:action` capability to the registry, making it grantable.",
+    group: "Capabilities",
+  },
+  {
+    type: "capability.updated",
+    label: "Custom capability updated",
+    description: "A registry entry's label, description or group changed. The name itself is immutable.",
+    group: "Capabilities",
+  },
+  {
+    type: "capability.deleted",
+    label: "Custom capability deleted",
+    description:
+      "A registry entry was removed. This is a mass revoke: every certificate carrying the name stops resolving it. The payload reports how many grants were affected.",
+    group: "Capabilities",
+  },
+  {
     type: "knowledge.created",
     label: "Knowledge created",
     description: "A knowledge source was added.",

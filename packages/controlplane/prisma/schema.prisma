@@ -45,6 +45,12 @@ model Actor {
   // without a live connection. Nullable only for rows that predate this field.
   publicKey    String?
   workspaceId  String?
+  // The capability manifest the Actor reported in `register` (docs/CUSTOM_CAPABILITIES.md):
+  // `[{ name, label?, description? }]`. A record of what its application says it needs, used to
+  // show an admin the gap between wanted / registered / granted. Purely informational — nothing
+  // reads it to make an authorization decision, and an Actor cannot grant itself anything by
+  // writing here.
+  declaredCapabilities Json?
   kindConfig   Json     @default("{}")
   registeredAt DateTime @default(now())
   lastSeen     DateTime @default(now())
@@ -571,4 +577,47 @@ model ModelWorkspaceAccess {
 
   @@id([modelId, workspaceId])
   @@index([workspaceId])
+}
+
+// ─── Custom capabilities ─────────────────────────────────────────────────────
+// The org-global registry of admin-defined `vendor:action` capability names
+// (docs/CUSTOM_CAPABILITIES.md). A row here does not grant anything — it makes a
+// name *grantable*, and makes it resolvable: `lib/ws-server.ts` filters every
+// certificate's custom capabilities against this table before signing a
+// `cert_status_response`, so deleting a row stops those grants resolving on the
+// holder's next refresh.
+//
+// Deliberately **no `isActive` and no soft-delete**. The decision is hard
+// fail-closed; a second "deprecated but still resolving" state would quietly
+// reintroduce the grandfather semantics that choice rejected. Deletion is a mass
+// revoke, and the admin action that performs it says so with an affected-grant
+// count.
+//
+// `name` is immutable after creation. Renaming would silently change which
+// grants resolve; delete-and-recreate is the honest expression of that, since it
+// reads as (and is) a revoke.
+
+model CustomCapability {
+  id String @id @default(uuid())
+  // The full `vendor:action` name, e.g. "acme:invoice.approve". Validated against
+  // `@vaultysclaw/policy`'s CUSTOM_CAPABILITY_RE at every write path — the column
+  // is a plain String because the grammar lives in one place, in code, shared
+  // with sdk-go.
+  name        String  @unique
+  // Denormalised halves of `name`, so the issuance UI can group by vendor without
+  // string-splitting every row. Never written independently — always derived via
+  // policy's `parseCustomCapability`.
+  vendor      String
+  action      String
+  label       String
+  description String?
+  // Free-text grouping in the issuance UI, independent of `vendor` (an org may
+  // want "Finance" spanning two vendors).
+  group       String?
+  // DID of the Owner who created it.
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([vendor])
 }

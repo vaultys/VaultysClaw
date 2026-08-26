@@ -66,6 +66,21 @@ export class ActorDAO {
     });
   }
 
+  /**
+   * Record the capability manifest an Actor reported in `register`
+   * (docs/CUSTOM_CAPABILITIES.md).
+   *
+   * Informational only — it drives the "wanted / registered / granted" diff on the Actor detail
+   * page. Nothing reads it to make an authorization decision, so an Actor writing here cannot
+   * grant itself anything.
+   */
+  static async setDeclaredCapabilities(
+    did: string,
+    declared: { name: string; label?: string; description?: string }[]
+  ): Promise<void> {
+    await prisma.actor.update({ where: { did }, data: { declaredCapabilities: declared } });
+  }
+
   /** `null` clears the location entirely (all three columns), matching the map/detail page's
    *  "Clear" action — there's no such thing as a lat/lon with no label or vice versa. */
   static async updateLocation(

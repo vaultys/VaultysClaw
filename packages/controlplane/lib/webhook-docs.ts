@@ -9,6 +9,7 @@ import { CONTROLPLANE_WEBHOOK_EVENTS } from "./webhook-events";
 import {
   actorPayload,
   certificatePayload,
+  customCapabilityPayload,
   modelPayload,
   proxyConfigPayload,
   workspacePayload,
@@ -65,6 +66,18 @@ const sampleModel = {
   workspaceAccess: [{ workspaceId: "ws_9f3a2b" }],
   createdBy: "did:vaultys:0071ec50c977d4e05682764806c7fc03556de6af",
   createdAt: "2026-07-16T09:10:00.000Z",
+};
+
+const sampleCustomCapability = {
+  id: "cap_7d1e9f",
+  name: "acme:invoice.approve",
+  vendor: "acme",
+  action: "invoice.approve",
+  label: "Approve invoices",
+  description: "Marks an invoice approved in the Acme ERP.",
+  group: "Finance",
+  createdBy: "did:vaultys:0071ec50c977d4e05682764806c7fc03556de6af",
+  createdAt: "2026-07-16T09:15:00.000Z",
 };
 
 // ── event type → example payload (mirrors the emission sites) ───────────────
@@ -125,6 +138,18 @@ const EXAMPLE_PAYLOADS: Record<string, Record<string, unknown>> = {
   // reference, matching the emission-site convention this event already uses elsewhere.
   "workspace.deleted": { id: sampleWorkspace.id, name: sampleWorkspace.name },
 
+  "capability.created": customCapabilityPayload(sampleCustomCapability),
+  "capability.updated": customCapabilityPayload({
+    ...sampleCustomCapability,
+    label: "Approve customer invoices",
+  }),
+  // Deletion reports what it cost: `affectedGrants` is how many active certificates carried the
+  // name and therefore stopped resolving it. Nothing else about those certificates is included —
+  // an external system that needs the list can read the audit log.
+  "capability.deleted": {
+    ...customCapabilityPayload(sampleCustomCapability),
+    affectedGrants: 3,
+  },
   "model.created": modelPayload(sampleModel),
   "model.updated": modelPayload({ ...sampleModel, isActive: false }),
   // Deletion sends the identifying fields only — by the time this fires the row is gone, so the

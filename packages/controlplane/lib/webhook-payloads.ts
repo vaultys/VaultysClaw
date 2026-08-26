@@ -172,6 +172,33 @@ export function modelPayload(m: AnyRecord): AnyRecord {
   };
 }
 
+/** Deep link to a custom capability's detail page. */
+export function capabilityAdminUrl(id: string): string | null {
+  return buildAdminUrl(`/admin/integrations/capabilities/${id}`);
+}
+
+/**
+ * A custom-capability registry entry (docs/CUSTOM_CAPABILITIES.md).
+ *
+ * Everything here is already public within the org — a capability name and its label are what an
+ * admin picks from a list — so there is no secret to omit. It stays an explicit allow-list anyway,
+ * for the same reason the others do: a field added to the model shouldn't start being delivered to
+ * external endpoints just because it exists.
+ */
+export function customCapabilityPayload(c: AnyRecord): AnyRecord {
+  return {
+    id: c.id,
+    name: c.name,
+    vendor: c.vendor,
+    action: c.action,
+    label: c.label,
+    description: c.description ?? null,
+    group: c.group ?? null,
+    createdBy: c.createdBy ?? null,
+    createdAt: c.createdAt ?? null,
+  };
+}
+
 /**
  * A `kind: "proxy"` Actor's enforcement configuration, for
  * `proxy.config_updated` (docs/PROXY_ARCHITECTURE.md §12).

@@ -49,10 +49,25 @@ export interface ProtocolMessage {
   timestamp: string; // ISO 8601
 }
 
+/**
+ * One capability an Actor's application declares it needs (docs/CUSTOM_CAPABILITIES.md).
+ *
+ * A **declaration**, not a request and certainly not a grant: the control plane records it so an
+ * admin can see what an Actor wants — and, for a custom name that isn't in the registry yet,
+ * create it — but nothing here makes a name grantable or grants it. That stays an admin action.
+ */
+export interface DeclaredCapability {
+  name: string;
+  label?: string;
+  description?: string;
+}
+
 export interface RegisterPayload {
   name: string;
   /** Open-ended — "openclaw" | "mcp" | "sensor" | "device" | future kinds (§4.2, lib/actor-kinds.ts). Not human; humans onboard via login, not this handshake. */
   kind: string;
+  /** The Actor's whole capability manifest, if it has one. See {@link DeclaredCapability}. */
+  declaredCapabilities?: DeclaredCapability[];
 }
 
 export interface AuthChallengePayload {

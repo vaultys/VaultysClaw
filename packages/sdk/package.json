@@ -23,7 +23,8 @@
     "build": "tsc && node ../../scripts/fix-esm-extensions.mjs dist",
     "type-check": "tsc --noEmit",
     "example": "tsx example/minimal.ts",
-    "lint": "eslint src --ext .ts"
+    "lint": "eslint src --ext .ts",
+    "test": "vitest run"
   },
   "dependencies": {
     "@vaultys/id": "3.0.0-beta6",
@@ -35,6 +36,7 @@
     "@types/node": "^22.0.0",
     "@types/ws": "^8.5.13",
     "tsx": "^4.19.2",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.9"
   }
 }

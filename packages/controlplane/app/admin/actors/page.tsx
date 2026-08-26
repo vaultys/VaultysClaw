@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Info, UserPlus } from "lucide-react";
-import { ActorDAO, PendingRegistrationDAO } from "@/db";
+import { ActorDAO, PendingRegistrationDAO, CustomCapabilityDAO } from "@/db";
 import PageChrome from "@/components/layout/PageChrome";
 import { ActorKindBadge } from "@/components/ActorKindBadge";
 import { encodeDidParam } from "@/lib/actor-route";
@@ -15,10 +15,11 @@ import { approveRegistrationAction, denyRegistrationAction } from "./actions";
  * as one action instead of two steps.
  */
 export default async function ActorsPage() {
-  const [actors, pending, awaitingDelivery] = await Promise.all([
+  const [actors, pending, awaitingDelivery, customCapabilities] = await Promise.all([
     ActorDAO.list(),
     PendingRegistrationDAO.listPending(),
     PendingRegistrationDAO.listApprovedUndelivered(),
+    CustomCapabilityDAO.list(),
   ]);
 
   return (
@@ -86,6 +87,11 @@ export default async function ActorsPage() {
               <div className="text-xs text-foreground-500 font-mono">{reg.did}</div>
               {(() => {
                 const capabilityOptions = reg.kind === "sensor" ? SENSOR_CAPABILITIES : AGENT_CAPABILITIES;
+                const requested = reg.requestedCapabilities as string[];
+                // Custom capabilities are offered to every non-sensor kind — the registry is not
+                // partitioned by kind (see `grantableCapabilitiesForKind`). A sensor's list stays
+                // the one built-in it actually gates on, so the copy below stays true.
+                const customOptions = reg.kind === "sensor" ? [] : customCapabilities;
                 return (
                   <>
                     <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm">
@@ -95,13 +101,60 @@ export default async function ActorsPage() {
                             type="checkbox"
                             name="capabilities"
                             value={cap}
-                            defaultChecked={(reg.requestedCapabilities as string[]).includes(cap)}
+                            defaultChecked={requested.includes(cap)}
                             className="accent-primary-600"
                           />
                           {cap}
                         </label>
                       ))}
                     </div>
+                    {customOptions.length > 0 && (
+                      <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm border-t border-neutral-200/60 pt-2">
+                        {customOptions.map((cap) => (
+                          <label
+                            key={cap.id}
+                            className="flex items-center gap-1.5 text-foreground-700"
+                            title={cap.description ?? undefined}
+                          >
+                            <input
+                              type="checkbox"
+                              name="capabilities"
+                              value={cap.name}
+                              defaultChecked={requested.includes(cap.name)}
+                              className="accent-primary-600"
+                            />
+                            <span>{cap.label}</span>
+                            <code className="text-xs text-foreground-400">{cap.name}</code>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                    {(() => {
+                      // A capability the Actor asked for that nobody can grant: either a typo, or
+                      // a custom name whose registry entry does not exist. Surfacing it here is
+                      // the discovery path — the admin sees what was wanted and can go add it,
+                      // without the Actor ever being able to declare it into existence itself.
+                      const grantableNames = new Set<string>([
+                        ...capabilityOptions,
+                        ...customOptions.map((c) => c.name),
+                      ]);
+                      const unsatisfiable = requested.filter((c) => !grantableNames.has(c));
+                      if (unsatisfiable.length === 0) return null;
+                      return (
+                        <p className="text-xs text-warning-700">
+                          Requested but not grantable:{" "}
+                          <code className="font-mono">{unsatisfiable.join(", ")}</code>. A custom
+                          capability must exist in the registry first &mdash;{" "}
+                          <Link
+                            href="/admin/integrations/capabilities/new"
+                            className="text-primary-600 hover:underline"
+                          >
+                            add it
+                          </Link>
+                          , then approve.
+                        </p>
+                      );
+                    })()}
                     {reg.kind === "sensor" && (
                       <p className="text-xs text-foreground-400">
                         Sensors only have this one capability today — approving with it checked

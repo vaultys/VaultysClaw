@@ -1,0 +1,160 @@
+{
+  "$schema": "./capability-names.md",
+  "version": 1,
+  "$comment": [
+    "Shared conformance table for CUSTOM capability name validation",
+    "(docs/CUSTOM_CAPABILITIES.md).",
+    "",
+    "Two implementations must agree on every case:",
+    "  - TypeScript: packages/policy/src/types.ts  (CUSTOM_CAPABILITY_RE / isCustomCapability)",
+    "      run by packages/policy/__tests__/capability-names.test.ts",
+    "  - Go:         sdk-go/capability/name.go",
+    "      run by sdk-go/capability/conformance_test.go",
+    "",
+    "`valid` means 'is a well-formed CUSTOM capability name'. A built-in name such as",
+    "\"file_access\" is therefore false here \u2014 it is legal to hold, but it is not a custom",
+    "name, and the two predicates answer different questions. Built-ins are a closed list",
+    "that lives in code, not a grammar, so there is nothing to pin about them here.",
+    "",
+    "This grammar decides which names a deployment can ever register or grant. Two",
+    "implementations disagreeing means one of them would accept a name the other can never",
+    "resolve \u2014 so add cases here first, then make both sides pass."
+  ],
+  "cases": [
+    {
+      "name": "acme:invoice.approve",
+      "valid": true,
+      "$why": "well-formed vendor:action"
+    },
+    {
+      "name": "ac:xy",
+      "valid": true,
+      "$why": "well-formed vendor:action"
+    },
+    {
+      "name": "acme-corp:billing_write",
+      "valid": true,
+      "$why": "well-formed vendor:action"
+    },
+    {
+      "name": "a1:b2",
+      "valid": true,
+      "$why": "well-formed vendor:action"
+    },
+    {
+      "name": "vendor:deeply.nested_action-name",
+      "valid": true,
+      "$why": "well-formed vendor:action"
+    },
+    {
+      "name": "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "valid": true,
+      "$why": "well-formed vendor:action"
+    },
+    {
+      "name": "file_access",
+      "valid": false,
+      "$why": "a built-in name, not a custom one \u2014 no colon"
+    },
+    {
+      "name": "",
+      "valid": false,
+      "$why": "empty"
+    },
+    {
+      "name": "acme:",
+      "valid": false,
+      "$why": "no action"
+    },
+    {
+      "name": ":approve",
+      "valid": false,
+      "$why": "no vendor"
+    },
+    {
+      "name": "a:b",
+      "valid": false,
+      "$why": "both halves too short"
+    },
+    {
+      "name": "acme:a",
+      "valid": false,
+      "$why": "action too short"
+    },
+    {
+      "name": "a:bc",
+      "valid": false,
+      "$why": "vendor too short"
+    },
+    {
+      "name": "Acme:invoice",
+      "valid": false,
+      "$why": "uppercase vendor"
+    },
+    {
+      "name": "acme:Invoice",
+      "valid": false,
+      "$why": "uppercase action"
+    },
+    {
+      "name": "acme:a:b",
+      "valid": false,
+      "$why": "two colons"
+    },
+    {
+      "name": "-acme:invoice",
+      "valid": false,
+      "$why": "vendor starts with a hyphen"
+    },
+    {
+      "name": "acme:.invoice",
+      "valid": false,
+      "$why": "action starts with a dot"
+    },
+    {
+      "name": "ac me:invoice",
+      "valid": false,
+      "$why": "space in vendor"
+    },
+    {
+      "name": "acme:inv oice",
+      "valid": false,
+      "$why": "space in action"
+    },
+    {
+      "name": "acme_corp:invoice",
+      "valid": false,
+      "$why": "underscore not allowed in vendor"
+    },
+    {
+      "name": "acme:invoice/approve",
+      "valid": false,
+      "$why": "slash not allowed in action"
+    },
+    {
+      "name": "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv:approve",
+      "valid": false,
+      "$why": "vendor too long"
+    },
+    {
+      "name": "acme:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "valid": false,
+      "$why": "action too long"
+    },
+    {
+      "name": " acme:invoice",
+      "valid": false,
+      "$why": "leading space \u2014 the pattern is anchored"
+    },
+    {
+      "name": "acme:invoice ",
+      "valid": false,
+      "$why": "trailing space \u2014 the pattern is anchored"
+    },
+    {
+      "name": "acme:invoice\n",
+      "valid": false,
+      "$why": "trailing newline must not satisfy an anchored pattern"
+    }
+  ]
+}

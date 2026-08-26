@@ -18,6 +18,18 @@ export interface CapabilityState {
   certId: string;
   certificate: string;
   capabilities: string[];
+  /**
+   * The status the control plane last reported for this certificate, and when.
+   *
+   * Optional so the file stays readable by — and writable for — the Go SDK's
+   * `vconn/capstate.go`, which this is deliberately format-compatible with.
+   * Absent means "never checked", which is treated as maximally stale rather
+   * than as active: assuming active is what made revocation invisible before
+   * status checking existed at all.
+   */
+  lastStatus?: "active" | "revoked" | "superseded" | "expired";
+  /** Ms since epoch of the last verified status response. */
+  lastCheckedAt?: number;
 }
 
 /**

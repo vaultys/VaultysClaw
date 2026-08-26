@@ -35,10 +35,13 @@ description of the VaultysId identity/crypto model remains accurate and is not r
     rebuild is fewer surfaces with *more* trust rigor, not less. OIDC/Entra remain
     identity-*establishment* paths that still bind to a VaultysId DID (trust doc §6.3), not a
     parallel login mechanism.
-  - **Agents/Actors of any kind**: the register → auth-challenge → certificate handshake in
-    `packages/agent-runtime` (WS and WebRTC alike, trust doc §4.4) is untouched by this rebuild.
-    §4's `Actor`/kind model changes what happens *after* a successful handshake (which
-    certificate, which admin panel) — never the handshake itself.
+  - **Agents/Actors of any kind**: the register → auth-challenge → certificate handshake
+    (WS and WebRTC alike, trust doc §4.4) is unchanged *in design* by this rebuild. §4's
+    `Actor`/kind model changes what happens *after* a successful handshake (which certificate,
+    which admin panel) — never the handshake itself. Its **implementation** has moved:
+    `packages/agent-runtime` was deleted along with the rest of the pre-rebuild stack, and the
+    client half now lives in `packages/sdk` (TypeScript) and `sdk-go/` (Go), with the server half
+    in `packages/controlplane/lib/ws-server.ts`.
 
 ## 2. Cut
 
@@ -52,6 +55,13 @@ description of the VaultysId identity/crypto model remains accurate and is not r
 
 Nothing here needs a deprecation period or compatibility shim — no production traffic depends on
 any of it, so it's deleted, not sunset.
+
+**Done.** As of the cut described above, `packages/control-plane`, `packages/agent-runtime`,
+`packages/agent-controller`, `packages/mcp-gateway` and `packages/notifier` have been removed from
+this branch entirely, along with the root `__tests__` suite, `demo/` and the legacy docker stack.
+What remains is `packages/{controlplane,policy,trust,shared,sdk,webhook-dispatcher}` plus `sdk-go/`
+and `vaultysclaw-sensor/`. Anything below that describes migrating *from* the old packages is
+history, not a plan.
 
 ## 3. Kept, mostly unchanged
 

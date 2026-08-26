@@ -1,8 +1,9 @@
 # Interception Points — Target Architecture
 
 **Status:** Phase 1a partially built on `rebuild/core`. A first, superseded proxy implementation
-exists on branch `go-agent-controller` (`packages/proxy`, `packages/mcp-proxy`, five `Proxy*` Prisma
-models in `packages/control-plane`); §9 reviews it and this design replaces it.
+exists **only on branch `go-agent-controller`** (`packages/proxy`, `packages/mcp-proxy`, five
+`Proxy*` Prisma models in `packages/control-plane`) — none of those packages exist on this branch
+any more; §9 reviews that implementation and this design replaces it.
 
 Built and tested in `vaultysclaw-sensor/`:
 

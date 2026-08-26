@@ -230,6 +230,12 @@ Revocation is a **ledger write, not a network action.** Admin action → `Capabi
 
 ### 3.6 Multiple concurrent, attribute-scoped certificates (ABAC)
 
+> **Custom capabilities scope identically.** An admin-defined `vendor:action` name
+> (`docs/CUSTOM_CAPABILITIES.md`) is not a second kind of grant: `resolvePermission` matches it by
+> the same string equality, and every `CertScope` field — `resource`, `resourcePattern`,
+> `maxUses`, `purpose` — applies unchanged. The shared conformance vectors pin this in both
+> implementations, so it cannot quietly stop being true.
+
 Nothing in §3.3's schema actually requires one active cert per agent — `CapabilityCertificate`
 rows are keyed by `agentDid`, not unique per agent. Make that explicit and load-bearing: an agent
 routinely holds **several `active` certs at once** — a long-lived standing grant (e.g.
@@ -290,6 +296,18 @@ threshold is excluded from the proactive-renewal scan.
 This is the new piece — the "OCSP" of VaultysClaw.
 
 ### 4.1 Status-check message/route
+
+> **The response is filtered against the custom-capability registry** before it is signed
+> (`docs/CUSTOM_CAPABILITIES.md`). A `vendor:action` name an admin has deleted from the registry is
+> omitted from `capabilities`, even though the stored certificate row still carries it — so a
+> status check is the propagation path for a registry deletion, not merely a revocation check. This
+> is deliberate and is what makes "delete a capability" fail closed: what the holder keeps is what
+> this signed response says, not what the ledger row happens to contain.
+>
+> The status is still the row's own (`active`/`revoked`/`superseded`/`expired`). A certificate whose
+> capabilities are all filtered away is reported as *active with nothing on it*, rather than
+> collapsed to `revoked` — misreporting the ledger to express an authorization outcome would make
+> the audit trail lie.
 
 Two transports for the same operation, both requiring the caller to be an authenticated Actor
 (agent, verifier, or human session — never anonymous):

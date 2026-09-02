@@ -200,6 +200,18 @@ export class ActorRuntime extends EventEmitter {
     void this.runLoop();
   }
 
+  /**
+   * Drop the current connection without stopping the runtime, so the reconnect loop takes over.
+   *
+   * Distinct from {@link stop}: this is "the network went away", not "shut down". It exists because
+   * the reconnect path is where re-delivery of an approved grant and re-verification of certificate
+   * status happen — the parts most likely to be quietly broken, and impossible to exercise from
+   * outside without either unplugging something or waiting for luck.
+   */
+  dropConnection(): void {
+    this.ws?.close();
+  }
+
   stop(): void {
     this.stopped = true;
     this.clearHeartbeat();

@@ -65,6 +65,16 @@ import type {
 const logger = pino({ name: "ws-server" });
 const Buf = vCrypto.Buffer;
 
+/**
+ * How often deferred writes are flushed.
+ *
+ * Sized against what the deferred data is for: `lastSeen` is a human-readable "when did we last
+ * hear from this" on an admin page, and an audit row a few seconds late is still an audit row. Long
+ * enough to coalesce a fleet's heartbeats into one statement, short enough that an admin refreshing
+ * a page does not notice.
+ */
+const FLUSH_INTERVAL_MS = 5_000;
+
 const HANDSHAKE_TIMEOUT_MS = 30_000;
 const DEFAULT_GRANT_TTL_MS = 365 * 24 * 60 * 60 * 1000;
 
@@ -132,8 +142,62 @@ export class ControlPlaneWSServer {
   private awaitingApproval = new Map<AgentSender, AwaitingApproval>();
   private certIssuance = new Map<AgentSender, CertIssuanceState>();
 
+  /**
+   * Writes deferred out of the per-message hot paths and flushed on a timer.
+   *
+   * Both of these scale with the size of the fleet rather than with admin activity, and neither is
+   * read by anything that needs it to be current: `lastSeen` is a display timestamp ("online now"
+   * comes from `connected`, in memory), and `CertStatusCheck` is append-only audit data. Writing
+   * them inline made a heartbeat and a certificate re-check each cost a database round trip, which
+   * at thousands of Actors is most of the write load for no benefit.
+   */
+  private lastSeenBuffer = new Set<string>();
+  private statusCheckBuffer: { certId: string; requesterDid: string; status: string; checkedAt: Date }[] = [];
+  private flushTimer: ReturnType<typeof setInterval> | null = null;
+
   constructor(wss: WebSocketServer) {
     wss.on("connection", (ws: WebSocket) => this.handleConnection(ws));
+    this.flushTimer = setInterval(() => void this.flushDeferredWrites(), FLUSH_INTERVAL_MS);
+    // Never hold the process open for a flush timer — the buffers are best-effort by construction.
+    this.flushTimer.unref?.();
+  }
+
+  /**
+   * Write out the deferred buffers.
+   *
+   * Failures are logged and the batch dropped rather than retried: both buffers hold data whose
+   * value decays immediately (a stale `lastSeen`, an audit row for a check that already happened),
+   * and retrying would let a database outage grow an unbounded in-memory queue in a process whose
+   * job is holding thousands of live sockets. What must never be lost — certificates, approvals,
+   * revocations — is written inline and awaited, and none of it goes through here.
+   */
+  private async flushDeferredWrites(): Promise<void> {
+    if (this.lastSeenBuffer.size > 0) {
+      const dids = [...this.lastSeenBuffer];
+      this.lastSeenBuffer.clear();
+      try {
+        await ActorDAO.touchLastSeenBatch(dids);
+      } catch (err) {
+        logger.warn({ err, count: dids.length }, "Failed to flush lastSeen batch; dropping it");
+      }
+    }
+
+    if (this.statusCheckBuffer.length > 0) {
+      const rows = this.statusCheckBuffer;
+      this.statusCheckBuffer = [];
+      try {
+        await CertStatusCheckDAO.recordBatch(rows);
+      } catch (err) {
+        logger.warn({ err, count: rows.length }, "Failed to flush status-check batch; dropping it");
+      }
+    }
+  }
+
+  /** Stop the flusher and write out whatever is buffered. For tests and clean shutdown. */
+  async shutdown(): Promise<void> {
+    if (this.flushTimer) clearInterval(this.flushTimer);
+    this.flushTimer = null;
+    await this.flushDeferredWrites();
   }
 
   get connectedCount(): number {
@@ -346,11 +410,22 @@ export class ControlPlaneWSServer {
 
       const existing = await ActorDAO.findByDid(did);
       if (existing) {
-        await ActorDAO.touchLastSeen(did);
+        // Buffered rather than awaited: this was a synchronous write sitting inside the handshake,
+        // so every reconnecting Actor paid a database round trip before it could be told it was
+        // connected. Nothing reads `lastSeen` closely enough to justify that (see `lastSeenBuffer`).
+        this.lastSeenBuffer.add(did);
         // Recorded now that the DID is cryptographically proven. Informational only — it drives
         // the "wanted / registered / granted" diff on the Actor page and nothing else; an Actor
         // cannot grant itself anything by declaring it (docs/CUSTOM_CAPABILITIES.md Phase 4).
-        if (pending.declaredCapabilities) {
+        //
+        // Written only when it actually changed. An Actor's manifest is fixed for the life of its
+        // build, so writing on every reconnect is an UPDATE per reconnect that stores the bytes
+        // already there — and reconnects are the one thing a flaky fleet does constantly. The row
+        // is already in hand from the lookup above, so the comparison is free.
+        if (
+          pending.declaredCapabilities &&
+          !sameDeclaredCapabilities(existing.declaredCapabilities, pending.declaredCapabilities)
+        ) {
           void ActorDAO.setDeclaredCapabilities(did, pending.declaredCapabilities);
         }
         this.connected.set(did, {
@@ -445,7 +520,9 @@ export class ControlPlaneWSServer {
     const actor = this.connected.get(did);
     if (!actor) return;
     actor.lastSeen = new Date();
-    void ActorDAO.touchLastSeen(did);
+    // Buffered, not written: see `lastSeenBuffer`. The in-memory value above is what every
+    // "online" indicator actually reads, and it is already current.
+    this.lastSeenBuffer.add(did);
     this.sendMessage(sender, "pong", {});
   }
 
@@ -479,6 +556,22 @@ export class ControlPlaneWSServer {
     }
 
     const actor = this.connected.get(did);
+
+    // An approved grant that hasn't been delivered yet already answers this request — delivery
+    // happens over the certificate exchange moments from now. Without this check the Actor's
+    // reconnect (which is *how* it collects the grant) files a second registration, so an admin
+    // sees a fresh "pending" row for an Actor they just approved, and the approval queue grows one
+    // phantom entry per approved Actor. Found by the fleet simulator: every one of its Actors ended
+    // a run with both an approved and a pending registration.
+    const approvedUndelivered = await PendingRegistrationDAO.findApprovedUndelivered(did);
+    if (approvedUndelivered) {
+      logger.debug(
+        { did, registrationId: approvedUndelivered.id },
+        "Capability request ignored — an approved grant is already awaiting delivery"
+      );
+      return;
+    }
+
     const existingPending = await PendingRegistrationDAO.findPendingByDid(did);
     if (existingPending) {
       await PendingRegistrationDAO.updateRequestedCapabilities(
@@ -671,7 +764,14 @@ export class ControlPlaneWSServer {
       expiresAt: cert.expiresAt ? cert.expiresAt.getTime() : null,
     });
 
-    void CertStatusCheckDAO.record({ certId: cert.id, requesterDid, status });
+    this.statusCheckBuffer.push({
+      certId: cert.id,
+      requesterDid,
+      status,
+      // Recorded now rather than at flush time, so a batched write still says when the check
+      // actually happened.
+      checkedAt: new Date(),
+    });
 
     this.sendMessage(sender, "cert_status_response", {
       certToken: responseToken,
@@ -801,4 +901,30 @@ export class ControlPlaneWSServer {
   private sendError(sender: AgentSender, reason: string): void {
     this.sendMessage(sender, "error", { reason } satisfies ErrorPayload);
   }
+}
+
+/**
+ * Whether a reported capability manifest matches what is already stored.
+ *
+ * Compared field-by-field over a name-sorted copy rather than by `JSON.stringify` of the raw
+ * values: key order and array order are both incidental to what the manifest *means*, and a
+ * stringify would report a change whenever an SDK happened to emit its declarations in a different
+ * order, reintroducing exactly the per-reconnect write this check exists to avoid.
+ */
+function sameDeclaredCapabilities(stored: unknown, reported: DeclaredCapability[]): boolean {
+  if (!Array.isArray(stored)) return false;
+  if (stored.length !== reported.length) return false;
+
+  const key = (d: { name?: unknown }) => String(d?.name ?? "");
+  const a = [...(stored as DeclaredCapability[])].sort((x, y) => key(x).localeCompare(key(y)));
+  const b = [...reported].sort((x, y) => key(x).localeCompare(key(y)));
+
+  return a.every((x, i) => {
+    const y = b[i];
+    return (
+      x?.name === y?.name &&
+      (x?.label ?? null) === (y?.label ?? null) &&
+      (x?.description ?? null) === (y?.description ?? null)
+    );
+  });
 }

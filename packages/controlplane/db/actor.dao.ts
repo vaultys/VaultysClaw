@@ -67,6 +67,28 @@ export class ActorDAO {
   }
 
   /**
+   * Stamp `lastSeen` on many Actors in one statement.
+   *
+   * The heartbeat path used the single-row version, which at fleet scale is pure write
+   * amplification: 7,000 Actors on a 30-second heartbeat is ~230 UPDATEs per second, every one of
+   * them setting a column nothing authoritative reads. "Online now" comes from the live WebSocket
+   * connection map (`isConnected`), not from this timestamp — `lastSeen` is a display value, so a
+   * batched, slightly-behind write is the right trade and an exactly-current one was never a
+   * property anything depended on.
+   *
+   * `updateMany` silently skips a DID with no row, which is the behaviour wanted here: an Actor
+   * deleted between the heartbeat and the flush should not fail the whole batch.
+   */
+  static async touchLastSeenBatch(dids: string[]): Promise<number> {
+    if (dids.length === 0) return 0;
+    const result = await prisma.actor.updateMany({
+      where: { did: { in: dids } },
+      data: { lastSeen: new Date() },
+    });
+    return result.count;
+  }
+
+  /**
    * Record the capability manifest an Actor reported in `register`
    * (docs/CUSTOM_CAPABILITIES.md).
    *

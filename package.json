@@ -26,7 +26,9 @@
     "-- TEST --": "",
     "test": "turbo run test",
     "-- MISC --": "",
-    "clean": "turbo clean && rm -rf node_modules"
+    "clean": "turbo clean && rm -rf node_modules",
+    "simulator:prisma": "mkdir -p packages/simulator/prisma && cp packages/controlplane/prisma/schema.prisma packages/simulator/prisma/schema.prisma && pnpm --filter @vaultysclaw/simulator exec prisma generate",
+    "simulator": "pnpm simulator:prisma >/dev/null && sh -c 'set -a; [ -f packages/controlplane/.env ] && . ./packages/controlplane/.env; set +a; exec pnpm --filter @vaultysclaw/simulator start \"$@\"' --"
   },
   "devDependencies": {
     "@types/node": "^22.20.1",

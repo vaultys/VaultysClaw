@@ -1,0 +1,623 @@
+// VaultysClaw rebuilt control plane — schema.
+//
+// Deliberately minimal: only the models the current build slice actually uses.
+// See docs/REBUILD_ARCHITECTURE.md for the full target model list — those get
+// added to this schema as each feature is actually built, not speculatively
+// ahead of time. Webhooks, Notification Channels and the Model Registry have
+// already landed (see below); OIDC/Entra identity linking has not.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Settings ──────────────────────────────────────────────────────────────
+// Key/value store for control-plane-level config, notably `serverSecret` — the
+// VaultysId secret that makes the control plane itself a Actor and the
+// root issuer for the whole certificate ledger (docs/REBUILD_ARCHITECTURE.md
+// §4.5).
+
+model Setting {
+  key   String @id
+  value String
+}
+
+// ─── Actors ──────────────────────────────────────────────────────────────
+// One entity for every DID-holder, human or not (docs/REBUILD_ARCHITECTURE.md
+// §4, §4.5: "Humans are Actors too... not only operators who use the admin
+// console"). Replaces the old Agent/SensorDevice split *and* keeps humans out
+// of a separate identity table — `kind: "human"` is just another kind, so a
+// human's certificates reference the same `Actor.did` an agent's do. A
+// human's access — including whether they can open the admin console or the
+// Access Portal at all — is never a role on this row, only whatever
+// CapabilityCertificate rows name their `did` as the subject (§4.5).
+
+model Actor {
+  did          String   @id
+  name         String
+  kind         String
+  // Base64 raw public key, captured at registration from the completed
+  // Challenger handshake — enables independently re-verifying any certificate
+  // this Actor co-signed later (e.g. from the certificate detail page),
+  // without a live connection. Nullable only for rows that predate this field.
+  publicKey    String?
+  workspaceId  String?
+  // The capability manifest the Actor reported in `register` (docs/CUSTOM_CAPABILITIES.md):
+  // `[{ name, label?, description? }]`. A record of what its application says it needs, used to
+  // show an admin the gap between wanted / registered / granted. Purely informational — nothing
+  // reads it to make an authorization decision, and an Actor cannot grant itself anything by
+  // writing here.
+  declaredCapabilities Json?
+  kindConfig   Json     @default("{}")
+  registeredAt DateTime @default(now())
+  lastSeen     DateTime @default(now())
+
+  // Free-standing lat/lon + display label, not an enum/region — set by an admin (city-name
+  // geocode or manual coordinates, see lib/geocode.ts) via the actor detail page or the map page's
+  // pin editor. Null lat/lon means "not located"; label alone is never authoritative for position.
+  locationLat   Float?
+  locationLon   Float?
+  locationLabel String?
+
+  // "This actor belongs to / acts for that actor" (lib/actor-kinds.ts's `device` kind — a
+  // browser/computer/server owned by a human *or* an agent). Descriptive/administrative only:
+  // not consulted by packages/trust's resolvePermission. Real "device X acts as its owner"
+  // enforcement is future work, via the delegation-certificate chain described on
+  // CapabilityCertificate below — this field just records the relationship in the meantime, and
+  // will remain useful as a display concept even once that lands.
+  ownerDid String?
+  owner    Actor?  @relation("ActorOwnership", fields: [ownerDid], references: [did], onDelete: SetNull)
+
+  workspace       Workspace?               @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  certificates    CapabilityCertificate[]
+  humanProfile    User?
+  sensorWorkloads SensorWorkload[]
+  linksFrom       ActorLink[]              @relation("ActorLinkFrom")
+  linksTo         ActorLink[]              @relation("ActorLinkTo")
+  ownedActors     Actor[]                  @relation("ActorOwnership")
+  ssoIdentity     SsoIdentity?
+
+  @@index([kind])
+  @@index([workspaceId])
+  @@index([ownerDid])
+}
+
+// ─── Human profile ────────────────────────────────────────────────────────────
+// 1:1 extension of a `kind: "human"` Actor — profile fields that don't
+// apply to any other kind (email for notifications, OIDC/Entra linking later).
+// Deliberately not the identity/permission table; that's Actor + the cert
+// ledger.
+
+model User {
+  did       String   @id
+  email     String?  @unique
+  createdAt DateTime @default(now())
+  // Null means this human hasn't been through the one-time first-login profile-completion
+  // prompt (app/welcome) yet — set the moment they either submit or explicitly skip it. A human
+  // created via an invite (lib/user-login-channel.ts's registerHumanFromInvitation) already has a
+  // real name/email from the invite, so it's set immediately at creation there instead — the
+  // prompt is only for the plain self-registration path, which otherwise leaves every fresh human
+  // named "Unnamed" with no admin-driven way to fix it themselves.
+  profileCompletedAt DateTime?
+
+  actor Actor @relation(fields: [did], references: [did], onDelete: Cascade)
+}
+
+// ─── Capability certificate ledger ──────────────────────────────────────────
+// The single source of truth for what any Actor — agent or human — is
+// currently allowed to do (docs/CERTIFICATE_WEB_OF_TRUST.md §3.3). Append-only:
+// rows are never deleted or mutated after `active`, only flipped to
+// revoked/superseded/expired.
+
+model CapabilityCertificate {
+  id                 String    @id
+  agentDid           String
+  workspaceId        String?
+  capabilities       Json      @default("[]")
+  resourceLimits     Json?
+  scope              Json?
+  // "packcert" (trust doc §3.2a — packages/policy's signCert wire format, request+grant as two
+  // nested tokens), "challenger" (§3.2b — the library's native Challenger certificate, issued
+  // interactively over a live service:"certificate" exchange; pk1/pk2/sign1/sign2 are already a
+  // native dual-signature, so there is no separate nested request token for these rows), or
+  // "delegation" (not yet produced by any code — see the three fields + doc note below).
+  certFormat         String    @default("packcert")
+  certificate        String
+  requestCertificate String?
+  status             String    @default("active")
+  // DID of the issuer, or "system:bootstrap" for the first-admin exception (§4.5).
+  issuedBy           String?
+  issuedAt           DateTime  @default(now())
+  expiresAt          DateTime?
+  revokedAt          DateTime?
+  revokedBy          String?
+  revokedReason      String?
+  supersededByCertId String?
+
+  // ─ Delegation-chain groundwork (packages/controlplane/CLAUDE.md "Actor categories, devices &
+  // delegation") — schema only, nothing in this codebase sets these three fields yet. The design:
+  // a future `certFormat: "delegation"` row (cert B) delegates capabilities from this row's holder
+  // (cert A, held by `delegatedByDid`) to a second actor (this row's own `agentDid`), co-signed by
+  // both actors — deliberately no control-plane signature, unlike packcert/challenger above.
+  // `parentCertHash` records a hash of A's `certificate` bytes at delegation time, so a future
+  // verifier can confirm B truly chains to that exact A even offline. A's own `capabilities`
+  // carrying the plain "non_delegatable" capability (packages/policy's AgentCapability) means A can
+  // never be such a chain's parent at all, full stop — see that type's doc comment for the full
+  // future verification algorithm.
+  delegatedByDid String?
+  parentCertId   String?
+  parentCertHash String?
+
+  agent          Actor                   @relation(fields: [agentDid], references: [did], onDelete: Cascade)
+  workspace      Workspace?              @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  statusChecks   CertStatusCheck[]
+  parentCert     CapabilityCertificate?  @relation("CertDelegation", fields: [parentCertId], references: [id], onDelete: SetNull)
+  delegatedCerts CapabilityCertificate[] @relation("CertDelegation")
+
+  @@index([agentDid, status])
+  @@index([expiresAt])
+  @@index([parentCertId])
+}
+
+// ─── Certificate status-check history ────────────────────────────────────────
+// One row per `cert_status_request`/`cert_status_response` round
+// (docs/CERTIFICATE_WEB_OF_TRUST.md §4.1) — the audit trail for "who has
+// queried this certificate's live status, and when," surfaced on the
+// certificate detail page. Write-only from `ws-server.ts`'s
+// `handleCertStatusRequest`; never mutated.
+
+model CertStatusCheck {
+  id           String   @id
+  certId       String
+  requesterDid String
+  status       String
+  checkedAt    DateTime @default(now())
+
+  cert CapabilityCertificate @relation(fields: [certId], references: [id], onDelete: Cascade)
+
+  @@index([certId, checkedAt])
+}
+
+// ─── Pending registrations ───────────────────────────────────────────────────
+// One onboarding flow for every kind (docs/REBUILD_ARCHITECTURE.md §4.2) —
+// `kind` is now open-ended, not a two-value discriminator.
+
+model PendingRegistration {
+  id                    String   @id
+  did                   String
+  // Base64 raw public key, captured from the Challenger handshake — carried
+  // into Actor.publicKey on approval (lib/registrations.ts).
+  publicKey             String?
+  sessionId             String
+  name                  String
+  kind                  String
+  status                String   @default("pending")
+  requestedCapabilities Json     @default("[]")
+  assignedCapabilities  Json     @default("[]")
+  initiatedByUserId     String?
+  targetWorkspaceId     String?
+  createdAt             DateTime @default(now())
+  // DID of the admin who approved this — carried onto the eventual
+  // CapabilityCertificate.issuedBy once delivered.
+  approvedBy            String?
+  // Set once the approved capabilities have actually been delivered via a live
+  // service:"certificate" exchange (trust doc §3.2b) — null means "approved,
+  // waiting for the agent to be connected." Approval alone never sets this.
+  deliveredAt           DateTime?
+
+  @@index([did])
+}
+
+// ─── Auth certificates ────────────────────────────────────────────────────────
+// The raw VaultysId Challenger handshake artifact for a *human login attempt*
+// (QR-code P2P pairing) — distinct from CapabilityCertificate, which is the
+// domain-level "what is this Actor allowed to do" ledger. This is just the
+// low-level, short-lived crypto exchange state for one login/registration
+// attempt, mirroring packages/control-plane's `Certificate` model (renamed
+// here to avoid any ambiguity with CapabilityCertificate).
+
+model AuthCertificate {
+  id           String   @id
+  key          String
+  registration String?  @unique
+  connection   String?  @unique
+  register     Int      @default(1)
+  data         String   @default("")
+  status       Int      @default(-1)
+  metadata     String?
+  startedAt    DateTime @default(now())
+}
+
+// ─── Invitations ──────────────────────────────────────────────────────────────
+// Admin-issued, single-use invite for a human to onboard directly (rather than
+// self-registering at /login) — packages/controlplane/CLAUDE.md "Human onboarding
+// via invite". Unlike packages/control-plane's UserInvitation, there is no
+// pre-created placeholder User/Actor row to claim: Actor.did is this schema's
+// primary key, non-nullable, so nothing human-shaped can exist before a real
+// VaultysId has actually paired. An Invitation is a standalone record; the
+// Actor/User rows are created fresh only once redemption's Challenger handshake
+// genuinely completes (lib/user-login-channel.ts's registerHumanFromInvitation).
+model Invitation {
+  // sha256(raw token) hex — the raw token (crypto.randomBytes(32), same entropy as
+  // AuthCertificate's own key) is generated and returned to the admin exactly once at
+  // creation time and never persisted anywhere, matching this package's existing
+  // reveal-once secret pattern (a Webhook's signing secret).
+  tokenHash    String    @id
+  name         String
+  email        String?
+  capabilities Json      @default("[\"portal_access\"]")
+  workspaceId  String?
+  // DID of the admin who created this invite.
+  createdBy    String
+  createdAt    DateTime  @default(now())
+  expiresAt    DateTime
+  // Both set together, only once redemption's Challenger handshake actually completes
+  // (not at link-generation/QR-display time) — closing a real bug in the old package's
+  // equivalent, where the invite was marked claimed too early and a stale/reopened link
+  // could silently mint an unrelated second account instead of failing loudly.
+  redeemedAt   DateTime?
+  redeemedDid  String?
+  // Set only on the system-issued invitations minted by an unbound SSO login
+  // (`lib/sso.ts`) — redeeming one binds that external identity to the DID that
+  // just completed the handshake, instead of leaving the two unconnected. Null
+  // for every ordinary admin-issued invite.
+  ssoIdentityId String?
+
+  @@index([expiresAt])
+}
+
+// ─── Workspaces ───────────────────────────────────────────────────────────────
+
+model Workspace {
+  id          String   @id
+  name        String
+  slug        String   @unique
+  description String?
+  color       String   @default("#6366f1")
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  actors       Actor[]
+  certificates CapabilityCertificate[]
+  modelAccess  ModelWorkspaceAccess[]
+}
+
+// ─── Sensor telemetry ─────────────────────────────────────────────────────────
+// A `kind: "sensor"` Actor's classified AI/agent process observations
+// (vaultysclaw-sensor's `sensor_telemetry` WS message —
+// vaultysclaw-sensor/docs/vaultysclaw-integration.md §1/§5). Current-state,
+// not a log: upserted by (deviceDid, fingerprint) as the sensor reports
+// deltas, not re-inserted per event. No separate `SensorDevice` table —
+// the reporting sensor already *is* an `Actor` (its own DID), so the device
+// row is just `Actor` itself.
+
+model SensorWorkload {
+  id                String   @id
+  deviceDid         String
+  fingerprint       String
+  processName       String
+  processExecutable String?
+  processCommand    String?
+  processUser       String?
+  provider          String?
+  model             String?
+  aiConfidence      Float    @default(0)
+  agentConfidence   Float    @default(0)
+  reasons           Json     @default("[]")
+  isMcp             Boolean  @default(false)
+  mcpServers        Json     @default("[]")
+  isLocalRuntime    Boolean  @default(false)
+  // A locally-observed VaultysClaw identity file/path near the process, if any — the raw
+  // evidence the control plane (never the sensor itself) would use to decide "managed" status;
+  // that correlation isn't implemented yet (integration doc §4), so this is stored, not read.
+  identityEvidence  String?
+  lastEventType     String
+  firstSeen         DateTime @default(now())
+  lastSeen          DateTime @default(now())
+
+  device Actor @relation(fields: [deviceDid], references: [did], onDelete: Cascade)
+
+  @@unique([deviceDid, fingerprint])
+  @@index([deviceDid])
+}
+
+// ─── Actor relationships ──────────────────────────────────────────────────────
+// A directed, freely-labeled edge between two Actors — "reports to", "belongs
+// to", "manages", or anything else an admin wants to record. Deliberately
+// generic rather than a single hardcoded relation (e.g. the old app's
+// sensor-to-owner "assigned user"): any kind of Actor can link to any other,
+// and what the link means is just a label, not a schema-level type.
+
+model ActorLink {
+  id        String   @id
+  fromDid   String
+  toDid     String
+  label     String
+  createdAt DateTime @default(now())
+
+  from Actor @relation("ActorLinkFrom", fields: [fromDid], references: [did], onDelete: Cascade)
+  to   Actor @relation("ActorLinkTo", fields: [toDid], references: [did], onDelete: Cascade)
+
+  @@index([fromDid])
+  @@index([toDid])
+}
+
+// ─── Webhooks ──────────────────────────────────────────────────────────────
+// Signed HTTP delivery to admin-configured endpoints — kept as core per
+// docs/REBUILD_ARCHITECTURE.md §3. Mirrors packages/control-plane's Webhook
+// model field-for-field (same shape `packages/webhook-dispatcher` already
+// expects) so that package's dispatcher code works against this schema
+// unmodified — see packages/controlplane/CLAUDE.md for the deployment note
+// (a dispatcher instance for this schema needs its own DATABASE_URL and a
+// distinct BullMQ queue prefix so its jobs never mix with control-plane's).
+
+model Webhook {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  url         String
+  secret      String // HMAC signing secret; readable by the dispatcher, never by the admin UI after creation
+  events      Json     @default("[]") // string[] of subscribed event types
+  isActive    Boolean  @default(true)
+  createdBy   String // DID of the admin who created it
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isActive])
+  @@map("webhooks")
+}
+
+// ─── Notification Channels ──────────────────────────────────────────────────
+// Human-facing alerts, fanned out through a self-hosted Apprise API container
+// (docs/REBUILD_ARCHITECTURE.md §5) — the other half of the same event
+// pipeline Webhooks uses, not a separate one: `packages/webhook-dispatcher`'s
+// single worker fans out to both subscription kinds per event. Unlike a
+// Webhook's `url`, `serviceUrls` never needs to be read back by the
+// dispatcher at delivery time — Apprise itself stores what an `appriseKey`
+// points at (pushed once via `POST {APPRISE_API_URL}/add/<appriseKey>` at
+// create/update time), so the dispatcher only ever needs `appriseKey` +
+// `events` + `isActive`, never the encrypted column itself.
+
+model NotificationChannel {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  appriseKey  String   @unique // the Apprise config key/tag this channel is pushed under
+  // One or more apprise:// service URLs (mailto://, slack://, pagerduty://, ...), newline-separated,
+  // encrypted via lib/vault.ts — these often embed credentials (e.g. mailto://user:pass@host), so
+  // never stored or logged in plaintext, and never re-displayed in full by the admin UI after entry.
+  serviceUrls String
+  // The URL scheme(s) only (e.g. ["slack"], ["mailto", "pagerduty"]) — extracted from serviceUrls
+  // at write time, before encryption, and stored in plain. Not sensitive (it's a protocol name,
+  // not a credential), and it's what actually lets an admin tell channels apart in the list/detail
+  // UI without ever decrypting serviceUrls just to render the page.
+  serviceTypes Json    @default("[]")
+  events      Json     @default("[]") // string[] of subscribed event types, same catalog Webhooks use
+  isActive    Boolean  @default(true)
+  createdBy   String // DID of the admin who created it
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isActive])
+}
+
+// ─── Audit Log ───────────────────────────────────────────────────────────────
+// Unified, append-only log (docs/REBUILD_ARCHITECTURE.md §7, docs/PAGE_DESIGN.md §1.6) —
+// replaces the old app's split IntentLog (agent intent execution)/ActivityLog (a simpler admin
+// event log) with one table, since this rebuild has no separate "intent execution" concept to
+// track: every domain event here already flows through lib/webhook-payloads.ts's sanitized
+// builders and lib/webhook-queue.ts's enqueueWebhook. lib/audit.ts's recordEvent() writes here
+// AND calls enqueueWebhook with the exact same eventType/payload, so one call site at each
+// emission point drives both the audit trail and the Webhooks/Notification Channels pipeline —
+// they were always the same "what happened" data, just two different consumers of it.
+
+model AuditLogEntry {
+  id         String   @id @default(cuid())
+  eventType  String // same catalog as Webhooks — actor.*, certificate.*, workspace.*
+  // Denormalized, not a live Actor relation — an Actor can be renamed or (in principle) removed
+  // later, and an audit entry must keep describing what was true at the time, not what's true now.
+  actorDid   String? // null for events with no human origin (e.g. actor.registration_requested)
+  actorName  String?
+  targetType String? // "actor" | "certificate" | "workspace" | ... — coarse type for filtering/links
+  targetId   String? // the specific id/did, used to build a detail link
+  details    Json     @default("{}") // the same sanitized payload already built for the event
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt(sort: Desc)])
+  @@index([actorDid])
+  @@index([eventType])
+  @@index([targetType, targetId])
+}
+
+// ─── SSO / external identity ────────────────────────────────────────────────
+// OIDC and Microsoft Entra ID (Azure AD) as **identity-establishment** paths,
+// never as a parallel trust tier (docs/CERTIFICATE_WEB_OF_TRUST.md §6.3): SSO
+// answers "who is this human", and from the moment that's answered every
+// authorization decision goes through the same DID + certificate ledger as
+// everything else. Entra is not a separate protocol here — it *is* an OIDC IdP
+// (issuer `https://login.microsoftonline.com/<tenantId>/v2.0`), so it shares one
+// connector rather than getting a second login path; `kind` exists only so the
+// admin UI can ask for a tenant ID instead of a raw issuer URL, and so
+// Entra-specific features (Graph directory sync) have somewhere to hang later.
+//
+// Unlike packages/control-plane, this is a real model rather than a handful of
+// flat `Setting` rows (`oidc_issuer`, `oidc_client_id`, …). That design allowed
+// exactly one IdP per deployment; an org with both an in-house OIDC provider and
+// Entra had to pick. Rows also let each connection be enabled/disabled and
+// audited independently.
+
+model SsoConnection {
+  id   String @id @default(cuid())
+  /// "oidc" (generic) | "entra" (Microsoft Entra ID / Azure AD)
+  kind String
+  /// Label on the login button, e.g. "Acme SSO" or "Microsoft".
+  name String
+  /// Discovery base — `{issuer}/.well-known/openid-configuration` must resolve.
+  /// For `kind: "entra"` this is derived from `tenantId`, never typed by hand.
+  issuer          String
+  clientId        String
+  /// Encrypted via lib/vault.ts, like every other admin-supplied credential here
+  /// (packages/control-plane stored the *Entra* client secret in plaintext — not
+  /// carried over).
+  clientSecretEnc String
+  /// Entra only. The directory this connection authenticates against.
+  tenantId        String?
+  isActive        Boolean  @default(true)
+  createdBy       String // DID of the admin who configured it
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  identities SsoIdentity[]
+
+  @@unique([issuer, clientId])
+  @@index([isActive])
+}
+
+// One external identity, and the DID it has been bound to (if any).
+//
+// `did` is nullable and that is the whole point: a human can authenticate to the
+// IdP before they hold a VaultysId, and this schema has nowhere to put such a
+// person — `Actor.did`/`User.did` are primary keys, so nothing human-shaped can
+// exist before a DID does. So an unbound SSO login does not create a session; it
+// mints a system-issued `Invitation` and sends the user through the existing
+// redemption flow to bind a DID, after which this row points at it and every
+// later login is an ordinary DID session. See `lib/sso.ts`.
+
+model SsoIdentity {
+  id           String @id @default(cuid())
+  connectionId String
+  /// The IdP's `sub` claim — stable per issuer, unlike email.
+  subject      String
+  /// Denormalized from the connection so a re-pointed connection can't silently
+  /// re-bind an identity issued by a different IdP.
+  issuer       String
+  email        String?
+  name         String?
+  /// The Actor this external identity resolves to. Null until bound. Unique —
+  /// one DID is never reachable through two different SSO identities.
+  did          String?   @unique
+  createdAt    DateTime  @default(now())
+  lastLoginAt  DateTime?
+
+  connection SsoConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  /// SetNull, not Cascade: deleting an Actor unbinds the external identity rather
+  /// than deleting the record that it ever logged in.
+  actor      Actor?        @relation(fields: [did], references: [did], onDelete: SetNull)
+
+  @@unique([connectionId, subject])
+  @@index([did])
+}
+
+// ─── Model Registry ──────────────────────────────────────────────────────────
+// The org's catalogue of LLM endpoints (docs/PAGE_DESIGN.md §1.8: "unchanged
+// from today"), plus which workspaces may use each one. Postgres is the source
+// of truth; LiteLLM is a downstream target that gets *pushed* to (lib/litellm.ts)
+// and never read back into these rows — so an unconfigured or unreachable
+// LiteLLM degrades the registry to inert catalogue data rather than breaking it.
+//
+// Two deliberate divergences from packages/control-plane's `ModelRegistry`:
+//
+//  - `isActive Boolean` instead of its `status String @default("active")`.
+//    Every other toggleable row in this schema (Webhook, NotificationChannel)
+//    is already `isActive`, and a two-valued String column is a stringly-typed
+//    boolean — same semantics, one less convention in the codebase.
+//  - No `WorkspaceRouterKey`/per-Actor `litellm*` virtual-key columns. Those are
+//    the *enforcement* half of the old design (a minted LiteLLM key whose
+//    `models` allowlist is what actually gates inference), and they only mean
+//    something once this package pushes LLM config down to Actors. That path
+//    doesn't exist here yet, so a grant row below is an authorization record
+//    the admin console shows and audits — see packages/controlplane/CLAUDE.md
+//    for what that does and does not currently enforce.
+
+model ModelRegistry {
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+  // Free-form, matching `LlmProviderType` in @vaultysclaw/shared rather than a
+  // Prisma enum — the shared union is already the single source of truth the UI
+  // renders from, and a DB enum would need a migration to add a provider.
+  provider    String
+  // The upstream model identifier as the provider knows it, e.g. "gpt-4o".
+  modelId     String
+  baseUrl     String
+  // The provider API key, encrypted via lib/vault.ts. Never selected by the
+  // list/detail queries (see `SafeModel` in db/model.dao.ts) — only the LiteLLM
+  // push path decrypts it, and it is never re-displayed after entry.
+  apiKeyEnc   String?
+  // The name this model is registered under inside LiteLLM ("<provider>/<slug>"),
+  // and therefore the string a workspace's allowlist would name. Null when the
+  // model was never pushed (LiteLLM unconfigured, or push explicitly skipped).
+  litellmModelName String?
+  isActive    Boolean  @default(true)
+  metadata    Json     @default("{}")
+  createdBy   String? // DID of the admin who registered it
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspaceAccess ModelWorkspaceAccess[]
+
+  @@index([isActive])
+}
+
+// Which workspaces may use which model. A plain join table — access is a
+// property of the pair, so there is nothing else to put on the row beyond when
+// it was granted (the *who* is in the audit log, which is append-only and
+// therefore the honest place for it; this row gets deleted on revoke).
+
+model ModelWorkspaceAccess {
+  modelId     String
+  workspaceId String
+  grantedAt   DateTime @default(now())
+
+  model     ModelRegistry @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  workspace Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@id([modelId, workspaceId])
+  @@index([workspaceId])
+}
+
+// ─── Custom capabilities ─────────────────────────────────────────────────────
+// The org-global registry of admin-defined `vendor:action` capability names
+// (docs/CUSTOM_CAPABILITIES.md). A row here does not grant anything — it makes a
+// name *grantable*, and makes it resolvable: `lib/ws-server.ts` filters every
+// certificate's custom capabilities against this table before signing a
+// `cert_status_response`, so deleting a row stops those grants resolving on the
+// holder's next refresh.
+//
+// Deliberately **no `isActive` and no soft-delete**. The decision is hard
+// fail-closed; a second "deprecated but still resolving" state would quietly
+// reintroduce the grandfather semantics that choice rejected. Deletion is a mass
+// revoke, and the admin action that performs it says so with an affected-grant
+// count.
+//
+// `name` is immutable after creation. Renaming would silently change which
+// grants resolve; delete-and-recreate is the honest expression of that, since it
+// reads as (and is) a revoke.
+
+model CustomCapability {
+  id String @id @default(uuid())
+  // The full `vendor:action` name, e.g. "acme:invoice.approve". Validated against
+  // `@vaultysclaw/policy`'s CUSTOM_CAPABILITY_RE at every write path — the column
+  // is a plain String because the grammar lives in one place, in code, shared
+  // with sdk-go.
+  name        String  @unique
+  // Denormalised halves of `name`, so the issuance UI can group by vendor without
+  // string-splitting every row. Never written independently — always derived via
+  // policy's `parseCustomCapability`.
+  vendor      String
+  action      String
+  label       String
+  description String?
+  // Free-text grouping in the issuance UI, independent of `vendor` (an org may
+  // want "Finance" spanning two vendors).
+  group       String?
+  // DID of the Owner who created it.
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([vendor])
+}

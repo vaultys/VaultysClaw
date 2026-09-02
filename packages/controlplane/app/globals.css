@@ -108,3 +108,22 @@ html {
     animation: none;
   }
 }
+
+/* ── World map basemap ──────────────────────────────────────────────────────
+   The basemap is OpenStreetMap standard: free and keyless, but it ships a single
+   light style with no dark counterpart. Rather than fetch a second tile set (or
+   take on a provider that wants an API key), dark mode inverts the tiles here.
+
+   `invert(1) hue-rotate(180deg)` is the standard pairing: invert alone turns land
+   and water into their complements — blue seas come out orange — and rotating the
+   hue a half-turn puts them back, leaving lightness flipped and colour intact.
+   The brightness/contrast trim stops the result glaring against the panel behind
+   it, since inverted white lands at pure black.
+
+   Scoped to OpenLayers' own layer container (`.vc-map-tiles`, set via the layer's
+   `className`), so only the basemap is affected. The marker layer is a sibling and
+   keeps its real colours — inverting those would silently recolour every actor
+   kind, which is exactly the information the map exists to convey. */
+.dark .vc-map-tiles {
+  filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.9);
+}

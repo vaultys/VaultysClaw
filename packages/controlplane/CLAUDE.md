@@ -660,6 +660,52 @@ may hold a name; what it *permits* is decided by whichever application binds an 
 - **Events**: `capability.created` / `updated` / `deleted` (group "Capabilities" in the shared
   catalog). `capability.deleted` carries `affectedGrants`.
 
+## Scale
+
+The connection lifecycle is the hot path, and it was written as if one Actor connected at a time.
+Fixed after a fleet simulator (`packages/simulator`) measured handshake p50 at ~3 s with 700
+concurrent Actors and a collapse at 7,000. Same run after the changes below: **p50 840 ms, p95
+1.3 s, zero errors** — roughly 3.6× on the same hardware and database.
+
+What actually mattered, in the order it mattered:
+
+- **The server identity was rebuilt per handshake.** `ServerIdentityDAO.getServerVaultysId()` did a
+  `Setting` read *plus* `VaultysId.fromSecret` — ~0.75 ms of key derivation on the event loop — for
+  a value written once at boot and never again. Every handshake signs with it and so does every
+  `cert_status_response`, so a 7,000-Actor ramp spent ~5 s of pure blocking CPU re-deriving it. Now
+  cached for the process's lifetime (`resetCache()` exists for tests). Rotating the identity means
+  a restart, which was already true.
+- **The connection pool was `pg.Pool`'s default of 10.** The WebSocket server and every Next.js
+  request handler share one pool, and a handshake puts several queries behind it — so the queue in
+  front of the pool, not Postgres, was the limit. `DATABASE_POOL_MAX` (default 40), with an
+  `idleTimeoutMillis` so a bursty ramp doesn't pin the high-water mark, and a
+  `connectionTimeoutMillis` so exhaustion surfaces as an error naming the pool instead of a request
+  that never returns.
+- **Write amplification on the two paths that scale with fleet size.** `lastSeen` was an UPDATE per
+  heartbeat (~230/s at 7,000 Actors on a 30 s heartbeat) and `CertStatusCheck` an INSERT per status
+  check. Both are now buffered in `ws-server.ts` and flushed every `FLUSH_INTERVAL_MS` (5 s) via
+  `touchLastSeenBatch` / `recordBatch`. Safe because neither is read closely: **"online now" comes
+  from the in-memory `connected` map, never from `lastSeen`**, and the status-check table is
+  append-only audit data. A failed flush drops the batch rather than retrying — this process holds
+  thousands of live sockets and must not grow an unbounded queue during a database outage.
+  Everything that must not be lost (certificates, approvals, revocations) is still written inline
+  and awaited.
+- **An awaited write inside the handshake.** The reconnect branch did `await touchLastSeen(did)`
+  before telling the Actor it was connected. Now buffered with the rest.
+- **`setDeclaredCapabilities` wrote on every reconnect**, storing bytes already there. A manifest is
+  fixed for the life of a build and the row is already in hand from the lookup, so it is now
+  compared first (`sameDeclaredCapabilities`, order-insensitive — a stringify would report a change
+  whenever an SDK emitted its declarations in a different order).
+- **`CustomCapabilityDAO.listNames()` was a query per status check** — a scaling regression this
+  feature introduced. Now cached with a 5 s TTL, invalidated by every write in that DAO, with
+  concurrent misses collapsed into one query. The TTL is the window in which a capability deleted by
+  *another process* still resolves, so it is a security property, not a performance knob — in-process
+  deletions invalidate immediately.
+
+Not addressed, and the next thing to look at: the Challenger handshake's own Ed25519 work runs on
+the event loop, so handshake throughput is ultimately single-core. Moving it to a worker pool is the
+only remaining structural fix.
+
 ## Audit Log
 
 A unified, append-only log (docs/PAGE_DESIGN.md §1.6) — replaces the old app's split IntentLog

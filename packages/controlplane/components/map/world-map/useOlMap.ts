@@ -14,7 +14,7 @@ import { defaults as defaultControls } from "ol/control";
 import MapBrowserEvent from "ol/MapBrowserEvent";
 import { buildRenderPoints } from "./clustering";
 import { buildPointStyles } from "./styles";
-import { isRetina, makeXYZ } from "./tiles";
+import { isRetina, makeXYZ, TILE_LAYER_CLASS } from "./tiles";
 import { MAX_MAP_ZOOM, type MapCluster, type MapMarker, type RenderPoint, type TooltipState } from "./types";
 
 /**
@@ -58,6 +58,10 @@ export function useOlMap({
 
     const tileLayer = new TileLayer({
       source: makeXYZ(isDarkRef.current, isRetina()),
+      // OpenLayers renders each layer into its own container div and puts this class on it, so the
+      // dark-mode filter in globals.css applies to the basemap alone — the marker layer above is a
+      // sibling and keeps its true colours (inverting those would turn every kind's colour wrong).
+      className: TILE_LAYER_CLASS,
     });
     tileLayerRef.current = tileLayer;
 
@@ -135,10 +139,12 @@ export function useOlMap({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Swap tile source on theme change ──
+  // ── Theme change ──
+  // The basemap is a single OSM style (there is no dark tile set to swap to), so the visual change
+  // is done in CSS via `TILE_LAYER_CLASS`. What still has to happen here is redrawing the vector
+  // layer: marker styles are built from the theme, and OpenLayers caches them until told otherwise.
   useEffect(() => {
     isDarkRef.current = isDark;
-    tileLayerRef.current?.setSource(makeXYZ(isDark, isRetina()));
     vectorLayerRef.current?.changed();
   }, [isDark]);
 

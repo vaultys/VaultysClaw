@@ -40,7 +40,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^2.1.9
-        version: 2.1.9(@types/node@22.20.1)(@vitest/ui@2.1.9)(jsdom@29.1.1(@noble/hashes@1.8.0))(supports-color@8.1.1)(terser@5.48.0)
+        version: 2.1.9(@types/node@22.20.1)(@vitest/ui@2.1.9)(jsdom@29.1.1(@noble/hashes@2.3.0))(supports-color@8.1.1)(terser@5.48.0)
       ws:
         specifier: ^8.21.2
         version: 8.21.2
@@ -104,13 +104,13 @@ importers:
         version: 0.10.0
       '@vaultys/channel-browser':
         specifier: ^2.4.2
-        version: 2.4.2(@vaultys/id@3.0.0-beta6)
+        version: 2.4.2(@vaultys/id@3.0.0-beta9.3)
       '@vaultys/channel-peerjs':
         specifier: ^2.4.3
-        version: 2.4.3(@vaultys/id@3.0.0-beta6)
+        version: 2.4.3(@vaultys/id@3.0.0-beta9.3)
       '@vaultys/id':
-        specifier: 3.0.0-beta6
-        version: 3.0.0-beta6
+        specifier: 3.0.0-beta9.3
+        version: 3.0.0-beta9.3
       '@vaultysclaw/policy':
         specifier: workspace:*
         version: link:../policy
@@ -201,7 +201,7 @@ importers:
         version: 7.0.2
       vitest:
         specifier: ^2.1.9
-        version: 2.1.9(@types/node@22.19.21)(@vitest/ui@2.1.9)(jsdom@29.1.1(@noble/hashes@1.8.0))(supports-color@8.1.1)(terser@5.48.0)
+        version: 2.1.9(@types/node@22.19.21)(@vitest/ui@2.1.9)(jsdom@29.1.1(@noble/hashes@2.3.0))(supports-color@8.1.1)(terser@5.48.0)
 
   packages/policy:
     dependencies:
@@ -220,7 +220,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^2.1.9
-        version: 2.1.9(@types/node@22.19.21)(@vitest/ui@2.1.9)(jsdom@29.1.1(@noble/hashes@1.8.0))(supports-color@8.1.1)(terser@5.48.0)
+        version: 2.1.9(@types/node@22.19.21)(@vitest/ui@2.1.9)(jsdom@29.1.1(@noble/hashes@2.3.0))(supports-color@8.1.1)(terser@5.48.0)
 
   packages/sdk:
     dependencies:
@@ -251,7 +251,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^2.1.9
-        version: 2.1.9(@types/node@22.20.1)(@vitest/ui@2.1.9)(jsdom@29.1.1(@noble/hashes@1.8.0))(supports-color@8.1.1)(terser@5.48.0)
+        version: 2.1.9(@types/node@22.20.1)(@vitest/ui@2.1.9)(jsdom@29.1.1(@noble/hashes@2.3.0))(supports-color@8.1.1)(terser@5.48.0)
 
   packages/shared:
     devDependencies:
@@ -264,6 +264,46 @@ importers:
       typescript:
         specifier: ^5.7.2
         version: 5.9.3
+
+  packages/simulator:
+    dependencies:
+      '@prisma/adapter-pg':
+        specifier: ^7.8.0
+        version: 7.8.0
+      '@prisma/client':
+        specifier: ^7.8.0
+        version: 7.8.0(prisma@7.8.0(@types/react@19.2.18)(better-sqlite3@12.10.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(typescript@5.9.3))(typescript@5.9.3)
+      '@vaultys/id':
+        specifier: 3.0.0-beta6
+        version: 3.0.0-beta6
+      '@vaultysclaw/policy':
+        specifier: workspace:*
+        version: link:../policy
+      '@vaultysclaw/sdk':
+        specifier: workspace:*
+        version: link:../sdk
+      pg:
+        specifier: ^8.21.0
+        version: 8.21.0
+    devDependencies:
+      '@types/node':
+        specifier: ^22.19.19
+        version: 22.20.1
+      '@types/pg':
+        specifier: ^8.20.0
+        version: 8.20.0
+      prisma:
+        specifier: ^7.8.0
+        version: 7.8.0(@types/react@19.2.18)(better-sqlite3@12.10.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(typescript@5.9.3)
+      tsx:
+        specifier: ^4.22.4
+        version: 4.23.5
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.9
+        version: 2.1.9(@types/node@22.20.1)(@vitest/ui@2.1.9)(jsdom@29.1.1(@noble/hashes@2.3.0))(supports-color@8.1.1)(terser@5.48.0)
 
   packages/trust:
     dependencies:
@@ -279,7 +319,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^2.1.9
-        version: 2.1.9(@types/node@22.19.21)(@vitest/ui@2.1.9)(jsdom@29.1.1(@noble/hashes@1.8.0))(supports-color@8.1.1)(terser@5.48.0)
+        version: 2.1.9(@types/node@22.19.21)(@vitest/ui@2.1.9)(jsdom@29.1.1(@noble/hashes@2.3.0))(supports-color@8.1.1)(terser@5.48.0)
 
   packages/webhook-dispatcher:
     dependencies:
@@ -322,7 +362,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^2.1.9
-        version: 2.1.9(@types/node@22.19.21)(@vitest/ui@2.1.9)(jsdom@29.1.1(@noble/hashes@1.8.0))(supports-color@8.1.1)(terser@5.48.0)
+        version: 2.1.9(@types/node@22.19.21)(@vitest/ui@2.1.9)(jsdom@29.1.1(@noble/hashes@2.3.0))(supports-color@8.1.1)(terser@5.48.0)
 
 packages:
 
@@ -2462,9 +2502,21 @@ packages:
     cpu: [x64]
     os: [win32]
 
+  '@noble/ciphers@2.2.0':
+    resolution: {integrity: sha512-Z6pjIZ/8IJcCGzb2S/0Px5J81yij85xASuk1teLNeg75bfT07MV3a/O2Mtn1I2se43k3lkVEcFaR10N4cgQcZA==}
+    engines: {node: '>= 20.19.0'}
+
   '@noble/curves@1.9.7':
     resolution: {integrity: sha512-gbKGcRUYIjA3/zCCNaWDciTMFI0dCkvou3TL8Zmy5Nc7sJ47a0jtOeZoTaMxkuqRo9cRhjOdZJXegxYE5FN/xw==}
     engines: {node: ^14.21.3 || >=16}
+
+  '@noble/curves@2.2.0':
+    resolution: {integrity: sha512-T/BoHgFXirb0ENSPBquzX0rcjXeM6Lo892a2jlYJkqk83LqZx0l1Of7DzlKJ6jkpvMrkHSnAcgb5JegL8SeIkQ==}
+    engines: {node: '>= 20.19.0'}
+
+  '@noble/curves@2.3.0':
+    resolution: {integrity: sha512-v7cY+4oWYPQszRj6ZFGzTVL7uP2TaLo1xMhWHzYC5wj0ZhOXQ5x+sBre8rF3hi8cAoi0bh1qXoovoOkdFtvqEg==}
+    engines: {node: '>= 20.19.0'}
 
   '@noble/hashes@1.4.0':
     resolution: {integrity: sha512-V1JJ1WTRUqHHrOSh597hURcMqVKVGL/ea3kv0gSnEdsEZ0/+VyPghM1lMNGc00z7CIQorSvbKpuJkxvuHbvdbg==}
@@ -2474,8 +2526,20 @@ packages:
     resolution: {integrity: sha512-jCs9ldd7NwzpgXDIf6P3+NrHh9/sD6CQdxHyjQI+h/6rDNo88ypBxxz45UDuZHz9r3tNz7N/VInSVoVdtXEI4A==}
     engines: {node: ^14.21.3 || >=16}
 
+  '@noble/hashes@2.2.0':
+    resolution: {integrity: sha512-IYqDGiTXab6FniAgnSdZwgWbomxpy9FtYvLKs7wCUs2a8RkITG+DFGO1DM9cr+E3/RgADRpFjrKVaJ1z6sjtEg==}
+    engines: {node: '>= 20.19.0'}
+
+  '@noble/hashes@2.3.0':
+    resolution: {integrity: sha512-oN+QwyX7VSHotibwubG3kpzbwKrfnyR6OOO+3Nk/53ADL7FmgHHz4TgrbaYKvvOw09u6QTx0oiH1cNCIOuN0CQ==}
+    engines: {node: '>= 20.19.0'}
+
   '@noble/post-quantum@0.4.1':
     resolution: {integrity: sha512-TRXjvnY9jAFNWbxOx+pKt21BNsCEWKFjMbIKwdx9CQXBudDanpY20EfOcooV7DIsRS/+Mf8D8utpUPjfGrQ8fA==}
+
+  '@noble/post-quantum@0.6.1':
+    resolution: {integrity: sha512-+pormrDZwjRw05U8ADK4JpHejo87+gBd+muRBB/ozztH5yhDLMDF4jHQWN3NQQAsu1zBNPWTG0ZwVI0CR29H0A==}
+    engines: {node: '>= 20.19.0'}
 
   '@nodelib/fs.scandir@2.1.5':
     resolution: {integrity: sha512-vq24Bq3ym5HEQm2NKCr3yXDwjc7vTsEThRDnkp2DK9p1uqLR+DHurm/NOTo0KG7HYHU7eppKZj3MyqYuMBf62g==}
@@ -3951,6 +4015,9 @@ packages:
 
   '@vaultys/id@3.0.0-beta6':
     resolution: {integrity: sha512-4lr8PcQ1bI46b5+D4oSROk8bfKbsYvA1WoKXetZVKpixjFyiyEIOOR/L1P36gYAQlNmjpT85EdUqMQCGwxUlvQ==}
+
+  '@vaultys/id@3.0.0-beta9.3':
+    resolution: {integrity: sha512-RNAumQblVsIZZgcpeE4Me+5nNg2KcTE8H7v0zrhymRHFMStj+56M0JuVc70DKY/hbSEtMiILS70+4Z7vk1i5ug==}
 
   '@vaultys/saltpack@1.0.0-beta4':
     resolution: {integrity: sha512-l3TBsVKmfr2FaRE/6IArPmcOo3K00BuVxmBPrCX/HO23OPHZ5gSmEBHOwdZm4xE/AVwvzK/lj83vnfZxc2UqUw==}
@@ -11924,9 +11991,9 @@ snapshots:
       '@eslint/core': 1.2.1
       levn: 0.4.1
 
-  '@exodus/bytes@1.15.1(@noble/hashes@1.8.0)':
+  '@exodus/bytes@1.15.1(@noble/hashes@2.3.0)':
     optionalDependencies:
-      '@noble/hashes': 1.8.0
+      '@noble/hashes': 2.3.0
     optional: true
 
   '@hapi/hoek@9.3.0': {}
@@ -12386,17 +12453,37 @@ snapshots:
   '@next/swc-win32-x64-msvc@16.3.0':
     optional: true
 
+  '@noble/ciphers@2.2.0': {}
+
   '@noble/curves@1.9.7':
     dependencies:
       '@noble/hashes': 1.8.0
+
+  '@noble/curves@2.2.0':
+    dependencies:
+      '@noble/hashes': 2.2.0
+
+  '@noble/curves@2.3.0':
+    dependencies:
+      '@noble/hashes': 2.3.0
 
   '@noble/hashes@1.4.0': {}
 
   '@noble/hashes@1.8.0': {}
 
+  '@noble/hashes@2.2.0': {}
+
+  '@noble/hashes@2.3.0': {}
+
   '@noble/post-quantum@0.4.1':
     dependencies:
       '@noble/hashes': 1.8.0
+
+  '@noble/post-quantum@0.6.1':
+    dependencies:
+      '@noble/ciphers': 2.2.0
+      '@noble/curves': 2.2.0
+      '@noble/hashes': 2.2.0
 
   '@nodelib/fs.scandir@2.1.5':
     dependencies:
@@ -13852,13 +13939,13 @@ snapshots:
       d3-selection: 3.0.0
       d3-transition: 3.0.1(d3-selection@3.0.0)
 
-  '@vaultys/channel-browser@2.4.2(@vaultys/id@3.0.0-beta6)':
+  '@vaultys/channel-browser@2.4.2(@vaultys/id@3.0.0-beta9.3)':
     dependencies:
-      '@vaultys/id': 3.0.0-beta6
+      '@vaultys/id': 3.0.0-beta9.3
 
-  '@vaultys/channel-peerjs@2.4.3(@vaultys/id@3.0.0-beta6)':
+  '@vaultys/channel-peerjs@2.4.3(@vaultys/id@3.0.0-beta9.3)':
     dependencies:
-      '@vaultys/id': 3.0.0-beta6
+      '@vaultys/id': 3.0.0-beta9.3
       peerjs: 1.5.5
     optionalDependencies:
       wrtc: 0.4.7
@@ -13869,6 +13956,17 @@ snapshots:
       '@noble/curves': 1.9.7
       '@noble/hashes': 1.8.0
       '@noble/post-quantum': 0.4.1
+      '@stricahq/bip32ed25519': 1.1.2
+      '@vaultys/saltpack': 1.0.0-beta4
+      cbor: 10.0.12
+      tweetnacl: 1.0.3
+
+  '@vaultys/id@3.0.0-beta9.3':
+    dependencies:
+      '@msgpack/msgpack': 3.1.3
+      '@noble/curves': 2.3.0
+      '@noble/hashes': 2.3.0
+      '@noble/post-quantum': 0.6.1
       '@stricahq/bip32ed25519': 1.1.2
       '@vaultys/saltpack': 1.0.0-beta4
       cbor: 10.0.12
@@ -13925,7 +14023,7 @@ snapshots:
       sirv: 3.0.2
       tinyglobby: 0.2.17
       tinyrainbow: 1.2.0
-      vitest: 2.1.9(@types/node@22.20.1)(@vitest/ui@2.1.9)(jsdom@29.1.1(@noble/hashes@1.8.0))(supports-color@8.1.1)(terser@5.48.0)
+      vitest: 2.1.9(@types/node@22.20.1)(@vitest/ui@2.1.9)(jsdom@29.1.1(@noble/hashes@2.3.0))(supports-color@8.1.1)(terser@5.48.0)
     optional: true
 
   '@vitest/utils@2.1.9':
@@ -15102,10 +15200,10 @@ snapshots:
 
   damerau-levenshtein@1.0.8: {}
 
-  data-urls@7.0.0(@noble/hashes@1.8.0):
+  data-urls@7.0.0(@noble/hashes@2.3.0):
     dependencies:
       whatwg-mimetype: 5.0.0
-      whatwg-url: 16.0.1(@noble/hashes@1.8.0)
+      whatwg-url: 16.0.1(@noble/hashes@2.3.0)
     transitivePeerDependencies:
       - '@noble/hashes'
     optional: true
@@ -16388,9 +16486,9 @@ snapshots:
       readable-stream: 2.3.8
       wbuf: 1.7.3
 
-  html-encoding-sniffer@6.0.0(@noble/hashes@1.8.0):
+  html-encoding-sniffer@6.0.0(@noble/hashes@2.3.0):
     dependencies:
-      '@exodus/bytes': 1.15.1(@noble/hashes@1.8.0)
+      '@exodus/bytes': 1.15.1(@noble/hashes@2.3.0)
     transitivePeerDependencies:
       - '@noble/hashes'
     optional: true
@@ -16846,17 +16944,17 @@ snapshots:
     dependencies:
       argparse: 2.0.1
 
-  jsdom@29.1.1(@noble/hashes@1.8.0):
+  jsdom@29.1.1(@noble/hashes@2.3.0):
     dependencies:
       '@asamuzakjp/css-color': 5.1.11
       '@asamuzakjp/dom-selector': 7.1.1
       '@bramus/specificity': 2.4.2
       '@csstools/css-syntax-patches-for-csstree': 1.1.7(css-tree@3.2.1)
-      '@exodus/bytes': 1.15.1(@noble/hashes@1.8.0)
+      '@exodus/bytes': 1.15.1(@noble/hashes@2.3.0)
       css-tree: 3.2.1
-      data-urls: 7.0.0(@noble/hashes@1.8.0)
+      data-urls: 7.0.0(@noble/hashes@2.3.0)
       decimal.js: 10.6.0
-      html-encoding-sniffer: 6.0.0(@noble/hashes@1.8.0)
+      html-encoding-sniffer: 6.0.0(@noble/hashes@2.3.0)
       is-potential-custom-element-name: 1.0.1
       lru-cache: 11.5.2
       parse5: 8.0.1
@@ -16867,7 +16965,7 @@ snapshots:
       w3c-xmlserializer: 5.0.0
       webidl-conversions: 8.0.1
       whatwg-mimetype: 5.0.0
-      whatwg-url: 16.0.1(@noble/hashes@1.8.0)
+      whatwg-url: 16.0.1(@noble/hashes@2.3.0)
       xml-name-validator: 5.0.0
     transitivePeerDependencies:
       - '@noble/hashes'
@@ -20332,7 +20430,7 @@ snapshots:
       fsevents: 2.3.3
       terser: 5.48.0
 
-  vitest@2.1.9(@types/node@22.19.21)(@vitest/ui@2.1.9)(jsdom@29.1.1(@noble/hashes@1.8.0))(supports-color@8.1.1)(terser@5.48.0):
+  vitest@2.1.9(@types/node@22.19.21)(@vitest/ui@2.1.9)(jsdom@29.1.1(@noble/hashes@2.3.0))(supports-color@8.1.1)(terser@5.48.0):
     dependencies:
       '@vitest/expect': 2.1.9
       '@vitest/mocker': 2.1.9(vite@5.4.21(@types/node@22.20.1)(terser@5.48.0))
@@ -20357,7 +20455,7 @@ snapshots:
     optionalDependencies:
       '@types/node': 22.19.21
       '@vitest/ui': 2.1.9(vitest@2.1.9)
-      jsdom: 29.1.1(@noble/hashes@1.8.0)
+      jsdom: 29.1.1(@noble/hashes@2.3.0)
     transitivePeerDependencies:
       - less
       - lightningcss
@@ -20369,7 +20467,7 @@ snapshots:
       - supports-color
       - terser
 
-  vitest@2.1.9(@types/node@22.20.1)(@vitest/ui@2.1.9)(jsdom@29.1.1(@noble/hashes@1.8.0))(supports-color@8.1.1)(terser@5.48.0):
+  vitest@2.1.9(@types/node@22.20.1)(@vitest/ui@2.1.9)(jsdom@29.1.1(@noble/hashes@2.3.0))(supports-color@8.1.1)(terser@5.48.0):
     dependencies:
       '@vitest/expect': 2.1.9
       '@vitest/mocker': 2.1.9(vite@5.4.21(@types/node@22.20.1)(terser@5.48.0))
@@ -20394,7 +20492,7 @@ snapshots:
     optionalDependencies:
       '@types/node': 22.20.1
       '@vitest/ui': 2.1.9(vitest@2.1.9)
-      jsdom: 29.1.1(@noble/hashes@1.8.0)
+      jsdom: 29.1.1(@noble/hashes@2.3.0)
     transitivePeerDependencies:
       - less
       - lightningcss
@@ -20582,9 +20680,9 @@ snapshots:
   whatwg-mimetype@5.0.0:
     optional: true
 
-  whatwg-url@16.0.1(@noble/hashes@1.8.0):
+  whatwg-url@16.0.1(@noble/hashes@2.3.0):
     dependencies:
-      '@exodus/bytes': 1.15.1(@noble/hashes@1.8.0)
+      '@exodus/bytes': 1.15.1(@noble/hashes@2.3.0)
       tr46: 6.0.0
       webidl-conversions: 8.0.1
     transitivePeerDependencies:

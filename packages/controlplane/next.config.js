@@ -27,8 +27,13 @@ const nextConfig = {
               "default-src 'self'",
               "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
               "style-src 'self' 'unsafe-inline'",
-              // *.basemaps.cartocdn.com: the /admin/map world map's tile source (components/map/world-map/tiles.ts).
-              "img-src 'self' data: blob: https://*.basemaps.cartocdn.com",
+              // tile.openstreetmap.org: the /admin/map world map's basemap
+              // (components/map/world-map/tiles.ts). Named explicitly rather than allowing
+              // https: wholesale — the allow-list is the reason a stale tile host shows up as a
+              // blocked request instead of silently working, which is how the previous provider's
+              // removal was caught. A deployment pointing NEXT_PUBLIC_MAP_TILE_URL at its own tile
+              // server must add that origin here too.
+              "img-src 'self' data: blob: https://*.tile.openstreetmap.org",
               "font-src 'self' data:",
               "connect-src 'self' wss: ws: https:",
               "worker-src 'self' blob:",

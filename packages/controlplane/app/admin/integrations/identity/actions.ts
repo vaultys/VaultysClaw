@@ -7,7 +7,16 @@ import { encryptSecret } from "@/lib/vault";
 import { requireAdmin } from "@/lib/require-admin";
 import { recordEvent } from "@/lib/audit";
 import { buildAdminUrl, diffFields } from "@/lib/webhook-payloads";
-import { entraIssuer, isSsoKind, normalizeIssuer, testDiscovery } from "@/lib/sso-config";
+import {
+  entraIssuer,
+  isSsoKind,
+  issuerMismatch,
+  normalizeIssuer,
+  testClientCredentials,
+  testDiscovery,
+} from "@/lib/sso-config";
+import { decryptSecret } from "@/lib/vault";
+import type { ClientCheckVerdict } from "@/lib/sso-config";
 import type { SsoConnection } from "@prisma/client";
 
 /**
@@ -74,6 +83,15 @@ export async function createSsoConnectionAction(formData: FormData): Promise<voi
     throw new Error(`Could not verify the IdP at ${issuer}: ${discovery.error}`);
   }
 
+  // Discovery only proves the *issuer* is real. Client credentials are what fail
+  // at the token endpoint, after the person has already been bounced through the
+  // IdP — so they get checked here too, or a connection saves clean and breaks
+  // for whoever signs in first (see `testClientCredentials`).
+  const client = await testClientCredentials(issuer, clientId, clientSecret);
+  if (client.verdict === "rejected") {
+    throw new Error(`Client credentials were not accepted by ${issuer}: ${client.detail}`);
+  }
+
   const connection = await SsoConnectionDAO.create({
     kind,
     name,
@@ -121,6 +139,18 @@ export async function updateSsoConnectionAction(formData: FormData): Promise<voi
     const discovery = await testDiscovery(issuer);
     if (!discovery.ok) {
       throw new Error(`Could not verify the IdP at ${issuer}: ${discovery.error}`);
+    }
+  }
+
+  // Re-checked whenever any part of the triple changes — a new secret, a renamed
+  // client, or a re-pointed issuer can each invalidate the other two. Uses the
+  // stored secret when the write-only field was left blank, so an edit that only
+  // fixes the client ID is still verified against the real secret.
+  if (clientSecret || clientId !== before.clientId || issuer !== before.issuer) {
+    const effectiveSecret = clientSecret || (await decryptSecret(before.clientSecretEnc));
+    const client = await testClientCredentials(issuer, clientId, effectiveSecret);
+    if (client.verdict === "rejected") {
+      throw new Error(`Client credentials were not accepted by ${issuer}: ${client.detail}`);
     }
   }
 
@@ -216,17 +246,69 @@ export async function deleteSsoConnectionAction(formData: FormData): Promise<voi
   revalidatePath("/admin/integrations");
 }
 
-/** Live discovery check from the form, before saving. Admin-gated like every
- *  other action here: it makes the server fetch a caller-supplied URL. */
+/**
+ * Live pre-save check from the form: the IdP's discovery document, and — when the
+ * form has credentials to check — whether those credentials actually authenticate.
+ *
+ * Returns its findings rather than throwing them, and that is load-bearing: a
+ * production Next.js build redacts Server Action error messages, so the save-time
+ * `throw`s above reach an admin as "Minified React error". This is the path that
+ * can actually *tell* someone their client secret is wrong.
+ *
+ * Admin-gated like every other action here — it makes the server fetch a
+ * caller-supplied URL, and now POST to one.
+ */
 export async function testSsoConnectionAction(
   kind: string,
-  issuerOrTenant: string
-): Promise<{ ok: boolean; issuer: string; error?: string }> {
+  issuerOrTenant: string,
+  clientId?: string,
+  clientSecret?: string,
+  connectionId?: string
+): Promise<{
+  ok: boolean;
+  issuer: string;
+  error?: string;
+  documentIssuer?: string;
+  client?: { verdict: ClientCheckVerdict; detail: string };
+}> {
   await requireAdmin();
   if (!issuerOrTenant.trim()) {
     return { ok: false, issuer: "", error: kind === "entra" ? "No tenant ID" : "No issuer URL" };
   }
   const issuer = kind === "entra" ? entraIssuer(issuerOrTenant) : normalizeIssuer(issuerOrTenant);
-  const result = await testDiscovery(issuer);
-  return { ok: result.ok, issuer, error: result.error };
+  const discovery = await testDiscovery(issuer);
+  if (!discovery.ok) return { ok: false, issuer, error: discovery.error };
+  // Only reported when it actually differs, so the form can render it as a plain
+  // "there is something to know" line rather than a field that is always present.
+  const documentIssuer = issuerMismatch(issuer, discovery.documentIssuer)
+    ? discovery.documentIssuer
+    : undefined;
+
+  // On an edit the secret field is blank when unchanged, so fall back to the
+  // stored one — otherwise "Test connection" could only ever check a connection
+  // whose secret you were in the middle of retyping.
+  let secret = clientSecret?.trim() ?? "";
+  if (!secret && connectionId) {
+    const existing = await SsoConnectionDAO.findById(connectionId);
+    if (existing) {
+      try {
+        secret = await decryptSecret(existing.clientSecretEnc);
+      } catch {
+        return {
+          ok: true,
+          issuer,
+          documentIssuer,
+          client: { verdict: "inconclusive", detail: "Stored client secret could not be decrypted" },
+        };
+      }
+    }
+  }
+
+  if (!clientId?.trim() || !secret) return { ok: true, issuer, documentIssuer };
+  return {
+    ok: true,
+    issuer,
+    documentIssuer,
+    client: await testClientCredentials(issuer, clientId.trim(), secret),
+  };
 }

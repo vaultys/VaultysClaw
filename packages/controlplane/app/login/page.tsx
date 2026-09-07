@@ -5,9 +5,15 @@ import Link from "next/link";
 import { QRCodeSVG } from "qrcode.react";
 import { signIn } from "next-auth/react";
 import { ShieldCheck, Fingerprint, ScrollText, KeyRound } from "lucide-react";
-import { connectWithoutApp, completeCertificateRound, type BrowserIdData } from "@/lib/browser-connect";
-import DevIdentityPicker from "@/components/DevIdentityPicker";
-import { isDevLoginEnabled } from "@/lib/dev-login";
+import {
+  connectWithBrowserIdentity,
+  completeCertificateRound,
+  hasBrowserIdentity,
+  type BrowserIdData,
+} from "@/lib/browser-connect";
+import BrowserIdentityPicker from "@/components/BrowserIdentityPicker";
+import { isBrowserBootstrapEnabled } from "@/lib/browser-bootstrap";
+import { useAdvancedIdentity } from "@/lib/advanced-identity";
 
 const BRAND_POINTS = [
   {
@@ -30,17 +36,45 @@ const BRAND_POINTS = [
 const WALLET_URL = process.env.NEXT_PUBLIC_WALLET_URL || "https://wallet.vaultys.net";
 // process.env.NODE_ENV is inlined at build time by Next.js, including in client bundles —
 // this is never a runtime env lookup, so it's safe to gate UI on it directly.
-const DEV_LOGIN_ENABLED = isDevLoginEnabled();
+const BROWSER_BOOTSTRAP_ENABLED = isBrowserBootstrapEnabled();
 
-type Phase = "loading" | "waiting" | "dev-connecting" | "success" | "failure";
+type Phase = "loading" | "waiting" | "browser-connecting" | "success" | "failure";
 
 /**
- * Passwordless VaultysId login. The QR/wallet flow is the only mechanism in
- * production (docs/REBUILD_ARCHITECTURE.md §1: no username/password
- * fallback); in dev mode only, a second option lets the browser perform the
- * SRP handshake itself with a locally generated software identity — no
- * physical wallet needed. Same Challenger primitive either way, just a
- * different transport (lib/browser-connect.ts, HTTP instead of WebRTC).
+ * What to tell someone whose SSO sign-in failed.
+ *
+ * Deliberately vague about the cause, and it never echoes the IdP's own error:
+ * this page is public, and "the client secret is wrong" is a fact about the
+ * deployment's configuration, not something to hand an anonymous visitor. The
+ * detail belongs in the server log and on the connection's detail page, which is
+ * admin-gated. What the visitor needs is that it was not their fault, and who
+ * can fix it.
+ */
+const SIGN_IN_ERRORS: Record<string, string> = {
+  OAuthCallback:
+    "That provider signed you in, but this deployment could not complete the exchange with it. Its connection settings need attention from an administrator — nothing is wrong on your side.",
+  OAuthSignin:
+    "Could not start sign-in with that provider. An administrator should check its connection settings.",
+  AccessDenied: "That provider declined the sign-in.",
+  Default:
+    "Sign-in with that provider failed. An administrator should check its connection settings.",
+};
+
+/**
+ * Passwordless VaultysId login, over either transport: a wallet app scanning the
+ * QR code, or a VaultysID this browser already holds
+ * (`lib/browser-connect.ts` — same Challenger primitive, HTTP instead of
+ * WebRTC).
+ *
+ * The browser-key option appears **only once this browser actually holds a key**,
+ * because that is what makes it a login rather than a registration: the server
+ * hands out a connection certificate, and `loginHuman` rejects any DID that is
+ * not already a registered Actor. *Minting* a key here — which is how the very
+ * first human bootstraps themselves into `admin_console_access` — stays gated on
+ * `isBrowserBootstrapEnabled()`, since a key an anonymous visitor generated in
+ * their own browser is not evidence of anything. Humans who registered through
+ * SSO get their browser key from the binding step at `/invite/[token]?sso=1`, not
+ * from here.
  */
 interface SsoProviderOption {
   id: string;
@@ -52,7 +86,21 @@ export default function LoginPage() {
   const [phase, setPhase] = useState<Phase>("loading");
   const [qrUrl, setQrUrl] = useState<string>();
   const [ssoProviders, setSsoProviders] = useState<SsoProviderOption[]>([]);
+  // localStorage read in an effect, not during render — see lib/advanced-identity.ts.
+  const [hasKey, setHasKey] = useState(false);
+  const [signInError, setSignInError] = useState<string | null>(null);
+  const [advanced] = useAdvancedIdentity();
   const cancelled = useRef(false);
+
+  useEffect(() => setHasKey(hasBrowserIdentity()), []);
+
+  // Read from `window.location` in an effect rather than with `useSearchParams`,
+  // which would force this page out of static prerendering (or need a Suspense
+  // boundary) for a param that is absent on virtually every visit.
+  useEffect(() => {
+    const code = new URLSearchParams(window.location.search).get("error");
+    if (code) setSignInError(SIGN_IN_ERRORS[code] ?? SIGN_IN_ERRORS.Default);
+  }, []);
 
   // Fetched rather than server-rendered: this page is a Client Component driving
   // the whole Challenger handshake, and the provider list is public, tiny, and
@@ -79,6 +127,7 @@ export default function LoginPage() {
     for (let i = 0; i < 180 && !cancelled.current; i++) {
       const pollRes = await fetch(`/api/public/user/listen/${token}`);
       const { status, certRound } = await pollRes.json();
+      if (cancelled.current) return;
       if (status === 2) {
         if (certRound?.key) {
           // Double SRP (docs/CERTIFICATE_WEB_OF_TRUST.md §3.2b): this browser is the very first
@@ -124,17 +173,24 @@ export default function LoginPage() {
     await pollAndSignIn(token, key);
   }, [pollAndSignIn]);
 
-  const startDevLogin = useCallback(async (identity?: BrowserIdData) => {
-    setPhase("dev-connecting");
+  const startBrowserLogin = useCallback(async (identity?: BrowserIdData) => {
+    setPhase("browser-connecting");
     cancelled.current = false;
 
     const res = await fetch("/api/public/user/connect");
+    // 404 means this deployment has no human yet *and* browser bootstrap is off —
+    // the route's own gate. Nothing to poll, so say so rather than spinning for
+    // three minutes.
+    if (!res.ok) {
+      setPhase("failure");
+      return;
+    }
     const { token, key } = await res.json();
 
     // Errors here surface through the poll below (the server marks the cert
     // failed), so a rejection is intentionally swallowed rather than shown
     // directly — same behavior as the QR flow's failure path.
-    void connectWithoutApp(key, identity).catch(() => {});
+    void connectWithBrowserIdentity(key, identity).catch(() => {});
     await pollAndSignIn(token, key);
   }, [pollAndSignIn]);
 
@@ -144,6 +200,10 @@ export default function LoginPage() {
       cancelled.current = true;
     };
   }, [start]);
+
+  // A key already in this browser is a login; offering to make one is a
+  // registration, and only the bootstrap gate opens that.
+  const showBrowserOption = hasKey || BROWSER_BOOTSTRAP_ENABLED;
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-background">
@@ -204,12 +264,18 @@ export default function LoginPage() {
             </div>
           </div>
 
-          {phase === "dev-connecting" ? (
+          {signInError && (
+            <div className="mt-6 rounded-lg border border-danger-200 bg-danger-50 px-3 py-2 text-xs text-danger-700">
+              {signInError}
+            </div>
+          )}
+
+          {phase === "browser-connecting" ? (
             <div className="flex flex-col items-center gap-3 py-8">
               <div className="w-8 h-8 border-4 border-primary-400 border-t-transparent rounded-full animate-spin" />
               <p className="text-sm text-foreground-700 font-medium">Connecting via this browser…</p>
               <p className="text-xs text-foreground-400 text-center">
-                Authenticating with a software identity stored in this browser.
+                Proving a VaultysID stored in this browser.
               </p>
             </div>
           ) : (
@@ -244,25 +310,30 @@ export default function LoginPage() {
             </div>
           )}
 
-          {DEV_LOGIN_ENABLED && (phase === "waiting" || phase === "loading") && (
+          {showBrowserOption && (phase === "waiting" || phase === "loading") && (
             <div className="mt-6 space-y-2 text-center">
               <button
-                onClick={() => startDevLogin()}
+                onClick={() => startBrowserLogin()}
                 className="text-xs text-foreground-400 hover:text-foreground-600 transition-colors underline underline-offset-2"
               >
-                Connect without the app (dev mode)
+                {hasKey
+                  ? "Sign in with a VaultysID in this browser"
+                  : "Create a VaultysID in this browser"}
               </button>
-              <div>
-                <DevIdentityPicker onSelect={(identity) => startDevLogin(identity)} />
-              </div>
+              {advanced && (
+                <div>
+                  <BrowserIdentityPicker onSelect={(identity) => startBrowserLogin(identity)} />
+                </div>
+              )}
             </div>
           )}
 
           {/* SSO is an alternative way to *establish who you are*, never a
               different kind of account — a first sign-in here comes straight back
-              to this same VaultysID handshake to bind a DID. Rendered below the
-              QR rather than above it because the wallet path remains the primary
-              one, and hidden entirely when no provider is configured. */}
+              to the same VaultysID handshake (at /invite/[token]?sso=1) to bind a
+              DID. Rendered below the QR rather than above it because the wallet
+              path remains the primary one, and hidden entirely when no provider is
+              configured. */}
           {ssoProviders.length > 0 && phase !== "success" && (
             <div className="mt-8 space-y-3">
               <div className="flex items-center gap-3">

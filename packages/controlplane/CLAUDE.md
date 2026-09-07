@@ -94,47 +94,60 @@ the Model Registry, OIDC/Entra ID single sign-on, the Access Portal shell, and t
   a bare "logged in" placeholder. `app/login/page.tsx` gained matching branding (gradient/mesh
   background, a feature-bullet panel beside the QR card on wide screens) — same underlying state
   machine, styling only.
-- **The dev-mode login path is now actually gated** (`lib/dev-login.ts`'s `isDevLoginEnabled`).
-  It previously was not: `NODE_ENV !== "production"` hid the *link* while
-  `GET /api/public/user/connect` stayed reachable in every environment. That route decides
-  register-vs-login on `hasAnyHuman()`, so on a deployment with no human Actor yet it handed an
-  anonymous caller a **registration** certificate, and the bootstrap flow then granted the first
-  human `admin_console_access` — whoever found the endpoint first became the administrator. The
-  route now 404s unless dev login is enabled (404, not 403: an endpoint that does not exist here
-  should not advertise that it exists elsewhere). `NEXT_PUBLIC_ALLOW_DEV_LOGIN=1` is the explicit
-  opt-in, used only by the simulator demo stack; being `NEXT_PUBLIC_` it is inlined at build time,
-  so a production image built without it cannot have the path switched on by an environment
-  variable later.
-- **Dev-mode login without a physical wallet** — `lib/browser-connect.ts` (client, ported from
+- **Browser-held VaultysIDs are a production path; only *minting one anonymously* is gated**
+  (`lib/browser-bootstrap.ts`'s `isBrowserBootstrapEnabled`). Two different things used to hide
+  behind one dev-mode flag. Logging in as a key this browser already holds is an ordinary login —
+  `loginHuman` rejects any DID that is not a registered Actor, so possession of the key is the whole
+  authorization story. Handing an *anonymous* caller a **registration** certificate is not: on a
+  deployment with no human Actor yet, `GET /api/public/user/connect` did exactly that and the
+  bootstrap flow granted the first human `admin_console_access`, so whoever found the endpoint first
+  became the administrator. The route therefore gates its **register branch** only (404, not 403: an
+  endpoint that does not exist here should not advertise that it exists elsewhere) and serves the
+  login branch everywhere. Gating the whole route — which it did — also locked out every human whose
+  only credential *is* a browser-held key, i.e. everyone who registered through SSO.
+  `NEXT_PUBLIC_ALLOW_DEV_LOGIN=1` is the explicit opt-in for the closed branch, used only by the
+  simulator demo stack; being `NEXT_PUBLIC_` it is inlined at build time, so a production image built
+  without it cannot have the path switched on by an environment variable later.
+- **Advanced identity management** (`lib/advanced-identity.ts`, `components/IdentityTabs.tsx`) — the
+  per-browser `localStorage` opt-in that reveals the multi-VaultysID controls: the picker on
+  `/login` and `/invite/[token]`, and the "Browser keys" tab on `/identity`. Off by default because
+  the ordinary path needs no choice at all — `ensureBrowserIdentity()` reuses this browser's key or
+  creates one. It carries no authority (everything it reveals is reachable anyway), so there is
+  nothing to enforce server-side; the switch itself lives on `/identity` so it stays discoverable.
+  Read in an effect, never during render — these components mount from Server Component pages, where
+  a render-time `localStorage` read is a hydration mismatch.
+- **Login without a physical wallet** — `lib/browser-connect.ts` (client, ported from
   `packages/control-plane`'s equivalent — **all four** of its identity-generation paths, not just
   software: `"software"`/`"software-pqc"` (`VaultysId.generateMachine()`, the latter passing
   `"dilithium_ed25519"` — a real algorithm choice the library already supported that neither
   control-plane app had ever actually used; `packages/control-plane`'s own "PQC" badge was purely
-  decorative, see `components/DevIdentityPicker.tsx`'s doc comment) and `"passkey"`/`"hardware"`
+  decorative, see `components/BrowserIdentityPicker.tsx`'s doc comment) and `"passkey"`/`"hardware"`
   (real `navigator.credentials.create()` WebAuthn calls + `VaultysId.fido2FromAttestation`, verbatim
   from that package's `getPkCred`/`generateBrowserId` — not stubs), plus
   `UserLoginChannel.handleRequest` and two new routes (`app/api/public/user/connect`,
   `app/api/public/user/request/[token]`) implementing the *classic* Challenger exchange relayed
   over plain HTTP POSTs instead of PeerJS/WebRTC — no native bindings needed for the software/PQC
   paths (passkey/hardware still need a real platform/FIDO2 authenticator, same as production). The
-  login page's "Connect without the app (dev mode)" link is gated on `process.env.NODE_ENV !==
-  "production"` (inlined at build time by Next.js, safe to check directly in a Client Component).
+  login page offers this transport as "Sign in with a VaultysID in this browser" whenever the
+  browser actually holds one, and as "Create a VaultysID in this browser" only under the bootstrap
+  gate above (`NODE_ENV`/`NEXT_PUBLIC_ALLOW_DEV_LOGIN`, inlined at build time by Next.js, so it is
+  safe to check directly in a Client Component).
   The browser can hold **several** VaultysIDs side by side, of any of the four types
-  (`listStoredDevIdentities`/`generateDevIdentity(type)`/`removeStoredDevIdentity`, keyed in
+  (`listBrowserIdentities`/`generateBrowserIdentity(type)`/`removeBrowserIdentity`, keyed in
   `localStorage` under `vaultysclaw:devIdentities`, migrated automatically from the older
   single-identity key if present) rather than always silently reusing/overwriting one —
-  `components/DevIdentityPicker.tsx` is a full-screen modal (portaled to `document.body` — an
+  `components/BrowserIdentityPicker.tsx` is a full-screen modal (portaled to `document.body` — an
   ancestor's completed `animate-fade-in-up` CSS animation leaves a resolved, non-`none` `transform`
   behind, which creates a containing block for `position: fixed`, so an in-place modal would be
-  confined to that ancestor's box instead of the real viewport) letting a developer pick which
+  confined to that ancestor's box instead of the real viewport) letting someone pick which
   stored identity to connect as or generate a fresh one of a chosen type, from both `/login` and
-  `/invite/[token]`'s dev-mode controls — makes testing as several different humans not require
-  destroying the previous identity first. Omitting a picker choice falls back to whichever identity
+  `/invite/[token]` — makes acting as several different humans not require destroying the previous
+  identity first. Revealed by the advanced-mode switch above, not shown by default. Omitting a picker choice falls back to whichever identity
   was used most recently (tracked separately, `vaultysclaw:activeDevIdentityDid`) — the same
   one-click behavior this had before multiple identities existed. **This only ever registers/logs in as a genuinely new or
-  previously-dev-registered identity** — exactly like a real wallet, it cannot log in as an
+  previously browser-registered identity** — exactly like a real wallet, it cannot log in as an
   unrelated existing Actor it has no key for. The useful case is a fresh, empty database:
-  there, the first dev-mode click registers the browser's identity, then — since this transport is
+  there, the first click registers the browser's identity, then — since this transport is
   code this repo owns end to end, unlike a real wallet app — runs the bootstrap admin grant through
   a **second, independent live SRP exchange** instead of an offline system-issued cert: double SRP,
   one to connect/register (`service: "register"`), one to actually claim
@@ -575,10 +588,19 @@ and "Entra" is an entirely separate Microsoft Graph directory-sync feature with 
   never produces a session.** `lib/sso.ts`'s `resolveSsoLogin` returns either `{kind: "signin", did}`
   or `{kind: "bind", url}`, and the NextAuth `signIn` callback returns that URL — NextAuth turns a
   string return into a redirect. The binding URL is a system-issued, 1-hour `Invitation` carrying the
-  IdP's own name/email, redeemed through **the existing invite flow** (wallet QR, or a dev identity
-  in development); that handshake mints the Actor, and `registerHumanFromInvitation` then binds the
-  external identity to the new DID. Every later login is an ordinary DID session with no SSO-specific
-  path at all.
+  IdP's own name/email, redeemed through **the existing invite flow**; that handshake mints the
+  Actor, and `registerHumanFromInvitation` then binds the external identity to the new DID. Every
+  later login is an ordinary DID session with no SSO-specific path at all.
+- **The binding step mints a browser-held VaultysID on arrival, and that is what made SSO work at
+  all.** It used to render only the wallet QR, with the browser-key transport hidden behind dev
+  mode — so outside development the flow dead-ended for exactly the population it exists for:
+  someone who just proved who they are at their corporate IdP and holds no VaultysID. Arriving at
+  `/invite/[token]?sso=1` now calls `ensureBrowserIdentity()` (reuse this browser's key, else
+  generate a software one) and completes on its own. Ungating that here needs no new trust: both
+  invite-scoped routes require the unguessable single-use token, which is precisely the
+  authorization `/api/public/user/connect`'s bootstrap branch lacks. Both transports stay reachable
+  either way — someone who does hold a wallet can bind that identity instead, and an admin's
+  (non-SSO) invite still leads with the QR.
 - **Security properties worth not regressing**: `bindDid` is a conditional `updateMany` on
   `did: null`, so a completed binding is never silently repointed at a different DID (which is what
   would let a replayed binding link take over an account) — losing that race leaves the existing
@@ -600,6 +622,54 @@ and "Entra" is an entirely separate Microsoft Graph directory-sync feature with 
   needs no provider list. A connection whose secret can't be decrypted is dropped with a log line
   rather than thrown, so one broken connection can't take down the login page (including the
   VaultysId path, which doesn't depend on it).
+- **Credentials are verified, not just the issuer** (`lib/sso-config.ts`'s `testClientCredentials`,
+  surfaced by `identity/ConnectionHealth.tsx` and the form's "Test connection"). Discovery
+  validation only ever proved the *issuer* was real, and that is the half that rarely breaks. A
+  connection with a good issuer and a bad client secret saved clean, looked configured, and then
+  failed at the **token** endpoint — as an `[next-auth][error][OAUTH_CALLBACK_ERROR] invalid_client`
+  line in the server log, for whoever clicked the sign-in button first. Exactly the failure mode the
+  discovery check was added to prevent, one field over. Two checks close it:
+  - **Shape**: a client secret starting `http://`/`https://` is refused outright. That is not a
+    hypothetical — the Issuer field invites pasting a full discovery URL (it says so), which leaves
+    that URL in the clipboard next to the secret field, and this is precisely how the first real
+    connection here was misconfigured.
+  - **Behaviour**: there is no standard "verify my client secret" endpoint, but RFC 6749 §5.2 gives
+    a discriminator — send a token request with a deliberately bogus authorization code and read
+    *why* it fails. `invalid_client` means client authentication was rejected; `invalid_grant` means
+    the client authenticated and only the code was refused. Both `client_secret_basic` and
+    `client_secret_post` are tried (openid-client defaults to basic, but either may be the
+    registered method) and only rejection by *both* is conclusive. Anything unreadable —
+    unreachable endpoint, non-conforming error body — returns **`"inconclusive"`, which never
+    blocks a save**: a check that can't tell must not veto a connection that may be fine.
+  A third check reports, as a **warning only**, an IdP whose discovery document names a different
+  issuer than the URL it was fetched from (`issuerMismatch`) — the real IdP here serves discovery
+  over `https://` and claims `http://`, the classic symptom of an OIDC provider behind TLS
+  termination that has not been told it is on https. OIDC Discovery §4.3 requires them to be
+  identical. Never a failure, because it works today: openid-client v5 takes the issuer from the
+  document and then consistently validates the `id_token`'s `iss` and the `iss` response parameter
+  against that same value. Worth saying anyway — stricter clients (openid-client v6 among them)
+  reject it, and `SsoIdentity.issuer` records the *configured* issuer, which in that case is not the
+  string the IdP identifies itself by, weakening the very "a re-pointed connection can't re-bind an
+  identity from a different IdP" guarantee that column exists for. It is **not** a cause of
+  `invalid_client`: the token POST goes to the document's `token_endpoint`, which is https, and the
+  `iss` string never selects an endpoint.
+  `ConnectionHealth` re-runs all of them on every visit to the detail page rather than storing a flag,
+  because what breaks a connection is usually a change at the *IdP* (rotated secret, deleted client)
+  that this side is never told about — a stored "healthy" boolean would be reassuring and wrong.
+  Note the save-time refusals `throw`, so in a production build the admin sees a redacted
+  "Minified React error"; the **Test connection** action returns its findings as data instead, which
+  is why that path — not the throw — is what actually explains the problem to a person. The rest of
+  this file's Server Actions have the same latent issue (see the Invitation section).
+- **A failed SSO callback now reaches the person who tried it.** `authOptions.pages.error` points at
+  `/login` instead of NextAuth's built-in error page, and `/login` renders a message for `?error=`
+  (`SIGN_IN_ERRORS`). Before this, a misconfigured connection produced a generic "Try signing in
+  with a different account" screen while the only real information — `OAUTH_CALLBACK_ERROR:
+  invalid_client` — went to the server log: invisible to the visitor, and no signal at all to
+  whoever configured the connection. The copy is deliberately vague about the cause and never echoes
+  the IdP's error, because this page is public and "the client secret is wrong" is a fact about the
+  deployment; the specifics stay in the log and on the admin-gated detail page. The param is read
+  from `window.location` in an effect, not via `useSearchParams`, which would cost `/login` its
+  static prerender (or need a Suspense boundary) for a param absent on virtually every visit.
 - **UI**: `app/admin/integrations/identity/*` — one form with a kind switch (not two panels, which
   is also what stops the two drifting), live discovery "Test connection", and the **redirect URI**
   shown on the detail page with a copy button, since a mismatch there is the most common reason a
@@ -1078,8 +1148,24 @@ repeatable tests (see deferred).
   `{kind: "signin", did}` on every later login; and `bindDid` refuses to repoint an
   already-bound identity, leaving the original binding intact. Deleting the connection cascaded its
   identities away and emptied the login-page provider list.
-  **Not verified**: an end-to-end login against a real tenant (no Entra app registration available
-  here), so the id_token→claims→`signIn` callback hop is proven only at its two ends.
+  **Since verified for real, against a live OIDC IdP**: the binding half end to end in a browser —
+  a binding link minted exactly as a successful SSO login mints one, opened at `/invite/[token]?sso=1`,
+  auto-generated a browser VaultysID, redeemed the invitation, bound the `SsoIdentity` to the new
+  DID, created the Actor from the IdP's own name/email, and signed in holding `portal_access` issued
+  by `system:sso:<connectionId>`; a second `resolveSsoLogin` for that subject then returned
+  `{kind: "signin", did}`, and signing out and back in with the browser-held key worked. Also
+  verified against the live IdP's real token endpoint that `testClientCredentials` returns
+  `rejected` for a URL-shaped secret, `rejected` (via a genuine `invalid_client`) for a
+  secret-shaped wrong value, and `inconclusive` for an unreachable issuer.
+  Also verified against the live IdP with a **real** end-to-end attempt: the sign-in POST, the IdP's
+  redirect back with a genuine authorization code, the token exchange failing `invalid_client`, and
+  the browser landing on `/login?error=OAuthCallback` showing the new plain-language message rather
+  than NextAuth's generic error page. Separately confirmed that this IdP's client is confidential
+  (public-client token requests with no secret are refused too) and that talking http to the token
+  endpoint merely 301s to https — so the http issuer is not the cause of `invalid_client`.
+  **Still not verified**: a *successful* IdP hop — the `id_token` → claims → `signIn` callback hop is
+  proven only at its two ends, because no working client secret was available. `accepted` is
+  therefore the one `testClientCredentials` verdict with no live positive case behind it.
 - **Caveat, not verified**: the actual PeerJS/WebRTC wire exchange with a real VaultysId wallet
   app (no physical wallet in this environment — the Challenger crypto itself is already proven via
   the WS-agent path). One incidental observation from testing against the public PeerJS relay: an

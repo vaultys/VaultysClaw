@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { Download, ShieldAlert, Upload } from "lucide-react";
-import { importDevIdentities } from "@/lib/browser-connect";
-import type { BrowserIdData } from "@/lib/dev-identity";
+import { importBrowserIdentities } from "@/lib/browser-connect";
+import type { BrowserIdData } from "@/lib/browser-identity";
 import {
   MIN_PASSPHRASE_LENGTH,
   backupFilename,
@@ -13,9 +13,9 @@ import {
 } from "@/lib/identity-backup";
 
 /**
- * Export and restore the dev-mode VaultysIDs held in this browser.
+ * Export and restore the VaultysIDs held in this browser.
  *
- * Extracted from `DevIdentityPicker` so the same forms serve both the logged-out
+ * Extracted from `BrowserIdentityPicker` so the same forms serve both the logged-out
  * login page and the signed-in identity page. Backing up only from `/login` is
  * the wrong shape: the moment you have something worth keeping you are usually
  * signed in, and the feature was unreachable there.
@@ -85,7 +85,7 @@ export default function IdentityBackupPanel({
     setWorking(true);
     try {
       const restored = await openBackup(parseBackup(await restoreFile.text()), restorePassphrase);
-      const { added, alreadyPresent } = importDevIdentities(restored);
+      const { added, alreadyPresent } = importBrowserIdentities(restored);
       onIdentitiesChanged?.();
       // A restore that did nothing looks exactly like one that worked, so say
       // which happened rather than just "done".

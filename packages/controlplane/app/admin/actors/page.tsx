@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Info, UserPlus } from "lucide-react";
+import { Bot, Info, UserPlus } from "lucide-react";
 import { ActorDAO, PendingRegistrationDAO, CustomCapabilityDAO } from "@/db";
 import PageChrome from "@/components/layout/PageChrome";
 import { ActorKindBadge } from "@/components/ActorKindBadge";
@@ -37,6 +37,14 @@ export default async function ActorsPage() {
               : ""
           }`,
           actions: [
+            {
+              kind: "button",
+              id: "add-agent",
+              label: "Add agent",
+              variant: "default",
+              icon: <Bot className="w-3.5 h-3.5" />,
+              href: "/admin/actors/agent",
+            },
             {
               kind: "button",
               id: "invite-human",

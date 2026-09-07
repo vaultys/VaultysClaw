@@ -25,7 +25,7 @@
  * failure — which is what we want: fail closed, one message, no oracle for
  * distinguishing the two.
  */
-import { normaliseIdentity, type BrowserIdData } from "./dev-identity";
+import { normaliseIdentity, type BrowserIdData } from "./browser-identity";
 
 export const BACKUP_FORMAT = "vaultysclaw-identity-backup";
 export const BACKUP_VERSION = 1;

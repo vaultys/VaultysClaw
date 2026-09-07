@@ -1,8 +1,31 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, CheckCircle2, XCircle, Copy } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, AlertTriangle, Copy } from "lucide-react";
 import { testSsoConnectionAction } from "./actions";
+
+interface TestResult {
+  ok: boolean;
+  issuer: string;
+  error?: string;
+  /** Present only when the IdP's document names a different issuer than the URL
+   *  it was fetched from — see `issuerMismatch` in lib/sso-config.ts. */
+  documentIssuer?: string;
+  client?: { verdict: "accepted" | "rejected" | "inconclusive"; detail: string };
+}
+
+/** One check, one line. `warn` is for "couldn't tell" — visually distinct from a
+ *  failure, because it deliberately does not block saving. */
+function ResultLine({ ok, warn, text }: { ok: boolean; warn?: boolean; text: string }) {
+  const tone = warn ? "text-warning-700" : ok ? "text-success-700" : "text-danger-600";
+  const Icon = warn ? AlertTriangle : ok ? CheckCircle2 : XCircle;
+  return (
+    <div className={`text-xs flex items-start gap-1.5 ${tone}`}>
+      <Icon className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+      <div>{text}</div>
+    </div>
+  );
+}
 
 /**
  * Create/edit form for an SSO connection, shared by `new/` and `[id]/`.
@@ -36,16 +59,32 @@ export default function SsoConnectionForm({
   const [issuer, setIssuer] = useState(connection?.issuer ?? "");
   const [tenantId, setTenantId] = useState(connection?.tenantId ?? "");
   const [testing, setTesting] = useState(false);
-  const [result, setResult] = useState<{ ok: boolean; issuer: string; error?: string } | null>(null);
+  // Credentials are read out of the form's own DOM at test time rather than held
+  // in React state: the secret input stays uncontrolled (type="password", never
+  // redisplayed), and keeping a copy in state would mean keeping the plaintext
+  // secret in a component that re-renders on every keystroke elsewhere.
+  const [result, setResult] = useState<TestResult | null>(null);
   const [copied, setCopied] = useState(false);
 
   const isEntra = kind === "entra";
 
-  async function onTest() {
+  async function onTest(e: React.MouseEvent<HTMLButtonElement>) {
     setTesting(true);
     setResult(null);
+    const form = e.currentTarget.form;
+    const clientId = (form?.elements.namedItem("clientId") as HTMLInputElement | null)?.value ?? "";
+    const clientSecret =
+      (form?.elements.namedItem("clientSecret") as HTMLInputElement | null)?.value ?? "";
     try {
-      setResult(await testSsoConnectionAction(kind, isEntra ? tenantId : issuer));
+      setResult(
+        await testSsoConnectionAction(
+          kind,
+          isEntra ? tenantId : issuer,
+          clientId,
+          clientSecret,
+          connection?.id
+        )
+      );
     } catch (err) {
       setResult({
         ok: false,
@@ -177,7 +216,8 @@ export default function SsoConnectionForm({
           className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background font-mono"
         />
         <p className="text-xs text-foreground-400 mt-1">
-          Encrypted at rest and never redisplayed.
+          Encrypted at rest and never redisplayed. This is the secret your IdP issued for the
+          application — not a URL.
         </p>
       </div>
 
@@ -209,7 +249,7 @@ export default function SsoConnectionForm({
       <div className="border border-neutral-200/60 rounded-lg p-3 space-y-2">
         <div className="flex items-center justify-between gap-3">
           <div className="text-sm text-foreground-600">
-            Check the IdP&apos;s discovery document before saving.
+            Check the IdP and your client credentials before saving.
           </div>
           <button
             type="button"
@@ -222,26 +262,39 @@ export default function SsoConnectionForm({
           </button>
         </div>
         {result && (
-          <div
-            className={`text-xs flex items-start gap-1.5 ${
-              result.ok ? "text-success-700" : "text-danger-600"
-            }`}
-          >
-            {result.ok ? (
-              <CheckCircle2 className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-            ) : (
-              <XCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+          <div className="space-y-1.5">
+            <ResultLine
+              ok={result.ok}
+              text={
+                result.ok
+                  ? `Discovery OK at ${result.issuer} — authorization, token and JWKS endpoints all present.`
+                  : `Couldn't verify the issuer: ${result.error}`
+              }
+            />
+            {result.documentIssuer && (
+              <ResultLine
+                ok={false}
+                warn
+                text={`The IdP identifies its issuer as ${result.documentIssuer}, not ${result.issuer}. Discovery requires these to match; sign-in usually still works, but it is worth fixing at the IdP.`}
+              />
             )}
-            <div>
-              {result.ok ? (
-                <>
-                  Discovery OK at <code className="font-mono">{result.issuer}</code> — authorization,
-                  token and JWKS endpoints all present.
-                </>
-              ) : (
-                <>Couldn&apos;t verify: {result.error}</>
-              )}
-            </div>
+            {/* Reported separately from discovery, because they fail separately and
+                for unrelated reasons: a perfect issuer with a wrong secret is the
+                exact combination that used to save clean and then break at the
+                token endpoint, for whoever signed in first. */}
+            {result.client && (
+              <ResultLine
+                ok={result.client.verdict === "accepted"}
+                warn={result.client.verdict === "inconclusive"}
+                text={
+                  result.client.verdict === "accepted"
+                    ? `Client credentials accepted — ${result.client.detail}.`
+                    : result.client.verdict === "rejected"
+                      ? `Client credentials rejected. ${result.client.detail}`
+                      : `Couldn't check the client credentials: ${result.client.detail}. Saving is still allowed.`
+                }
+              />
+            )}
           </div>
         )}
       </div>

@@ -4,30 +4,31 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { ArrowLeft, Download, Plus, Trash2, X } from "lucide-react";
 import {
-  generateDevIdentity,
-  listStoredDevIdentities,
-  removeStoredDevIdentity,
+  generateBrowserIdentity,
+  listBrowserIdentities,
+  removeBrowserIdentity,
   type BrowserIdData,
-  type DevIdentityType,
+  type BrowserIdentityType,
 } from "@/lib/browser-connect";
 import IdentityBackupPanel from "./IdentityBackupPanel";
-import { TYPE_META, TYPE_ORDER, typeMeta } from "./dev-identity-meta";
+import { TYPE_META, TYPE_ORDER, typeMeta } from "./browser-identity-meta";
 
 
 type View = "list" | "choose-type" | "backup";
 
 /**
- * Dev-mode only: lets a developer pick which previously used VaultysID to connect as, or generate
- * a fresh one of a given type — makes it easy to test as several different humans (e.g. an admin,
- * then a freshly invited user) without destroying the previous identity first. The four generation
+ * Advanced identity management: pick which VaultysID held by this browser to connect as, or
+ * generate a fresh one of a given type — makes it possible to act as several different humans
+ * (an admin, then a freshly invited user) from one browser without destroying the previous key
+ * first. Revealed only by the advanced-mode switch (`lib/advanced-identity.ts`); the ordinary
+ * sign-in and invite paths never ask, they just use `ensureBrowserIdentity()`. The four generation
  * types mirror packages/control-plane's `SecurityTypeSelector` (software/passkey/hardware are real
  * working code there — genuine `navigator.credentials.create()` calls, not stubs) plus a fourth,
  * post-quantum option neither control-plane app actually wired up before now (see
  * lib/browser-connect.ts's doc comment). A full-screen modal (portaled to document.body) rather
  * than an inline dropdown — this is a deliberate, occasional action, not something that needs to
  * compete for space with the QR code underneath.
- */
-export default function DevIdentityPicker({
+ */export default function BrowserIdentityPicker({
   onSelect,
 }: {
   onSelect: (identity: BrowserIdData) => void;
@@ -35,7 +36,7 @@ export default function DevIdentityPicker({
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<View>("list");
   const [identities, setIdentities] = useState<BrowserIdData[]>([]);
-  const [busy, setBusy] = useState<DevIdentityType | null>(null);
+  const [busy, setBusy] = useState<BrowserIdentityType | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -53,11 +54,11 @@ export default function DevIdentityPicker({
     setError(null);
   }
 
-  async function handleGenerate(type: DevIdentityType) {
+  async function handleGenerate(type: BrowserIdentityType) {
     setBusy(type);
     setError(null);
     try {
-      const identity = await generateDevIdentity(type);
+      const identity = await generateBrowserIdentity(type);
       onSelect(identity);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to generate identity");
@@ -71,12 +72,12 @@ export default function DevIdentityPicker({
       <button
         type="button"
         onClick={() => {
-          setIdentities(listStoredDevIdentities());
+          setIdentities(listBrowserIdentities());
           setOpen(true);
         }}
         className="text-xs text-foreground-400 hover:text-foreground-600 transition-colors underline underline-offset-2"
       >
-        Switch dev identity
+        Use a different VaultysID
       </button>
     );
   }
@@ -105,14 +106,14 @@ export default function DevIdentityPicker({
           <div>
             <h2 className="text-lg font-semibold text-foreground">
               {view === "list"
-                ? "Dev identities"
+                ? "VaultysIDs in this browser"
                 : view === "backup"
                   ? "Back up & restore"
                   : "Choose a key type"}
             </h2>
             <p className="mt-0.5 text-sm text-foreground-500">
               {view === "list"
-                ? "Choose which VaultysID to connect as."
+                ? "Choose which one to connect as."
                 : view === "backup"
                   ? "These files hold private keys, so they are always encrypted."
                   : "Real generation — passkey/hardware trigger an actual browser prompt."}
@@ -167,8 +168,8 @@ export default function DevIdentityPicker({
                     <button
                       type="button"
                       onClick={() => {
-                        removeStoredDevIdentity(identity.did);
-                        setIdentities(listStoredDevIdentities());
+                        removeBrowserIdentity(identity.did);
+                        setIdentities(listBrowserIdentities());
                       }}
                       title="Forget this identity"
                       className="shrink-0 rounded-lg p-2 text-foreground-300 opacity-0 transition-colors hover:bg-danger-50 hover:text-danger-600 group-hover:opacity-100"
@@ -204,7 +205,7 @@ export default function DevIdentityPicker({
         ) : view === "backup" ? (
           <IdentityBackupPanel
             identities={identities}
-            onIdentitiesChanged={() => setIdentities(listStoredDevIdentities())}
+            onIdentitiesChanged={() => setIdentities(listBrowserIdentities())}
           />
         ) : (
           <div className="space-y-2">

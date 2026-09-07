@@ -1,11 +1,11 @@
 import { Cpu, Fingerprint, KeyRound, Usb } from "lucide-react";
-import type { DevIdentityType } from "@/lib/dev-identity";
+import type { BrowserIdentityType } from "@/lib/browser-identity";
 
 /**
  * Display metadata for the four dev-identity key types.
  *
  * Shared by the two places that render a list of browser identities:
- * `DevIdentityPicker` (pick one to connect as, from the login page) and
+ * `BrowserIdentityPicker` (pick one to connect as, from the login page) and
  * `BrowserIdentitiesPanel` (review and manage them, from `/identity`). The lists
  * themselves stay separate — one is a chooser, the other is a manager, and
  * forcing one component to be both behind a mode flag would be worse than the
@@ -13,7 +13,7 @@ import type { DevIdentityType } from "@/lib/dev-identity";
  * label and icon for a given type, which is exactly what lives here.
  */
 export const TYPE_META: Record<
-  DevIdentityType,
+  BrowserIdentityType,
   { label: string; icon: typeof KeyRound; description: string }
 > = {
   software: {
@@ -38,10 +38,10 @@ export const TYPE_META: Record<
   },
 };
 
-export const TYPE_ORDER: DevIdentityType[] = ["software", "software-pqc", "passkey", "hardware"];
+export const TYPE_ORDER: BrowserIdentityType[] = ["software", "software-pqc", "passkey", "hardware"];
 
 /** Falls back to `software` for an identity stored before `type` existed, matching
  *  `normaliseIdentity`'s own default. */
-export function typeMeta(type: DevIdentityType | undefined) {
-  return TYPE_META[type as DevIdentityType] ?? TYPE_META.software;
+export function typeMeta(type: BrowserIdentityType | undefined) {
+  return TYPE_META[type as BrowserIdentityType] ?? TYPE_META.software;
 }

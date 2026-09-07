@@ -36,7 +36,13 @@ declare module "next-auth/jwt" {
 
 export const authOptions: NextAuthOptions = {
   session: { strategy: "jwt" },
-  pages: { signIn: "/login" },
+  // `error` points back at our own login page, not NextAuth's built-in one. A
+  // failed SSO callback (a wrong client secret, say) otherwise ends on a generic
+  // "Try signing in with a different account" screen while the real cause is an
+  // `OAUTH_CALLBACK_ERROR` line in the server log — invisible to the person who
+  // just tried, and no signal at all to whoever configured the connection.
+  // `/login` reads `?error=` and says something specific instead.
+  pages: { signIn: "/login", error: "/login" },
   providers: [
     CredentialsProvider({
       name: "VaultysID",

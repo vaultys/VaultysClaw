@@ -9,7 +9,7 @@ import {
   openBackup,
   parseBackup,
 } from "@/lib/identity-backup";
-import type { BrowserIdData } from "@/lib/dev-identity";
+import type { BrowserIdData } from "@/lib/browser-identity";
 
 /**
  * These run against the real Web Crypto implementation (available as

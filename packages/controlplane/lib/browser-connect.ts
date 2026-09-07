@@ -1,19 +1,28 @@
 "use client";
 
 /**
- * Dev-mode login — the browser performs the VaultysId SRP handshake itself,
- * instead of a physical wallet app scanning a QR code. Ported from
- * packages/control-plane's `lib/browser-connect.ts`.
+ * Browser-held VaultysId login — the browser performs the VaultysId SRP
+ * handshake itself with a key it stores locally, instead of a physical wallet
+ * app scanning a QR code. Ported from packages/control-plane's
+ * `lib/browser-connect.ts`.
+ *
+ * No longer a dev-only path. It is the credential an SSO-registered human ends
+ * up holding: `resolveSsoLogin` proves *who* someone is, and the binding step
+ * (`app/invite/[token]?sso=1`) mints or reuses one of these keys to give that
+ * person a DID. `lib/browser-bootstrap.ts` explains what *is* still dev-gated — minting
+ * an identity for an anonymous caller on a deployment with no human yet — and
+ * why that is a narrower gate than "this whole module".
  *
  * Reuses the exact same Challenger primitive as every other login path; only
  * the transport differs (plain HTTP POSTs via BrowserChannel against
  * /api/public/user/request, not WebRTC/PeerJS).
  *
- * Multiple identities can be stored side by side (not just one) so testing as
- * different humans — admin vs. a freshly invited user, say — doesn't require
- * destroying the previous identity first. Four generation types, same set
- * packages/control-plane's `SecurityTypeSelector` offers plus one it doesn't:
- *   - "software"     — a random key generated and stored in this browser.
+ * Multiple identities can be stored side by side (not just one), which is what
+ * the advanced-mode picker exposes — one browser standing in for several humans
+ * (an admin, then a freshly invited user) without destroying the previous key
+ * first. Four generation types, same set packages/control-plane's
+ * `SecurityTypeSelector` offers plus one it doesn't:
+ *   - "software"      — a random key generated and stored in this browser.
  *   - "software-pqc"  — same, but a post-quantum/classical hybrid key
  *                        (dilithium_ed25519) — @vaultys/id already supports this
  *                        algorithm choice; neither control-plane app actually
@@ -21,7 +30,7 @@
  *                        badge in packages/control-plane's login diagram.
  *   - "passkey"       — a real WebAuthn platform authenticator (Face ID/Touch ID).
  *   - "hardware"      — a real WebAuthn cross-platform authenticator (FIDO2 key).
- * `DevIdentityPicker.tsx` is the UI for choosing between stored identities or
+ * `BrowserIdentityPicker.tsx` is the UI for choosing between stored identities or
  * generating a new one of a given type; everything here is just the storage +
  * generation + connect primitives it and the login/invite pages call into.
  */
@@ -35,9 +44,12 @@ const Buffer = crypto.Buffer;
 // so pure consumers (lib/identity-backup.ts and its Node tests) can use them
 // without pulling in @vaultys/channel-browser. Re-exported here so existing
 // importers keep working unchanged.
-export { normaliseIdentity, type BrowserIdData, type DevIdentityType } from "./dev-identity";
-import { normaliseIdentity, type BrowserIdData, type DevIdentityType } from "./dev-identity";
+export { normaliseIdentity, type BrowserIdData, type BrowserIdentityType } from "./browser-identity";
+import { normaliseIdentity, type BrowserIdData, type BrowserIdentityType } from "./browser-identity";
 
+// The "dev" in these two keys is historical and deliberately kept: renaming them
+// would orphan every key already in a real browser's localStorage, and there is
+// no server-side copy to restore from.
 const IDENTITIES_KEY = "vaultysclaw:devIdentities";
 const ACTIVE_KEY = "vaultysclaw:activeDevIdentityDid";
 /** Pre-multi-identity storage key — migrated into IDENTITIES_KEY once, on first read. */
@@ -78,12 +90,12 @@ function getActiveIdentity(): BrowserIdData | null {
   return (did && readIdentities().find((i) => i.did === did)) || null;
 }
 
-/** Every VaultysID this browser has generated for dev-mode login so far. */
-export function listStoredDevIdentities(): BrowserIdData[] {
+/** Every VaultysID this browser holds. */
+export function listBrowserIdentities(): BrowserIdData[] {
   return readIdentities();
 }
 
-export function removeStoredDevIdentity(did: string): void {
+export function removeBrowserIdentity(did: string): void {
   persistIdentities(readIdentities().filter((i) => i.did !== did));
 }
 
@@ -97,7 +109,7 @@ export function removeStoredDevIdentity(did: string): void {
  * is derived from its key: same DID means same secret, so there is nothing to
  * choose between.
  */
-export function importDevIdentities(incoming: BrowserIdData[]): {
+export function importBrowserIdentities(incoming: BrowserIdData[]): {
   added: number;
   alreadyPresent: number;
 } {
@@ -136,10 +148,10 @@ function getPkCred(requireResidentKey: boolean): PublicKeyCredentialCreationOpti
   };
 }
 
-/** Generates and stores a new dev identity of the given type — "passkey"/"hardware" trigger a
+/** Generates and stores a new browser identity of the given type — "passkey"/"hardware" trigger a
  *  real WebAuthn prompt and can reject (e.g. the user cancels, or no authenticator is available);
  *  callers should expect this to throw. */
-export async function generateDevIdentity(type: DevIdentityType = "software"): Promise<BrowserIdData> {
+export async function generateBrowserIdentity(type: BrowserIdentityType = "software"): Promise<BrowserIdData> {
   let vaultysId: VaultysId;
   switch (type) {
     case "passkey": {
@@ -197,18 +209,38 @@ async function srp(channel: BrowserChannel, vaultysId: VaultysId, service = "aut
 }
 
 /**
+ * The identity this browser should connect as when nobody has picked one:
+ * whichever was used most recently, else the first stored one, else a fresh
+ * software key.
+ *
+ * Generating on the "else" branch is what makes an SSO binding a single click —
+ * a person arriving from their corporate IdP has no VaultysID yet, and asking
+ * them to acquire a wallet app first is where that flow used to dead-end. Note
+ * that the *storage* here is all this returns; nothing is registered with the
+ * control plane until a handshake actually runs.
+ */
+export async function ensureBrowserIdentity(): Promise<BrowserIdData> {
+  return getActiveIdentity() ?? readIdentities()[0] ?? (await generateBrowserIdentity());
+}
+
+/** Whether this browser already holds at least one VaultysID — i.e. whether
+ *  "sign in with this browser" is a login rather than a registration. Sync, so
+ *  a component can branch on it without an async effect. */
+export function hasBrowserIdentity(): boolean {
+  return readIdentities().length > 0;
+}
+
+/**
  * Authenticates the browser directly against the control plane, without a
  * physical wallet, using `identity` — a specific stored VaultysID (picked via
- * `DevIdentityPicker`, which resolves "generate a new one" to a concrete
+ * `BrowserIdentityPicker`, which resolves "generate a new one" to a concrete
  * identity itself before calling this) — or omitted entirely to fall back to
- * whichever identity was used most recently (or the first stored one, or a
- * freshly generated software one if none exist yet) — the same one-click
- * behavior this had before multiple identities existed. The caller is
- * expected to already be polling /api/public/user/listen/[token] — this only
- * completes the server-side certificate, it does not poll.
+ * {@link ensureBrowserIdentity}. The caller is expected to already be polling
+ * /api/public/user/listen/[token] — this only completes the server-side
+ * certificate, it does not poll.
  */
-export async function connectWithoutApp(key: string, identity?: BrowserIdData): Promise<void> {
-  const chosen = identity ?? getActiveIdentity() ?? readIdentities()[0] ?? (await generateDevIdentity());
+export async function connectWithBrowserIdentity(key: string, identity?: BrowserIdData): Promise<void> {
+  const chosen = identity ?? (await ensureBrowserIdentity());
   setActiveIdentity(chosen.did);
   const vaultysId = VaultysId.fromSecret(chosen.secret, "base64").toVersion(1);
   const channel = new BrowserChannel(`${SERVER_URL}/api/public/user/request`, key);
@@ -216,10 +248,10 @@ export async function connectWithoutApp(key: string, identity?: BrowserIdData): 
 }
 
 /**
- * The second SRP of the dev-mode bootstrap's double-SRP flow
+ * The second SRP of the bootstrap's double-SRP flow
  * (docs/CERTIFICATE_WEB_OF_TRUST.md §3.2b): after the login round completes
  * and `/api/public/user/listen/[token]` reports a `certRound`, the browser
- * runs this — same identity `connectWithoutApp` just used (tracked as
+ * runs this — same identity `connectWithBrowserIdentity` just used (tracked as
  * "active" above, not just "whatever's stored"), same transport,
  * `service: "certificate"` instead of `"auth"` — to actually co-sign the
  * `admin_console_access` grant. Resolving means the certificate is already

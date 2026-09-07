@@ -2,15 +2,15 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Check, Trash2 } from "lucide-react";
-import { listStoredDevIdentities, removeStoredDevIdentity } from "@/lib/browser-connect";
-import type { BrowserIdData } from "@/lib/dev-identity";
-import { typeMeta } from "./dev-identity-meta";
+import { listBrowserIdentities, removeBrowserIdentity } from "@/lib/browser-connect";
+import type { BrowserIdData } from "@/lib/browser-identity";
+import { typeMeta } from "./browser-identity-meta";
 import IdentityBackupPanel from "./IdentityBackupPanel";
 
 /**
  * Enumerate, manage, and back up the VaultysIDs this browser holds.
  *
- * The counterpart to `DevIdentityPicker`, which lists the same identities in
+ * The counterpart to `BrowserIdentityPicker`, which lists the same identities in
  * order to *connect as* one. Here you are already signed in, so there is nothing
  * to pick — the list exists to answer "what is actually stored in this browser,
  * and is any of it worth keeping".
@@ -22,7 +22,7 @@ export default function BrowserIdentitiesPanel({ currentDid }: { currentDid: str
   // localStorage is read in an effect, never during render: this mounts from a
   // Server Component page, so a render-time read would disagree with the
   // server's empty output and produce a hydration mismatch.
-  const refresh = useCallback(() => setIdentities(listStoredDevIdentities()), []);
+  const refresh = useCallback(() => setIdentities(listBrowserIdentities()), []);
   useEffect(refresh, [refresh]);
 
   function handleDelete(did: string) {
@@ -34,7 +34,7 @@ export default function BrowserIdentitiesPanel({ currentDid }: { currentDid: str
       setConfirming(did);
       return;
     }
-    removeStoredDevIdentity(did);
+    removeBrowserIdentity(did);
     setConfirming(null);
     refresh();
   }
@@ -48,8 +48,9 @@ export default function BrowserIdentitiesPanel({ currentDid }: { currentDid: str
             <span className="font-normal text-foreground-400">({identities.length})</span>
           </h2>
           <p className="mt-0.5 text-xs text-foreground-500">
-            Dev-mode login keeps these VaultysIDs in <code>localStorage</code>. Clearing site data
-            destroys them, and nothing on the server can bring them back.
+            These VaultysIDs live in this browser&apos;s <code>localStorage</code> and nowhere
+            else. Clearing site data destroys them, and nothing on the server can bring them
+            back — which is what the backup below is for.
           </p>
         </div>
 

@@ -5,6 +5,7 @@ import PageChrome from "@/components/layout/PageChrome";
 import { callbackUrlFor } from "@/lib/sso-config";
 import { encodeDidParam } from "@/lib/actor-route";
 import SsoConnectionForm from "../SsoConnectionForm";
+import ConnectionHealth from "../ConnectionHealth";
 import { updateSsoConnectionAction, deleteSsoConnectionAction } from "../actions";
 
 export default async function SsoConnectionDetailPage({
@@ -31,6 +32,10 @@ export default async function SsoConnectionDetailPage({
           { label: connection.name },
         ]}
       />
+
+      <div className="space-y-2">
+        <ConnectionHealth connection={connection} />
+      </div>
 
       <SsoConnectionForm
         action={updateSsoConnectionAction}

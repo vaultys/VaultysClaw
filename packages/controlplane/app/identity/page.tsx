@@ -1,9 +1,9 @@
-import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
 import { ActorDAO, CapabilityCertificateDAO } from "@/db";
 import { ActorKindBadge } from "@/components/ActorKindBadge";
 import BrowserIdentitiesPanel from "@/components/BrowserIdentitiesPanel";
+import IdentityTabs from "@/components/IdentityTabs";
 import type { CertScope } from "@vaultysclaw/policy";
 
 const STATUS_BADGE: Record<string, string> = {
@@ -12,35 +12,6 @@ const STATUS_BADGE: Record<string, string> = {
   superseded: "bg-neutral-100 text-foreground-500 border-neutral-200",
   expired: "bg-neutral-100 text-foreground-500 border-neutral-200",
 };
-
-/** Inlined at build time by Next.js, so this is safe to read in a Server Component too. */
-const DEV_MODE = process.env.NODE_ENV !== "production";
-
-/** Plain `?tab=` links, the same pattern as /admin/integrations and the workspace
- *  detail page — keeps the page a Server Component that fetches its own data,
- *  which a client-side tab control could not. */
-function TabLink({
-  id,
-  active,
-  label,
-}: {
-  id: string;
-  active: boolean;
-  label: string;
-}) {
-  return (
-    <Link
-      href={id === "identity" ? "/identity" : `/identity?tab=${id}`}
-      className={`-mb-px border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
-        active
-          ? "border-primary-600 text-primary-700"
-          : "border-transparent text-foreground-500 hover:text-foreground"
-      }`}
-    >
-      {label}
-    </Link>
-  );
-}
 
 /**
  * My identity — who this session is, and what it holds.
@@ -58,9 +29,10 @@ export default async function IdentityPage({
   const did = session!.user!.did!;
   const { tab } = await searchParams;
 
-  // The browser-keys tab only exists in dev mode, so an explicit ?tab=browser in
-  // production falls back rather than rendering an empty page.
-  const activeTab = tab === "browser" && DEV_MODE ? "browser" : "identity";
+  // Browser-key management is a production feature now, just an opt-in one — the
+  // tab strip lives in `IdentityTabs`, which is where the advanced-mode flag can
+  // actually be read (localStorage, client-only).
+  const activeTab = tab === "browser" ? "browser" : "identity";
 
   const [actor, certs] = await Promise.all([
     ActorDAO.findByDid(did),
@@ -79,20 +51,7 @@ export default async function IdentityPage({
         </p>
       </div>
 
-      {DEV_MODE && (
-        <div className="flex gap-1 border-b border-neutral-200/60">
-          <TabLink
-            id="identity"
-            active={activeTab === "identity"}
-            label="Identity"
-          />
-          <TabLink
-            id="browser"
-            active={activeTab === "browser"}
-            label="Browser keys"
-          />
-        </div>
-      )}
+      <IdentityTabs activeTab={activeTab} />
 
       {activeTab === "browser" ? (
         <BrowserIdentitiesPanel currentDid={did} />

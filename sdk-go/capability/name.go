@@ -10,7 +10,10 @@
 // with, or shadow, a present or future built-in, none of which contain one.
 package capability
 
-import "regexp"
+import (
+	"regexp"
+	"strings"
+)
 
 // CustomNamePattern is the grammar for a custom capability name.
 //
@@ -29,6 +32,12 @@ var CustomNamePattern = regexp.MustCompile(`\A[a-z0-9][a-z0-9-]{1,31}:[a-z0-9][a
 // Builtins is the closed list of built-in capability names. Keep in sync with
 // BUILTIN_CAPABILITIES in packages/policy/src/types.ts.
 var Builtins = []string{
+	// file_read/file_write are the pair to grant; file_access is their undifferentiated
+	// predecessor, still valid for certificates already in the field but no longer offered by
+	// any issuance path. Nothing implies anything — a holder of file_access does not thereby
+	// hold file_read. See docs/HARNESS_SUPERVISOR.md §4.2.1.
+	"file_read",
+	"file_write",
 	"file_access",
 	"internet_access",
 	"browser_control",
@@ -64,7 +73,27 @@ func IsBuiltin(name string) bool {
 // Stricter than "contains a colon": a malformed name is not a custom
 // capability, so it is never resolvable — which is the safe direction.
 func IsCustom(name string) bool {
-	return CustomNamePattern.MatchString(name)
+	if !CustomNamePattern.MatchString(name) {
+		return false
+	}
+	// A reserved vendor is not merely un-registrable — it is not a custom name at all, so it
+	// can never survive FilterAgainstRegistry either. Same safe direction as a malformed name.
+	vendor := name[:strings.IndexByte(name, ':')]
+	_, reserved := reservedVendors[vendor]
+	return !reserved
+}
+
+// reservedVendors are vendor names no deployment may register under. Keep in sync with
+// RESERVED_VENDORS in packages/policy/src/types.ts; pinned by conformance/capability-names.json.
+//
+// A fence, not a rename: the built-ins stay unnamespaced, because the colon is load-bearing
+// exactly for their absence of one. But "core" is a legal vendor under CustomNamePattern, so
+// without this a deployment could register core:anything and squat a namespace we may later
+// want to speak for. "vaultys" likewise — a capability that appears to be issued by us must not
+// be authorable by a tenant.
+var reservedVendors = map[string]struct{}{
+	"core":    {},
+	"vaultys": {},
 }
 
 // IsValid reports whether name is a legal capability name at all — a built-in,

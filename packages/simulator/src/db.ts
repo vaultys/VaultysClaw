@@ -107,7 +107,8 @@ export async function approveSimulatedRegistrations(
 function allowedForKind(kind: string): string[] {
   if (kind === "sensor") return ["process_read"];
   return [
-    "file_access",
+    "file_read",
+    "file_write",
     "internet_access",
     "browser_control",
     "api_call",

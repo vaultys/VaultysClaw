@@ -7,8 +7,8 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/vaultys/vaultysclaw-sensor/internal/config"
 	"github.com/vaultys/VaultysClaw/sdk-go/grant"
+	"github.com/vaultys/vaultysclaw-sensor/internal/config"
 	"github.com/vaultys/vaultysclaw-sensor/internal/intercept"
 )
 
@@ -137,20 +137,27 @@ func startIntercept(ctx context.Context, cfg *config.Sensor, logger *slog.Logger
 // party whose signatures it checks, on the very first run, and the enforcement
 // role is the wrong place to accept that.
 func resolveAnchor(ic config.Intercept) (*grant.Anchor, error) {
-	if ic.ControlPlaneID != "" {
-		anchor, err := grant.PinFromConfig(ic.AnchorPath, ic.ControlPlaneID)
+	return pinAnchor("intercept", ic.AnchorPath, ic.ControlPlaneID)
+}
+
+// pinAnchor resolves the pinned control-plane identity for a role. The role name
+// is only for the messages: both enforcement roles pin the same way, and an
+// operator reading an error should be told which one refused to start.
+func pinAnchor(role, anchorPath, controlPlaneID string) (*grant.Anchor, error) {
+	if controlPlaneID != "" {
+		anchor, err := grant.PinFromConfig(anchorPath, controlPlaneID)
 		if err != nil {
-			return nil, fmt.Errorf("intercept: pinning the configured control-plane identity: %w", err)
+			return nil, fmt.Errorf("%s: pinning the configured control-plane identity: %w", role, err)
 		}
 		return anchor, nil
 	}
 
-	anchor, err := grant.LoadAnchor(ic.AnchorPath)
+	anchor, err := grant.LoadAnchor(anchorPath)
 	if errors.Is(err, grant.ErrNoAnchor) {
 		return nil, fmt.Errorf(
-			"intercept: no control-plane identity pinned at %s — set intercept.controlPlaneId "+
+			"%s: no control-plane identity pinned at %s — set %s.controlPlaneId "+
 				"(base64 of the control plane's VaultysId) so this host knows whose certificates to trust",
-			ic.AnchorPath,
+			role, anchorPath, role,
 		)
 	}
 	if err != nil {

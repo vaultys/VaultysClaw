@@ -43,6 +43,15 @@ export interface SimConfig {
    * while someone is watching.
    */
   statusRefreshMs: number;
+  /**
+   * Cycle connections after a bulk approval instead of waiting for the control plane's delivery
+   * sweep.
+   *
+   * Off by default, and only useful against a control plane old enough to lack
+   * `sweepUndeliveredGrants` — reconnecting is a second handshake storm on top of the ramp's tail,
+   * and the sweep delivers over the connection the Actor already has.
+   */
+  reconnectAfterApprove: boolean;
   command: "run" | "approve" | "stats" | "reset";
 }
 
@@ -65,6 +74,8 @@ Options
   --duration <s>     hold the fleet this long, 0 = until Ctrl-C    (default 120)
   --auto-approve     approve pending registrations mid-run, then reconnect to collect certificates
   --status-refresh <ms>  force every Actor to re-check its certificate this often (0 = persona default)
+  --reconnect-after-approve  cycle connections after approving, instead of letting the control
+                             plane's delivery sweep hand out grants over existing connections
   --help
 
 Scale note: the defaults total 7,000 Actors, which one machine handles comfortably. Identity
@@ -87,6 +98,7 @@ export function parseConfig(argv: string[]): SimConfig {
       duration: { type: "string" },
       "auto-approve": { type: "boolean" },
       "status-refresh": { type: "string" },
+      "reconnect-after-approve": { type: "boolean" },
       help: { type: "boolean", short: "h" },
     },
   });
@@ -117,6 +129,7 @@ export function parseConfig(argv: string[]): SimConfig {
     durationSeconds: int(values.duration, 120),
     autoApprove: values["auto-approve"] ?? false,
     statusRefreshMs: int(values["status-refresh"], 0),
+    reconnectAfterApprove: values["reconnect-after-approve"] ?? false,
     command,
   };
 }

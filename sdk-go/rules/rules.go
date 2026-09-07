@@ -86,11 +86,39 @@ type Rule struct {
 	Effect Effect `msgpack:"effect"`
 }
 
+// ResourceRule is a rule about a *resource URI* rather than a network
+// destination — "file:///Users/fx/.ssh/*", "exec://docker", "mcp://jira/delete".
+//
+// A separate type from Rule, and a separate list on Set, deliberately. The two
+// are evaluated by different interception points against different inputs:
+// Evaluate takes a Destination that a tool call does not have, and
+// EvaluateResource takes a URI that a CONNECT line does not have. Folding both
+// into one type with two optional halves would leave every reader branching on
+// which half is populated, and would admit a rule with both — whose meaning
+// nobody has defined. One signed Set still carries both, so an admin's policy
+// stays a single artefact with a single signature and version.
+type ResourceRule struct {
+	ID      string  `msgpack:"id"`
+	Subject Subject `msgpack:"subject"`
+	// WorkloadID names the governed workload for SubjectWorkload rules, and is
+	// empty otherwise.
+	WorkloadID string `msgpack:"workloadId,omitempty"`
+	// Resources are URI patterns. See MatchResource — exact, or a single
+	// trailing "/*" meaning that path and everything beneath it.
+	Resources []string `msgpack:"resources"`
+	Effect    Effect   `msgpack:"effect"`
+}
+
 // Set is a signed rule set as pushed down by the control plane.
 type Set struct {
-	Version  int    `msgpack:"version"`
-	Rules    []Rule `msgpack:"rules"`
-	IssuedAt int64  `msgpack:"issuedAt"`
+	Version int    `msgpack:"version"`
+	Rules   []Rule `msgpack:"rules"`
+	// ResourceRules is omitempty so a set carrying none encodes exactly as it
+	// did before this field existed — an older signed set still verifies, and a
+	// verifier that predates it ignores a field it does not know rather than
+	// failing to decode.
+	ResourceRules []ResourceRule `msgpack:"resourceRules,omitempty"`
+	IssuedAt      int64          `msgpack:"issuedAt"`
 }
 
 // Verdict is what Evaluate concluded.
@@ -206,6 +234,63 @@ func (s *Set) check() error {
 			}
 		}
 	}
+	for i, r := range s.ResourceRules {
+		switch r.Effect {
+		case EffectAllow, EffectDeny:
+		default:
+			return fmt.Errorf("rules: resource rule %d (%q) has unknown effect %q", i, r.ID, r.Effect)
+		}
+		switch r.Subject {
+		case SubjectAny, SubjectAgent:
+		case SubjectWorkload:
+			if r.WorkloadID == "" {
+				return fmt.Errorf("rules: resource rule %d (%q) has subject %q but no workloadId", i, r.ID, r.Subject)
+			}
+		default:
+			return fmt.Errorf("rules: resource rule %d (%q) has unknown subject %q", i, r.ID, r.Subject)
+		}
+		if len(r.Resources) == 0 {
+			return fmt.Errorf("rules: resource rule %d (%q) matches no resources", i, r.ID)
+		}
+		for _, res := range r.Resources {
+			if err := checkResourcePattern(res); err != nil {
+				return fmt.Errorf("rules: resource rule %d (%q): %w", i, r.ID, err)
+			}
+		}
+	}
+	return nil
+}
+
+// checkResourcePattern rejects a pattern the matcher would treat differently
+// from how it reads. Refusing at load beats matching surprisingly: an author who
+// wrote something the engine reads another way must find out before the set is
+// signed, not from an incident.
+func checkResourcePattern(pattern string) error {
+	p := strings.TrimSpace(pattern)
+	if p == "" {
+		return fmt.Errorf("has an empty resource pattern")
+	}
+	if p != pattern {
+		return fmt.Errorf("resource pattern %q has surrounding whitespace, which would never match", pattern)
+	}
+	if !strings.Contains(p, "://") {
+		return fmt.Errorf("resource pattern %q is not a URI — expected a scheme like file:// or exec://", pattern)
+	}
+	if star := strings.IndexByte(p, '*'); star >= 0 {
+		// Exactly one form of wildcard, in exactly one position. Anything else —
+		// "file:///a/b*", "file:///*/x", "**" — is refused rather than
+		// approximated, for the reason MatchHost gives at length: a loose allow
+		// rule bypasses the certificate entirely, so incidental matching here is
+		// an authorization bug, not a convenience.
+		if !strings.HasSuffix(p, "/*") || strings.Count(p, "*") != 1 {
+			return fmt.Errorf(
+				"resource pattern %q uses a wildcard other than a single trailing \"/*\" — "+
+					"the matcher supports an exact URI, or a prefix ending in \"/*\" meaning that path and everything beneath it", pattern)
+		}
+		if star == len(p)-1 && strings.HasSuffix(p, "://*") {
+			return fmt.Errorf("resource pattern %q matches every resource of its scheme; scope it or omit the rule", pattern)
+		}
+	}
 	return nil
 }
 
@@ -219,6 +304,11 @@ func (s *Set) Validate(attributionAvailable bool) error {
 	for _, r := range s.Rules {
 		if r.Subject.NeedsAttribution() {
 			return fmt.Errorf("%w: rule %q has subject %q", ErrAttributionUnavailable, r.ID, r.Subject)
+		}
+	}
+	for _, r := range s.ResourceRules {
+		if r.Subject.NeedsAttribution() {
+			return fmt.Errorf("%w: resource rule %q has subject %q", ErrAttributionUnavailable, r.ID, r.Subject)
 		}
 	}
 	return nil
@@ -276,23 +366,131 @@ func (s *Set) Evaluate(dest Destination, attribution *Attribution) Outcome {
 	return Outcome{Verdict: VerdictGovern, NeedsSubject: needs}
 }
 
-// appliesTo reports whether a rule's subject covers this attribution, and
-// whether that could be determined at all. A subject-scoped rule with no
-// attribution is undecidable — not inapplicable.
-func (r Rule) appliesTo(a *Attribution) (applies, decidable bool) {
-	if !r.Subject.NeedsAttribution() {
+// EvaluateResource decides a resource URI against the set's resource rules.
+//
+// The Evaluate twin, with identical precedence — deny-overrides, deny
+// short-circuits, an undecidable subject reported rather than assumed. The two
+// are deliberately parallel rather than shared: the only thing they would share
+// is the loop skeleton, and a single generic version would have to abstract over
+// the one line that differs (matching), which is exactly the line where each
+// engine's strictness argument lives and where a reader needs to be looking.
+//
+// The two rule lists never interact. A host rule cannot deny a file, and a
+// resource rule cannot deny a hostname — a set that appears to say otherwise is
+// one whose author has misread it, which is why the two are separate lists with
+// separate matchers rather than one list of half-populated rules.
+func (s *Set) EvaluateResource(resource string, attribution *Attribution) Outcome {
+	var (
+		allowed     bool
+		allowRuleID string
+		needs       []Subject
+		seenNeed    = map[Subject]bool{}
+	)
+
+	for _, r := range s.ResourceRules {
+		if !r.matchesResource(resource) {
+			continue
+		}
+
+		applies, decidable := appliesTo(r.Subject, r.WorkloadID, attribution)
+		if !decidable {
+			if !seenNeed[r.Subject] {
+				seenNeed[r.Subject] = true
+				needs = append(needs, r.Subject)
+			}
+			continue
+		}
+		if !applies {
+			continue
+		}
+
+		if r.Effect == EffectDeny {
+			return Outcome{Verdict: VerdictDeny, RuleID: r.ID}
+		}
+		if !allowed {
+			allowed = true
+			allowRuleID = r.ID
+		}
+	}
+
+	if allowed {
+		return Outcome{Verdict: VerdictAllow, RuleID: allowRuleID, NeedsSubject: needs}
+	}
+	return Outcome{Verdict: VerdictGovern, NeedsSubject: needs}
+}
+
+func (r ResourceRule) matchesResource(resource string) bool {
+	for _, pattern := range r.Resources {
+		if MatchResource(pattern, resource) {
+			return true
+		}
+	}
+	return false
+}
+
+// MatchResource matches a resource URI against a rule pattern.
+//
+// Two forms only, mirroring MatchHost's two:
+//
+//	"file:///a/b/c.go"   exact match
+//	"file:///a/b/*"      that path and everything beneath it
+//
+// The wildcard form matches the prefix without its trailing slash as well, so a
+// rule denying a directory subtree also denies the directory itself — denying
+// everything inside a folder but not the folder is not a policy anyone means.
+//
+// Deliberately stricter than authz.matchesPattern, which backs CertScope and
+// allows a "*" anywhere. That looseness is tolerable for a certificate scope:
+// scopes only ever *grant*, and the admin authored the exact string. It is wrong
+// here, because a rule's EffectAllow bypasses the certificate entirely — so an
+// incidental match is an authorization bug, not a convenience. "file:///a/b*"
+// would authorize the sibling "file:///a/bc"; this matcher refuses to load such
+// a pattern at all (see checkResourcePattern) rather than deciding what it might
+// have meant.
+//
+// Comparison is byte-exact: no case folding, no percent-decoding, no path
+// normalization. The caller resolves and encodes a resource into its canonical
+// form before it gets here (supervise.ResolvePath and supervise.FileURI do
+// exactly that), and doing it twice, differently, in two languages, is how the
+// two implementations drift.
+func MatchResource(pattern, resource string) bool {
+	if !strings.HasSuffix(pattern, "/*") {
+		return pattern == resource
+	}
+	prefix := strings.TrimSuffix(pattern, "*") // keeps the trailing "/"
+	if resource == strings.TrimSuffix(prefix, "/") {
+		return true
+	}
+	return strings.HasPrefix(resource, prefix)
+}
+
+// appliesTo reports whether a subject covers this attribution, and whether that
+// could be determined at all. A subject-scoped rule with no attribution is
+// undecidable — not inapplicable.
+//
+// Shared by both rule kinds: the subject vocabulary is one vocabulary, and two
+// copies of this would be two places for it to drift.
+func appliesTo(subject Subject, workloadID string, a *Attribution) (applies, decidable bool) {
+	if !subject.NeedsAttribution() {
 		return true, true
 	}
 	if a == nil {
 		return false, false
 	}
-	switch r.Subject {
-	case SubjectAgent:
-		return a.IsGovernedAgent, true
-	case SubjectWorkload:
-		return a.IsGovernedAgent && a.WorkloadID == r.WorkloadID, true
+	if !a.IsGovernedAgent {
+		return false, true
 	}
-	return false, true
+	if subject == SubjectWorkload {
+		return a.WorkloadID != "" && a.WorkloadID == workloadID, true
+	}
+	return true, true
+}
+
+// appliesTo reports whether a rule's subject covers this attribution.
+// Delegates, so the subject vocabulary has exactly one implementation across
+// both rule kinds.
+func (r Rule) appliesTo(a *Attribution) (applies, decidable bool) {
+	return appliesTo(r.Subject, r.WorkloadID, a)
 }
 
 func (r Rule) matchesDestination(dest Destination) bool {

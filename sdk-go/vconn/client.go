@@ -50,6 +50,22 @@ type ClientConfig struct {
 	// ["process_read"], the only capability the sensor currently acts on.
 	RequestedCapabilities []string
 
+	// OnActorConfig, when set, is called with each actor_config push
+	// (docs/PROXY_ARCHITECTURE.md §12). Nil ignores the message, which is the
+	// right behaviour for a client that enforces nothing.
+	//
+	// The callback runs on the connection's read goroutine, so it must not
+	// block: persist and return, and let whatever consumes the artefacts pick
+	// them up on its own schedule.
+	//
+	// **A handler must treat the payload's two halves differently.** GrantToken
+	// and RuleSetToken are signed and verifiable offline; KindConfig and Trust
+	// are not authenticated at all. Acting on the unsigned half in a way that
+	// could *reduce* enforcement hands anyone who can reach the socket the
+	// ability to switch this host off — which is precisely the defect
+	// docs/PROXY_ARCHITECTURE.md §9 records in the superseded implementation.
+	OnActorConfig func(ActorConfigPayload)
+
 	Logger *slog.Logger
 }
 
@@ -409,6 +425,17 @@ func (c *ClientConn) sendLoop(ctx context.Context, conn *websocket.Conn) error {
 				}
 				c.cfg.Logger.Info("vconn: certificate delivered", "certId", payload.CertID, "capabilities", payload.Capabilities)
 				certHS = nil
+			case MsgActorConfig:
+				var payload ActorConfigPayload
+				if err := env.Decode(&payload); err != nil {
+					// A push that cannot be decoded must not partially apply:
+					// half a policy is a policy nobody authored.
+					c.cfg.Logger.Warn("vconn: actor_config could not be decoded; keeping the current configuration", "error", err)
+					break
+				}
+				if c.cfg.OnActorConfig != nil {
+					c.cfg.OnActorConfig(payload)
+				}
 			case MsgCertFailed:
 				var payload CertFailedPayload
 				_ = env.Decode(&payload)

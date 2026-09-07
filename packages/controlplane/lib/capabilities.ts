@@ -6,7 +6,12 @@ import { CustomCapabilityDAO } from "@/db";
  *  Custom `vendor:action` capabilities are not here: they live in the registry
  *  (`CustomCapabilityDAO`) and are merged in by `grantableCapabilitiesForKind`. */
 export const AGENT_CAPABILITIES = [
-  "file_access",
+  // `file_access` is deliberately absent: it is still a legal name and still resolves for
+  // certificates already carrying it, but it has no verb, and this list is what every issuance
+  // path filters against — so leaving it out is what withdraws it from new grants
+  // (docs/HARNESS_SUPERVISOR.md §4.2.1).
+  "file_read",
+  "file_write",
   "internet_access",
   "browser_control",
   "api_call",
@@ -15,6 +20,17 @@ export const AGENT_CAPABILITIES = [
   "system_command",
   "agent_communication",
   "knowledge_search",
+  "non_delegatable",
+] as const satisfies readonly BuiltinCapability[];
+
+/** Built-in capabilities selectable for a human Actor. `admin_console_access` and
+ *  `portal_access` are interface access rights, not agent behaviors; they belong
+ *  here rather than in the general agent list. */
+export const HUMAN_CAPABILITIES = [
+  "portal_access",
+  "admin_console_access",
+  "knowledge_search",
+  "agent_communication",
   "non_delegatable",
 ] as const satisfies readonly BuiltinCapability[];
 
@@ -34,6 +50,7 @@ export const SENSOR_CAPABILITIES = ["process_read"] as const satisfies readonly 
  *  its own yet. Custom capabilities are handled separately; use
  *  {@link grantableCapabilitiesForKind} for the full set an admin may actually pick. */
 export function allowedCapabilitiesForKind(kind: string): readonly BuiltinCapability[] {
+  if (kind === "human") return HUMAN_CAPABILITIES;
   return kind === "sensor" ? SENSOR_CAPABILITIES : AGENT_CAPABILITIES;
 }
 

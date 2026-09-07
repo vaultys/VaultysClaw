@@ -63,6 +63,31 @@ async function main() {
         effect: "allow",
       },
     ],
+    // The resource half (docs/HARNESS_SUPERVISOR.md §3): both wildcard forms,
+    // both schemes the supervisor produces, both effects, and a rule with the
+    // optional workloadId omitted — the same "exercise every dimension of the
+    // wire format" rule the host rules above follow.
+    resourceRules: [
+      {
+        id: "deny-ssh-keys",
+        subject: "any",
+        resources: ["file:///Users/fx/.ssh/*", "file:///Users/fx/.netrc"],
+        effect: "deny",
+      },
+      {
+        id: "agents-no-docker",
+        subject: "agent",
+        resources: ["exec://docker"],
+        effect: "deny",
+      },
+      {
+        id: "claude-may-write-the-repo",
+        subject: "workload",
+        workloadId: "wl-claude-code",
+        resources: ["file:///Users/fx/repo/*"],
+        effect: "allow",
+      },
+    ],
   };
 
   const token = await signProxyRuleSet(server, set);
@@ -73,7 +98,9 @@ async function main() {
       "A proxy rule set signed by packages/controlplane/lib/proxy-rules.ts,",
       "verified by vaultysclaw-sensor/internal/rules (see fixture_test.go).",
       "Pins the msgpack key names, the subject/effect vocabularies, and which",
-      "optional fields are omitted rather than sent as null.",
+      "optional fields are omitted rather than sent as null. Covers both rule",
+      "lists: `rules` (host/port) and `resourceRules` (URI), which are evaluated",
+      "by different interception points and never interact.",
       "The signing key is a fixed throwaway test key and grants nothing real.",
     ],
     version: 1,

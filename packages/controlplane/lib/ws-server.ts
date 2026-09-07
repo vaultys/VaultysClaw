@@ -38,7 +38,7 @@ import {
   ServerIdentityDAO,
   CustomCapabilityDAO,
 } from "@/db";
-import { persistChallengerCertificate } from "./certificates";
+import { persistChallengerCertificate, selectRedeliverableCertificate } from "./certificates";
 import { recordEvent } from "./audit";
 import { buildAdminUrl } from "./webhook-payloads";
 import { WsSender, type AgentSender } from "./agent-sender";
@@ -74,6 +74,16 @@ const Buf = vCrypto.Buffer;
  * a page does not notice.
  */
 const FLUSH_INTERVAL_MS = 5_000;
+
+/**
+ * How often to look for approved grants that nobody delivered, and how many to deliver per pass.
+ *
+ * The batch is what keeps this from becoming a stampede: each delivery starts a live certificate
+ * exchange, so an unbounded sweep across a large fleet would do exactly what the connection ramp
+ * exists to prevent. A backlog simply drains over several passes.
+ */
+const DELIVERY_SWEEP_INTERVAL_MS = 3_000;
+const DELIVERY_SWEEP_BATCH = 100;
 
 const HANDSHAKE_TIMEOUT_MS = 30_000;
 const DEFAULT_GRANT_TTL_MS = 365 * 24 * 60 * 60 * 1000;
@@ -154,12 +164,17 @@ export class ControlPlaneWSServer {
   private lastSeenBuffer = new Set<string>();
   private statusCheckBuffer: { certId: string; requesterDid: string; status: string; checkedAt: Date }[] = [];
   private flushTimer: ReturnType<typeof setInterval> | null = null;
+  private deliverySweepTimer: ReturnType<typeof setInterval> | null = null;
+  private sweepInFlight = false;
 
   constructor(wss: WebSocketServer) {
     wss.on("connection", (ws: WebSocket) => this.handleConnection(ws));
     this.flushTimer = setInterval(() => void this.flushDeferredWrites(), FLUSH_INTERVAL_MS);
     // Never hold the process open for a flush timer — the buffers are best-effort by construction.
     this.flushTimer.unref?.();
+
+    this.deliverySweepTimer = setInterval(() => void this.sweepUndeliveredGrants(), DELIVERY_SWEEP_INTERVAL_MS);
+    this.deliverySweepTimer.unref?.();
   }
 
   /**
@@ -193,10 +208,88 @@ export class ControlPlaneWSServer {
     }
   }
 
-  /** Stop the flusher and write out whatever is buffered. For tests and clean shutdown. */
+  /**
+   * Deliver approved grants to Actors that are connected right now.
+   *
+   * `approvePendingRegistration` calls `deliverApprovedCapabilities` directly, so the normal admin
+   * path never needs this. It exists for every *other* way a registration can become approved — a
+   * script, a bulk import, a second control-plane instance, direct SQL — none of which can reach
+   * this process's connection map. Without it, such an Actor holds an approved grant it cannot
+   * collect until it happens to reconnect, which for a long-lived agent may be never.
+   *
+   * Bounded per sweep because delivery starts a live Challenger exchange: certifying every
+   * connected Actor at once is exactly the handshake stampede the rest of this file avoids, and a
+   * sweep that outruns the previous one would start a second exchange on a connection already
+   * mid-exchange.
+   */
+  private async sweepUndeliveredGrants(): Promise<void> {
+    if (this.sweepInFlight) return;
+    this.sweepInFlight = true;
+    try {
+      // Both maps, not just `connected`. A first-time registrant never enters `connected` at all:
+      // it goes handshake → `registration_pending` → `awaitingApproval`, and is only promoted once
+      // its grant is actually delivered. Querying `connected` alone therefore missed every Actor
+      // this sweep exists to serve — measured as `found: 1` against a fleet of 6,084 awaiting
+      // delivery. `deliverApprovedCapabilities` already handles both cases.
+      const reachableDids = new Set<string>(this.connected.keys());
+      for (const awaiting of this.awaitingApproval.values()) reachableDids.add(awaiting.did);
+      if (reachableDids.size === 0) return;
+
+      const pending = await PendingRegistrationDAO.findApprovedUndeliveredForDids([...reachableDids]);
+      if (pending.length === 0) return;
+
+      // `deliveredAt` is only stamped when an exchange *completes*, so an Actor mid-exchange still
+      // matches the query. Filtering them out here is what stops a sweep from spending its whole
+      // batch re-selecting the same Actors while their exchanges are in flight.
+      const midExchange = this.didsMidCertificateExchange();
+      const eligible = pending.filter((reg) => !midExchange.has(reg.did));
+      if (eligible.length === 0) return;
+
+      const batch = eligible.slice(0, DELIVERY_SWEEP_BATCH);
+      logger.info(
+        { found: pending.length, inFlight: midExchange.size, delivering: batch.length },
+        "Delivering approved grants to connected Actors"
+      );
+      // Concurrently: each call only *starts* an exchange, but it does a few queries first, and
+      // awaiting them one at a time capped the sweep at roughly one batch per interval regardless
+      // of the batch size.
+      await Promise.all(
+        batch.map((reg) =>
+          this.deliverApprovedCapabilities(reg.did).catch((err) =>
+            logger.warn({ err, did: reg.did }, "Grant delivery failed for one Actor")
+          )
+        )
+      );
+    } catch (err) {
+      logger.warn({ err }, "Grant delivery sweep failed; will retry on the next interval");
+    } finally {
+      this.sweepInFlight = false;
+    }
+  }
+
+  /** DIDs whose connection is currently in the middle of a certificate exchange. */
+  private didsMidCertificateExchange(): Set<string> {
+    const dids = new Set<string>();
+    for (const sender of this.certIssuance.keys()) {
+      const did = this.connectedBySender.get(sender);
+      if (did) {
+        dids.add(did);
+        continue;
+      }
+      // A first-time registrant is mid-exchange before it is ever promoted into `connected`, so it
+      // has no `connectedBySender` entry yet — find it by sender in the awaiting map instead.
+      const awaiting = this.awaitingApproval.get(sender);
+      if (awaiting) dids.add(awaiting.did);
+    }
+    return dids;
+  }
+
+  /** Stop the timers and write out whatever is buffered. For tests and clean shutdown. */
   async shutdown(): Promise<void> {
     if (this.flushTimer) clearInterval(this.flushTimer);
     this.flushTimer = null;
+    if (this.deliverySweepTimer) clearInterval(this.deliverySweepTimer);
+    this.deliverySweepTimer = null;
     await this.flushDeferredWrites();
   }
 
@@ -283,6 +376,24 @@ export class ControlPlaneWSServer {
     ws.on("message", (data: Buffer) => this.handleMessage(sender, data.toString()));
     ws.on("close", () => this.handleClose(sender));
     ws.on("error", (err) => logger.warn({ err }, "socket error"));
+  }
+
+  /**
+   * Close a connected Actor's socket, if it has one.
+   *
+   * Called when an Actor is deleted. Without it the client keeps a socket the
+   * control plane no longer has a row for, and its next message is handled
+   * against a DID that resolves to nothing — the client sees a connection that
+   * works while being, as far as the ledger is concerned, nobody.
+   *
+   * A no-op for an offline Actor, which needs nothing: it has no session to
+   * lose, and its grants were revoked before this was called.
+   */
+  disconnect(did: string): void {
+    const conn = this.connected.get(did);
+    if (!conn) return;
+    logger.info({ did }, "Closing an Actor's connection after deletion");
+    conn.sender.close();
   }
 
   private handleClose(sender: AgentSender): void {
@@ -456,8 +567,12 @@ export class ControlPlaneWSServer {
         void this.pushActorConfig(did);
 
         // A grant may have been approved while this Actor was offline —
-        // deliver it now that they're back (trust doc §3.2b).
-        void this.deliverApprovedCapabilities(did);
+        // deliver it now that they're back (trust doc §3.2b). If there is
+        // nothing pending, re-send whatever the Actor already holds, so a
+        // reconnect never has to ask for something it was granted long ago.
+        void this.deliverApprovedCapabilities(did).then((delivered) => {
+          if (!delivered) void this.redeliverExistingCertificate(sender, did);
+        });
         return;
       }
 
@@ -581,6 +696,19 @@ export class ControlPlaneWSServer {
       return;
     }
 
+    // Everything asked for is already held: answer from the ledger instead of
+    // asking an admin to approve what they already approved.
+    //
+    // A client asks whenever it has nothing granted *in memory*, which is every
+    // reconnect for any client that does not cache its grant locally — and not
+    // caching is the correct choice for one that treats the certificate as its
+    // only source of truth. Without this, each restart filed a fresh
+    // `PendingRegistration` and the approval queue grew one phantom row per
+    // reconnect, for an Actor that was never actually missing anything.
+    if (await this.redeliverExistingCertificate(sender, did, payload.requestedCapabilities)) {
+      return;
+    }
+
     const registrationId = randomUUID();
     await PendingRegistrationDAO.create({
       id: registrationId,
@@ -594,6 +722,44 @@ export class ControlPlaneWSServer {
     logger.info({ did, registrationId }, "Connected Actor requested additional capabilities");
   }
 
+  /**
+   * Re-send a certificate the Actor already holds, rather than minting a new one.
+   *
+   * Returns false when there is nothing usable to send — no active certificate,
+   * or one that does not cover what was asked for — so the caller can fall
+   * through to the normal request/approval path.
+   *
+   * **Nothing is minted and no exchange runs.** The certificate was signed once
+   * and is verifiable offline; re-sending the same bytes is not a new grant, so
+   * a reconnect costs a message rather than an admin's attention. The
+   * alternative — a fresh Challenger round on every reconnect — would also
+   * re-issue a certificate with a new id and a new expiry, quietly extending
+   * every grant for as long as an Actor keeps restarting.
+   *
+   * Expiry and revocation are checked here rather than assumed from the row's
+   * status: a certificate that expired while the Actor was offline must not be
+   * re-delivered as though it were live, and `expiresAt` is the only thing that
+   * knows that without waiting for a status refresh.
+   */
+  private async redeliverExistingCertificate(
+    sender: AgentSender,
+    did: string,
+    requested?: string[]
+  ): Promise<boolean> {
+    const active = await CapabilityCertificateDAO.list({ agentDid: did, status: "active" });
+    const registryNames = new Set(await CustomCapabilityDAO.listNames());
+    const chosen = selectRedeliverableCertificate(active, registryNames, requested, Date.now());
+    if (!chosen) return false;
+
+    this.sendMessage(sender, "cert_issued", {
+      certId: chosen.cert.id,
+      certificate: chosen.cert.certificate,
+      capabilities: chosen.capabilities,
+    } satisfies CertIssuedPayload);
+    logger.info({ did, certId: chosen.cert.id }, "Re-delivered an existing certificate on reconnect");
+    return true;
+  }
+
   /** Proactively prompts a connected Actor into a service:"certificate" exchange — same
    *  mechanics as handleRegister's opening auth_challenge, different purpose. */
   private startCertificateIssuance(
@@ -601,6 +767,17 @@ export class ControlPlaneWSServer {
     registrationId: string,
     capabilities: AgentCapability[]
   ): void {
+    // Never restart an exchange already in flight on this connection. `certIssuance` is keyed by
+    // sender and holds the session id the client is answering against, so overwriting it makes the
+    // client's next `cert_challenge` arrive for a session that no longer exists — the exchange
+    // fails and the grant is never delivered. Guarding here rather than in each caller because
+    // there are now three (admin approval, reconnect, and the delivery sweep) and only the sweep
+    // can fire repeatedly while one is pending.
+    if (this.certIssuance.has(sender)) {
+      logger.debug({ registrationId }, "Certificate exchange already in flight; not restarting it");
+      return;
+    }
+
     const sessionId = randomBytes(16).toString("hex");
     this.certIssuance.set(sender, { sessionId, registrationId, capabilities, challenger: null });
     this.sendMessage(sender, "cert_challenge", { sessionId, data: "" } satisfies CertChallengePayload);

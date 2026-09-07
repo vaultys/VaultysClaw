@@ -25,8 +25,14 @@ export default function InviteHumanForm({ workspaces }: { workspaces: { id: stri
     startTransition(async () => {
       try {
         const result = await createInvitationAction(formData);
-        setCreated(result);
+        // Validation failures come back as data, not as a thrown error: a production build redacts
+        // Server Action error messages, so a rejected invitation would otherwise show the admin a
+        // React error digest instead of which address is already taken.
+        if (result.ok) setCreated({ url: result.url });
+        else setError(result.error);
       } catch (err) {
+        // Still needed for the genuinely unexpected — a dropped connection, a database outage.
+        // Those have no useful message to show, and shouldn't pretend to.
         setError(err instanceof Error ? err.message : "Failed to create invitation");
       }
     });

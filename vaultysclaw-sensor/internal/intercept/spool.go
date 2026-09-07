@@ -286,6 +286,12 @@ func (s *FileSpool) Drain(ship func([]Event) error) error {
 	return os.Remove(staging)
 }
 
+// ReadSpool parses a spool file without consuming it, for a reader that reports
+// on the audit trail rather than shipping it — Drain is destructive and moves
+// events into a sidecar, which is exactly wrong for a report an operator may run
+// repeatedly over the same week of observation.
+func ReadSpool(path string) ([]Event, error) { return readSpool(path) }
+
 // readSpool parses a JSON-lines spool file. A truncated final line — the normal
 // result of a crash mid-write — is skipped rather than failing the whole drain,
 // which would strand every earlier record behind one bad byte.

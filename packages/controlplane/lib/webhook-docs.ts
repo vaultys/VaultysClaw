@@ -8,6 +8,8 @@ import type { WebhookEventDef } from "@vaultysclaw/shared";
 import { CONTROLPLANE_WEBHOOK_EVENTS } from "./webhook-events";
 import {
   actorPayload,
+  actorDeletedPayload,
+  harnessConfigPayload,
   certificatePayload,
   customCapabilityPayload,
   modelPayload,
@@ -92,6 +94,23 @@ const EXAMPLE_PAYLOADS: Record<string, Record<string, unknown>> = {
   "actor.approved": actorPayload(sampleActor),
   "actor.denied": { did: sampleActor.did, name: sampleActor.name, kind: sampleActor.kind },
   "actor.updated": actorPayload(sampleActor),
+  "actor.deleted": actorDeletedPayload(
+    { ...sampleActor, kind: "harness", name: "fx-macbook" },
+    ["cert_9a1b2c3d", "cert_4e5f6a7b"]
+  ),
+  "harness.config_updated": harnessConfigPayload(
+    { ...sampleActor, kind: "harness", name: "fx-macbook" },
+    { resourceRules: [{ id: "deny-ssh", subject: "any", resources: ["file:///Users/fx/.ssh/*"], effect: "deny" }] },
+    {
+      mode: "explicit",
+      sandbox: "require",
+      maxStatusAgeSeconds: 3600,
+      resourceRules: [
+        { id: "deny-ssh", subject: "any", resources: ["file:///Users/fx/.ssh/*"], effect: "deny" },
+        { id: "no-docker", subject: "any", resources: ["exec://docker"], effect: "deny" },
+      ],
+    }
+  ),
   "proxy.config_updated": proxyConfigPayload(
     { ...sampleActor, kind: "proxy", name: "edge-proxy-paris" },
     { rules: [{ id: "deny-openai", subject: "any", hosts: [".openai.com"], effect: "deny" }] },

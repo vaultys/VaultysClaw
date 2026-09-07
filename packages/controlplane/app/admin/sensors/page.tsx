@@ -1,8 +1,7 @@
-import Link from "next/link";
 import { Monitor, Wifi, Cpu, Shield, BadgeCheck, WifiOff } from "lucide-react";
 import { ActorDAO, SensorWorkloadDAO, WorkspaceDAO, ActorLinkDAO, SHADOW_THRESHOLD } from "@/db";
 import PageChrome from "@/components/layout/PageChrome";
-import { encodeDidParam } from "@/lib/actor-route";
+import SensorDirectoryPanel from "@/components/SensorDirectoryPanel";
 import { getWSServerInstance } from "@/lib/ws-server";
 import { resolveManagingActors } from "@/lib/workload-status";
 
@@ -106,65 +105,25 @@ export default async function SensorsPage() {
           </p>
         </div>
       ) : (
-        <div className="overflow-x-auto border border-neutral-200/60 rounded-xl">
-          <table className="w-full text-sm bg-background-100">
-            <thead className="bg-background-200/40 text-left text-xs text-foreground-500 uppercase">
-              <tr>
-                <th className="px-4 py-2 font-medium">Device</th>
-                <th className="px-4 py-2 font-medium">Linked to</th>
-                <th className="px-4 py-2 font-medium">Workspace</th>
-                <th className="px-4 py-2 font-medium">Workloads</th>
-                <th className="px-4 py-2 font-medium">Status</th>
-                <th className="px-4 py-2 font-medium">Last seen</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sensors.map((s) => {
-                const kindConfig = s.kindConfig as { hostname?: string; os?: string };
-                const online = ws?.isConnected(s.did) ?? false;
-                const deviceWorkloads = workloadsByDevice.get(s.did) ?? [];
-                const outgoingLinks = linksByFrom.get(s.did) ?? [];
-                return (
-                  <tr key={s.did} className="border-t border-neutral-200/60 align-top">
-                    <td className="px-4 py-2.5">
-                      <Link
-                        href={`/admin/sensors/${encodeDidParam(s.did)}`}
-                        className="text-foreground font-medium hover:text-primary-600 hover:underline"
-                      >
-                        {s.name || <span className="italic text-foreground-400">Unnamed device</span>}
-                      </Link>
-                      <div className="text-xs text-foreground-500 font-mono">{s.did}</div>
-                      {kindConfig.os && <div className="text-xs text-foreground-400">{kindConfig.os}</div>}
-                    </td>
-                    <td className="px-4 py-2.5 text-foreground-500">
-                      {outgoingLinks.length > 0
-                        ? outgoingLinks.map((l) => `${l.label} ${l.to.name}`).join(", ")
-                        : "—"}
-                    </td>
-                    <td className="px-4 py-2.5 text-foreground-500">
-                      {workspaceById.get(s.workspaceId ?? "")?.name ?? "—"}
-                    </td>
-                    <td className="px-4 py-2.5 text-foreground-700">{deviceWorkloads.length}</td>
-                    <td className="px-4 py-2.5">
-                      <span
-                        className={`text-xs px-2 py-0.5 rounded-full border ${
-                          online
-                            ? "bg-success-100 text-success-700 border-success-200"
-                            : "bg-neutral-100 text-foreground-500 border-neutral-200"
-                        }`}
-                      >
-                        ● {online ? "Online" : "Offline"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2.5 text-xs text-foreground-500">
-                      {s.lastSeen.toISOString()}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <SensorDirectoryPanel
+          sensors={sensors.map((s) => {
+            const kindConfig = s.kindConfig as { hostname?: string; os?: string };
+            const outgoingLinks = linksByFrom.get(s.did) ?? [];
+            return {
+              did: s.did,
+              name: s.name,
+              os: kindConfig.os ?? null,
+              linkedTo:
+                outgoingLinks.length > 0
+                  ? outgoingLinks.map((l) => `${l.label} ${l.to.name}`).join(", ")
+                  : "-",
+              workspaceName: workspaceById.get(s.workspaceId ?? "")?.name ?? "-",
+              workloadCount: (workloadsByDevice.get(s.did) ?? []).length,
+              online: ws?.isConnected(s.did) ?? false,
+              lastSeen: s.lastSeen.toISOString(),
+            };
+          })}
+        />
       )}
     </div>
   );

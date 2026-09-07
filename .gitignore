@@ -26,6 +26,12 @@ coverage
 .DS_Store
 *.pem
 *.env
+# ...except the fleet-simulator demo environment, which is committed on purpose: it is the single
+# source of truth for that stack's ports and URLs (docker/docker-compose.simulator.yml and every
+# `pnpm simulator:*` script read it), and nothing in it is secret — the database is disposable and
+# the NEXTAUTH_SECRET is a throwaway that must never be reused. Without this exception a fresh
+# clone has no simulator.env and every simulator script fails on an unset DATABASE_URL.
+!docker/simulator.env
 *.env.local
 *.env.*.local
 
@@ -70,3 +76,8 @@ packages/control-plane/tsconfig.tsbuildinfo
 /.devdata
 /demo/agents
 /.obsidian
+
+# Fleet-simulator identities (packages/simulator, --data-dir). Thousands of small keypair files;
+# regenerated on demand and meaningless outside the machine that made them.
+.simdata/
+**/.simdata/

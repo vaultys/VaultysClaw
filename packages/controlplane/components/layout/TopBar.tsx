@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
 import { useEffect, useRef, useState, Fragment } from "react";
-import { LogOut, Sun, Moon, Monitor, ChevronDown, ChevronRight, IdCard, User, Check } from "lucide-react";
+import { LogOut, Sun, Moon, Monitor, ChevronDown, ChevronRight, IdCard, User, Check, Search } from "lucide-react";
 import { useTheme, type Theme } from "@/components/ThemeProvider";
 import { useBreadcrumbsState } from "./BreadcrumbContext";
 import { cn } from "@/lib/utils";
@@ -19,7 +19,7 @@ const THEME_OPTIONS: { value: Theme; label: string; icon: React.ElementType }[] 
   { value: "system", label: "System", icon: Monitor },
 ];
 
-export default function TopBar() {
+export default function TopBar({ onOpenCommand }: { onOpenCommand: () => void }) {
   const { data: session } = useSession();
   const { theme, setTheme } = useTheme();
   const { breadcrumbs } = useBreadcrumbsState();
@@ -66,6 +66,29 @@ export default function TopBar() {
           );
         })}
       </nav>
+
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={onOpenCommand}
+          className="hidden min-w-[220px] items-center justify-between gap-3 rounded-lg border border-neutral-200 bg-background-100 px-2.5 py-1.5 text-sm text-foreground-500 transition-colors hover:bg-background-200/60 hover:text-foreground md:flex"
+        >
+          <span className="flex min-w-0 items-center gap-2">
+            <Search className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">Search admin...</span>
+          </span>
+          <kbd className="rounded border border-neutral-200 bg-background px-1.5 py-0.5 text-[10px] font-medium text-foreground-400">
+            ⌘K
+          </kbd>
+        </button>
+        <button
+          type="button"
+          onClick={onOpenCommand}
+          aria-label="Search admin"
+          className="flex rounded-lg p-2 text-foreground-500 transition-colors hover:bg-background-200/60 hover:text-foreground md:hidden"
+        >
+          <Search className="h-4 w-4" />
+        </button>
 
       <div ref={menuRef} className="relative">
         <button
@@ -145,6 +168,7 @@ export default function TopBar() {
             </button>
           </div>
         )}
+      </div>
       </div>
     </header>
   );

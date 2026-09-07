@@ -12,6 +12,7 @@ import { VaultysId } from "@vaultys/id";
 import {
   signCapabilityRequestCert,
   signCapabilityGrantCert,
+  filterAgainstRegistry,
   type AgentCapability,
   type CertScope,
   type ResourceLimits,
@@ -216,4 +217,65 @@ export async function persistChallengerCertificate(input: {
 /** Constructs a `VaultysId` from a raw public key, for verifying a Actor's own signed request. */
 export function vaultysIdFromPublicKey(publicKey: Uint8Array): VaultysId {
   return VaultysId.fromId(publicKey as never).toVersion(1);
+}
+
+/**
+ * The minimal shape {@link selectRedeliverableCertificate} needs. Structural so a
+ * caller can pass a Prisma row directly and a test need not build one.
+ */
+export interface RedeliverableCert {
+  id: string;
+  /** The signed bytes to re-send. Part of the shape because re-delivery is
+   *  precisely "send these bytes again" — a selector that picked a certificate
+   *  without carrying it would force the caller to look it up a second time. */
+  certificate: string;
+  capabilities: unknown;
+  expiresAt: Date | null;
+}
+
+/**
+ * Pick the certificate to re-send to a reconnecting Actor, or null when there is
+ * nothing usable.
+ *
+ * Extracted from `lib/ws-server.ts` because this is the part with judgement in
+ * it — expiry, registry filtering, and whether the held grant actually answers
+ * what was asked — while the surrounding code is a socket write. Every branch
+ * below returns null in a direction that falls through to the normal
+ * request-and-approve path, so being wrong here delays a grant rather than
+ * inventing one.
+ *
+ * @param certs      active certificates for the Actor, newest first
+ * @param registryNames  live custom-capability registry
+ * @param requested  what the Actor asked for, or undefined for an unprompted
+ *                   re-delivery on reconnect
+ */
+export function selectRedeliverableCertificate(
+  certs: readonly RedeliverableCert[],
+  registryNames: ReadonlySet<string>,
+  requested: readonly string[] | undefined,
+  nowMs: number
+): { cert: RedeliverableCert; capabilities: AgentCapability[] } | null {
+  for (const cert of certs) {
+    // Expiry is checked here rather than trusted from the row's status: a
+    // certificate can expire while its holder is offline, and nothing rewrites
+    // the row when it does. Re-delivering it would hand back a grant that is
+    // already dead and looks live.
+    if (cert.expiresAt && cert.expiresAt.getTime() <= nowMs) continue;
+
+    // Filtered for the same reason delivery filters: a custom capability can be
+    // deleted from the registry while an Actor is offline, and re-sending a name
+    // the next status refresh will strip is worse than not answering.
+    const capabilities = filterAgainstRegistry(cert.capabilities as string[], registryNames);
+    if (capabilities.length === 0) continue;
+
+    // Only answer a request this certificate actually satisfies. If something
+    // new is being asked for, an admin still has to see it — answering anyway
+    // would silently drop the part of the request nobody has approved, and the
+    // Actor would have no way to tell that from a grant.
+    if (requested && requested.some((c) => !capabilities.includes(c as AgentCapability))) {
+      continue;
+    }
+    return { cert, capabilities };
+  }
+  return null;
 }

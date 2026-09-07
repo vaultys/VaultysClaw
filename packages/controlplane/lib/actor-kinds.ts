@@ -59,6 +59,18 @@ export const ACTOR_KIND_META: Record<string, ActorKindMeta> = {
     category: "agent",
     badgeClass: "bg-danger-100 text-danger-700 border-danger-200",
   },
+  // The same binary running the *supervise* role: it launches a coding harness
+  // (Claude Code today) and decides every tool call from a signed grant and rule
+  // set (docs/HARNESS_SUPERVISOR.md).
+  //
+  // Danger-coloured for the same reason `proxy` is — this kind can refuse work —
+  // and note it can be refusing on a *human's* laptop, which is a different blast
+  // radius from a server-side proxy and one the detail page has to state.
+  harness: {
+    label: "harness",
+    category: "agent",
+    badgeClass: "bg-danger-100 text-danger-700 border-danger-200",
+  },
 };
 
 const DEFAULT_BADGE_CLASS = "bg-neutral-100 text-foreground-600 border-neutral-200";

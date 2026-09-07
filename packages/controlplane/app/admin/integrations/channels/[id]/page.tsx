@@ -3,6 +3,7 @@ import { NotificationChannelDAO } from "@/db";
 import { CONTROLPLANE_WEBHOOK_EVENTS } from "@/lib/webhook-events";
 import PageChrome from "@/components/layout/PageChrome";
 import { updateChannelAction } from "../../actions";
+import AppriseUrlBuilder from "../AppriseUrlBuilder";
 import ServiceTypeBadges from "../ServiceTypeBadges";
 
 const EVENT_GROUPS = Array.from(new Set(CONTROLPLANE_WEBHOOK_EVENTS.map((e) => e.group)));
@@ -15,7 +16,7 @@ export default async function ChannelDetailPage({ params }: { params: Promise<{ 
   const subscribedEvents = new Set(channel.events as string[]);
 
   return (
-    <div className="p-6 max-w-2xl space-y-6">
+    <div className="p-6 max-w-6xl space-y-6">
       <PageChrome
         toolbar={{ title: channel.name }}
         breadcrumbs={[
@@ -30,7 +31,7 @@ export default async function ChannelDetailPage({ params }: { params: Promise<{ 
           <ServiceTypeBadges types={channel.serviceTypes as string[]} />
         </div>
         <div>
-          <div className="text-xs font-medium text-foreground-500 uppercase mb-1">Apprise key</div>
+          <div className="text-xs font-medium text-foreground-500 uppercase mb-1">Delivery key</div>
           <code className="text-xs font-mono text-foreground-500">{channel.appriseKey}</code>
         </div>
       </div>
@@ -59,21 +60,15 @@ export default async function ChannelDetailPage({ params }: { params: Promise<{ 
           />
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-foreground mb-1.5">
-            Apprise service URL(s)
-          </label>
-          <textarea
-            name="serviceUrls"
-            rows={3}
-            placeholder="Leave blank to keep the current service URLs"
-            className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background font-mono"
-          />
-          <p className="text-xs text-foreground-400 mt-1">
-            Write-only — the current value is encrypted and never redisplayed. Paste new URLs
-            (one per line) only if you want to replace them.
-          </p>
-        </div>
+        <AppriseUrlBuilder
+          placeholder="Leave blank to keep the current service URLs"
+          helpText={
+            <>
+              Write-only — the current value is encrypted and never redisplayed. Add replacement
+              URLs only if you want to replace the current configuration.
+            </>
+          }
+        />
 
         <div>
           <label className="block text-sm font-medium text-foreground mb-1.5">Events</label>

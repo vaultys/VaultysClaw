@@ -155,6 +155,26 @@
       "name": "acme:invoice\n",
       "valid": false,
       "$why": "trailing newline must not satisfy an anchored pattern"
+    },
+    {
+      "name": "core:file_read",
+      "valid": false,
+      "$why": "reserved vendor \u2014 grammatically well-formed, but \"core\" may not be registered under"
+    },
+    {
+      "name": "vaultys:anything",
+      "valid": false,
+      "$why": "reserved vendor \u2014 a capability appearing to be issued by us must not be tenant-authorable"
+    },
+    {
+      "name": "core-corp:invoice",
+      "valid": true,
+      "$why": "a distinct vendor that merely starts with the reserved one \u2014 reservation is exact, not a prefix"
+    },
+    {
+      "name": "cores:invoice",
+      "valid": true,
+      "$why": "likewise: \"cores\" is not \"core\""
     }
   ]
 }

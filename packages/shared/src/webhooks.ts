@@ -283,6 +283,30 @@ export const WEBHOOK_EVENTS: WebhookEventDef[] = [
     group: "Actors",
   },
   {
+    // Separate from actor.updated because it is not an edit: the Actor is gone,
+    // and anything watching an estate needs to distinguish "renamed" from
+    // "removed". Carries the certificates that were revoked on the way out —
+    // those rows cascade away with the Actor, so this payload is the only
+    // surviving record of what was destroyed.
+    type: "actor.deleted",
+    label: "Actor deleted",
+    description:
+      "An Actor was removed. Its active certificates were revoked first, and the ids of those certificates are in the payload.",
+    group: "Actors",
+  },
+  {
+    // The harness twin of proxy.config_updated, and separate from it for the
+    // same reason that one is separate from actor.updated: an operator alerted
+    // when enforcement changes on a *developer's laptop* is often not the one
+    // watching a server-side proxy, and the blast radius of the two is different
+    // enough that one subscription for both would bury the interesting one.
+    type: "harness.config_updated",
+    label: "Harness supervision updated",
+    description:
+      "A harness supervisor's enforcement configuration changed — its mode, OS confinement, resource rules, or certificate-status bound.",
+    group: "Actors",
+  },
+  {
     type: "human.invited",
     label: "Human invited",
     description: "An admin created a single-use invite link for a human to onboard directly.",

@@ -361,7 +361,7 @@ first. Under `maxStatusAgeSeconds: 0` the sync form always denies, which is the 
 Since this grammar decides which names a deployment can ever register or grant, a disagreement
 between the two implementations would mean one accepting a name the other can never resolve —
 the same class of bug the permission vectors exist to prevent. `conformance/capability-names.json`
-(27 cases) is now run by both `packages/policy` and `sdk-go/capability`. It immediately earned its
+(31 cases) is now run by both `packages/policy` and `sdk-go/capability`. It immediately earned its
 keep: Go's `$` matches before a trailing newline where JavaScript's does not, so the Go pattern
 needed `\A`/`\z` to agree — a real divergence that no amount of reading either regex would have
 surfaced.

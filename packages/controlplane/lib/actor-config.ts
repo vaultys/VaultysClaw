@@ -34,6 +34,12 @@ import {
   type ProxyKindConfig,
 } from "./proxy-kind";
 import { PROXY_RULESET_VERSION, signProxyRuleSet } from "./proxy-rules";
+import { signCert } from "@vaultysclaw/policy";
+import {
+  harnessKindConfigWarnings,
+  parseHarnessKindConfig,
+  type HarnessKindConfig,
+} from "./harness-kind";
 import type { ActorConfigPayload } from "./protocol";
 
 /**
@@ -70,8 +76,9 @@ export interface ActorConfigResult {
  * may be (docs/CUSTOM_CAPABILITIES.md Phase 3). Before that, this message was proxy-only and the
  * org-wide `trust.stapleTtlSeconds` an admin edits under Settings reached nothing at all.
  *
- * Only `proxy` gets a `kindConfig`/`ruleSetToken`/`grantToken` — those are that kind's offline
- * enforcement inputs and mean nothing to anyone else.
+ * Only the two **enforcing** kinds — `proxy` and `harness` — get a
+ * `kindConfig`/`ruleSetToken`/`grantToken`. Those are offline enforcement inputs and mean nothing to
+ * a kind that only reports.
  */
 export async function buildActorConfig(did: string): Promise<ActorConfigResult | null> {
   const actor = await ActorDAO.findByDid(did);
@@ -79,10 +86,19 @@ export async function buildActorConfig(did: string): Promise<ActorConfigResult |
 
   const warnings: string[] = [];
 
+  if (actor.kind === "harness") {
+    return buildHarnessConfig(did, actor.kindConfig, warnings);
+  }
+
   if (actor.kind !== "proxy") {
     return {
       payload: {
         kindConfig: {},
+        // Signed for shape consistency even though it carries nothing: a
+        // recipient should never have to special-case "this kind sends no
+        // token" against "this deployment cannot sign", which look identical
+        // from the other end.
+        kindConfigToken: await signKindConfig({}),
         // A non-proxy client already holds its own certificate from `cert_issued`; it doesn't need
         // a second copy to know what it was granted, and it doesn't enforce on anyone else's
         // behalf, so there is nothing for a grant token to authorize here.
@@ -119,9 +135,93 @@ export async function buildActorConfig(did: string): Promise<ActorConfigResult |
   warnings.push(...proxyKindConfigWarnings(kindConfig));
 
   return {
-    payload: { kindConfig, grantToken, ruleSetToken, trust },
+    payload: {
+      kindConfig,
+      kindConfigToken: await signKindConfig(kindConfig),
+      grantToken,
+      ruleSetToken,
+      trust,
+    },
     warnings,
   };
+}
+
+/**
+ * Sign a kindConfig so a recipient can act on it in either direction.
+ *
+ * Same envelope as the grant and the rule set — `signCert` over the object, verified offline
+ * against the pinned anchor. Nothing about the content changes; what changes is that the recipient
+ * can tell an admin's decision from anyone else's, which is the whole difference between a
+ * configuration channel and a suggestion channel.
+ */
+async function signKindConfig(kindConfig: unknown): Promise<string> {
+  const vid = await ServerIdentityDAO.getServerVaultysId();
+  return signCert(vid, kindConfig as Record<string, unknown>);
+}
+
+/**
+ * The `harness` half of buildActorConfig (docs/HARNESS_SUPERVISOR.md §8 phase 5).
+ *
+ * Structurally the proxy's twin, and separate rather than parameterised: the two
+ * kinds share the shape of their payload and nothing else about their meaning,
+ * and one function branching on kind throughout would read as though they were
+ * variations of a single thing. They are two interception points that happen to
+ * be provisioned the same way.
+ */
+async function buildHarnessConfig(
+  did: string,
+  raw: unknown,
+  warnings: string[]
+): Promise<ActorConfigResult> {
+  let kindConfig: HarnessKindConfig;
+  try {
+    kindConfig = parseHarnessKindConfig(raw);
+  } catch (err) {
+    // Same refusal as the proxy's, for the same reason: a malformed stored
+    // config silently becoming the default would drop every deny rule the admin
+    // wrote *and* replace `explicit` with `observe`, turning enforcement off
+    // through a parse error nobody sees.
+    throw new Error(
+      `actor-config: ${did}'s kindConfig is invalid and cannot be pushed: ${
+        err instanceof Error ? err.message : String(err)
+      }`
+    );
+  }
+
+  const grantToken = await resolveGrantToken(did, warnings);
+  const ruleSetToken = await signHarnessRuleSet(kindConfig);
+  warnings.push(...harnessKindConfigWarnings(kindConfig));
+
+  return {
+    payload: {
+      kindConfig,
+      kindConfigToken: await signKindConfig(kindConfig),
+      grantToken,
+      ruleSetToken,
+      // The harness's own maxStatusAgeSeconds is authoritative for it, exactly as
+      // the proxy's is for the proxy: an offline decider cannot perform the live
+      // query `trust.stapleTtlSeconds` describes, so the value is translated at
+      // the push rather than copied.
+      trust: await resolveTrustFrom(kindConfig.maxStatusAgeSeconds),
+    },
+    warnings,
+  };
+}
+
+/** Sign the resource-rule set from a harness config, or null when there are no rules. */
+async function signHarnessRuleSet(config: HarnessKindConfig): Promise<string | null> {
+  if (config.resourceRules.length === 0) return null;
+
+  const vid = await ServerIdentityDAO.getServerVaultysId();
+  return signProxyRuleSet(vid, {
+    version: PROXY_RULESET_VERSION,
+    // No host rules: a supervisor sees resource URIs and never a destination, so
+    // a host rule pushed here could not match anything and would read as
+    // protection that is not there.
+    rules: [],
+    resourceRules: config.resourceRules,
+    issuedAt: Date.now(),
+  });
 }
 
 /**
@@ -215,9 +315,22 @@ async function signRuleSet(config: ProxyKindConfig): Promise<string | null> {
  * TTL is deliberately not consulted here (it is, for other kinds).
  */
 async function resolveTrust(config: ProxyKindConfig): Promise<ActorConfigPayload["trust"]> {
+  return resolveTrustFrom(config.maxStatusAgeSeconds);
+}
+
+/**
+ * The trust block for an interception point that decides offline, from its own
+ * configured staleness bound.
+ *
+ * Shared by both enforcing kinds because the reasoning is identical and must not
+ * drift: an offline decider cannot perform the live query `stapleTtlSeconds: 0`
+ * describes, so its own number is authoritative and is translated at the push
+ * rather than copied from the org setting.
+ */
+async function resolveTrustFrom(maxStatusAgeSeconds: number): Promise<ActorConfigPayload["trust"]> {
   return {
     failClosed: await resolveFailClosed(),
-    maxStatusAgeSeconds: config.maxStatusAgeSeconds,
+    maxStatusAgeSeconds,
   };
 }
 

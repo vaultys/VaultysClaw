@@ -32,12 +32,38 @@ const (
 // §5.2.1 is explicit that a silent pass-through is the one outcome this design
 // cannot afford, so an allow is as much a record as a denial.
 type Event struct {
-	At          time.Time `json:"at"`
-	Destination string    `json:"destination"`
-	Allowed     bool      `json:"allowed"`
-	Reason      string    `json:"reason,omitempty"`
-	RuleID      string    `json:"ruleId,omitempty"`
-	CertID      string    `json:"certId,omitempty"`
+	At time.Time `json:"at"`
+	// Resource is what was decided about, in the canonical form for whichever
+	// interception point produced the event: "host:port" from a CONNECT line
+	// here, "file:///abs/path" or "exec://argv0" from internal/supervise. One
+	// event shape serves both roles — an admin reading the spool should not have
+	// to know which half of the binary wrote a line to understand it.
+	Resource string `json:"resource"`
+	// Tool is the harness's own name for a tool call (internal/supervise), empty
+	// for a network event. Two tools can produce one resource — Read and Grep
+	// both read a path — and which ran is worth recording.
+	Tool string `json:"tool,omitempty"`
+	// Capability is what the decision required, when the decision came from a
+	// certificate rather than a rule.
+	Capability string `json:"capability,omitempty"`
+	Allowed    bool   `json:"allowed"`
+	Reason     string `json:"reason,omitempty"`
+	RuleID     string `json:"ruleId,omitempty"`
+	CertID     string `json:"certId,omitempty"`
+	// WouldDeny records what enforcement would have decided while the point is
+	// running in an observe-only mode, so a permissive deployment still produces
+	// an answer to "what would this policy have broken?".
+	WouldDeny bool `json:"wouldDeny,omitempty"`
+	// Ungoverned marks a pass taken in the absence of a judgement rather than
+	// because of one — a tool with no capability mapping (internal/supervise), as
+	// distinct from AttributionMissing's network equivalent. Countable, for the
+	// same reason: a silent pass is the one outcome this design cannot afford.
+	Ungoverned bool `json:"ungoverned,omitempty"`
+	// NoResource marks a tool call that reaches nothing a certificate could be
+	// scoped to (internal/supervise). A pass, like Ungoverned, but deliberately
+	// not the same field: one is a gap to close and the other never will be, and
+	// a coverage metric that adds them together measures nothing.
+	NoResource bool `json:"noResource,omitempty"`
 	// AttributionMissing marks an ungoverned pass under §5.2's fail-open, so the
 	// coverage gap is countable rather than invisible.
 	AttributionMissing bool `json:"attributionMissing,omitempty"`
@@ -203,7 +229,7 @@ func (p *Proxy) handle(client net.Conn) {
 
 	event := Event{
 		At:                 now,
-		Destination:        dest.String(),
+		Resource:           dest.String(),
 		Allowed:            out.Allowed,
 		Reason:             out.Reason,
 		RuleID:             out.RuleID,

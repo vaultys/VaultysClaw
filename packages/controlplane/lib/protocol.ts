@@ -115,8 +115,30 @@ export interface ErrorPayload {
  * and enforced it (§9).
  */
 export interface ActorConfigPayload {
-  /** Opaque, kind-owned settings — schema belongs to the kind (§4.3 of the rebuild doc). */
+  /**
+   * Opaque, kind-owned settings — schema belongs to the kind (§4.3 of the rebuild doc).
+   *
+   * **Unsigned.** Whoever can reach the socket chooses these bytes, so a recipient that acts on
+   * them must not let them reduce what it enforces. Present for readability and for kinds that only
+   * display their config; anything that *decides* on it should read {@link kindConfigToken}
+   * instead, which carries the same object with a signature over it.
+   */
   kindConfig: unknown;
+  /**
+   * The same settings as {@link kindConfig}, signed by the control plane and verifiable offline
+   * against the recipient's pinned anchor — exactly like {@link grantToken} and
+   * {@link ruleSetToken}.
+   *
+   * This exists because the unsigned field alone forces a recipient into an ugly compromise: a
+   * pushed `mode: observe` is indistinguishable from an attacker's, so it can only ever be allowed
+   * to *tighten* enforcement, and an admin cannot relax a host from the console at all. With a
+   * signature the direction stops mattering — the message is an authenticated decision either way.
+   *
+   * Null only when the server identity is unavailable, which is a broken deployment rather than a
+   * normal state; a recipient that requires signed configuration should say so loudly rather than
+   * silently falling back to the unsigned copy.
+   */
+  kindConfigToken: string | null;
   /**
    * The recipient's own capability grant, in packcert form
    * (`packages/policy`'s `signCapabilityGrantCert`). Null when the Actor holds

@@ -99,6 +99,43 @@ describe("assertValidCapabilityName", () => {
   it("includes the offending name, so a form can show it back", () => {
     expect(() => assertValidCapabilityName("BAD NAME")).toThrow(/"BAD NAME"/);
   });
+
+  it("names the reservation for a well-formed name under a reserved vendor", () => {
+    expect(() => assertValidCapabilityName("core:file_read")).toThrow(/"core" is a reserved vendor/);
+    expect(() => assertValidCapabilityName("vaultys:x.y")).toThrow(/reserved vendor/);
+  });
+
+  it("prefers the grammar message when a reserved name is also malformed", () => {
+    // The grammar is the more useful thing to tell an author about; reservation is checked after.
+    expect(() => assertValidCapabilityName("core:")).toThrow(/exactly one colon/);
+  });
+});
+
+describe("reserved vendors", () => {
+  it("are not custom names at all, so they can never survive the registry filter", () => {
+    expect(isCustomCapability("core:file_read")).toBe(false);
+    expect(filterAgainstRegistry(["core:file_read"], new Set(["core:file_read"]))).toEqual([]);
+  });
+
+  it("reserve exactly, never as a prefix", () => {
+    expect(isCustomCapability("core-corp:invoice")).toBe(true);
+    expect(isCustomCapability("cores:invoice")).toBe(true);
+  });
+
+  it("does not namespace the built-ins themselves — the colon must stay theirs alone", () => {
+    for (const c of BUILTIN_CAPABILITIES) expect(c).not.toContain(":");
+  });
+});
+
+describe("the file_access split", () => {
+  it("offers both verbs as built-ins", () => {
+    expect(isBuiltinCapability("file_read")).toBe(true);
+    expect(isBuiltinCapability("file_write")).toBe(true);
+  });
+
+  it("keeps file_access valid for certificates already in the field", () => {
+    expect(isBuiltinCapability("file_access")).toBe(true);
+  });
 });
 
 describe("parseCustomCapability", () => {

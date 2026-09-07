@@ -226,6 +226,78 @@ interface RuleLike {
   ports?: unknown;
 }
 
+/**
+ * The harness twin of {@link proxyConfigPayload}.
+ *
+ * Separate rather than shared: the two kinds summarise different rules (hosts
+ * and ports vs. resource URIs) and carry different settings, and a builder
+ * branching on kind would end up emitting half-null objects for whichever kind
+ * it was not. Allow-list only, as everywhere in this file — a resource pattern
+ * is authored policy and safe to send; nothing else from the config is.
+ */
+export function harnessConfigPayload(
+  actor: AnyRecord,
+  before: { resourceRules?: readonly ResourceRuleLike[] } | null,
+  after: {
+    mode?: unknown;
+    sandbox?: unknown;
+    maxStatusAgeSeconds?: unknown;
+    resourceRules?: readonly ResourceRuleLike[];
+  }
+): AnyRecord {
+  const beforeRules = before?.resourceRules ?? [];
+  const afterRules = after.resourceRules ?? [];
+  const beforeIds = new Set(beforeRules.map((r) => String(r.id)));
+  const afterIds = new Set(afterRules.map((r) => String(r.id)));
+
+  const summarise = (r: ResourceRuleLike) =>
+    `${r.effect} ${r.subject} ${Array.isArray(r.resources) ? r.resources.join(",") : ""}`;
+
+  return {
+    did: actor.did,
+    name: actor.name,
+    kind: actor.kind,
+    mode: after.mode ?? null,
+    sandbox: after.sandbox ?? null,
+    maxStatusAgeSeconds: after.maxStatusAgeSeconds ?? null,
+    resourceRuleCount: afterRules.length,
+    resourceRules: afterRules.map((r) => ({ id: r.id, summary: summarise(r) })),
+    ruleChanges: {
+      added: afterRules.filter((r) => !beforeIds.has(String(r.id))).map((r) => ({ id: r.id, summary: summarise(r) })),
+      removed: beforeRules.filter((r) => !afterIds.has(String(r.id))).map((r) => ({ id: r.id, summary: summarise(r) })),
+    },
+  };
+}
+
+interface ResourceRuleLike {
+  id: unknown;
+  subject: unknown;
+  effect: unknown;
+  resources?: unknown;
+}
+
+/**
+ * What an Actor deletion destroyed.
+ *
+ * The revoked certificate ids matter more here than anywhere else: those rows
+ * cascade away with the Actor, so after this event nothing in the database
+ * records that they existed. The audit entry this payload lands in is the only
+ * remaining answer to "what did that Actor hold".
+ */
+export function actorDeletedPayload(
+  actor: AnyRecord,
+  revokedCertIds: readonly string[]
+): AnyRecord {
+  return {
+    did: actor.did,
+    name: actor.name,
+    kind: actor.kind,
+    workspaceId: actor.workspaceId ?? null,
+    revokedCertificateCount: revokedCertIds.length,
+    revokedCertificateIds: [...revokedCertIds],
+  };
+}
+
 export function proxyConfigPayload(
   actor: AnyRecord,
   before: { rules?: readonly RuleLike[] } | null,

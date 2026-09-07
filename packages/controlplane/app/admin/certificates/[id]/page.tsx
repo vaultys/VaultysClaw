@@ -4,6 +4,7 @@ import { ArrowLeft, ShieldCheck, ShieldAlert, ShieldQuestion } from "lucide-reac
 import { CapabilityCertificateDAO, ActorDAO, CertStatusCheckDAO } from "@/db";
 import { encodeDidParam } from "@/lib/actor-route";
 import PageChrome from "@/components/layout/PageChrome";
+import CopyableBlock from "@/components/CopyableBlock";
 import { inspectCertificate, type DecodedToken } from "@/lib/cert-inspect";
 import type { CertScope, ResourceLimits } from "@vaultysclaw/policy";
 
@@ -22,12 +23,8 @@ function JsonBlock({ value }: { value: unknown }) {
   );
 }
 
-function RawToken({ token }: { token: string }) {
-  return (
-    <pre className="text-[11px] font-mono bg-background-200/40 border border-neutral-200/60 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap break-all text-foreground-500">
-      {token}
-    </pre>
-  );
+function RawToken({ token, filename }: { token: string; filename?: string }) {
+  return <CopyableBlock value={token} filename={filename} />;
 }
 
 /**
@@ -213,8 +210,11 @@ export default async function CertificateDetailPage({
           }
         />
         <div>
-          <div className="text-xs text-foreground-500 mb-1">Raw token (wire format — length-prefixed body + signature)</div>
-          <RawToken token={inspected.grant.raw} />
+          <div className="text-xs text-foreground-500 mb-1">
+            Raw token (wire format — length-prefixed body + signature). This is the exact string an
+            interception point verifies offline: the contents of its <code>grantPath</code> file.
+          </div>
+          <RawToken token={inspected.grant.raw} filename={`${cert.id}.grant.token`} />
         </div>
       </section>
 

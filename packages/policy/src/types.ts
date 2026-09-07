@@ -18,6 +18,20 @@
  * role system to keep in sync.
  */
 export type BuiltinCapability =
+  // ── Filesystem ──
+  // `file_read`/`file_write` are the pair to grant; `file_access` is their undifferentiated
+  // predecessor, kept valid for certificates already in the field but withdrawn from every
+  // issuance path (`lib/capabilities.ts`). The verb belongs on the capability rather than on the
+  // resource — a certificate carries many capabilities but a single `CertScope`, so encoding it as
+  // `fileread:///…` would make "read and write this directory" two certificates instead of one,
+  // and would give a single file two names for auditing to reconcile. Every other capability here
+  // already carries its verb (`process_read`, `mail_send`); `file_access` was the outlier.
+  //
+  // Nothing implies anything: `resolvePermission` compares capability names exactly, and a holder
+  // of `file_access` does **not** thereby hold `file_read`. Widening happens where certificates are
+  // issued, never where they are resolved — see docs/HARNESS_SUPERVISOR.md §4.2.1.
+  | "file_read"
+  | "file_write"
   | "file_access"
   | "internet_access"
   | "browser_control"
@@ -87,8 +101,35 @@ export type AgentCapability = BuiltinCapability | CustomCapability;
  */
 export const CUSTOM_CAPABILITY_RE = /^[a-z0-9][a-z0-9-]{1,31}:[a-z0-9][a-z0-9._-]{1,63}$/;
 
+/**
+ * Vendor names no deployment may register under.
+ *
+ * A fence, not a rename. The built-ins deliberately stay unnamespaced — the colon is load-bearing
+ * precisely because no built-in contains one, which is what stops a custom name from shadowing a
+ * present or future built-in. Naming them `core:file_read` would make a single name satisfy both
+ * {@link isBuiltinCapability} and {@link isCustomCapability}, and {@link filterAgainstRegistry} —
+ * which runs before every `cert_status_response` is signed — would then read a built-in as an
+ * unregistered custom name and drop it, revoking it on every holder at once.
+ *
+ * But `core` is a perfectly legal vendor under {@link CUSTOM_CAPABILITY_RE}, so without this a
+ * deployment could register `core:anything` and squat a namespace we may later want to speak for.
+ * Reserving it costs nothing today and keeps that door closed. `vaultys` likewise: a capability
+ * that appears to be issued by us must not be authorable by a tenant.
+ *
+ * Mirrored in `sdk-go/capability` and pinned by `conformance/capability-names.json`.
+ */
+export const RESERVED_VENDORS: ReadonlySet<string> = new Set(["core", "vaultys"]);
+
+/** The vendor half of a syntactically well-formed custom name. Undefined for anything else. */
+function vendorOf(capability: string): string | undefined {
+  const colon = capability.indexOf(":");
+  return colon === -1 ? undefined : capability.slice(0, colon);
+}
+
 /** The built-in capability names, as a runtime value. Keep in sync with {@link BuiltinCapability}. */
 export const BUILTIN_CAPABILITIES = [
+  "file_read",
+  "file_write",
   "file_access",
   "internet_access",
   "browser_control",
@@ -120,7 +161,10 @@ export function isBuiltinCapability(capability: string): capability is BuiltinCa
  * not a custom capability, so it is never resolvable — which is the safe direction.
  */
 export function isCustomCapability(capability: string): capability is CustomCapability {
-  return CUSTOM_CAPABILITY_RE.test(capability);
+  if (!CUSTOM_CAPABILITY_RE.test(capability)) return false;
+  // A reserved vendor is not merely un-registrable — it is not a custom name at all, so it can
+  // never survive filterAgainstRegistry either. Same safe direction as a malformed name.
+  return !RESERVED_VENDORS.has(vendorOf(capability)!);
 }
 
 /**
@@ -140,6 +184,14 @@ export function assertValidCapabilityName(capability: string): void {
   if (!CUSTOM_CAPABILITY_RE.test(capability)) {
     throw new Error(
       `Invalid capability name "${capability}": expected "vendor:action" — lowercase, vendor 2-32 chars [a-z0-9-], action 2-64 chars [a-z0-9._-], exactly one colon`
+    );
+  }
+  // Checked after the grammar so a malformed `core:` still gets the grammar's message, which is
+  // the more useful one to show back.
+  const vendor = vendorOf(capability)!;
+  if (RESERVED_VENDORS.has(vendor)) {
+    throw new Error(
+      `Invalid capability name "${capability}": "${vendor}" is a reserved vendor — pick another namespace`
     );
   }
 }

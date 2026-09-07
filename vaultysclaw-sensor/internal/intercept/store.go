@@ -35,6 +35,8 @@ type Store struct {
 	// `explicit` mode it is false, and Reload then refuses a rule set containing
 	// subject-scoped rules rather than letting them silently never match.
 	attributionAvailable bool
+	// allowUnprovisioned — see StoreOptions.
+	allowUnprovisioned bool
 
 	mu       sync.RWMutex
 	certs    []authz.Certificate
@@ -49,6 +51,20 @@ type StoreOptions struct {
 	RuleSetPath string
 	// AttributionAvailable — see Store.attributionAvailable.
 	AttributionAvailable bool
+	// AllowUnprovisioned permits starting with no capability grant on disk yet.
+	//
+	// False — the default, and what the intercept role uses — makes a missing
+	// grant fatal: a proxy that will refuse every request looks identical to one
+	// that is working, and the operator should learn the difference at startup.
+	//
+	// True is for a client that *expects to be sent* its grant, over a connection
+	// it can only open after starting. Without this such a client cannot
+	// bootstrap at all: it needs a grant to start and can only obtain one by
+	// starting. The state is safe to run in because an empty certificate set
+	// authorizes nothing — under `explicit` every governed call is denied, and
+	// under `observe` every call is recorded as one that would have been. It is
+	// still a state an operator must be told about, so the caller logs it.
+	AllowUnprovisioned bool
 }
 
 // ErrNoGrant means no capability grant has been provisioned, so this
@@ -68,11 +84,20 @@ func NewStore(opts StoreOptions) (*Store, error) {
 		grantPath:            opts.GrantPath,
 		ruleSetPath:          opts.RuleSetPath,
 		attributionAvailable: opts.AttributionAvailable,
+		allowUnprovisioned:   opts.AllowUnprovisioned,
 	}
 	if err := s.Reload(); err != nil {
 		return nil, err
 	}
 	return s, nil
+}
+
+// Provisioned reports whether a verified grant is currently in force. False
+// means this Store authorizes nothing — see StoreOptions.AllowUnprovisioned.
+func (s *Store) Provisioned() bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return len(s.certs) > 0
 }
 
 // Reload re-reads and re-verifies both artefacts, swapping them in atomically
@@ -84,27 +109,34 @@ func NewStore(opts StoreOptions) (*Store, error) {
 // direction — a corrupt push must not silently widen access by dropping the
 // rules half.
 func (s *Store) Reload() error {
+	var certs []authz.Certificate
+	var syncedAt time.Time
+
 	token, err := readToken(s.grantPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return fmt.Errorf("%w: expected a packcert grant at %s", ErrNoGrant, s.grantPath)
+	switch {
+	case err == nil:
+		body, verr := grant.Verify(s.anchor.VaultysID(), token, time.Now())
+		if verr != nil {
+			return fmt.Errorf("intercept: verifying the capability grant: %w", verr)
 		}
+		// The control plane asserts current status separately from the signature
+		// (see internal/grant). Until an actor_config push has been received
+		// there is no live assertion to read, so a provisioned grant is taken as
+		// active and the staleness bound is measured from when it was
+		// provisioned — the file's mtime. That is a real, checkable timestamp,
+		// not an assumption that the grant is fresh.
+		certs = []authz.Certificate{body.ToCertificate(authz.StatusActive)}
+		syncedAt = fileModTime(s.grantPath)
+	case os.IsNotExist(err) && s.allowUnprovisioned:
+		// No grant yet. Left empty rather than erroring: an empty certificate set
+		// authorizes nothing, which is the safe direction, and this client is
+		// expected to receive its grant over a connection it cannot open before
+		// starting.
+	case os.IsNotExist(err):
+		return fmt.Errorf("%w: expected a packcert grant at %s", ErrNoGrant, s.grantPath)
+	default:
 		return err
 	}
-
-	body, err := grant.Verify(s.anchor.VaultysID(), token, time.Now())
-	if err != nil {
-		return fmt.Errorf("intercept: verifying the capability grant: %w", err)
-	}
-
-	// The control plane asserts current status separately from the signature
-	// (see internal/grant). Until §12's actor_config push exists there is no
-	// live assertion to read, so a provisioned grant is taken as active and the
-	// staleness bound is measured from when it was provisioned — the file's
-	// mtime. That is a real, checkable timestamp, not an assumption that the
-	// grant is fresh.
-	certs := []authz.Certificate{body.ToCertificate(authz.StatusActive)}
-	syncedAt := fileModTime(s.grantPath)
 
 	var ruleSet *rules.Set
 	if strings.TrimSpace(s.ruleSetPath) != "" {
@@ -173,12 +205,20 @@ func (s *Store) Summary() string {
 			domains = strings.Join(c.ResourceLimits.AllowedDomains, ",")
 		}
 	}
-	ruleCount := 0
+	// Both lists, reported separately. Counting only the host rules read
+	// "rules=0" on a host running a full set of resource rules — a summary line
+	// an operator uses to confirm what is in force must not say nothing is.
+	hostRules, resourceRules := 0, 0
 	if s.ruleSet != nil {
-		ruleCount = len(s.ruleSet.Rules)
+		hostRules = len(s.ruleSet.Rules)
+		resourceRules = len(s.ruleSet.ResourceRules)
 	}
-	return fmt.Sprintf("capabilities=%s allowedDomains=%s rules=%d provisionedAt=%s",
-		caps, domains, ruleCount, s.syncedAt.UTC().Format(time.RFC3339))
+	provisioned := "never"
+	if !s.syncedAt.IsZero() {
+		provisioned = s.syncedAt.UTC().Format(time.RFC3339)
+	}
+	return fmt.Sprintf("capabilities=%s allowedDomains=%s hostRules=%d resourceRules=%d provisionedAt=%s",
+		caps, domains, hostRules, resourceRules, provisioned)
 }
 
 // readToken reads a token file, tolerating trailing whitespace from an operator

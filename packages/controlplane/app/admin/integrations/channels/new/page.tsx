@@ -1,6 +1,7 @@
 import PageChrome from "@/components/layout/PageChrome";
 import { CONTROLPLANE_WEBHOOK_EVENTS } from "@/lib/webhook-events";
 import { createChannelAction } from "../../actions";
+import AppriseUrlBuilder from "../AppriseUrlBuilder";
 
 const EVENT_GROUPS = Array.from(new Set(CONTROLPLANE_WEBHOOK_EVENTS.map((e) => e.group)));
 
@@ -15,7 +16,7 @@ export default function NewChannelPage() {
         ]}
       />
 
-      <form action={createChannelAction} className="space-y-6 max-w-2xl">
+      <form action={createChannelAction} className="space-y-6 max-w-6xl">
         <div>
           <label className="block text-sm font-medium text-foreground mb-1.5">Name</label>
           <input
@@ -36,31 +37,17 @@ export default function NewChannelPage() {
           />
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-foreground mb-1.5">
-            Apprise service URL(s)
-          </label>
-          <textarea
-            name="serviceUrls"
-            required
-            rows={3}
-            placeholder={"slack://TokenA/TokenB/TokenC/#channel\nmailto://user:pass@smtp.example.com"}
-            className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background font-mono"
-          />
-          <p className="text-xs text-foreground-400 mt-1">
-            One per line. See{" "}
-            <a
-              href="https://github.com/caronc/apprise#popular-notification-services"
-              target="_blank"
-              rel="noreferrer"
-              className="text-primary-600 hover:underline"
-            >
-              Apprise&apos;s service URL reference
-            </a>{" "}
-            for the full list (Slack, email, PagerDuty, ntfy, Discord, and dozens more). These often
-            embed credentials, so they&apos;re encrypted at rest and never shown again after this.
-          </p>
-        </div>
+        <AppriseUrlBuilder
+          required
+          placeholder={"slack://TokenA/TokenB/TokenC/#channel\nmailto://user:pass@smtp.example.com"}
+          helpText={
+            <>
+              One per line. Build URLs from the local integration metadata, or paste raw service
+              URLs directly. These often embed credentials, so they&apos;re encrypted at rest and never
+              shown again after this.
+            </>
+          }
+        />
 
         <div>
           <label className="block text-sm font-medium text-foreground mb-1.5">Events</label>

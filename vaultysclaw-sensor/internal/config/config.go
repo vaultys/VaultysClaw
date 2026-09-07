@@ -78,7 +78,85 @@ type Sensor struct {
 	// that has always been observe-only must not start refusing traffic because
 	// it was upgraded (docs/PROXY_ARCHITECTURE.md §3.2).
 	Intercept Intercept `yaml:"intercept"`
+
+	// Supervise configures the harness-supervision role
+	// (docs/HARNESS_SUPERVISOR.md). Like Intercept, off unless asked for.
+	Supervise Supervise `yaml:"supervise"`
 }
+
+// Supervise configures the supervise role — tier-A tool-call governance for a
+// coding harness (docs/HARNESS_SUPERVISOR.md §4).
+//
+// It shares Intercept's provisioning shape deliberately: the same pinned anchor,
+// the same packcert grant, the same durable spool. A deployment running both
+// roles points them at the same files and gets one policy and one audit trail,
+// not two that can disagree.
+type Supervise struct {
+	Enabled bool `yaml:"enabled"`
+	// Mode is "observe" (decide, record, always permit) or "explicit" (refuse
+	// anything no certificate covers). Observe is the default and phase 0 ships
+	// nothing else: the resource strings this role produces end up inside signed
+	// certificates, so they are learned from real traffic before being frozen.
+	Mode string `yaml:"mode"`
+	// SocketPath is where the decision daemon listens. Owner-only, in an
+	// owner-only directory — it is an authorization oracle with no
+	// authentication of its own.
+	SocketPath string `yaml:"socketPath"`
+	// SettingsPath is where the generated harness settings file is written. It
+	// belongs to the supervisor; the user's own harness settings are never
+	// edited.
+	SettingsPath string `yaml:"settingsPath"`
+	// AnchorPath, ControlPlaneID, GrantPath, RuleSetPath, SpoolPath mirror
+	// Intercept's fields exactly and mean exactly the same things. A host running
+	// both roles points them at the same files: one grant, one rule set, one
+	// spool, so the two roles cannot enforce two different policies.
+	AnchorPath     string `yaml:"anchorPath"`
+	ControlPlaneID string `yaml:"controlPlaneId"`
+	GrantPath      string `yaml:"grantPath"`
+	// RuleSetPath is the signed rule set. Optional: with none, the local safety
+	// floor is the only deny source and certificates the only allow source.
+	RuleSetPath string `yaml:"ruleSetPath"`
+	SpoolPath   string `yaml:"spoolPath"`
+	// MaxStatusAgeSeconds and FailClosed mirror Intercept's, including the
+	// meaning of zero: it is the *strictest* value, not the loosest. See
+	// Intercept.MaxStatusAgeSeconds for why, and do not let the two drift — one
+	// knob must not mean opposite things in two roles of one binary.
+	MaxStatusAgeSeconds int  `yaml:"maxStatusAgeSeconds"`
+	FailClosed          bool `yaml:"failClosed"`
+	// Sandbox enables tier-B OS confinement (docs/HARNESS_SUPERVISOR.md §6):
+	// the safety floor and this supervisor's own artefacts, enforced by the
+	// kernel rather than by a hook the agent can route around.
+	//
+	// "require" is the setting an operator who actually depends on confinement
+	// should use: it refuses to launch on a platform or machine where it cannot
+	// be established, rather than silently continuing in advisory mode. "auto"
+	// confines where it can and warns loudly where it cannot; "off" never tries.
+	Sandbox string `yaml:"sandbox"`
+	// ControlPlaneURL, when set, makes the supervise role open a connection to
+	// the control plane so it can receive actor_config pushes
+	// (docs/PROXY_ARCHITECTURE.md §12). Empty keeps the role entirely
+	// file-provisioned, which is a fully supported deployment and not a
+	// degraded one: the pushed artefacts are verified against the same pinned
+	// anchor either way, so a connection buys convenience, not authority.
+	ControlPlaneURL string `yaml:"controlPlaneUrl"`
+	// FloorPaths replaces the built-in safety floor when non-empty. Deny-only:
+	// an entry can refuse a path but can never authorize one, which is the only
+	// reason an unsigned local list is admissible here at all.
+	FloorPaths []string `yaml:"floorPaths"`
+}
+
+// Supervision modes.
+const (
+	SuperviseObserve  = "observe"
+	SuperviseExplicit = "explicit"
+)
+
+// Tier-B confinement settings.
+const (
+	SandboxOff     = "off"
+	SandboxAuto    = "auto"
+	SandboxRequire = "require"
+)
 
 // Intercept configures the intercept role — the tier-1 CONNECT proxy
 // (docs/PROXY_ARCHITECTURE.md §2, §8).
@@ -224,6 +302,33 @@ func DefaultSensorConfig() *Sensor {
 			// not just an actual agent-controller invocation.
 			{Name: "vaultysclaw_agent", CmdlineSubstrings: []string{"agent-controller"}},
 		},
+		Supervise: Supervise{
+			// Off, and observe-only when on: the same deliberate-act rule as
+			// Intercept, plus phase 0's own reason — the resource strings this
+			// role produces end up inside signed certificates, so they are
+			// learned before they are enforced.
+			Enabled:      false,
+			Mode:         SuperviseObserve,
+			SocketPath:   defaultPath(".vaultysclaw-sensor/supervise.sock"),
+			SettingsPath: defaultPath(".vaultysclaw-sensor/claude-settings.json"),
+			// Shared with Intercept on purpose: one anchor, one grant, one
+			// spool, so a host running both roles cannot enforce two policies.
+			AnchorPath:  defaultPath(".vaultysclaw-sensor/control-plane-anchor.json"),
+			GrantPath:   defaultPath(".vaultysclaw-sensor/grant.token"),
+			RuleSetPath: defaultPath(".vaultysclaw-sensor/rules.token"),
+			SpoolPath:   defaultPath(".vaultysclaw-sensor/audit.jsonl"),
+			FailClosed:  true,
+			// Unbounded, for the same reason and with the same startup warning
+			// as Intercept: with no control-plane push yet there is no status
+			// refresh to be fresh against, and 0 would deny everything.
+			MaxStatusAgeSeconds: -1,
+			// Auto by default: confinement where it can be established, and a
+			// loud warning where it cannot. Not "require", because that would
+			// make an upgrade start refusing to launch on a platform whose
+			// backend is not built yet — the same rule that keeps Intercept
+			// disabled by default.
+			Sandbox: SandboxAuto,
+		},
 	}
 }
 
@@ -367,7 +472,41 @@ func (s *Sensor) Validate() error {
 	if strings.TrimSpace(s.IdentityPath) == "" {
 		return fmt.Errorf("config: identityPath must not be empty")
 	}
-	return s.Intercept.validate()
+	if err := s.Intercept.validate(); err != nil {
+		return err
+	}
+	return s.Supervise.validate()
+}
+
+// validate rejects a supervise configuration that would govern nothing while
+// looking configured, or that asks for a mode this phase does not implement.
+func (sv *Supervise) validate() error {
+	if !sv.Enabled {
+		return nil
+	}
+	switch sv.Mode {
+	case SuperviseObserve:
+	case SuperviseExplicit:
+	default:
+		return fmt.Errorf("config: supervise.mode must be %q or %q (got %q)", SuperviseObserve, SuperviseExplicit, sv.Mode)
+	}
+	switch sv.Sandbox {
+	case SandboxOff, SandboxAuto, SandboxRequire:
+	default:
+		return fmt.Errorf("config: supervise.sandbox must be %q, %q or %q (got %q)", SandboxOff, SandboxAuto, SandboxRequire, sv.Sandbox)
+	}
+	for _, field := range []struct{ name, value string }{
+		{"socketPath", sv.SocketPath},
+		{"settingsPath", sv.SettingsPath},
+		{"anchorPath", sv.AnchorPath},
+		{"grantPath", sv.GrantPath},
+		{"spoolPath", sv.SpoolPath},
+	} {
+		if strings.TrimSpace(field.value) == "" {
+			return fmt.Errorf("config: supervise.%s is required when supervise.enabled is true", field.name)
+		}
+	}
+	return nil
 }
 
 // validate rejects an intercept configuration that would enforce nothing while

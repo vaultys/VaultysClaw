@@ -40,6 +40,23 @@ export class PendingRegistrationDAO {
     });
   }
 
+  /**
+   * Approved-but-undelivered registrations for any of these DIDs.
+   *
+   * Backs the delivery sweep in `ws-server.ts`: an approval that happened outside this process —
+   * a script, a second control-plane instance, direct SQL — never calls
+   * `deliverApprovedCapabilities`, so without a sweep the Actor waits until it happens to
+   * reconnect. Scoped to the DIDs actually connected right now, since delivery needs a live
+   * connection anyway.
+   */
+  static async findApprovedUndeliveredForDids(dids: string[]): Promise<PendingRegistration[]> {
+    if (dids.length === 0) return [];
+    return prisma.pendingRegistration.findMany({
+      where: { did: { in: dids }, status: "approved", deliveredAt: null },
+      orderBy: { createdAt: "asc" },
+    });
+  }
+
   static async listPending(): Promise<PendingRegistration[]> {
     return prisma.pendingRegistration.findMany({
       where: { status: "pending" },

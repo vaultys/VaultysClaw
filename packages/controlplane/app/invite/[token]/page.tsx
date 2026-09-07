@@ -6,11 +6,12 @@ import { QRCodeSVG } from "qrcode.react";
 import { signIn } from "next-auth/react";
 import { connectWithoutApp, type BrowserIdData } from "@/lib/browser-connect";
 import DevIdentityPicker from "@/components/DevIdentityPicker";
+import { isDevLoginEnabled } from "@/lib/dev-login";
 
 const WALLET_URL = process.env.NEXT_PUBLIC_WALLET_URL || "https://wallet.vaultys.net";
 // process.env.NODE_ENV is inlined at build time by Next.js, including in client bundles —
 // this is never a runtime env lookup, so it's safe to gate UI on it directly.
-const DEV_LOGIN_ENABLED = process.env.NODE_ENV !== "production";
+const DEV_LOGIN_ENABLED = isDevLoginEnabled();
 
 type InvalidReason = "not_found" | "expired" | "redeemed";
 type Phase = "checking" | "invalid" | "loading" | "waiting" | "dev-connecting" | "success" | "failure";

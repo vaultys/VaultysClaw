@@ -36,6 +36,7 @@ import { recordEvent } from "./audit";
 import { bindSsoIdentity } from "./sso";
 import { actorPayload } from "./webhook-payloads";
 import type { AuthCertificate } from "@prisma/client";
+import { DuplicateEmailError } from "@/db/user.dao";
 
 const logger = pino({ name: "user-login-channel" });
 const Buffer = crypto.Buffer;
@@ -90,7 +91,35 @@ async function registerHumanFromInvitation(
     return false;
   }
 
-  const actor = await UserDAO.ensureExists(did, invitation.name, invitation.email, publicKey);
+  // The invitation carries an email, and `User.email` is unique — so an invitation written for an
+  // address that already belongs to somebody cannot be redeemed into a second account. Checked
+  // before creating anything, and the invitation is deliberately **not** consumed: the redeemer is
+  // not at fault, and an admin can correct the address (or the existing human) and have the same
+  // link keep working. Redeeming with the *same* DID that already holds the address is fine and
+  // never reaches here — `ensureExists` returns the existing Actor.
+  if (invitation.email) {
+    const holder = await UserDAO.findByEmail(invitation.email);
+    if (holder && holder.did !== did) {
+      logger.warn(
+        { did, invitedEmail: invitation.email, heldBy: holder.did },
+        "Invitation redemption refused — its email address already belongs to another human"
+      );
+      return false;
+    }
+  }
+
+  let actor: Awaited<ReturnType<typeof UserDAO.ensureExists>>;
+  try {
+    actor = await UserDAO.ensureExists(did, invitation.name, invitation.email, publicKey);
+  } catch (err) {
+    // Lost a race against a concurrent registration claiming the same address between the check
+    // above and this write. Same outcome, same reasoning: fail the redemption, keep the invitation.
+    if (err instanceof DuplicateEmailError) {
+      logger.warn({ did, invitedEmail: invitation.email }, "Invitation redemption lost an email race");
+      return false;
+    }
+    throw err;
+  }
   await InvitationDAO.markRedeemed(invitation.tokenHash, did);
 
   // A binding invitation minted by an unbound SSO login (lib/sso.ts): now that a

@@ -28,19 +28,83 @@ import (
 )
 
 func main() {
-	if len(os.Args) < 2 || os.Args[1] != "run" {
-		fmt.Fprintln(os.Stderr, "usage: vaultysclaw-sensor run [--config path]")
-		os.Exit(2)
+	if len(os.Args) < 2 {
+		usage()
 	}
 
-	fs := flag.NewFlagSet("run", flag.ExitOnError)
-	configPath := fs.String("config", defaultConfigPath(), "path to config file (optional; defaults are used for anything missing)")
-	_ = fs.Parse(os.Args[2:])
+	switch os.Args[1] {
+	case "run":
+		fs := flag.NewFlagSet("run", flag.ExitOnError)
+		configPath := fs.String("config", defaultConfigPath(), "path to config file (optional; defaults are used for anything missing)")
+		_ = fs.Parse(os.Args[2:])
+		fail(run(*configPath))
 
-	if err := run(*configPath); err != nil {
+	case "supervise":
+		fs := flag.NewFlagSet("supervise", flag.ExitOnError)
+		configPath := fs.String("config", defaultConfigPath(), "path to config file")
+		_ = fs.Parse(os.Args[2:])
+		fail(runSuperviseCommand(*configPath, fs.Args()))
+
+	case "report":
+		fs := flag.NewFlagSet("report", flag.ExitOnError)
+		configPath := fs.String("config", defaultConfigPath(), "path to config file")
+		maxResources := fs.Int("resources", 20, "how many distinct resources to list per capability (0 = all)")
+		_ = fs.Parse(os.Args[2:])
+		fail(runSuperviseReport(*configPath, *maxResources))
+
+	case "sandbox-check":
+		fs := flag.NewFlagSet("sandbox-check", flag.ExitOnError)
+		configPath := fs.String("config", defaultConfigPath(), "path to config file")
+		_ = fs.Parse(os.Args[2:])
+		fail(runSandboxCheck(*configPath))
+
+	case "hook":
+		// Executed by the harness once per tool call. Kept out of the config
+		// path entirely: it must not read, parse or validate anything the
+		// resident daemon has already read.
+		fs := flag.NewFlagSet("hook", flag.ExitOnError)
+		socket := fs.String("socket", os.Getenv("VAULTYSCLAW_SUPERVISE_SOCKET"), "path to the supervisor's decision socket")
+		_ = fs.Parse(os.Args[2:])
+		fail(runHook(*socket))
+
+	default:
+		usage()
+	}
+}
+
+func usage() {
+	fmt.Fprintln(os.Stderr, "usage:")
+	fmt.Fprintln(os.Stderr, "  vaultysclaw-sensor run [--config path]                 observe, and enforce if the intercept role is enabled")
+	fmt.Fprintln(os.Stderr, "  vaultysclaw-sensor supervise [--config path] -- claude  launch a coding harness under tool-call governance")
+	fmt.Fprintln(os.Stderr, "  vaultysclaw-sensor report [--config path]              what the supervised sessions did, and the scope they would need")
+	fmt.Fprintln(os.Stderr, "  vaultysclaw-sensor sandbox-check [--config path]       prove OS confinement is really in force for your floor")
+	fmt.Fprintln(os.Stderr, "  vaultysclaw-sensor hook --socket path                  the per-tool-call decision shim (run by the harness, not by hand)")
+	os.Exit(2)
+}
+
+func fail(err error) {
+	if err != nil {
 		fmt.Fprintln(os.Stderr, "vaultysclaw-sensor:", err)
 		os.Exit(1)
 	}
+}
+
+// runSuperviseCommand loads config and hands off to runSupervise, with its own
+// signal-scoped context so ^C reaches the harness and then shuts the daemon down.
+func runSuperviseCommand(configPath string, command []string) error {
+	cfg, err := config.LoadSensorConfig(configPath)
+	if err != nil {
+		return fmt.Errorf("loading config: %w", err)
+	}
+	level := slog.LevelInfo
+	if cfg.Debug {
+		level = slog.LevelDebug
+	}
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: level}))
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	return runSupervise(ctx, cfg, logger, command)
 }
 
 func defaultConfigPath() string {

@@ -86,6 +86,17 @@ const (
 	// every agent kind (packages/controlplane/lib/ws-server.ts handleCapabilityRequest); the
 	// sensor just never sent one before, relying entirely on an admin proactively granting it.
 	MsgCapabilityRequest MessageType = "capability_request"
+	// MsgActorConfig carries kind-specific configuration pushed down by the
+	// control plane on connect and on change (docs/PROXY_ARCHITECTURE.md §12,
+	// packages/controlplane/lib/protocol.ts).
+	//
+	// **The push is a delivery mechanism, not a trust path.** Two of its four
+	// fields are control-plane-signed tokens the recipient verifies offline
+	// against a pinned anchor, and those are the load-bearing part; `kindConfig`
+	// and `trust` arrive as plain JSON that nothing authenticates. Anything
+	// derived from the unsigned half must therefore be unable to *weaken* what
+	// this host enforces — see ActorConfigPayload.
+	MsgActorConfig MessageType = "actor_config"
 )
 
 // Envelope is the JSON message wrapper exchanged over the WebSocket
@@ -219,4 +230,44 @@ func NewMessageID() string {
 	b := make([]byte, 8)
 	_, _ = rand.Read(b)
 	return hex.EncodeToString(b)
+}
+
+// ActorConfigPayload is the body of MsgActorConfig — the Go twin of
+// packages/controlplane/lib/protocol.ts's interface of the same name.
+//
+// Read the field comments before using any of it. The two halves of this
+// message have completely different trust properties, and treating them alike is
+// the exact defect docs/PROXY_ARCHITECTURE.md §9 records in the superseded proxy
+// implementation, which "wrote whatever arrived on the socket straight into its
+// local database and enforced it".
+type ActorConfigPayload struct {
+	// KindConfig is opaque, kind-owned settings — **unsigned**. Nothing about
+	// this field is authenticated by anything: whoever can reach the socket can
+	// choose its contents. A recipient may act on it only where doing so cannot
+	// reduce what it enforces.
+	KindConfig json.RawMessage `json:"kindConfig"`
+	// KindConfigToken is the same settings, signed by the control plane and
+	// verifiable offline against the pinned anchor.
+	//
+	// Prefer it over KindConfig wherever the settings actually decide something.
+	// A signature is what separates an admin's decision from anyone else's, and
+	// without one a recipient can only ever let a pushed setting *tighten* what
+	// it enforces — which means an admin cannot relax a host from the console at
+	// all. Null from a control plane that predates this field.
+	KindConfigToken *string `json:"kindConfigToken"`
+	// GrantToken is a packcert capability grant, signed by the control plane and
+	// verified offline against the pinned anchor. Safe to persist and enforce on
+	// precisely because the transport is not trusted to deliver it intact.
+	GrantToken *string `json:"grantToken"`
+	// RuleSetToken is a signed rule set, with the same property.
+	RuleSetToken *string `json:"ruleSetToken"`
+	// Trust is the org's fail mode and staleness bound — **unsigned**, like
+	// KindConfig, and subject to the same rule.
+	Trust *ActorConfigTrust `json:"trust"`
+}
+
+// ActorConfigTrust is the unsigned trust block.
+type ActorConfigTrust struct {
+	FailClosed          bool `json:"failClosed"`
+	MaxStatusAgeSeconds int  `json:"maxStatusAgeSeconds"`
 }

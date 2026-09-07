@@ -9,7 +9,8 @@
     "controlplane:docker:up": "docker compose -f docker/docker-compose.controlplane.yml up -d --wait",
     "controlplane:docker:down": "docker compose -f docker/docker-compose.controlplane.yml down",
     "controlplane:docker:logs": "docker compose -f docker/docker-compose.controlplane.yml logs -f",
-    "controlplane:dev": "pnpm controlplane:docker:up && pnpm --filter @vaultysclaw/controlplane dev",
+    "controlplane:migrate": "sh -c 'export DATABASE_URL=${DATABASE_URL:-postgresql://vaultys:${PG_PASSWORD:-vaultys_dev_secret}@localhost:${PG_PORT:-5433}/vaultysclaw}; exec pnpm --filter @vaultysclaw/controlplane exec prisma migrate deploy'",
+    "controlplane:dev": "pnpm controlplane:docker:up && sh -c 'export DATABASE_URL=${DATABASE_URL:-postgresql://vaultys:${PG_PASSWORD:-vaultys_dev_secret}@localhost:${PG_PORT:-5433}/vaultysclaw}; pnpm controlplane:migrate && exec pnpm --filter @vaultysclaw/controlplane dev'",
     "controlplane:webhook:prisma": "mkdir -p packages/webhook-dispatcher/prisma && cp packages/controlplane/prisma/schema.prisma packages/webhook-dispatcher/prisma/schema.prisma && pnpm --filter @vaultysclaw/webhook-dispatcher exec prisma generate",
     "controlplane:webhook:dev": "pnpm controlplane:webhook:prisma && sh -c 'set -a; [ -f packages/controlplane/.env ] && . ./packages/controlplane/.env; set +a; BULLMQ_PREFIX=${BULLMQ_PREFIX:-vaultysclaw-controlplane} exec pnpm --filter @vaultysclaw/webhook-dispatcher dev'",
     "webhook:dev": "pnpm --filter @vaultysclaw/webhook-dispatcher dev",
@@ -28,7 +29,17 @@
     "-- MISC --": "",
     "clean": "turbo clean && rm -rf node_modules",
     "simulator:prisma": "mkdir -p packages/simulator/prisma && cp packages/controlplane/prisma/schema.prisma packages/simulator/prisma/schema.prisma && pnpm --filter @vaultysclaw/simulator exec prisma generate",
-    "simulator": "pnpm simulator:prisma >/dev/null && sh -c 'set -a; [ -f packages/controlplane/.env ] && . ./packages/controlplane/.env; set +a; exec pnpm --filter @vaultysclaw/simulator start \"$@\"' --"
+    "simulator": "pnpm simulator:prisma >/dev/null && sh -c 'set -a; . ./docker/simulator.env; set +a; exec pnpm --filter @vaultysclaw/simulator start \"$@\"' --",
+    "simulator:docker:up": "docker compose -f docker/docker-compose.simulator.yml --env-file docker/simulator.env up -d --wait",
+    "simulator:docker:down": "docker compose -f docker/docker-compose.simulator.yml --env-file docker/simulator.env down",
+    "simulator:docker:nuke": "docker compose -f docker/docker-compose.simulator.yml --env-file docker/simulator.env down -v",
+    "simulator:migrate": "sh -c 'set -a; . ./docker/simulator.env; set +a; exec pnpm --filter @vaultysclaw/controlplane exec prisma migrate deploy'",
+    "simulator:cp": "sh -c 'set -a; . ./docker/simulator.env; set +a; exec pnpm --filter @vaultysclaw/controlplane exec node --conditions=tsx --import tsx server.ts'",
+    "simulator:up": "pnpm simulator:docker:up && pnpm simulator:migrate && pnpm simulator:build && pnpm simulator:cp",
+    "simulator:down": "pnpm simulator:docker:down",
+    "simulator:nuke": "pnpm simulator:docker:nuke",
+    "simulator:demo": "pnpm simulator --actors 2000 --agents 5000 --rate 150 --max-in-flight 300 --duration 180 --auto-approve --status-refresh 45000",
+    "simulator:build": "sh -c 'set -a; . ./docker/simulator.env; set +a; exec pnpm --filter @vaultysclaw/controlplane exec next build'"
   },
   "devDependencies": {
     "@types/node": "^22.20.1",

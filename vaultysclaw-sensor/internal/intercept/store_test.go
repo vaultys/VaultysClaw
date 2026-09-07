@@ -263,6 +263,13 @@ func TestSummaryDescribesWhatIsEnforced(t *testing.T) {
 	f.write(t, f.grantPath, grantToken(t, f.server, []string{"internet_access"}, []string{"api.github.com"}))
 	f.write(t, f.ruleSetPath, packToken(t, f.server, rules.Set{
 		Rules: []rules.Rule{{ID: "r", Subject: rules.SubjectAny, Hosts: []string{".openai.com"}, Effect: rules.EffectDeny}},
+		// Both lists, because counting only one of them was the defect: a host
+		// running a full set of resource rules reported "rules=0", and this line
+		// is what an operator reads to confirm what is in force.
+		ResourceRules: []rules.ResourceRule{
+			{ID: "rr", Subject: rules.SubjectAny, Resources: []string{"file:///a/*"}, Effect: rules.EffectDeny},
+			{ID: "rr2", Subject: rules.SubjectAny, Resources: []string{"exec://docker"}, Effect: rules.EffectDeny},
+		},
 	}))
 
 	s, err := NewStore(f.opts(false))
@@ -270,7 +277,7 @@ func TestSummaryDescribesWhatIsEnforced(t *testing.T) {
 		t.Fatalf("NewStore: %v", err)
 	}
 	got := s.Summary()
-	for _, want := range []string{"internet_access", "api.github.com", "rules=1"} {
+	for _, want := range []string{"internet_access", "api.github.com", "hostRules=1", "resourceRules=2"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("Summary() = %q, want it to mention %q", got, want)
 		}

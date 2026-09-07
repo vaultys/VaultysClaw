@@ -26,6 +26,12 @@ function str(v: unknown, fallback = "unknown"): string {
   return typeof v === "string" && v ? v : fallback;
 }
 
+/** A count for a body line. 0 is a real value and must render as "0", not as a
+ *  fallback — "0 rules" is precisely the state worth telling someone about. */
+function num(v: unknown, fallback = "?"): string {
+  return typeof v === "number" && Number.isFinite(v) ? String(v) : fallback;
+}
+
 const RENDERERS: Record<string, Renderer> = {
   "actor.registration_requested": (p) => ({
     title: "New Actor registration pending",
@@ -46,6 +52,32 @@ const RENDERERS: Record<string, Renderer> = {
     title: "Actor updated",
     body: `${str(p.name)}'s profile was modified.`,
     type: "info",
+  }),
+  // proxy.config_updated has been in the catalog and the docs since the proxy
+  // kind shipped, but had no renderer — so it was subscribable, deliverable as a
+  // webhook, and silently never reached a notification channel. Exactly the gap
+  // the root CLAUDE.md checklist warns about; added here alongside its harness
+  // twin rather than left for the next person to rediscover.
+  "proxy.config_updated": (p) => ({
+    title: "Proxy enforcement changed",
+    body: `${str(p.name)}: mode ${str(p.mode)}, ${num(p.ruleCount)} rule(s).`,
+    type: "warning",
+  }),
+  "harness.config_updated": (p) => ({
+    title: "Harness supervision changed",
+    body:
+      `${str(p.name)}: mode ${str(p.mode)}, confinement ${str(p.sandbox)}, ` +
+      `${num(p.resourceRuleCount)} resource rule(s).`,
+    // Warning rather than info: this changes what a host refuses. A change that
+    // turns enforcement off should not arrive looking like routine news.
+    type: "warning",
+  }),
+  "actor.deleted": (p) => ({
+    title: "Actor deleted",
+    body: `${str(p.name)} (${str(p.kind)}) was removed; ${num(p.revokedCertificateCount)} certificate(s) revoked.`,
+    // Warning, not info: this both removes an identity and ends every grant it
+    // held. An estate shrinking unexpectedly is worth someone looking at.
+    type: "warning",
   }),
   "human.invited": (p) => ({
     title: "Human invited",

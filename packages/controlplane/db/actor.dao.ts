@@ -130,6 +130,27 @@ export class ActorDAO {
     });
   }
 
+  /**
+   * Remove an Actor row.
+   *
+   * **Revoke its certificates before calling this.** The `CapabilityCertificate`
+   * relation cascades, so this deletes them — and a deleted certificate is not a
+   * revoked one. A packcert verifies offline against the pinned anchor with no
+   * reference to any row, and `handleCertStatusRequest` answers a status query
+   * for a certificate it cannot find with an *error* rather than a signed
+   * "revoked", so a holder learns nothing and keeps running on its last cached
+   * status. Deleting first therefore leaves a live grant in the wild that can
+   * never be told it is dead; revoking first is what actually ends it, and the
+   * deletion is only cleanup. `deleteActorAction` does them in that order.
+   *
+   * The audit trail survives: `AuditLogEntry.actorDid` is denormalized rather
+   * than a relation, precisely so an Actor can be removed without erasing what
+   * it did.
+   */
+  static async delete(did: string): Promise<void> {
+    await prisma.actor.delete({ where: { did } });
+  }
+
   static async list(filter?: {
     kind?: string;
     workspaceId?: string;

@@ -64,9 +64,46 @@ export interface ProxyRule {
   effect: ProxyRuleEffect;
 }
 
+/**
+ * A rule about a *resource URI* rather than a network destination —
+ * `file:///Users/fx/.ssh/*`, `exec://docker`, `mcp://jira/delete`.
+ *
+ * A separate type from {@link ProxyRule}, and a separate list on the set,
+ * because the two are evaluated by different interception points against
+ * different inputs: the tier-1 proxy has a host and port and no URI, the
+ * harness supervisor has a URI and no host. One type with two optional halves
+ * would leave every reader branching on which half is populated, and would admit
+ * a rule with both — whose meaning nobody has defined. One signed set still
+ * carries both, so an admin's policy stays a single artefact.
+ *
+ * The Go twin is `rules.ResourceRule`; `resourceRules` is `omitempty` there, so
+ * a set carrying none encodes exactly as it did before this existed.
+ */
+export interface ProxyResourceRule {
+  id: string;
+  subject: ProxyRuleSubject;
+  /** Required for `subject: "workload"`, omitted otherwise. */
+  workloadId?: string;
+  /**
+   * Resource URI patterns. Two forms only, matching the Go verifier's
+   * `MatchResource`: an exact URI, or a prefix ending in `/*` meaning that path
+   * and everything beneath it (the path itself included).
+   *
+   * Stricter than `CertScope.resourcePattern`, which allows a `*` anywhere.
+   * That looseness is tolerable for a scope, which only ever grants; a rule's
+   * `allow` effect bypasses the certificate entirely, so `file:///a/b*` — which
+   * would authorize the sibling `file:///a/bc` — is refused rather than
+   * interpreted.
+   */
+  resources: string[];
+  effect: ProxyRuleEffect;
+}
+
 export interface ProxyRuleSet {
   version: number;
   rules: ProxyRule[];
+  /** Resource-URI rules; omit or leave empty for a network-only set. */
+  resourceRules?: ProxyResourceRule[];
   /** Ms since epoch. */
   issuedAt: number;
 }
@@ -145,6 +182,77 @@ export function validateProxyRuleSet(set: ProxyRuleSet): void {
       }
     }
   }
+
+  // Resource rule ids share the namespace with host rule ids: an audit record
+  // names a rule by id alone, so two rules answering to one id would make the
+  // trail ambiguous about which fired.
+  for (const [i, rule] of (set.resourceRules ?? []).entries()) {
+    const where = `resource rule ${i} (${rule.id || "unnamed"})`;
+
+    if (!rule.id.trim()) {
+      throw new ProxyRuleValidationError(`${where} has no id — audit records reference rules by id`);
+    }
+    if (seen.has(rule.id)) {
+      throw new ProxyRuleValidationError(`${where} duplicates an earlier rule id`);
+    }
+    seen.add(rule.id);
+
+    if (rule.effect !== "deny" && rule.effect !== "allow") {
+      throw new ProxyRuleValidationError(`${where} has an unknown effect ${JSON.stringify(rule.effect)}`);
+    }
+    if (rule.subject !== "any" && rule.subject !== "agent" && rule.subject !== "workload") {
+      throw new ProxyRuleValidationError(`${where} has an unknown subject ${JSON.stringify(rule.subject)}`);
+    }
+    if (rule.subject === "workload" && !rule.workloadId?.trim()) {
+      throw new ProxyRuleValidationError(`${where} has subject "workload" but no workloadId`);
+    }
+    if (rule.subject !== "workload" && rule.workloadId) {
+      throw new ProxyRuleValidationError(
+        `${where} sets workloadId but its subject is "${rule.subject}" — the field would be ignored, which reads as narrower than it is`
+      );
+    }
+    if (rule.resources.length === 0) {
+      throw new ProxyRuleValidationError(`${where} matches no resources`);
+    }
+    for (const resource of rule.resources) {
+      validateResourcePattern(where, resource);
+    }
+  }
+}
+
+/**
+ * Reject a resource pattern the Go matcher would read differently from how it
+ * looks. Every rejection here mirrors `checkResourcePattern` in `sdk-go/rules`;
+ * the two disagreeing means a set this control plane signs is one the verifier
+ * refuses to load, taking every other rule in it down too.
+ */
+function validateResourcePattern(where: string, pattern: string): void {
+  if (pattern.trim() === "") {
+    throw new ProxyRuleValidationError(`${where} has an empty resource pattern`);
+  }
+  if (pattern.trim() !== pattern) {
+    throw new ProxyRuleValidationError(
+      `${where} resource ${JSON.stringify(pattern)} has surrounding whitespace, which would never match`
+    );
+  }
+  if (!pattern.includes("://")) {
+    throw new ProxyRuleValidationError(
+      `${where} resource ${JSON.stringify(pattern)} is not a URI — expected a scheme like file:// or exec://`
+    );
+  }
+  if (pattern.includes("*")) {
+    if (!pattern.endsWith("/*") || (pattern.match(/\*/g) ?? []).length !== 1) {
+      throw new ProxyRuleValidationError(
+        `${where} resource ${JSON.stringify(pattern)} uses a wildcard other than a single trailing "/*" — ` +
+          `the verifier matches an exact URI, or a prefix ending in "/*" meaning that path and everything beneath it`
+      );
+    }
+    if (pattern.endsWith("://*")) {
+      throw new ProxyRuleValidationError(
+        `${where} resource ${JSON.stringify(pattern)} matches every resource of its scheme; scope it or omit the rule`
+      );
+    }
+  }
 }
 
 /**
@@ -168,6 +276,21 @@ export async function signProxyRuleSet(vid: VaultysId, set: ProxyRuleSet): Promi
       ...(rule.ports && rule.ports.length > 0 ? { ports: rule.ports } : {}),
       effect: rule.effect,
     })),
+    // Omitted entirely when empty, not sent as an empty array: the Go field is
+    // `omitempty`, so a network-only set must encode byte-identically to one
+    // signed before resource rules existed — which is what keeps the existing
+    // conformance fixture verifying unchanged.
+    ...(set.resourceRules && set.resourceRules.length > 0
+      ? {
+          resourceRules: set.resourceRules.map((rule) => ({
+            id: rule.id,
+            subject: rule.subject,
+            ...(rule.workloadId ? { workloadId: rule.workloadId } : {}),
+            resources: rule.resources,
+            effect: rule.effect,
+          })),
+        }
+      : {}),
   };
 
   return signCert(vid, payload);
@@ -183,6 +306,55 @@ export async function signProxyRuleSet(vid: VaultysId, set: ProxyRuleSet): Promi
  * rather than failing open on every request while an admin believes it is
  * enforcing. Checking here lets the admin UI say so before signing.
  */
+/**
+ * Symlinked directory roots whose unresolved form silently matches nothing.
+ *
+ * On macOS `/etc`, `/var` and `/tmp` are all symlinks into `/private`, and the
+ * interception point canonicalizes every resource before comparing — which is
+ * what stops `../` and symlink escapes from defeating a scope. The consequence
+ * is that a rule written as `file:///etc/*` covers nothing on a Mac, with no
+ * error anywhere: it verifies, it loads, it matches no call.
+ */
+const SYMLINKED_ROOTS = ["/etc/", "/var/", "/tmp/"];
+
+/**
+ * Author-time warnings for a rule set — advisory, never fatal.
+ *
+ * Warnings rather than rejections because the control plane does not know the
+ * target host's OS: `/etc` is a real directory on Linux and the rule is correct
+ * there. Refusing to sign it would block a legitimate policy; saying nothing
+ * would ship one that silently does not apply. So the admin is told and decides.
+ *
+ * The reliable way to get a resource pattern right is to copy it from
+ * `vaultysclaw-sensor report`, which prints the resolved form the matcher
+ * actually sees.
+ */
+export function proxyResourceRuleWarnings(set: ProxyRuleSet): string[] {
+  const warnings: string[] = [];
+  for (const rule of set.resourceRules ?? []) {
+    for (const resource of rule.resources) {
+      const path = resource.startsWith("file://") ? resource.slice("file://".length) : null;
+      if (!path) continue;
+      const root = SYMLINKED_ROOTS.find((r) => path.startsWith(r));
+      if (root) {
+        warnings.push(
+          `rule "${rule.id}" matches ${JSON.stringify(resource)}, but on macOS ${root.slice(0, -1)} is a symlink into /private — ` +
+            `the interception point resolves every path before matching, so this pattern would match nothing there. ` +
+            `Use "file:///private${path}" for macOS hosts, or keep this rule for Linux hosts only.`
+        );
+      }
+    }
+  }
+  return warnings;
+}
+
 export function subjectScopedRuleIds(set: ProxyRuleSet): string[] {
-  return set.rules.filter((r) => r.subject === "agent" || r.subject === "workload").map((r) => r.id);
+  const scoped = (r: { subject: ProxyRuleSubject }) => r.subject === "agent" || r.subject === "workload";
+  return [
+    ...set.rules.filter(scoped).map((r) => r.id),
+    // Resource rules are refused by the same load-time check, so omitting them
+    // here would let an admin sign a set the verifier rejects while the UI
+    // reported it clean.
+    ...(set.resourceRules ?? []).filter(scoped).map((r) => r.id),
+  ];
 }

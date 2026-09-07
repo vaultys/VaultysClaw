@@ -24,6 +24,7 @@
     "@vaultysclaw/shared": "workspace:*",
     "@vaultysclaw/trust": "workspace:*",
     "bullmq": "^5.80.0",
+    "cmdk": "^1.1.1",
     "dotenv": "^16.6.1",
     "lucide-react": "^1.14.0",
     "next": "^16.3",

@@ -4,13 +4,15 @@
     "A proxy rule set signed by packages/controlplane/lib/proxy-rules.ts,",
     "verified by vaultysclaw-sensor/internal/rules (see fixture_test.go).",
     "Pins the msgpack key names, the subject/effect vocabularies, and which",
-    "optional fields are omitted rather than sent as null.",
+    "optional fields are omitted rather than sent as null. Covers both rule",
+    "lists: `rules` (host/port) and `resourceRules` (URI), which are evaluated",
+    "by different interception points and never interact.",
     "The signing key is a fixed throwaway test key and grants nothing real."
   ],
   "version": 1,
   "serverIdBase64": "AIOhdgGheMQgJs9u3T5bPTyzfRFevnP7OOmkjtXvfsoPE9brXWvXY1ehZcQgSl2uZp/3x1gu2Lg9ypnvkNOK6X7p0dUt3U7fpS+7sWc=",
   "serverDid": "did:vaultys:0020de2251ed208e8fc1a071d9fd8dd424557170",
-  "token": "MwEAAIOndmVyc2lvbgGoaXNzdWVkQXTPAAABn9bx0gClcnVsZXOThKJpZLZkZW55LW9wZW5haS1ldmVyeXdoZXJlp3N1YmplY3SjYW55pWhvc3RzkqpvcGVuYWkuY29tqy5vcGVuYWkuY29tpmVmZmVjdKRkZW55haJpZLJhZ2VudHMtbm8taW50ZXJuYWync3ViamVjdKVhZ2VudKVob3N0c5GxLmludGVybmFsLmV4YW1wbGWlcG9ydHOSzQG7zSD7pmVmZmVjdKRkZW55haJpZLVjbGF1ZGUtZ2l0aHViLWFsbG93ZWSnc3ViamVjdKh3b3JrbG9hZKp3b3JrbG9hZElkrndsLWNsYXVkZS1jb2RlpWhvc3Rzka5hcGkuZ2l0aHViLmNvbaZlZmZlY3SlYWxsb3dLFf/5WjVh5snw2q2coXSlVuqnQWKVwIStokF0TrfW3Jfz60F35+eqPdRu/stTnO29Z9LFXT+tXGvBa1DPuT4F",
+  "token": "aAIAAISndmVyc2lvbgGoaXNzdWVkQXTPAAABn9bx0gClcnVsZXOThKJpZLZkZW55LW9wZW5haS1ldmVyeXdoZXJlp3N1YmplY3SjYW55pWhvc3RzkqpvcGVuYWkuY29tqy5vcGVuYWkuY29tpmVmZmVjdKRkZW55haJpZLJhZ2VudHMtbm8taW50ZXJuYWync3ViamVjdKVhZ2VudKVob3N0c5GxLmludGVybmFsLmV4YW1wbGWlcG9ydHOSzQG7zSD7pmVmZmVjdKRkZW55haJpZLVjbGF1ZGUtZ2l0aHViLWFsbG93ZWSnc3ViamVjdKh3b3JrbG9hZKp3b3JrbG9hZElkrndsLWNsYXVkZS1jb2RlpWhvc3Rzka5hcGkuZ2l0aHViLmNvbaZlZmZlY3SlYWxsb3etcmVzb3VyY2VSdWxlc5OEomlkrWRlbnktc3NoLWtleXOnc3ViamVjdKNhbnmpcmVzb3VyY2VzkrdmaWxlOi8vL1VzZXJzL2Z4Ly5zc2gvKrdmaWxlOi8vL1VzZXJzL2Z4Ly5uZXRyY6ZlZmZlY3SkZGVueYSiaWSwYWdlbnRzLW5vLWRvY2tlcqdzdWJqZWN0pWFnZW50qXJlc291cmNlc5GtZXhlYzovL2RvY2tlcqZlZmZlY3SkZGVueYWiaWS5Y2xhdWRlLW1heS13cml0ZS10aGUtcmVwb6dzdWJqZWN0qHdvcmtsb2Fkqndvcmtsb2FkSWSud2wtY2xhdWRlLWNvZGWpcmVzb3VyY2VzkbdmaWxlOi8vL1VzZXJzL2Z4L3JlcG8vKqZlZmZlY3SlYWxsb3dg+TX8cg531lcRLe4dSLtHDtNyLFa9XyxjWbsAtgn+9FTWszhGhm3px08X43oSyHPooTNRwStS2XP2uyyvKPgM",
   "expectedSet": {
     "version": 1,
     "issuedAt": 1786017600000,
@@ -42,6 +44,34 @@
         "workloadId": "wl-claude-code",
         "hosts": [
           "api.github.com"
+        ],
+        "effect": "allow"
+      }
+    ],
+    "resourceRules": [
+      {
+        "id": "deny-ssh-keys",
+        "subject": "any",
+        "resources": [
+          "file:///Users/fx/.ssh/*",
+          "file:///Users/fx/.netrc"
+        ],
+        "effect": "deny"
+      },
+      {
+        "id": "agents-no-docker",
+        "subject": "agent",
+        "resources": [
+          "exec://docker"
+        ],
+        "effect": "deny"
+      },
+      {
+        "id": "claude-may-write-the-repo",
+        "subject": "workload",
+        "workloadId": "wl-claude-code",
+        "resources": [
+          "file:///Users/fx/repo/*"
         ],
         "effect": "allow"
       }

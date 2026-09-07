@@ -39,6 +39,13 @@ type rulesFixture struct {
 			Ports      []int    `json:"ports"`
 			Effect     string   `json:"effect"`
 		} `json:"rules"`
+		ResourceRules []struct {
+			ID         string   `json:"id"`
+			Subject    string   `json:"subject"`
+			WorkloadID string   `json:"workloadId"`
+			Resources  []string `json:"resources"`
+			Effect     string   `json:"effect"`
+		} `json:"resourceRules"`
 	} `json:"expectedSet"`
 }
 
@@ -52,8 +59,8 @@ func loadRulesFixture(t *testing.T) rulesFixture {
 	if err := json.Unmarshal(raw, &f); err != nil {
 		t.Fatalf("parsing %s: %v", fixturePath, err)
 	}
-	if f.Token == "" || len(f.ExpectedSet.Rules) == 0 {
-		t.Fatalf("%s has no token or no rules", fixturePath)
+	if f.Token == "" || len(f.ExpectedSet.Rules) == 0 || len(f.ExpectedSet.ResourceRules) == 0 {
+		t.Fatalf("%s has no token, no host rules, or no resource rules — a fixture missing half the wire format pins half the contract", fixturePath)
 	}
 	return f
 }
@@ -120,6 +127,86 @@ func TestVerifiesARuleSetSignedByTypeScript(t *testing.T) {
 				}
 			}
 		}
+	}
+
+	if len(set.ResourceRules) != len(f.ExpectedSet.ResourceRules) {
+		t.Fatalf("decoded %d resource rules, want %d", len(set.ResourceRules), len(f.ExpectedSet.ResourceRules))
+	}
+	for i, want := range f.ExpectedSet.ResourceRules {
+		got := set.ResourceRules[i]
+		if got.ID != want.ID {
+			t.Errorf("resource rule %d: id = %q, want %q", i, got.ID, want.ID)
+		}
+		if string(got.Subject) != want.Subject {
+			t.Errorf("resource rule %d (%s): subject = %q, want %q", i, want.ID, got.Subject, want.Subject)
+		}
+		if string(got.Effect) != want.Effect {
+			t.Errorf("resource rule %d (%s): effect = %q, want %q", i, want.ID, got.Effect, want.Effect)
+		}
+		if got.WorkloadID != want.WorkloadID {
+			t.Errorf("resource rule %d (%s): workloadId = %q, want %q", i, want.ID, got.WorkloadID, want.WorkloadID)
+		}
+		if len(got.Resources) != len(want.Resources) {
+			t.Errorf("resource rule %d (%s): resources = %v, want %v", i, want.ID, got.Resources, want.Resources)
+		} else {
+			for j := range want.Resources {
+				if got.Resources[j] != want.Resources[j] {
+					t.Errorf("resource rule %d (%s): resources[%d] = %q, want %q", i, want.ID, j, got.Resources[j], want.Resources[j])
+				}
+			}
+		}
+	}
+}
+
+// TestTypeScriptRuleSetResourceRulesDecideAsAuthored is the resource half of
+// the loop below: decoding the fields is necessary but not sufficient, and the
+// wildcard semantics are exactly where two implementations drift.
+func TestTypeScriptRuleSetResourceRulesDecideAsAuthored(t *testing.T) {
+	f := loadRulesFixture(t)
+	rawID, _ := base64.StdEncoding.DecodeString(f.ServerIDBase64)
+	serverID, err := vaultysid.FromID(rawID, nil)
+	if err != nil {
+		t.Fatalf("FromID: %v", err)
+	}
+	set, err := VerifySet(serverID, f.Token)
+	if err != nil {
+		t.Fatalf("VerifySet: %v", err)
+	}
+
+	agent := &Attribution{IsGovernedAgent: true}
+	claude := &Attribution{IsGovernedAgent: true, WorkloadID: "wl-claude-code"}
+
+	cases := []struct {
+		name        string
+		resource    string
+		attribution *Attribution
+		want        Verdict
+		wantRule    string
+	}{
+		{"a key under the denied subtree", "file:///Users/fx/.ssh/id_ed25519", nil, VerdictDeny, "deny-ssh-keys"},
+		{"the denied subtree itself", "file:///Users/fx/.ssh", nil, VerdictDeny, "deny-ssh-keys"},
+		{"an exact denied file", "file:///Users/fx/.netrc", nil, VerdictDeny, "deny-ssh-keys"},
+		{"a sibling of the subtree is NOT denied — the wildcard cuts at the separator",
+			"file:///Users/fx/.sshfoo/key", nil, VerdictGovern, ""},
+		{"an unrelated path is left to the certificate", "file:///Users/fx/repo/main.go", nil, VerdictGovern, ""},
+		{"an exec deny needs attribution and gets it", "exec://docker", agent, VerdictDeny, "agents-no-docker"},
+		{"the same exec call from an unattributed caller is undecidable, not allowed",
+			"exec://docker", nil, VerdictGovern, ""},
+		{"a workload-scoped allow matches its workload", "file:///Users/fx/repo/main.go", claude, VerdictAllow, "claude-may-write-the-repo"},
+		{"and not another one", "file:///Users/fx/repo/main.go", agent, VerdictGovern, ""},
+		{"a host rule never decides a resource", "file:///openai.com", nil, VerdictGovern, ""},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			out := set.EvaluateResource(tc.resource, tc.attribution)
+			if out.Verdict != tc.want {
+				t.Errorf("verdict = %q, want %q", out.Verdict, tc.want)
+			}
+			if out.RuleID != tc.wantRule {
+				t.Errorf("ruleId = %q, want %q", out.RuleID, tc.wantRule)
+			}
+		})
 	}
 }
 

@@ -336,7 +336,7 @@ function ChannelsSection({ channels }: { channels: Awaited<ReturnType<typeof Not
             <tr>
               <th className="px-4 py-2 font-medium">Name</th>
               <th className="px-4 py-2 font-medium">Type</th>
-              <th className="px-4 py-2 font-medium">Apprise key</th>
+              <th className="px-4 py-2 font-medium">Delivery key</th>
               <th className="px-4 py-2 font-medium">Events</th>
               <th className="px-4 py-2 font-medium">Status</th>
               <th className="px-4 py-2 font-medium">Actions</th>
@@ -416,9 +416,7 @@ function ChannelsSection({ channels }: { channels: Awaited<ReturnType<typeof Not
       </div>
 
       <p className="text-xs text-foreground-400">
-        Human-facing alerts fanned out through a self-hosted Apprise API container — VaultysClaw
-        renders a title and body and asks Apprise to deliver it; Apprise owns the actual email/
-        Slack/PagerDuty/ntfy/etc. integration.
+        Human-facing alerts delivered to email, chat, paging, webhook, and push services.
       </p>
     </div>
   );

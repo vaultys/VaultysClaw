@@ -20,6 +20,7 @@ Challenger handshake, and receive certificates they can verify offline.
 | `packages/controlplane` | The control plane: Next.js App Router admin console + WebSocket server, Prisma/Postgres, the certificate ledger. | [→](packages/controlplane/CLAUDE.md) |
 | `packages/sdk` | TypeScript client for the control plane's protocol — handshake, capability state, certificate-status refresh, `resolvePermission`. The counterpart of `sdk-go/`. | [→](packages/sdk/CLAUDE.md) |
 | `packages/webhook-dispatcher` | Standalone worker: consumes events from BullMQ, signs them (HMAC) and POSTs to endpoints; also fans out to Apprise notification channels. | [→](packages/webhook-dispatcher/CLAUDE.md) |
+| `packages/simulator` | Fleet simulator: thousands of real-VaultysId Actors driven at a live control plane, on its own isolated stack. | [→](packages/simulator/CLAUDE.md) |
 
 Outside the pnpm workspace:
 
@@ -27,7 +28,7 @@ Outside the pnpm workspace:
 |---|---|
 | `sdk-go/` | Go client SDK — `authz` (a port of `resolvePermission`), `grant` (offline packcert verification), `rules` (signed rule sets). |
 | `vaultysclaw-sensor/` | Go workload sensor: detects local AI/agent processes and reports classified telemetry to the control plane. Also hosts the tier-1 interception proxy. |
-| `conformance/` | The TS↔Go contract. `permission-vectors.json` (37 cases) is run by **both** `packages/trust` and `sdk-go/authz`; `capability-names.json` (27 cases) by **both** `packages/policy` and `sdk-go/capability`; `grant-fixture.json` and `rules-fixture.json` are TypeScript-signed fixtures the Go side verifies. Never change a fixture without re-running both suites. |
+| `conformance/` | The TS↔Go contract. `permission-vectors.json` (37 cases) is run by **both** `packages/trust` and `sdk-go/authz`; `capability-names.json` (31 cases) by **both** `packages/policy` and `sdk-go/capability`; `grant-fixture.json`, `rules-fixture.json` and `kindconfig-fixture.json` are TypeScript-signed fixtures the Go side verifies. Never change a fixture without re-running both suites. |
 | `docs-site/` | Docusaurus documentation site. |
 
 ## Commands
@@ -40,6 +41,13 @@ pnpm controlplane:docker:up    # just its docker stack (postgres 5433 / redis 63
 pnpm controlplane:docker:down
 pnpm controlplane:webhook:dev  # webhook dispatcher against the controlplane schema (own terminal)
 pnpm sensor:start              # the Go sensor against a local collector
+
+# Fleet simulator — its own isolated stack (postgres 5434 / control plane 3003, ws 8083), never
+# your dev database. docker/simulator.env is the single source of truth for its coordinates.
+pnpm simulator:up              # database + migrations + build + control plane
+pnpm simulator:demo            # 2,000 estate + 5,000 agent Actors against it
+pnpm simulator stats           # what that control plane currently holds
+pnpm simulator:down            # stop, keeping the data ( :nuke also deletes the volume )
 
 # Build / quality
 pnpm build                     # all packages via Turborepo

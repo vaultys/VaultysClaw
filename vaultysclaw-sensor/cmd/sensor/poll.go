@@ -5,14 +5,14 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/vaultys/VaultysClaw/sdk-go/identity"
+	"github.com/vaultys/VaultysClaw/sdk-go/telemetry"
+	"github.com/vaultys/VaultysClaw/sdk-go/vconn"
 	"github.com/vaultys/vaultysclaw-sensor/internal/collector"
 	"github.com/vaultys/vaultysclaw-sensor/internal/config"
 	"github.com/vaultys/vaultysclaw-sensor/internal/correlation"
 	"github.com/vaultys/vaultysclaw-sensor/internal/detector"
-	"github.com/vaultys/VaultysClaw/sdk-go/identity"
 	"github.com/vaultys/vaultysclaw-sensor/internal/state"
-	"github.com/vaultys/VaultysClaw/sdk-go/telemetry"
-	"github.com/vaultys/VaultysClaw/sdk-go/vconn"
 )
 
 // runPollLoop is the sensor's core pipeline: collect -> correlate ->

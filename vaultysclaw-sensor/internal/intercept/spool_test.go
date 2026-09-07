@@ -28,7 +28,7 @@ func TestSpoolPersistsEventsAcrossClose(t *testing.T) {
 	s, path := newSpool(t, SpoolOptions{})
 
 	for i := 0; i < 5; i++ {
-		s.Record(Event{At: time.Now(), Destination: fmt.Sprintf("h%d:443", i), Allowed: i%2 == 0, Reason: "test"})
+		s.Record(Event{At: time.Now(), Resource: fmt.Sprintf("h%d:443", i), Allowed: i%2 == 0, Reason: "test"})
 	}
 	if err := s.Close(); err != nil {
 		t.Fatalf("Close: %v", err)
@@ -41,7 +41,7 @@ func TestSpoolPersistsEventsAcrossClose(t *testing.T) {
 	if len(events) != 5 {
 		t.Fatalf("read %d events, want 5 — a clean shutdown must lose nothing", len(events))
 	}
-	if events[0].Destination != "h0:443" || events[4].Destination != "h4:443" {
+	if events[0].Resource != "h0:443" || events[4].Resource != "h4:443" {
 		t.Errorf("events out of order or corrupted: %+v", events)
 	}
 	if s.Stats().Written != 5 {
@@ -57,7 +57,7 @@ func TestSpoolDoesNotBlockWhenTheQueueIsFull(t *testing.T) {
 	done := make(chan struct{})
 	go func() {
 		for i := 0; i < 500; i++ {
-			s.Record(Event{Destination: "h:443"})
+			s.Record(Event{Resource: "h:443"})
 		}
 		close(done)
 	}()
@@ -80,7 +80,7 @@ func TestDroppedEventsSurfaceAsAGapMarkerInTheStream(t *testing.T) {
 
 	// Overflow the queue while the writer is idle.
 	for i := 0; i < 200; i++ {
-		s.Record(Event{Destination: "flood:443"})
+		s.Record(Event{Resource: "flood:443"})
 	}
 	dropped := s.Stats().Dropped
 	if dropped == 0 {
@@ -117,7 +117,7 @@ func TestSpoolRespectsTheFileCap(t *testing.T) {
 	s, path := newSpool(t, SpoolOptions{MaxBytes: 2048, FlushEvery: 5 * time.Millisecond})
 
 	for i := 0; i < 500; i++ {
-		s.Record(Event{At: time.Now(), Destination: fmt.Sprintf("host-%d.example:443", i), Reason: "some reason text"})
+		s.Record(Event{At: time.Now(), Resource: fmt.Sprintf("host-%d.example:443", i), Reason: "some reason text"})
 		if i%50 == 0 {
 			time.Sleep(10 * time.Millisecond)
 		}
@@ -141,7 +141,7 @@ func TestSpoolRespectsTheFileCap(t *testing.T) {
 func TestDrainShipsAndClears(t *testing.T) {
 	s, path := newSpool(t, SpoolOptions{})
 	for i := 0; i < 3; i++ {
-		s.Record(Event{Destination: fmt.Sprintf("h%d:443", i)})
+		s.Record(Event{Resource: fmt.Sprintf("h%d:443", i)})
 	}
 	if err := s.Close(); err != nil {
 		t.Fatalf("Close: %v", err)
@@ -171,7 +171,7 @@ func TestDrainRetriesAfterAFailedShip(t *testing.T) {
 	// At-least-once is the deliberate choice: a duplicated audit record is
 	// harmless, a lost one is not.
 	s, _ := newSpool(t, SpoolOptions{})
-	s.Record(Event{Destination: "h:443"})
+	s.Record(Event{Resource: "h:443"})
 	if err := s.Close(); err != nil {
 		t.Fatalf("Close: %v", err)
 	}
@@ -201,7 +201,7 @@ func TestDrainRecoversALeftoverSidecarFromACrash(t *testing.T) {
 	}
 
 	// Simulate a crash mid-ship: a sidecar exists with unshipped records.
-	line, _ := json.Marshal(Event{Destination: "crashed:443", Allowed: true})
+	line, _ := json.Marshal(Event{Resource: "crashed:443", Allowed: true})
 	if err := os.WriteFile(path+".shipping", append(line, '\n'), 0o600); err != nil {
 		t.Fatalf("writing sidecar: %v", err)
 	}
@@ -213,7 +213,7 @@ func TestDrainRecoversALeftoverSidecarFromACrash(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("Drain: %v", err)
 	}
-	if len(shipped) != 1 || shipped[0].Destination != "crashed:443" {
+	if len(shipped) != 1 || shipped[0].Resource != "crashed:443" {
 		t.Fatalf("shipped = %+v, want the record left behind by the crash", shipped)
 	}
 }
@@ -222,7 +222,7 @@ func TestReadSpoolSkipsATruncatedFinalLine(t *testing.T) {
 	// The normal result of a crash mid-write. One bad byte must not strand every
 	// earlier record.
 	path := filepath.Join(t.TempDir(), "audit.jsonl")
-	good, _ := json.Marshal(Event{Destination: "good:443"})
+	good, _ := json.Marshal(Event{Resource: "good:443"})
 	content := append(append(good, '\n'), []byte(`{"destination":"trunc`)...)
 	if err := os.WriteFile(path, content, 0o600); err != nil {
 		t.Fatalf("write: %v", err)
@@ -232,7 +232,7 @@ func TestReadSpoolSkipsATruncatedFinalLine(t *testing.T) {
 	if err != nil {
 		t.Fatalf("readSpool: %v", err)
 	}
-	if len(events) != 1 || events[0].Destination != "good:443" {
+	if len(events) != 1 || events[0].Resource != "good:443" {
 		t.Fatalf("events = %+v, want just the intact record", events)
 	}
 }

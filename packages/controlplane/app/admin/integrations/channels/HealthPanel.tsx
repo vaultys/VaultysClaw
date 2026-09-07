@@ -52,11 +52,11 @@ export default async function HealthPanel() {
         }
       />
       <StatusPill
-        label="Apprise"
+        label="Delivery service"
         state={!health.apprise.configured ? "unconfigured" : health.apprise.ok ? "ok" : "error"}
         detail={
           !health.apprise.configured
-            ? "APPRISE_API_URL not set — channels can't be created or notified."
+            ? "Delivery service URL not set — channels can't be created or notified."
             : health.apprise.ok
               ? "Reachable."
               : `Unreachable: ${health.apprise.error}`

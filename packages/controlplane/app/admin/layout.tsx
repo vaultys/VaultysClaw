@@ -5,8 +5,10 @@ import { authOptions } from "@/lib/auth-config";
 import { hasCapability } from "@/lib/access-control";
 import AppShell from "@/components/layout/AppShell";
 import SignOutButton from "@/components/SignOutButton";
-import { SettingsDAO } from "@/db";
+import { ActorDAO, CapabilityCertificateDAO, SettingsDAO, WorkspaceDAO } from "@/db";
+import { encodeDidParam } from "@/lib/actor-route";
 import { DEFAULT_ORG_NAME, SETTINGS_KEYS } from "@/lib/org-settings";
+import type { AdminCommandItem } from "@/components/layout/AdminCommandPalette";
 
 /**
  * The admin console's capability gate (docs/PAGE_DESIGN.md §0): a route
@@ -44,7 +46,53 @@ export default async function AdminLayout({
     );
   }
 
-  const orgName = (await SettingsDAO.get(SETTINGS_KEYS.orgName)) ?? DEFAULT_ORG_NAME;
+  const [orgNameSetting, actors, certificates, workspaces] = await Promise.all([
+    SettingsDAO.get(SETTINGS_KEYS.orgName),
+    ActorDAO.list(),
+    CapabilityCertificateDAO.list(),
+    WorkspaceDAO.list(),
+  ]);
+  const orgName = orgNameSetting ?? DEFAULT_ORG_NAME;
+  const actorByDid = new Map(actors.map((actor) => [actor.did, actor]));
 
-  return <AppShell orgName={orgName}>{children}</AppShell>;
+  const commandItems: AdminCommandItem[] = [
+    { id: "route-overview", label: "Overview", subtitle: "Trust posture and setup", href: "/admin", group: "Navigate" },
+    { id: "route-actors", label: "Actors", subtitle: "People, agents, devices, and approvals", href: "/admin/actors", group: "Navigate" },
+    { id: "route-sensors", label: "Sensors", subtitle: "Fleet and workload telemetry", href: "/admin/sensors", group: "Navigate" },
+    { id: "route-map", label: "Map", subtitle: "Actor and sensor locations", href: "/admin/map", group: "Navigate" },
+    { id: "route-certificates", label: "Certificates", subtitle: "Capability grants and revocation ledger", href: "/admin/certificates", group: "Navigate" },
+    { id: "route-audit", label: "Audit Log", subtitle: "Signed events and operator history", href: "/admin/audit", group: "Navigate" },
+    { id: "route-workspaces", label: "Workspaces", subtitle: "Scopes for teams and environments", href: "/admin/workspaces", group: "Navigate" },
+    { id: "route-integrations", label: "Integrations", subtitle: "Webhooks, channels, and capabilities", href: "/admin/integrations", group: "Navigate" },
+    { id: "route-settings", label: "Settings", subtitle: "Organization defaults and policies", href: "/admin/settings", group: "Navigate" },
+    ...actors.map((actor): AdminCommandItem => ({
+      id: `actor-${actor.did}`,
+      label: actor.name,
+      subtitle: `${actor.kind} - ${actor.did}`,
+      href: `/admin/actors/${encodeDidParam(actor.did)}`,
+      group: actor.kind === "sensor" ? "Sensors" : "Actors",
+      keywords: [actor.kind, actor.did],
+    })),
+    ...certificates.map((cert): AdminCommandItem => {
+      const actor = actorByDid.get(cert.agentDid);
+      return {
+        id: `certificate-${cert.id}`,
+        label: actor?.name ?? cert.agentDid,
+        subtitle: `${cert.status} certificate - ${(cert.capabilities as string[]).join(", ") || "no capabilities"}`,
+        href: `/admin/certificates/${cert.id}`,
+        group: "Certificates",
+        keywords: [cert.id, cert.agentDid, cert.status, ...(cert.capabilities as string[])],
+      };
+    }),
+    ...workspaces.map((workspace): AdminCommandItem => ({
+      id: `workspace-${workspace.id}`,
+      label: workspace.name,
+      subtitle: workspace.description ?? workspace.slug,
+      href: `/admin/workspaces/${workspace.id}`,
+      group: "Workspaces",
+      keywords: [workspace.id, workspace.slug],
+    })),
+  ];
+
+  return <AppShell orgName={orgName} commandItems={commandItems}>{children}</AppShell>;
 }

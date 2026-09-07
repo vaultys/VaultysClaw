@@ -1,20 +1,11 @@
 import Link from "next/link";
-import { ShieldCheck } from "lucide-react";
+import AuditLogPanel from "@/components/AuditLogPanel";
 import { AuditLogDAO, ActorDAO, CapabilityCertificateDAO } from "@/db";
 import { getWebhookEvent } from "@vaultysclaw/shared";
 import { inspectCertificate } from "@/lib/cert-inspect";
 import { encodeDidParam } from "@/lib/actor-route";
 import PageChrome from "@/components/layout/PageChrome";
-import { ActorKindBadge } from "@/components/ActorKindBadge";
 import ActorSearchSelect from "@/components/ActorSearchSelect";
-
-function JsonBlock({ value }: { value: unknown }) {
-  return (
-    <pre className="text-xs bg-background-200/40 border border-neutral-200/60 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap break-all">
-      {JSON.stringify(value, null, 2)}
-    </pre>
-  );
-}
 
 function targetHref(targetType: string | null, targetId: string | null): string | null {
   if (!targetType || !targetId) return null;
@@ -145,68 +136,26 @@ export default async function AuditLogPage({
         )}
       </form>
 
-      <div className="border border-neutral-200/60 rounded-xl overflow-hidden divide-y divide-neutral-200/60">
-        <div className="grid grid-cols-[11rem_1fr_11rem_11rem_5rem] gap-2 px-4 py-2 bg-background-200/40 text-left text-xs text-foreground-500 uppercase font-medium">
-          <span>Time</span>
-          <span>Actor</span>
-          <span>Event</span>
-          <span>Target</span>
-          <span>Signed</span>
-        </div>
-        {entries.map((entry) => {
+      <AuditLogPanel
+        entries={entries.map((entry) => {
           const actor = entry.actorDid ? actorByDid.get(entry.actorDid) : undefined;
-          const href = targetHref(entry.targetType, entry.targetId);
-          const verified = entry.targetType === "certificate" && entry.targetId ? verifiedByCertId.get(entry.targetId) : undefined;
-          return (
-            <details key={entry.id} className="group">
-              <summary className="grid grid-cols-[11rem_1fr_11rem_11rem_5rem] gap-2 px-4 py-2.5 items-center cursor-pointer hover:bg-background-200/30 text-sm">
-                <span className="text-xs text-foreground-500">{entry.createdAt.toISOString().replace("T", " ").slice(0, 19)}</span>
-                <span className="flex items-center gap-1.5 min-w-0">
-                  {entry.actorName ? (
-                    <span className="truncate">{entry.actorName}</span>
-                  ) : (
-                    <span className="text-foreground-400 italic">system</span>
-                  )}
-                  {actor && (
-                    <span className="shrink-0">
-                      <ActorKindBadge kind={actor.kind} />
-                    </span>
-                  )}
-                </span>
-                <span className="text-foreground-700">{getWebhookEvent(entry.eventType)?.label ?? entry.eventType}</span>
-                <span>
-                  {href ? (
-                    // No onClick/stopPropagation here — this is a Server Component page, and an
-                    // inline handler isn't serializable across the boundary to next/link's own
-                    // Client Component. Clicking also toggles the <details> open as a harmless
-                    // side effect alongside the real navigation, rather than fighting that with
-                    // client-side JS this page otherwise has none of.
-                    <Link href={href} className="text-primary-600 hover:underline truncate block">
-                      {entry.targetId}
-                    </Link>
-                  ) : (
-                    <span className="text-foreground-400">—</span>
-                  )}
-                </span>
-                <span>
-                  {verified === true && (
-                    <span className="inline-flex items-center gap-1 text-xs text-success-700">
-                      <ShieldCheck className="w-3.5 h-3.5" /> signed
-                    </span>
-                  )}
-                  {verified === false && <span className="text-xs text-danger-600">invalid</span>}
-                </span>
-              </summary>
-              <div className="px-4 pb-3">
-                <JsonBlock value={entry.details} />
-              </div>
-            </details>
-          );
+          return {
+            id: entry.id,
+            createdAt: entry.createdAt.toISOString().replace("T", " ").slice(0, 19),
+            actorName: entry.actorName,
+            actorKind: actor?.kind,
+            eventLabel: getWebhookEvent(entry.eventType)?.label ?? entry.eventType,
+            eventType: entry.eventType,
+            targetId: entry.targetId,
+            targetHref: targetHref(entry.targetType, entry.targetId),
+            verified:
+              entry.targetType === "certificate" && entry.targetId
+                ? verifiedByCertId.get(entry.targetId)
+                : undefined,
+            details: entry.details,
+          };
         })}
-        {entries.length === 0 && (
-          <div className="px-4 py-6 text-center text-foreground-400 text-sm">No audit log entries match these filters.</div>
-        )}
-      </div>
+      />
     </div>
   );
 }

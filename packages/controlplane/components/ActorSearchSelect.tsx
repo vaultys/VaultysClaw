@@ -34,6 +34,7 @@ export default function ActorSearchSelect({
   placeholder = "Search actors by name, kind, or DID...",
   emptyLabel = "No actor selected",
   noResultsLabel = "No actors match your search.",
+  onValueChange,
 }: {
   actors: ActorSearchOption[];
   name: string;
@@ -42,6 +43,7 @@ export default function ActorSearchSelect({
   placeholder?: string;
   emptyLabel?: string;
   noResultsLabel?: string;
+  onValueChange?: (value: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -158,6 +160,7 @@ export default function ActorSearchSelect({
                 type="button"
                 onClick={() => {
                   setValue("");
+                  onValueChange?.("");
                   setOpen(false);
                 }}
                 className="flex w-full items-center gap-3 px-3 py-2 text-left text-sm text-foreground-600 transition-colors hover:bg-background-200/60"
@@ -179,6 +182,7 @@ export default function ActorSearchSelect({
                   type="button"
                   onClick={() => {
                     setValue(actor.did);
+                    onValueChange?.(actor.did);
                     setOpen(false);
                     setQuery("");
                   }}

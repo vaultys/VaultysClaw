@@ -12,9 +12,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/vaultys/VaultysClaw/sdk-go/telemetry"
 	"github.com/vaultys/vaultysclaw-sensor/internal/collector"
 	"github.com/vaultys/vaultysclaw-sensor/internal/detector"
-	"github.com/vaultys/VaultysClaw/sdk-go/telemetry"
 )
 
 // Fingerprint stably identifies a workload across poll cycles. Never

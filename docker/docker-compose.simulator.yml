@@ -1,0 +1,57 @@
+# Backing services for the fleet-simulator demo environment.
+#
+# PostgreSQL only. No Redis and no Apprise, on purpose: `docker/simulator.env` leaves `REDIS_URL`
+# unset, which makes the webhook producers no-ops, so a 7,000-Actor ramp doesn't enqueue tens of
+# thousands of jobs that nothing consumes. The audit log is unaffected — that write is inline.
+#
+# Quick start (from repo root):
+#   pnpm simulator:up            # database + schema + control plane, all on demo ports
+#   pnpm simulator:demo          # 7,000 Actors against it
+#   pnpm simulator:down          # stop, keeping the volume
+#   pnpm simulator:nuke          # stop and delete the volume
+#
+# Separate `name:` and volume from the dev stack, so `docker compose down` on one never touches the
+# other, and a demo reset can be as blunt as deleting the volume.
+#
+#   PostgreSQL → localhost:5434 (PG_PORT in docker/simulator.env)
+name: vaultysclaw-simulator
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: vaultys
+      POSTGRES_PASSWORD: ${PG_PASSWORD:-vaultys_demo}
+      POSTGRES_DB: vaultysclaw
+    ports:
+      - "${PG_PORT:-5434}:5432"
+    volumes:
+      - simulator_pgdata:/var/lib/postgresql/data
+    # Tuned for a write-heavy ramp rather than for durability: this database is disposable, and
+    # every one of these settings trades crash-safety for throughput. Correct here precisely
+    # because losing the whole volume costs nothing — never do this to a real one.
+    command:
+      - postgres
+      # The big one: don't wait for the WAL to reach disk before acknowledging a commit.
+      - -c
+      - fsync=off
+      - -c
+      - synchronous_commit=off
+      - -c
+      - full_page_writes=off
+      # Room for the connection pool (DATABASE_POOL_MAX=60) plus psql and headroom.
+      - -c
+      - max_connections=200
+      - -c
+      - shared_buffers=256MB
+    healthcheck:
+      # -h 127.0.0.1 forces TCP (not the unix socket) so it only reports healthy once a real
+      # network connection actually works.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U vaultys -d vaultysclaw"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+      start_period: 10s
+
+volumes:
+  simulator_pgdata:

@@ -7,7 +7,7 @@ import {
   approvePendingRegistration,
   denyPendingRegistration,
 } from "@/lib/registrations";
-import { ActorDAO, ActorLinkDAO, UserDAO, InvitationDAO } from "@/db";
+import { ActorDAO, ActorLinkDAO, UserDAO, InvitationDAO, CapabilityCertificateDAO } from "@/db";
 import { encodeDidParam } from "@/lib/actor-route";
 import { geocodeCity } from "@/lib/geocode";
 import { recordEvent } from "@/lib/audit";
@@ -15,13 +15,17 @@ import {
   actorPayload,
   actorAdminUrl,
   buildAdminUrl,
+  actorDeletedPayload,
   diffFields,
+  harnessConfigPayload,
   proxyConfigPayload,
 } from "@/lib/webhook-payloads";
 import { parseProxyKindConfig, type ProxyKindConfig } from "@/lib/proxy-kind";
+import { parseHarnessKindConfig, type HarnessKindConfig } from "@/lib/harness-kind";
 import { getWSServerInstance } from "@/lib/ws-server";
-import type { ProxyRule } from "@/lib/proxy-rules";
+import type { ProxyResourceRule, ProxyRule } from "@/lib/proxy-rules";
 import type { AgentCapability } from "@vaultysclaw/policy";
+import { requireAdmin } from "@/lib/require-admin";
 
 const EXPIRY_PRESET_MS: Record<string, number> = {
   "1d": 24 * 60 * 60 * 1000,
@@ -32,18 +36,45 @@ const EXPIRY_PRESET_MS: Record<string, number> = {
 /** "Reveal once" pattern (app/admin/integrations/actions.ts's createWebhookAction) — the raw
  *  invite link is only ever returned here, directly to the calling Client Component, never
  *  persisted or round-tripped through a URL/redirect. */
+/**
+ * Result of {@link createInvitationAction}.
+ *
+ * Validation failures are **returned**, not thrown. A production Next.js build redacts Server
+ * Action error messages before they reach the client — deliberately, so server internals can't
+ * leak — so a thrown `Error("that email is already registered")` reaches the admin as
+ * "Minified React error #441" and tells them nothing. Anything the person filling in the form is
+ * expected to act on has to come back as data.
+ */
+export type CreateInvitationResult = { ok: true; url: string } | { ok: false; error: string };
+
 export async function createInvitationAction(
   formData: FormData
-): Promise<{ url: string }> {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.did) throw new Error("Not authenticated");
+): Promise<CreateInvitationResult> {
+  // `requireAdmin` rather than the weaker session-presence test: a Server Action is a POST to its
+  // own endpoint and does not re-run the admin layout's gate, so minting an invitation — which
+  // grants capabilities on redemption — was reachable by any authenticated session.
+  const admin = await requireAdmin();
 
   const name = (formData.get("name") as string)?.trim();
   const email = (formData.get("email") as string)?.trim() || null;
   const workspaceId = (formData.get("workspaceId") as string) || null;
   const capabilities = formData.getAll("capabilities") as AgentCapability[];
   const expiryPreset = (formData.get("expiryPreset") as string) || "7d";
-  if (!name) throw new Error("Name is required");
+  if (!name) return { ok: false, error: "Name is required" };
+
+  // `User.email` is unique, so an invitation written for an address somebody already holds can
+  // never be redeemed — it would fail at the very end of the redemption handshake, to a person who
+  // has no way to understand or fix it. Refuse here instead, while the admin who can fix it is
+  // looking at the form.
+  if (email) {
+    const holder = await UserDAO.findByEmail(email);
+    if (holder) {
+      return {
+        ok: false,
+        error: `"${email}" is already registered to another human — invite a different address, or edit that human's profile first.`,
+      };
+    }
+  }
 
   const expiresAt = new Date(
     Date.now() + (EXPIRY_PRESET_MS[expiryPreset] ?? EXPIRY_PRESET_MS["7d"])
@@ -54,14 +85,13 @@ export async function createInvitationAction(
     email,
     capabilities,
     workspaceId,
-    createdBy: session.user.did,
+    createdBy: admin.did,
     expiresAt,
   });
 
-  const performedBy = {
-    did: session.user.did,
-    name: session.user.name ?? "Unnamed",
-  };
+  // `requireAdmin` already returns the `performedBy` shape, so the authorization check and the
+  // audit attribution come from one call rather than two.
+  const performedBy = admin;
   await recordEvent({
     eventType: "human.invited",
     payload: {
@@ -75,7 +105,7 @@ export async function createInvitationAction(
     performedBy,
   });
 
-  return { url: buildAdminUrl(`/invite/${rawToken}`) ?? `/invite/${rawToken}` };
+  return { ok: true, url: buildAdminUrl(`/invite/${rawToken}`) ?? `/invite/${rawToken}` };
 }
 
 export async function approveRegistrationAction(
@@ -474,4 +504,214 @@ function splitList(raw: string | null): string[] {
     .split(/[\n,]/)
     .map((s) => s.trim())
     .filter((s) => s !== "");
+}
+
+// ── The `harness` kind's panel actions (docs/HARNESS_SUPERVISOR.md) ──
+//
+// Structurally the proxy's twin above, with one deliberate difference: these
+// start with `await requireAdmin()` rather than the weaker `session?.user?.did`
+// presence test the older actions in this file still use. A Server Action is a
+// POST to its own generated endpoint and does not re-run `app/admin/layout.tsx`,
+// so the console's `admin_console_access` gate does not protect it — the repo's
+// own design rule, which the proxy actions predate and are still being
+// retrofitted to.
+
+async function loadHarnessConfig(did: string): Promise<HarnessKindConfig> {
+  const actor = await ActorDAO.findByDid(did);
+  if (!actor) throw new Error("Actor not found");
+  if (actor.kind !== "harness") {
+    throw new Error(`Actor ${did} is kind "${actor.kind}", not "harness"`);
+  }
+  return parseHarnessKindConfig(actor.kindConfig);
+}
+
+async function saveHarnessConfig(
+  did: string,
+  config: HarnessKindConfig,
+  performedBy: { did: string; name: string }
+): Promise<void> {
+  // Read the previous config first so the audit entry can say which rule moved,
+  // not merely that something did.
+  const actor = await ActorDAO.findByDid(did);
+  const before = actor ? parseHarnessKindConfig(actor.kindConfig) : null;
+
+  await ActorDAO.mergeKindConfig(did, { ...config });
+
+  await recordEvent({
+    eventType: "harness.config_updated",
+    payload: {
+      ...harnessConfigPayload(actor ?? { did }, before, config),
+      performedBy,
+      adminUrl: actorAdminUrl(did),
+    },
+    performedBy,
+    targetType: "actor",
+    targetId: did,
+  });
+
+  await getWSServerInstance()?.pushActorConfig(did);
+  revalidatePath(`/admin/actors/${encodeDidParam(did)}`);
+}
+
+export async function updateHarnessSettingsAction(formData: FormData): Promise<ProxyActionResult> {
+  const performedBy = await requireAdmin();
+  const did = formData.get("did") as string;
+
+  try {
+    const config = await loadHarnessConfig(did);
+
+    const mode = formData.get("mode") as string;
+    if (mode !== "observe" && mode !== "explicit") return { error: "Invalid mode" };
+
+    const sandbox = formData.get("sandbox") as string;
+    if (sandbox !== "off" && sandbox !== "auto" && sandbox !== "require") {
+      return { error: "Invalid confinement setting" };
+    }
+
+    const rawAge = (formData.get("maxStatusAgeSeconds") as string)?.trim();
+    const maxStatusAgeSeconds = Number(rawAge);
+    if (!Number.isInteger(maxStatusAgeSeconds)) {
+      return { error: "Max status age must be a whole number of seconds (negative for unbounded)" };
+    }
+
+    await saveHarnessConfig(did, { ...config, mode, sandbox, maxStatusAgeSeconds }, performedBy);
+    return {};
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+export async function addHarnessResourceRuleAction(formData: FormData): Promise<ProxyActionResult> {
+  const performedBy = await requireAdmin();
+  const did = formData.get("did") as string;
+
+  try {
+    const config = await loadHarnessConfig(did);
+
+    const rule: ProxyResourceRule = {
+      id: (formData.get("id") as string)?.trim(),
+      // Subject is fixed at "any" and not offered in the form: a harness
+      // supervisor has no workload attribution, and the Go verifier refuses the
+      // *entire* set rather than let a subject-scoped rule silently never match.
+      // Offering a choice that takes the whole policy down is not a choice.
+      subject: "any",
+      resources: splitList(formData.get("resources") as string),
+      effect: formData.get("effect") as ProxyResourceRule["effect"],
+    };
+
+    // parseHarnessKindConfig validates the whole set through the same function
+    // the signer uses, so a rule that would break the set is rejected here with
+    // the verifier's own reasoning rather than at push time.
+    await saveHarnessConfig(
+      did,
+      parseHarnessKindConfig({ ...config, resourceRules: [...config.resourceRules, rule] }),
+      performedBy
+    );
+    return {};
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+export async function deleteHarnessResourceRuleAction(formData: FormData): Promise<void> {
+  const performedBy = await requireAdmin();
+  const did = formData.get("did") as string;
+  const ruleId = formData.get("ruleId") as string;
+  const config = await loadHarnessConfig(did);
+
+  await saveHarnessConfig(
+    did,
+    { ...config, resourceRules: config.resourceRules.filter((r) => r.id !== ruleId) },
+    performedBy
+  );
+}
+
+/**
+ * Remove an Actor, ending every grant it holds on the way out.
+ *
+ * # Why revocation comes first, and is not optional
+ *
+ * The `CapabilityCertificate` relation cascades, so deleting the Actor deletes
+ * its certificates — and **a deleted certificate is not a revoked one.** A
+ * packcert verifies offline against a pinned anchor with no reference to any
+ * row, and `handleCertStatusRequest` answers a query for a certificate it cannot
+ * find with an *error* rather than a signed "revoked", so a holder learns
+ * nothing and keeps deciding on its last cached status. Delete-then-forget would
+ * therefore leave live grants in the wild that can never be told they are dead —
+ * on hosts that, by design, do not need to reach this control plane to enforce.
+ *
+ * So the order is: revoke every active certificate, record what happened, then
+ * delete. If the delete fails after the revocations, the Actor is still present
+ * and its grants are already dead — inconvenient, and the safe direction.
+ *
+ * # What survives
+ *
+ * The audit trail. `AuditLogEntry.actorDid` is denormalized rather than a
+ * relation, precisely so an Actor can be removed without erasing what it did,
+ * and `actor.deleted` carries the revoked certificate ids because after this
+ * runs nothing else in the database records that they existed.
+ */
+export async function deleteActorAction(formData: FormData): Promise<ProxyActionResult> {
+  const performedBy = await requireAdmin();
+  const did = formData.get("did") as string;
+  const confirmation = ((formData.get("confirmName") as string) ?? "").trim();
+
+  try {
+    const actor = await ActorDAO.findByDid(did);
+    if (!actor) return { error: "Actor not found" };
+
+    // Typed-name confirmation, the same shape the custom-capability delete uses.
+    // This is irreversible and revokes grants on machines the admin may not be
+    // looking at; a button that does that on one click is a button people press
+    // by accident.
+    if (confirmation !== actor.name) {
+      return { error: `Type the Actor's name (${actor.name}) to confirm deletion` };
+    }
+    if (actor.did === performedBy.did) {
+      // Deleting yourself removes your own admin_console_access along with the
+      // Actor, locking you out of the console that would let you undo it.
+      return { error: "You cannot delete your own Actor" };
+    }
+
+    const active = await CapabilityCertificateDAO.list({ agentDid: did, status: "active" });
+    const revokedCertIds: string[] = [];
+    for (const cert of active) {
+      await CapabilityCertificateDAO.revoke(
+        cert.id,
+        performedBy.did,
+        `Actor ${actor.name} (${did}) deleted`
+      );
+      revokedCertIds.push(cert.id);
+    }
+
+    // Recorded before the delete: the payload names rows that are about to stop
+    // existing, and an event written after a partial failure would describe a
+    // deletion that did not happen.
+    await recordEvent({
+      eventType: "actor.deleted",
+      payload: {
+        ...actorDeletedPayload(actor, revokedCertIds),
+        performedBy,
+        adminUrl: buildAdminUrl("/admin/actors"),
+      },
+      performedBy,
+      targetType: "actor",
+      targetId: did,
+    });
+
+    // Drop the live connection, if any. Without this the Actor keeps a socket
+    // the control plane no longer has a row for, and its next message is handled
+    // against a DID that resolves to nothing.
+    getWSServerInstance()?.disconnect(did);
+
+    await ActorDAO.delete(did);
+
+    revalidatePath("/admin/actors");
+    revalidatePath("/admin");
+    return {};
+  } catch (err) {
+    // Returned, not thrown: a production Next.js build redacts Server Action
+    // error messages, so a throw reaches the admin as a minified React error.
+    return { error: err instanceof Error ? err.message : String(err) };
+  }
 }

@@ -145,14 +145,24 @@ async function run(cfg: SimConfig): Promise<void> {
     // fleet. Doing it before would approve nothing, and doing it per-actor would serialise the run.
     process.stdout.write("\n  ramp complete — approving pending registrations…\n");
     const result = await approveSimulatedRegistrations(cfg.databaseUrl, NAME_PREFIXES);
-    // Only members still awaiting approval are cycled, at a rate the control plane can absorb —
-    // see `reconnectPending`. Cycling the whole fleet produced a second handshake storm on top of
-    // the ramp's tail and timed out thousands of connections.
-    const cycled = fleet.reconnectPending();
-    process.stdout.write(
-      `  approved ${result.approved}; reconnecting ${cycled} awaiting-approval actor(s) ` +
-        `at ${cfg.reconnectRatePerSecond}/s to collect grants…\n`
-    );
+    if (cfg.reconnectAfterApprove) {
+      // Only members still awaiting approval are cycled, at a rate the control plane can absorb.
+      // Cycling the whole fleet produced a second handshake storm on top of the ramp's tail and
+      // timed out thousands of connections.
+      const cycled = fleet.reconnectPending();
+      process.stdout.write(
+        `  approved ${result.approved}; reconnecting ${cycled} awaiting-approval actor(s) ` +
+          `at ${cfg.reconnectRatePerSecond}/s to collect grants…\n`
+      );
+    } else {
+      // No reconnect needed: the control plane sweeps for approved-but-undelivered grants and
+      // delivers them over the existing connection (`sweepUndeliveredGrants`). Reconnecting was
+      // only ever a way to trigger that, and it cost a second handshake storm to do it.
+      process.stdout.write(
+        `  approved ${result.approved}; the control plane will deliver over the existing ` +
+          `connections — no reconnect needed.\n`
+      );
+    }
   }
 
   if (cfg.durationSeconds > 0) {

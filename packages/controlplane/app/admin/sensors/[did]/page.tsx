@@ -32,7 +32,7 @@ export default async function SensorDetailPage({
   const workspace = workspaces.find((w) => w.id === actor.workspaceId);
 
   return (
-    <div className="p-6 max-w-4xl space-y-6">
+    <div className="w-full max-w-7xl p-6 space-y-6">
       <PageChrome
         toolbar={{
           title: actor.name || kindConfig.hostname || "Device",
@@ -49,12 +49,12 @@ export default async function SensorDetailPage({
         Back to Sensors
       </Link>
 
-      <div className="flex items-start justify-between">
-        <div>
+      <div className="flex items-start justify-between gap-6">
+        <div className="min-w-0">
           <h1 className="text-lg font-semibold text-foreground">
             {actor.name || kindConfig.hostname || "Device"}
           </h1>
-          <p className="text-xs text-foreground-500 font-mono mt-0.5">{actor.did}</p>
+          <p className="text-xs text-foreground-500 font-mono mt-0.5 break-all">{actor.did}</p>
         </div>
         <Link
           href={`/admin/actors/${encodeDidParam(did)}`}
@@ -64,7 +64,7 @@ export default async function SensorDetailPage({
         </Link>
       </div>
 
-      <section className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+      <section className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2 xl:grid-cols-4">
         <div>
           <div className="text-xs text-foreground-500 uppercase font-medium mb-1">OS</div>
           <div>{kindConfig.os ?? "—"}</div>
@@ -119,7 +119,7 @@ export default async function SensorDetailPage({
                     <td className="px-4 py-2.5">
                       <div className="font-medium text-foreground">{w.processName}</div>
                       {w.processCommand && (
-                        <div className="text-xs font-mono text-foreground-400 truncate max-w-xs">
+                        <div className="max-w-4xl truncate text-xs font-mono text-foreground-400">
                           {w.processCommand}
                         </div>
                       )}

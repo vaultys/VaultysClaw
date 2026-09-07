@@ -94,6 +94,17 @@ the Model Registry, OIDC/Entra ID single sign-on, the Access Portal shell, and t
   a bare "logged in" placeholder. `app/login/page.tsx` gained matching branding (gradient/mesh
   background, a feature-bullet panel beside the QR card on wide screens) — same underlying state
   machine, styling only.
+- **The dev-mode login path is now actually gated** (`lib/dev-login.ts`'s `isDevLoginEnabled`).
+  It previously was not: `NODE_ENV !== "production"` hid the *link* while
+  `GET /api/public/user/connect` stayed reachable in every environment. That route decides
+  register-vs-login on `hasAnyHuman()`, so on a deployment with no human Actor yet it handed an
+  anonymous caller a **registration** certificate, and the bootstrap flow then granted the first
+  human `admin_console_access` — whoever found the endpoint first became the administrator. The
+  route now 404s unless dev login is enabled (404, not 403: an endpoint that does not exist here
+  should not advertise that it exists elsewhere). `NEXT_PUBLIC_ALLOW_DEV_LOGIN=1` is the explicit
+  opt-in, used only by the simulator demo stack; being `NEXT_PUBLIC_` it is inlined at build time,
+  so a production image built without it cannot have the path switched on by an environment
+  variable later.
 - **Dev-mode login without a physical wallet** — `lib/browser-connect.ts` (client, ported from
   `packages/control-plane`'s equivalent — **all four** of its identity-generation paths, not just
   software: `"software"`/`"software-pqc"` (`VaultysId.generateMachine()`, the latter passing
@@ -616,7 +627,9 @@ may hold a name; what it *permits* is decided by whichever application binds an 
   `BuiltinCapability | \`${string}:${string}\``, with `CUSTOM_CAPABILITY_RE`,
   `assertValidCapabilityName`, `parseCustomCapability` and `filterAgainstRegistry` as the single
   source of truth. `sdk-go/capability` is the Go half, held to it by
-  `conformance/capability-names.json` (27 cases, run by both suites).
+  `conformance/capability-names.json` (31 cases, run by both suites). `core` and `vaultys` are
+  **reserved vendors** (`RESERVED_VENDORS`): grammatically well-formed but never registrable, so
+  the namespace stays available to us and a name under it is not a custom capability at all.
   **Widening the union disabled exhaustiveness checking** over capabilities — a `switch` or
   `Record<AgentCapability, …>` silently stops being checked rather than failing to compile. Nothing
   in this package relied on it, but anything mapping a capability to a label or icon now needs an
@@ -701,6 +714,32 @@ What actually mattered, in the order it mattered:
   concurrent misses collapsed into one query. The TTL is the window in which a capability deleted by
   *another process* still resolves, so it is a security property, not a performance knob — in-process
   deletions invalidate immediately.
+
+### Grant delivery no longer needs a reconnect
+
+`approvePendingRegistration` calls `deliverApprovedCapabilities` directly, so the admin path was
+always fine. Every *other* way a registration can become approved — a script, a bulk import, a
+second control-plane instance, direct SQL — cannot reach this process's connection map, and such an
+Actor used to hold an approved grant it could not collect until it happened to reconnect. For a
+long-lived agent that may be never.
+
+`sweepUndeliveredGrants` (every `DELIVERY_SWEEP_INTERVAL_MS`, `DELIVERY_SWEEP_BATCH` at a time)
+closes that. Three details are load-bearing, each found by getting it wrong first:
+
+- **It must look at `awaitingApproval` as well as `connected`.** A first-time registrant never
+  enters `connected` — it goes handshake → `registration_pending` → `awaitingApproval`, and is only
+  promoted once its grant is delivered. Querying `connected` alone found *one* row against a fleet
+  of 6,084 awaiting delivery.
+- **It must skip Actors mid-exchange.** `deliveredAt` is stamped only when an exchange completes, so
+  an Actor mid-exchange still matches the query. `startCertificateIssuance` now refuses to restart
+  an exchange already in flight on a connection — overwriting `certIssuance` made the client's next
+  `cert_challenge` arrive for a session that no longer existed, and the grant was never delivered.
+- **It is batched and bounded.** Each delivery starts a live Challenger exchange, so an unbounded
+  sweep is the same handshake stampede the connection ramp exists to prevent. A backlog drains over
+  several passes.
+
+Effect on a 7,000-Actor demo run: certified 5,801 → **6,748**, errors 11,777 → **0**, because the
+simulator no longer has to cycle every connection to trigger delivery.
 
 Not addressed, and the next thing to look at: the Challenger handshake's own Ed25519 work runs on
 the event loop, so handshake throughput is ultimately single-core. Moving it to a worker pool is the
@@ -845,6 +884,29 @@ real bugs found in that implementation along the way (see below).
   completes (`lib/user-login-channel.ts`'s `registerHumanFromInvitation`, invoked from `registerHuman`
   when an `invitationToken` rides along in the `AuthCertificate`'s `metadata` — the same stash-in-
   metadata trick already used for the bootstrap double-SRP round, `CertRoundMeta`).
+- **A third bug, found in this implementation and fixed**: `User.email` is `@unique`, and nothing
+  checked it. An admin could mint an invitation for an address another human already held; the
+  redemption then ran the whole Challenger handshake and died at the very last step on a raw Prisma
+  `P2002` from inside `UserDAO.ensureExists`'s nested create — a 500 to a person with no way to
+  understand it, and (because `markRedeemed` had not run yet) an invitation left valid. Now checked
+  in three places, deliberately: `createInvitationAction` refuses up front while the admin who can
+  fix it is looking at the form; `registerHumanFromInvitation` re-checks at redemption and returns
+  `false` (failing the redemption cleanly, exactly like an expired token, and **not** consuming the
+  invitation — the redeemer is not at fault); and `ensureExists` translates a lost race into a typed
+  `DuplicateEmailError` rather than letting P2002 escape.
+  - **`isUniqueEmailViolation` is the part worth reading.** Prisma documents the offending fields as
+    `meta.target`; with the `pg` driver adapter this codebase uses, `meta.target` is **undefined**
+    and the fields arrive at `meta.driverAdapterError.cause.constraint.fields`. A guard written to
+    the documented shape alone silently never fires — worse than no guard, since the code reads as
+    handled. Both shapes plus the constraint name are accepted, and
+    `__tests__/duplicate-email.test.ts` asserts against the real error object captured from Postgres.
+- **Validation failures are returned, not thrown** (`CreateInvitationResult`). A production Next.js
+  build redacts Server Action error messages before they reach the client — deliberately, so server
+  internals cannot leak — so `throw new Error("that email is already registered")` reaches the admin
+  as "Minified React error #441". Anything the person filling in a form is expected to act on has to
+  come back as data. **This applies to every validation `throw` in this package's Server Actions**,
+  most of which still throw and would be equally opaque in production; only this one is converted so
+  far. Found by running the demo stack, which is a production build.
 - **Two bugs in the old implementation, fixed by construction here, not ported**:
   1. Old: the invite was marked claimed at QR-**generation** time, so abandoning the page still
      burned it. Here: `markRedeemed` only runs after the Challenger handshake genuinely completes

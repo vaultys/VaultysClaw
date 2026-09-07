@@ -27,7 +27,7 @@ Outside the pnpm workspace:
 | Directory | Description |
 |---|---|
 | `sdk-go/` | Go client SDK — `authz` (a port of `resolvePermission`), `grant` (offline packcert verification), `rules` (signed rule sets). |
-| `vaultysclaw-sensor/` | Go workload sensor: detects local AI/agent processes and reports classified telemetry to the control plane. Also hosts the tier-1 interception proxy. |
+| `vaultysclaw-sensor/` | Go workload sensor: detects local AI/agent processes and reports classified telemetry to the control plane. Also hosts the tier-1 interception proxy. What it recognises as AI is data, not code: the built-in rules are `internal/config/default-catalog.yaml` (embedded), extended by a hot-reloadable operator catalog. Add a newly-released harness to a catalog file, never to the detector — see `vaultysclaw-sensor/docs/DETECTION_CATALOG.md`. |
 | `conformance/` | The TS↔Go contract. `permission-vectors.json` (37 cases) is run by **both** `packages/trust` and `sdk-go/authz`; `capability-names.json` (31 cases) by **both** `packages/policy` and `sdk-go/capability`; `grant-fixture.json`, `rules-fixture.json` and `kindconfig-fixture.json` are TypeScript-signed fixtures the Go side verifies. Never change a fixture without re-running both suites. |
 | `docs-site/` | Docusaurus documentation site. |
 

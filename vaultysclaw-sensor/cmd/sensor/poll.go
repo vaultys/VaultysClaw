@@ -20,26 +20,31 @@ import (
 // scan interval until ctx is cancelled.
 func runPollLoop(
 	ctx context.Context,
-	cfg *config.Sensor,
+	catalog *config.CatalogWatcher,
 	procCollector collector.ProcessCollector,
 	netCollector collector.NetworkCollector,
 	resolver *collector.ResolverCache,
+	providerIndex *collector.ProviderIndex,
 	store *state.Store,
 	client *vconn.ClientConn,
 	device correlation.DeviceInfo,
 	telemetryDevice telemetry.Device,
 	logger *slog.Logger,
 ) {
-	interval := time.Duration(cfg.ScanIntervalSeconds) * time.Second
+	// Scan interval and the identity path are operational settings, not
+	// detection rules, so they come from the base config and never change under
+	// a catalog reload.
+	base := catalog.Current()
+	interval := time.Duration(base.ScanIntervalSeconds) * time.Second
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
 	var lastAgentIdentityDID string // only for the change-log below, not correctness
 	refreshAgentIdentity := func() {
-		if cfg.AgentIdentityPath == "" {
+		if base.AgentIdentityPath == "" {
 			return
 		}
-		did, err := identity.LoadDID(cfg.AgentIdentityPath)
+		did, err := identity.LoadDID(base.AgentIdentityPath)
 		if err != nil {
 			did = "" // not found/unreadable right now — not fatal, just no evidence to attach this cycle
 		}
@@ -47,14 +52,38 @@ func runPollLoop(
 			if did != "" {
 				logger.Info("sensor: local agent identity found — will attach as evidence on matching workloads", "agentDid", did)
 			} else {
-				logger.Warn("sensor: local agent identity no longer readable", "path", cfg.AgentIdentityPath)
+				logger.Warn("sensor: local agent identity no longer readable", "path", base.AgentIdentityPath)
 			}
 			lastAgentIdentityDID = did
 		}
 		store.SetAgentIdentityDID(did)
 	}
 
+	// reloadCatalog picks up an edited rule file between cycles. A refused
+	// reload is logged and the running rule set kept — detection must not
+	// degrade because someone saved a file mid-write.
+	reloadCatalog := func() {
+		changed, err := catalog.Reload()
+		if err != nil {
+			logger.Error("sensor: detection catalog reload failed", "error", err)
+			return
+		}
+		if !changed {
+			return
+		}
+		logger.Info("sensor: detection catalog reloaded", catalog.Summary()...)
+		// Providers may have changed, so the forward-resolved IP index has to
+		// be rebuilt — otherwise a newly-added provider stays unmatched until
+		// the next scheduled refresh, up to fifteen minutes later.
+		providerIndex.SetProviders(catalog.Current().Providers)
+		go providerIndex.Refresh(ctx)
+	}
+
 	poll := func() {
+		reloadCatalog()
+		// One snapshot for the whole cycle: a reload must never classify half
+		// the process table under one rule set and half under another.
+		cfg := catalog.Current()
 		refreshAgentIdentity()
 		// Gated on an actually-delivered process_read certificate (docs/CERTIFICATE_WEB_OF_TRUST.md
 		// §3.2b) whenever we're connected to a control plane at all — read nothing, not just "don't
@@ -87,7 +116,7 @@ func runPollLoop(
 		now := time.Now()
 		var current []state.CurrentObservation
 		for _, obs := range observations {
-			d := detector.Classify(obs, cfg, resolver)
+			d := detector.Classify(obs, cfg, resolver, providerIndex)
 			if d.AIConfidence == 0 && d.AgentConfidence == 0 {
 				continue // nothing worth tracking
 			}

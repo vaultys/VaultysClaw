@@ -58,6 +58,19 @@ func main() {
 		_ = fs.Parse(os.Args[2:])
 		fail(runSandboxCheck(*configPath))
 
+	case "catalog":
+		fs := flag.NewFlagSet("catalog", flag.ExitOnError)
+		configPath := fs.String("config", defaultConfigPath(), "path to config file")
+		_ = fs.Parse(os.Args[2:])
+		switch fs.Arg(0) {
+		case "dump":
+			fail(runCatalogDump(*configPath))
+		case "check", "":
+			fail(runCatalogCheck(*configPath))
+		default:
+			usage()
+		}
+
 	case "hook":
 		// Executed by the harness once per tool call. Kept out of the config
 		// path entirely: it must not read, parse or validate anything the
@@ -78,6 +91,8 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "  vaultysclaw-sensor supervise [--config path] -- claude  launch a coding harness under tool-call governance")
 	fmt.Fprintln(os.Stderr, "  vaultysclaw-sensor report [--config path]              what the supervised sessions did, and the scope they would need")
 	fmt.Fprintln(os.Stderr, "  vaultysclaw-sensor sandbox-check [--config path]       prove OS confinement is really in force for your floor")
+	fmt.Fprintln(os.Stderr, "  vaultysclaw-sensor catalog check [--config path]       validate the detection rule catalog and show what it changes")
+	fmt.Fprintln(os.Stderr, "  vaultysclaw-sensor catalog dump [--config path]        print the effective rule set, ready to edit and save back")
 	fmt.Fprintln(os.Stderr, "  vaultysclaw-sensor hook --socket path                  the per-tool-call decision shim (run by the harness, not by hand)")
 	os.Exit(2)
 }
@@ -142,8 +157,25 @@ func run(configPath string) error {
 	telemetryDevice := telemetry.Device{ID: id.DID(), Hostname: hostname, OS: runtime.GOOS}
 	corrDevice := correlation.DeviceInfo{ID: id.DID(), Hostname: hostname, OS: runtime.GOOS}
 
+	// The detection rule catalog is a separate, hot-reloadable file: a new
+	// harness ships far more often than a sensor's operational settings change,
+	// and a fleet of laptop daemons should not need restarting to see it.
+	catalog, err := config.NewCatalogWatcher(cfg, logger)
+	if err != nil {
+		return fmt.Errorf("loading detection catalog: %w", err)
+	}
+	logger.Info("sensor: detection catalog loaded", catalog.Summary()...)
+	if keys := config.RuleKeysInConfig(configPath); len(keys) > 0 {
+		logger.Warn("sensor: detection rules found in config.yaml — these REPLACE the built-in catalog rather than extending it; move them to the catalog file to merge instead",
+			"keys", keys, "catalog", catalog.Path())
+	}
+
 	procCollector, netCollector := platformselect.New()
 	resolver := collector.NewResolverCache(2 * time.Second)
+	// Forward-resolves the provider catalog so connections the OS reports as a
+	// bare IP can still be attributed. Without it, provider matching silently
+	// fails for every CDN-fronted AI API — see collector.ProviderIndex.
+	providerIndex := collector.NewProviderIndex(catalog.Current().Providers, 15*time.Minute, 2*time.Second, logger)
 	store := state.NewStore()
 
 	var client *vconn.ClientConn
@@ -184,6 +216,12 @@ func run(configPath string) error {
 	}
 
 	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		providerIndex.Run(ctx)
+	}()
+
 	if client != nil {
 		wg.Add(1)
 		go func() {
@@ -195,7 +233,7 @@ func run(configPath string) error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		runPollLoop(ctx, cfg, procCollector, netCollector, resolver, store, client, corrDevice, telemetryDevice, logger)
+		runPollLoop(ctx, catalog, procCollector, netCollector, resolver, providerIndex, store, client, corrDevice, telemetryDevice, logger)
 	}()
 
 	logger.Info("sensor: started", "scanIntervalSeconds", cfg.ScanIntervalSeconds, "os", runtime.GOOS, "device", deviceName)

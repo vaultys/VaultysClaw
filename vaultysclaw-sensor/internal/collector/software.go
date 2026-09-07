@@ -23,7 +23,11 @@ type LocalRuntimeMatch struct {
 // these are weighted.
 func DetectLocalRuntime(proc Process, listeningPorts []int, rules []config.RuntimeRule) *LocalRuntimeMatch {
 	lowerName := strings.ToLower(proc.Name)
-	lowerCmd := strings.ToLower(proc.Command)
+	// Cmdline substrings are checked against the executable path too. On macOS
+	// and Windows the "command" of a GUI-launched app is often just its bundle
+	// path, so a rule written as a command-line fragment ("ollama.app/") would
+	// otherwise never fire for the app the user actually double-clicked.
+	lowerCmd := strings.ToLower(proc.Command + "\x00" + proc.Executable)
 
 	for _, rule := range rules {
 		matchedName := false

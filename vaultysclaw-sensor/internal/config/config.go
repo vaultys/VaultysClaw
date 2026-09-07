@@ -22,31 +22,79 @@ type ProviderRule struct {
 // RuntimeRule matches processes/ports to a known local AI runtime.
 type RuntimeRule struct {
 	Name              string   `yaml:"name"`
-	ProcessNames      []string `yaml:"processNames"`
-	CmdlineSubstrings []string `yaml:"cmdlineSubstrings"`
-	Ports             []int    `yaml:"ports"`
+	ProcessNames      []string `yaml:"processNames,omitempty"`
+	CmdlineSubstrings []string `yaml:"cmdlineSubstrings,omitempty"`
+	Ports             []int    `yaml:"ports,omitempty"`
 }
 
 // MCPRule matches processes/command lines to known MCP server patterns.
 type MCPRule struct {
 	Name              string   `yaml:"name"`
-	CmdlineSubstrings []string `yaml:"cmdlineSubstrings"`
+	CmdlineSubstrings []string `yaml:"cmdlineSubstrings,omitempty"`
+}
+
+// AppKind classifies what a matched AI application *is*, which decides how it
+// is weighted: an assistant is AI usage, a harness is AI usage that also acts
+// on the machine, an IDE merely has AI features that may or may not be in use.
+type AppKind string
+
+const (
+	// AppKindAssistant is a chat/assistant surface — a desktop or CLI client
+	// whose job is talking to a model (ChatGPT.app, Claude.app, Kimi, LM Studio's
+	// chat UI). Strong AI evidence, no agent evidence on its own.
+	AppKindAssistant AppKind = "assistant"
+	// AppKindHarness is an agentic coding/automation harness — it reads and
+	// writes files, runs commands and drives tool calls on the user's behalf
+	// (Claude Code, Codex, Cursor's agent, OpenCode, aider, cline, goose).
+	// Strong AI *and* strong agent evidence: this is the class the control
+	// plane most needs to see.
+	AppKindHarness AppKind = "harness"
+	// AppKindIDE is an editor that ships AI features which may or may not be
+	// active in this session (VS Code + Copilot, JetBrains AI). Weak on its
+	// own — it only becomes interesting alongside provider connectivity.
+	AppKindIDE AppKind = "ide"
+)
+
+// AppRule matches a locally-installed AI application — a desktop app, a CLI,
+// or an editor — by process name, executable path, or command line.
+//
+// This is deliberately a separate catalog from LocalRuntimes (which serve
+// models) and AgentFrameworks (which are libraries appearing in a command
+// line). An installed app is the single most common thing an operator
+// actually wants to see on a laptop, and it is detectable with no network
+// visibility at all — which matters, because on macOS and Windows the OS
+// hands us a bare IP for every connection and provider matching can fail
+// entirely (see collector.ProviderIndex).
+type AppRule struct {
+	Name string  `yaml:"name"`
+	Kind AppKind `yaml:"kind"`
+	// ProcessNames are matched case-insensitively against the process's
+	// basename, exactly.
+	ProcessNames []string `yaml:"processNames,omitempty"`
+	// ExecutableSubstrings are matched case-insensitively as substrings of the
+	// full executable path. This is what catches an app's helper processes:
+	// every child of ChatGPT.app still lives under ".../ChatGPT.app/", so one
+	// entry covers the bundle instead of enumerating "Codex (Service)",
+	// "Codex (Renderer)" and friends by name.
+	ExecutableSubstrings []string `yaml:"executableSubstrings,omitempty"`
+	// CmdlineSubstrings are matched case-insensitively against the full command
+	// line — for CLIs invoked through an interpreter (`node .../cline`,
+	// `python -m aider`) where neither the process name nor the executable path
+	// says what is actually running.
+	CmdlineSubstrings []string `yaml:"cmdlineSubstrings,omitempty"`
+	// Priority lifts a rule above the built-ins, which are ordered
+	// most-specific-first because the first match wins. Default 0; a positive
+	// value is how a catalog's rule for a harness that ships inside some
+	// vendor's bundle beats the built-in rule for that bundle, without having
+	// to disable it.
+	Priority int `yaml:"priority,omitempty"`
 }
 
 // AgentFrameworkRule matches command lines to known agent frameworks —
 // a signal towards agent (not just AI) confidence.
 type AgentFrameworkRule struct {
 	Name              string   `yaml:"name"`
-	CmdlineSubstrings []string `yaml:"cmdlineSubstrings"`
-}
-
-// BrowserProcessNames are executables treated as browsers: AI-site
-// connections from these contribute to AI confidence but never to agent
-// confidence.
-var DefaultBrowserProcessNames = []string{
-	"chrome", "google chrome", "chromium", "firefox", "safari",
-	"msedge", "microsoft edge", "opera", "brave", "brave browser", "arc",
-	"vivaldi",
+	CmdlineSubstrings []string `yaml:"cmdlineSubstrings,omitempty"`
 }
 
 // Sensor is the sensor daemon's configuration.
@@ -67,12 +115,22 @@ type Sensor struct {
 	// specific, already-registered Actor" (docs/vaultysclaw-integration.md §4)
 	// instead of treating every detection as merely observed.
 	AgentIdentityPath string `yaml:"agentIdentityPath"`
+	// CatalogPath points at the detection rule catalog (see catalog.go): a
+	// separate YAML file, merged additively over the built-in rules, and
+	// re-read while the sensor runs so a newly-released harness can be covered
+	// without a restart or a redeploy. A missing file means "built-ins only",
+	// which is the default deployment.
+	CatalogPath string `yaml:"catalogPath"`
 
 	Providers       []ProviderRule       `yaml:"providers"`
+	AIApplications  []AppRule            `yaml:"aiApplications"`
 	LocalRuntimes   []RuntimeRule        `yaml:"localRuntimes"`
 	MCPServers      []MCPRule            `yaml:"mcpServers"`
 	AgentFrameworks []AgentFrameworkRule `yaml:"agentFrameworks"`
 	BrowserProcess  []string             `yaml:"browserProcessNames"`
+	// SupportProcess suppresses application matches on an app's own crash
+	// reporters and updaters. See the catalog's supportProcessSubstrings.
+	SupportProcess []string `yaml:"supportProcessSubstrings"`
 
 	// Intercept configures the enforcement role. Disabled by default: a sensor
 	// that has always been observe-only must not start refusing traffic because
@@ -223,15 +281,20 @@ type Collector struct {
 	Debug                   bool   `yaml:"debug"`
 }
 
-// DefaultSensorConfig returns a Sensor config with sane defaults and a
-// baked-in provider/runtime/MCP/agent-framework rule set, so the sensor is
-// useful out of the box without requiring a large hand-written config.
+// DefaultSensorConfig returns a Sensor config with sane defaults and the
+// built-in detection rule set applied, so the sensor is useful out of the box
+// without requiring a hand-written config.
+//
+// The rules come from the embedded default-catalog.yaml, not from Go literals:
+// see catalog_default.go for why. Operational defaults — paths, ports, the
+// intercept and supervise roles — stay here, because they are settings rather
+// than detection data and have no business being reloadable.
 func DefaultSensorConfig() *Sensor {
-	return &Sensor{
+	s := &Sensor{
 		ScanIntervalSeconds: 30,
 		TelemetryEnabled:    true,
 		IdentityPath:        defaultPath(".vaultysclaw-sensor/identity.key"),
-		BrowserProcess:      DefaultBrowserProcessNames,
+		CatalogPath:         defaultPath(".vaultysclaw-sensor/catalog.yaml"),
 		Intercept: Intercept{
 			// Enabled stays false: enabling enforcement is always a deliberate
 			// act, never a consequence of upgrading an observe-only sensor.
@@ -252,55 +315,6 @@ func DefaultSensorConfig() *Sensor {
 			// at zero: with no control-plane push yet there is no status refresh to be
 			// fresh against, and 0 would deny every request. Startup warns about it.
 			MaxStatusAgeSeconds: -1,
-		},
-		Providers: []ProviderRule{
-			{Name: "openai", Hosts: []string{"api.openai.com", "openai.com", "chatgpt.com", "chat.openai.com"}},
-			{Name: "anthropic", Hosts: []string{"api.anthropic.com", "claude.ai", "anthropic.com"}},
-			{Name: "azure_openai", Hosts: []string{".openai.azure.com"}},
-			{Name: "google_gemini", Hosts: []string{"generativelanguage.googleapis.com", "gemini.google.com", "aiplatform.googleapis.com"}},
-			// Deliberately not ".amazonaws.com" (bare) — that suffix matches
-			// almost any AWS-hosted service (S3, CloudFront origins, etc.),
-			// not just Bedrock, and would false-positive constantly.
-			{Name: "aws_bedrock", Hosts: []string{"bedrock-runtime"}},
-			{Name: "mistral", Hosts: []string{"api.mistral.ai", "chat.mistral.ai"}},
-			{Name: "cohere", Hosts: []string{"api.cohere.ai", "api.cohere.com"}},
-			{Name: "groq", Hosts: []string{"api.groq.com"}},
-			{Name: "together_ai", Hosts: []string{"api.together.xyz", "api.together.ai"}},
-			{Name: "openrouter", Hosts: []string{"openrouter.ai"}},
-		},
-		LocalRuntimes: []RuntimeRule{
-			{Name: "ollama", ProcessNames: []string{"ollama"}, CmdlineSubstrings: []string{"ollama serve", "ollama run"}, Ports: []int{11434}},
-			{Name: "lm_studio", ProcessNames: []string{"lms", "lm-studio", "lm studio"}, CmdlineSubstrings: []string{"lm-studio", "lms server"}, Ports: []int{1234}},
-			// vllm/llama_cpp/localai deliberately have no Ports entry: 8000
-			// and 8080 are extremely common generic dev-server ports
-			// (uvicorn, arbitrary proxies/static servers, etc.) and would
-			// weak-match constantly on unrelated processes. Name/cmdline
-			// substrings for these are distinctive enough on their own.
-			// "server" is also deliberately not in llama_cpp's process
-			// names — it's a common generic binary/script name that would
-			// otherwise produce a *strong* false match.
-			{Name: "vllm", ProcessNames: []string{"vllm"}, CmdlineSubstrings: []string{"vllm.entrypoints", "vllm serve"}},
-			{Name: "llama_cpp", ProcessNames: []string{"llama-server"}, CmdlineSubstrings: []string{"llama.cpp", "llama-server"}},
-			{Name: "localai", ProcessNames: []string{"local-ai", "localai"}, CmdlineSubstrings: []string{"localai"}},
-		},
-		MCPServers: []MCPRule{
-			{Name: "mcp_generic", CmdlineSubstrings: []string{"@modelcontextprotocol/", "mcp-server-", "mcp_server_"}},
-			{Name: "mcp_filesystem", CmdlineSubstrings: []string{"server-filesystem"}},
-			{Name: "mcp_github", CmdlineSubstrings: []string{"server-github", "github-mcp"}},
-			{Name: "mcp_postgres", CmdlineSubstrings: []string{"server-postgres", "postgres-mcp"}},
-			{Name: "claude_desktop", CmdlineSubstrings: []string{"Claude.app", "claude_desktop"}},
-		},
-		AgentFrameworks: []AgentFrameworkRule{
-			{Name: "langchain", CmdlineSubstrings: []string{"langchain"}},
-			{Name: "autogen", CmdlineSubstrings: []string{"autogen"}},
-			{Name: "crewai", CmdlineSubstrings: []string{"crewai", "crew_ai"}},
-			{Name: "mastra", CmdlineSubstrings: []string{"mastra"}},
-			{Name: "agents_sdk", CmdlineSubstrings: []string{"openai-agents", "agents-sdk"}},
-			// Deliberately not the bare substring "vaultysclaw" — that
-			// matches any shell command that merely mentions a path
-			// containing the repo/org name (e.g. `cd .../VaultysClaw`),
-			// not just an actual agent-controller invocation.
-			{Name: "vaultysclaw_agent", CmdlineSubstrings: []string{"agent-controller"}},
 		},
 		Supervise: Supervise{
 			// Off, and observe-only when on: the same deliberate-act rule as
@@ -330,6 +344,10 @@ func DefaultSensorConfig() *Sensor {
 			Sandbox: SandboxAuto,
 		},
 	}
+	// Apply, not assignment: the same merge an operator's catalog goes through,
+	// so the built-ins cannot take a path through the code that a deployment's
+	// own rules never exercise.
+	return s.Apply(DefaultCatalog())
 }
 
 // DefaultCollectorConfig returns sane defaults for the reference collector.
@@ -355,6 +373,25 @@ func LoadSensorConfig(path string) (*Sensor, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
+	return cfg, nil
+}
+
+// LoadSensorRules loads config for its detection-rule fields only, skipping
+// the operational validation Validate performs.
+//
+// The `catalog` subcommands inspect and validate detection rules, which has
+// nothing to do with whether this machine is configured to report anywhere.
+// Refusing to show an operator their rule set because collectorUrl is unset
+// would make the tool useless exactly when it is most wanted: while writing a
+// catalog, before the sensor is deployed.
+func LoadSensorRules(path string) (*Sensor, error) {
+	cfg := DefaultSensorConfig()
+	if path != "" {
+		if err := loadYAMLOver(path, cfg); err != nil {
+			return nil, err
+		}
+	}
+	cfg.applyEnvOverrides()
 	return cfg, nil
 }
 
@@ -411,6 +448,9 @@ func (s *Sensor) applyEnvOverrides() {
 	}
 	if v := os.Getenv("VCS_AGENT_IDENTITY_PATH"); v != "" {
 		s.AgentIdentityPath = v
+	}
+	if v := os.Getenv("VCS_CATALOG_PATH"); v != "" {
+		s.CatalogPath = v
 	}
 	if v := os.Getenv("VCS_INTERCEPT_ENABLED"); v != "" {
 		s.Intercept.Enabled = parseBool(v, s.Intercept.Enabled)

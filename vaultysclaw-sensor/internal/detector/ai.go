@@ -54,7 +54,14 @@ func matchProviderHost(host string, providers []config.ProviderRule) *providerMa
 // name (empty if none matched). rt is the already-computed local-runtime
 // match for this process (computed once by Classify and threaded through,
 // rather than re-detected here).
-func evaluateAI(obs correlation.Observation, cfg *config.Sensor, resolver *collector.ResolverCache, rt *collector.LocalRuntimeMatch) ([]Signal, string) {
+func evaluateAI(
+	obs correlation.Observation,
+	cfg *config.Sensor,
+	resolver *collector.ResolverCache,
+	index *collector.ProviderIndex,
+	rt *collector.LocalRuntimeMatch,
+	app *collector.AIApplicationMatch,
+) ([]Signal, string) {
 	var signals []Signal
 	provider := ""
 	isBrowser := collector.IsBrowserProcess(obs.Process.Name, cfg.BrowserProcess)
@@ -67,18 +74,35 @@ func evaluateAI(obs correlation.Observation, cfg *config.Sensor, resolver *colle
 				host = resolved
 			}
 		}
-		m := matchProviderHost(host, cfg.Providers)
-		if m == nil {
+		matched := ""
+		byIP := false
+		if m := matchProviderHost(host, cfg.Providers); m != nil {
+			matched = m.Provider
+		} else if p := index.Lookup(conn.RemoteHost); p != "" {
+			// The hostname told us nothing — either the OS gave us a bare IP
+			// with no PTR record (the normal case for CDN-fronted AI APIs), or
+			// the PTR pointed at the CDN rather than the tenant. Fall back to
+			// the forward-resolved catalog index.
+			matched = p
+			byIP = true
+		}
+		if matched == "" {
 			continue
 		}
 		providerHits++
 		if provider == "" {
-			provider = m.Provider
+			provider = matched
 		}
-		if isBrowser {
-			signals = append(signals, Signal{Weight: WeightStrong, Reason: "browser connected to known AI service (" + m.Provider + ")"})
-		} else {
-			signals = append(signals, Signal{Weight: WeightStrong, Reason: "non-browser process connected to known AI API (" + m.Provider + ")"})
+		switch {
+		case byIP:
+			// Weaker than a name match on purpose: CDN address space is shared,
+			// so an address in the index is good evidence of the provider but
+			// not conclusive the way a resolved hostname is.
+			signals = append(signals, Signal{Weight: WeightMedium, Reason: "connected to an address published by a known AI provider (" + matched + ")"})
+		case isBrowser:
+			signals = append(signals, Signal{Weight: WeightStrong, Reason: "browser connected to known AI service (" + matched + ")"})
+		default:
+			signals = append(signals, Signal{Weight: WeightStrong, Reason: "non-browser process connected to known AI API (" + matched + ")"})
 		}
 	}
 
@@ -89,6 +113,28 @@ func evaluateAI(obs correlation.Observation, cfg *config.Sensor, resolver *colle
 	if !obs.Process.StartTime.IsZero() && providerHits > 0 {
 		if age := time.Since(obs.Process.StartTime); age >= longRunningThreshold {
 			signals = append(signals, Signal{Weight: WeightMedium, Reason: "process has been active for more than 30 minutes"})
+		}
+	}
+
+	if app != nil {
+		switch app.Kind {
+		case config.AppKindIDE:
+			// An installed AI-capable editor is not, by itself, AI usage: the
+			// machine has VS Code on it. It only counts when this same process
+			// is also talking to a provider — which is exactly what an inline
+			// completion or an in-editor chat looks like from out here.
+			if providerHits > 0 {
+				signals = append(signals, Signal{Weight: WeightMedium, Reason: "AI-capable editor with provider connectivity (" + app.Name + ")"})
+			}
+		default:
+			if app.ViaAncestor {
+				signals = append(signals, Signal{Weight: WeightMedium, Reason: "child process of a known AI application (" + app.Name + ")"})
+			} else {
+				signals = append(signals, Signal{Weight: WeightStrong, Reason: "known AI application detected (" + app.Name + ", matched on " + app.Reason + ")"})
+			}
+		}
+		if provider == "" && app.Kind != config.AppKindIDE {
+			provider = app.Name
 		}
 	}
 

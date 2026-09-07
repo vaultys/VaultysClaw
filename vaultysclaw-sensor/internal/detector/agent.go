@@ -13,13 +13,31 @@ import (
 // open to chatgpt.com is AI usage, not agentic behavior, regardless of how
 // long it's been open — this is the core "AI usage vs AI agent"
 // distinction from the design spec.
-func evaluateAgent(obs correlation.Observation, cfg *config.Sensor, hasAIActivity bool) ([]Signal, *collector.MCPMatch, string) {
+func evaluateAgent(
+	obs correlation.Observation,
+	cfg *config.Sensor,
+	hasAIActivity bool,
+	app *collector.AIApplicationMatch,
+) ([]Signal, *collector.MCPMatch, string) {
 	if collector.IsBrowserProcess(obs.Process.Name, cfg.BrowserProcess) {
 		return nil, nil, ""
 	}
 
 	var signals []Signal
 	var frameworkName string
+
+	// A coding/automation harness is the one application class that is agentic
+	// by definition: it edits files and runs commands on the user's behalf.
+	// Assistants and IDEs deliberately contribute nothing here — a chat window
+	// is AI usage, not an agent, which is the same line browsers sit on.
+	if app != nil && app.Kind == config.AppKindHarness {
+		if app.ViaAncestor {
+			signals = append(signals, Signal{Weight: WeightMedium, Reason: "process spawned by a known agentic harness (" + app.Name + ")"})
+		} else {
+			signals = append(signals, Signal{Weight: WeightStrong, Reason: "known agentic coding harness detected (" + app.Name + ")"})
+		}
+		frameworkName = app.Name
+	}
 
 	mcp := collector.DetectMCP(obs.Process, obs.Children, cfg.MCPServers)
 	if mcp != nil {
@@ -32,6 +50,8 @@ func evaluateAgent(obs correlation.Observation, cfg *config.Sensor, hasAIActivit
 
 	if fw := collector.DetectAgentFramework(obs.Process, cfg.AgentFrameworks); fw != nil {
 		signals = append(signals, Signal{Weight: WeightStrong, Reason: "known agent framework detected (" + fw.Name + ")"})
+		// A matched framework wins the name: it is evidence about what this
+		// process *is*, whereas a harness match may have come from an ancestor.
 		frameworkName = fw.Name
 	}
 

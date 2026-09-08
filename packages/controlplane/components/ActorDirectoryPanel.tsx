@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
+  Clock3,
   Search,
-  SlidersHorizontal,
   Users,
   X,
   Zap,
@@ -25,7 +26,7 @@ export interface ActorDirectoryRow {
 
 const MAX_VISIBLE_ROWS_PER_SECTION = 120;
 const MAX_QUICK_RESULTS = 12;
-type ActorTab = "humans" | "agents";
+type ActorTab = "pending" | "agents" | "humans";
 
 function searchableText(actor: ActorDirectoryRow): string {
   return [actor.name, actor.kind, actor.did].join(" ").toLowerCase();
@@ -38,15 +39,26 @@ function shortDid(did: string): string {
 
 export default function ActorDirectoryPanel({
   actors,
-  agentsBefore,
+  initialTab,
+  pendingCount = 0,
+  pendingPanel,
 }: {
   actors: ActorDirectoryRow[];
-  agentsBefore?: ReactNode;
+  initialTab?: ActorTab;
+  pendingCount?: number;
+  pendingPanel?: ReactNode;
 }) {
-  const [activeTab, setActiveTab] = useState<ActorTab>("humans");
+  const pathname = usePathname();
+  const router = useRouter();
+  const [activeTab, setActiveTab] = useState<ActorTab>(
+    initialTab ?? (pendingCount > 0 ? "pending" : "agents")
+  );
   const [query, setQuery] = useState("");
-  const [kindFilter, setKindFilter] = useState("all");
   const [quickOpen, setQuickOpen] = useState(false);
+
+  useEffect(() => {
+    if (initialTab) setActiveTab(initialTab);
+  }, [initialTab]);
 
   const humanActors = useMemo(
     () => actors.filter((actor) => categoryForKind(actor.kind) === "human"),
@@ -58,18 +70,13 @@ export default function ActorDirectoryPanel({
   );
 
   const tabActors = activeTab === "humans" ? humanActors : agentActors;
-  const kinds = useMemo(
-    () => Array.from(new Set(tabActors.map((actor) => actor.kind))).sort(),
-    [tabActors]
-  );
-
   const filteredActors = useMemo(() => {
+    if (activeTab === "pending") return [];
     const needle = query.trim().toLowerCase();
-    return tabActors.filter((actor) => {
-      if (kindFilter !== "all" && actor.kind !== kindFilter) return false;
-      return needle ? searchableText(actor).includes(needle) : true;
-    });
-  }, [kindFilter, query, tabActors]);
+    return needle
+      ? tabActors.filter((actor) => searchableText(actor).includes(needle))
+      : tabActors;
+  }, [activeTab, query, tabActors]);
 
   const quickResults = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -83,13 +90,17 @@ export default function ActorDirectoryPanel({
   const visibleRows = filteredActors.slice(0, MAX_VISIBLE_ROWS_PER_SECTION);
   const hiddenCount = filteredActors.length - visibleRows.length;
   const tabs = [
-    {
-      id: "humans" as const,
-      label: "Humans",
-      count: humanActors.length,
-      icon: Users,
-      description: "People with console or app identities",
-    },
+    ...(pendingPanel
+      ? [
+          {
+            id: "pending" as const,
+            label: "Pending",
+            count: pendingCount,
+            icon: Clock3,
+            description: "Registrations waiting for approval or delivery",
+          },
+        ]
+      : []),
     {
       id: "agents" as const,
       label: "Agents & Devices",
@@ -97,11 +108,86 @@ export default function ActorDirectoryPanel({
       icon: Zap,
       description: "Services, sensors, and pending registrations",
     },
+    {
+      id: "humans" as const,
+      label: "Humans",
+      count: humanActors.length,
+      icon: Users,
+      description: "People with console or app identities",
+    },
   ];
 
   return (
     <section className="space-y-4">
-      <div className="flex items-center justify-between gap-3 border-b border-neutral-200/60">
+      <div className="rounded-xl border border-neutral-200/60 bg-background-100 p-4">
+        <div className="relative">
+          <label className="mb-1.5 block text-sm font-medium text-foreground">
+            Search actors
+          </label>
+          <div className="flex items-center gap-2 rounded-lg border border-neutral-200 bg-background px-3 py-2">
+            <Search className="h-4 w-4 shrink-0 text-foreground-400" />
+            <input
+              type="search"
+              value={query}
+              onChange={(event) => {
+                setQuery(event.target.value);
+                setQuickOpen(true);
+              }}
+              onFocus={() => setQuickOpen(true)}
+              placeholder="Search by name, kind, or DID..."
+              className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-foreground-400"
+            />
+            {query && (
+              <button
+                type="button"
+                onClick={() => {
+                  setQuery("");
+                  setQuickOpen(false);
+                }}
+                aria-label="Clear actor search"
+                className="rounded p-0.5 text-foreground-400 transition-colors hover:bg-background-200 hover:text-foreground"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+
+          {quickOpen && quickResults.length > 0 && (
+            <div
+              onMouseLeave={() => setQuickOpen(false)}
+              className="absolute left-0 right-0 top-full z-40 mt-1.5 overflow-hidden rounded-xl border border-neutral-200 bg-background-100 shadow-2xl shadow-black/20"
+            >
+              <div className="border-b border-neutral-200/60 px-3 py-2 text-xs font-medium uppercase tracking-wider text-foreground-500">
+                Quick jump
+              </div>
+              <div className="max-h-80 overflow-y-auto py-1">
+                {quickResults.map((actor) => (
+                  <Link
+                    key={actor.did}
+                    href={`/admin/actors/${encodeDidParam(actor.did)}`}
+                    className="flex items-center justify-between gap-3 px-3 py-2 transition-colors hover:bg-background-200/60"
+                  >
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-medium text-foreground">
+                        {actor.name}
+                      </span>
+                      <span className="mt-0.5 block truncate font-mono text-xs text-foreground-500">
+                        {shortDid(actor.did)}
+                      </span>
+                    </span>
+                    <span className="flex shrink-0 items-center gap-2">
+                      <ActorKindBadge kind={actor.kind} />
+                      <ArrowRight className="h-3.5 w-3.5 text-foreground-400" />
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="border-b border-neutral-200/60">
         <div className="flex gap-1 overflow-x-auto">
           {tabs.map((tab) => {
             const active = activeTab === tab.id;
@@ -112,8 +198,8 @@ export default function ActorDirectoryPanel({
                 type="button"
                 onClick={() => {
                   setActiveTab(tab.id);
-                  setKindFilter("all");
                   setQuickOpen(false);
+                  router.replace(`${pathname}?tab=${tab.id}`, { scroll: false });
                 }}
                 aria-current={active ? "page" : undefined}
                 className={cn(
@@ -140,119 +226,22 @@ export default function ActorDirectoryPanel({
             );
           })}
         </div>
-        {activeTab === "humans" && (
-          <Link
-            href="/admin/actors/invite"
-            className="hidden shrink-0 text-xs font-medium text-primary-600 hover:underline sm:block"
-          >
-            Invite human
-          </Link>
-        )}
       </div>
 
-      <>
-        <div className="rounded-xl border border-neutral-200/60 bg-background-100 p-4">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
-            <div className="relative flex-1">
-              <label className="mb-1.5 block text-sm font-medium text-foreground">
-                Search actors
-              </label>
-              <div className="flex items-center gap-2 rounded-lg border border-neutral-200 bg-background px-3 py-2">
-                <Search className="h-4 w-4 shrink-0 text-foreground-400" />
-                <input
-                  type="search"
-                  value={query}
-                  onChange={(event) => {
-                    setQuery(event.target.value);
-                    setQuickOpen(true);
-                  }}
-                  onFocus={() => setQuickOpen(true)}
-                  placeholder={`Filter ${activeTitle.toLowerCase()} by name, kind, or DID...`}
-                  className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-foreground-400"
-                />
-                {query && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setQuery("");
-                      setQuickOpen(false);
-                    }}
-                    aria-label="Clear actor search"
-                    className="rounded p-0.5 text-foreground-400 transition-colors hover:bg-background-200 hover:text-foreground"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                )}
-              </div>
-
-              {quickOpen && quickResults.length > 0 && (
-                <div
-                  onMouseLeave={() => setQuickOpen(false)}
-                  className="absolute left-0 right-0 top-full z-40 mt-1.5 overflow-hidden rounded-xl border border-neutral-200 bg-background-100 shadow-2xl shadow-black/20"
-                >
-                  <div className="border-b border-neutral-200/60 px-3 py-2 text-xs font-medium uppercase tracking-wider text-foreground-500">
-                    Quick jump
-                  </div>
-                  <div className="max-h-80 overflow-y-auto py-1">
-                    {quickResults.map((actor) => (
-                      <Link
-                        key={actor.did}
-                        href={`/admin/actors/${encodeDidParam(actor.did)}`}
-                        className="flex items-center justify-between gap-3 px-3 py-2 transition-colors hover:bg-background-200/60"
-                      >
-                        <span className="min-w-0">
-                          <span className="block truncate text-sm font-medium text-foreground">
-                            {actor.name}
-                          </span>
-                          <span className="mt-0.5 block truncate font-mono text-xs text-foreground-500">
-                            {shortDid(actor.did)}
-                          </span>
-                        </span>
-                        <span className="flex shrink-0 items-center gap-2">
-                          <ActorKindBadge kind={actor.kind} />
-                          <ArrowRight className="h-3.5 w-3.5 text-foreground-400" />
-                        </span>
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="lg:w-64">
-              <label className="mb-1.5 block text-sm font-medium text-foreground">
-                Filter kind
-              </label>
-              <div className="flex items-center gap-2 rounded-lg border border-neutral-200 bg-background px-3 py-2">
-                <SlidersHorizontal className="h-4 w-4 shrink-0 text-foreground-400" />
-                <select
-                  value={kindFilter}
-                  onChange={(event) => setKindFilter(event.target.value)}
-                  disabled={kinds.length <= 1}
-                  className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none"
-                >
-                  <option value="all">All kinds</option>
-                  {kinds.map((kind) => (
-                    <option key={kind} value={kind}>
-                      {kind}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-foreground-500">
+      {activeTab === "pending" ? (
+        pendingPanel
+      ) : (
+        <>
+          <div className="flex flex-wrap items-center gap-2 text-xs text-foreground-500">
             <span>
               Showing {filteredActors.length} of {tabActors.length}{" "}
               {activeTitle.toLowerCase()}
             </span>
-            {(query || kindFilter !== "all") && (
+            {query && (
               <button
                 type="button"
                 onClick={() => {
                   setQuery("");
-                  setKindFilter("all");
                   setQuickOpen(false);
                 }}
                 className="font-medium text-primary-600 hover:underline"
@@ -261,75 +250,73 @@ export default function ActorDirectoryPanel({
               </button>
             )}
           </div>
-        </div>
 
-        {activeTab === "agents" && agentsBefore}
-
-        <section>
-          <h2 className="mb-3 text-sm font-semibold text-foreground-700">
-            {activeTitle} ({filteredActors.length})
-          </h2>
-          <div className="overflow-x-auto rounded-xl border border-neutral-200/60">
-            <table className="w-full bg-background-100 text-sm">
-              <thead className="bg-background-200/40 text-left text-xs uppercase text-foreground-500">
-                <tr>
-                  <th className="px-4 py-2 font-medium">Name</th>
-                  <th className="px-4 py-2 font-medium">Kind</th>
-                  <th className="px-4 py-2 font-medium">DID</th>
-                  <th className="px-4 py-2 font-medium">Registered</th>
-                </tr>
-              </thead>
-              <tbody>
-                {visibleRows.map((actor) => (
-                  <tr
-                    key={actor.did}
-                    className="border-t border-neutral-200/60 hover:bg-background-200/30"
-                  >
-                    <td className="px-4 py-2.5 text-foreground">
-                      <Link
-                        href={`/admin/actors/${encodeDidParam(actor.did)}`}
-                        className="hover:text-primary-600 hover:underline"
-                      >
-                        {actor.name}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <ActorKindBadge kind={actor.kind} />
-                    </td>
-                    <td className="px-4 py-2.5 font-mono text-xs text-foreground-500">
-                      <Link
-                        href={`/admin/actors/${encodeDidParam(actor.did)}`}
-                        className="hover:text-primary-600 hover:underline"
-                      >
-                        {actor.did}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-2.5 text-xs text-foreground-500">
-                      {actor.registeredAt}
-                    </td>
-                  </tr>
-                ))}
-                {visibleRows.length === 0 && (
+          <section>
+            <h2 className="mb-3 text-sm font-semibold text-foreground-700">
+              {activeTitle} ({filteredActors.length})
+            </h2>
+            <div className="overflow-x-auto rounded-xl border border-neutral-200/60">
+              <table className="w-full bg-background-100 text-sm">
+                <thead className="bg-background-200/40 text-left text-xs uppercase text-foreground-500">
                   <tr>
-                    <td
-                      colSpan={4}
-                      className="px-4 py-6 text-center text-foreground-400"
-                    >
-                      No actors match these filters.
-                    </td>
+                    <th className="px-4 py-2 font-medium">Name</th>
+                    <th className="px-4 py-2 font-medium">Kind</th>
+                    <th className="px-4 py-2 font-medium">DID</th>
+                    <th className="px-4 py-2 font-medium">Registered</th>
                   </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-          {hiddenCount > 0 && (
-            <p className="mt-2 text-xs text-foreground-500">
-              {hiddenCount} more {activeTitle.toLowerCase()} hidden. Refine the
-              search to narrow the list.
-            </p>
-          )}
-        </section>
-      </>
+                </thead>
+                <tbody>
+                  {visibleRows.map((actor) => (
+                    <tr
+                      key={actor.did}
+                      className="border-t border-neutral-200/60 hover:bg-background-200/30"
+                    >
+                      <td className="px-4 py-2.5 text-foreground">
+                        <Link
+                          href={`/admin/actors/${encodeDidParam(actor.did)}`}
+                          className="hover:text-primary-600 hover:underline"
+                        >
+                          {actor.name}
+                        </Link>
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <ActorKindBadge kind={actor.kind} />
+                      </td>
+                      <td className="px-4 py-2.5 font-mono text-xs text-foreground-500">
+                        <Link
+                          href={`/admin/actors/${encodeDidParam(actor.did)}`}
+                          className="hover:text-primary-600 hover:underline"
+                        >
+                          {actor.did}
+                        </Link>
+                      </td>
+                      <td className="px-4 py-2.5 text-xs text-foreground-500">
+                        {actor.registeredAt}
+                      </td>
+                    </tr>
+                  ))}
+                  {visibleRows.length === 0 && (
+                    <tr>
+                      <td
+                        colSpan={4}
+                        className="px-4 py-6 text-center text-foreground-400"
+                      >
+                        No actors match this search.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+            {hiddenCount > 0 && (
+              <p className="mt-2 text-xs text-foreground-500">
+                {hiddenCount} more {activeTitle.toLowerCase()} hidden. Refine
+                the search to narrow the list.
+              </p>
+            )}
+          </section>
+        </>
+      )}
     </section>
   );
 }

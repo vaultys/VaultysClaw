@@ -110,6 +110,11 @@ export interface ToolbarStepsConfig {
 export interface ToolbarConfig {
   /** Page title shown on the left of the toolbar. */
   title: string;
+  /** Optional hover note shown from an info icon beside the title. */
+  info?: {
+    title?: string;
+    body: string;
+  };
   /**
    * When set, the title becomes inline-editable: clicking it (or its pencil
    * affordance) turns it into a text input. Receives the committed value.

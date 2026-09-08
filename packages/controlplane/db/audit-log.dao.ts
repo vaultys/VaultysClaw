@@ -60,6 +60,14 @@ export class AuditLogDAO {
     return prisma.auditLogEntry.count({ where: whereFromFilter(filter) });
   }
 
+  static async timeline(filter?: AuditLogFilter): Promise<{ createdAt: Date }[]> {
+    return prisma.auditLogEntry.findMany({
+      where: whereFromFilter(filter),
+      select: { createdAt: true },
+      orderBy: { createdAt: "asc" },
+    });
+  }
+
   /** Distinct event types actually present, for the filter dropdown — not the full static
    *  catalog, so an admin never sees a filter option that would always return zero rows. */
   static async distinctEventTypes(): Promise<string[]> {

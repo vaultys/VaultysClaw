@@ -792,6 +792,7 @@ export default async function ActorDetailPage({
             </p>
           </div>
           <AuditLogPanel
+            actorColumnLabel="Author"
             entries={auditEntries.map((entry) => {
               const performedByActor = entry.actorDid
                 ? actorByDid.get(entry.actorDid)

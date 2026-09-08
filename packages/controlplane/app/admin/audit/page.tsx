@@ -6,6 +6,7 @@ import { inspectCertificate } from "@/lib/cert-inspect";
 import { encodeDidParam } from "@/lib/actor-route";
 import PageChrome from "@/components/layout/PageChrome";
 import ActorSearchSelect from "@/components/ActorSearchSelect";
+import AuditTimelineExplorer from "@/components/AuditTimelineExplorer";
 
 function targetHref(targetType: string | null, targetId: string | null): string | null {
   if (!targetType || !targetId) return null;
@@ -19,6 +20,18 @@ function targetHref(targetType: string | null, targetId: string | null): string 
     default:
       return null;
   }
+}
+
+function parseAuditDateParam(value: string | undefined, endOfRange = false): Date | undefined {
+  if (!value) return undefined;
+  const hasHour = value.length === 13;
+  const parsed = new Date(hasHour ? `${value}:00:00.000Z` : `${value}T00:00:00.000Z`);
+  if (Number.isNaN(parsed.getTime())) return undefined;
+  if (endOfRange) {
+    if (hasHour) parsed.setUTCMinutes(59, 59, 999);
+    else parsed.setUTCHours(23, 59, 59, 999);
+  }
+  return parsed;
 }
 
 /**
@@ -36,14 +49,20 @@ export default async function AuditLogPage({
   const filter = {
     eventType: eventType || undefined,
     actorDid: actorDid || undefined,
-    from: from ? new Date(from) : undefined,
-    to: to ? new Date(to) : undefined,
+    from: parseAuditDateParam(from),
+    to: parseAuditDateParam(to, true),
+  };
+  const timelineFilter = {
+    eventType: eventType || undefined,
+    actorDid: actorDid || undefined,
   };
 
-  const [entries, eventTypes, total, allActors] = await Promise.all([
+  const [entries, eventTypes, total, timelineTotal, timeline, allActors] = await Promise.all([
     AuditLogDAO.list(filter, 50),
     AuditLogDAO.distinctEventTypes(),
     AuditLogDAO.count(filter),
+    AuditLogDAO.count(timelineFilter),
+    AuditLogDAO.timeline(timelineFilter),
     ActorDAO.list(),
   ]);
 
@@ -71,6 +90,14 @@ export default async function AuditLogPage({
       <PageChrome
         toolbar={{ title: "Audit Log", description: `${total} entr${total === 1 ? "y" : "ies"}` }}
         breadcrumbs={[{ label: "Audit Log" }]}
+      />
+
+      <AuditTimelineExplorer
+        points={timeline.map((entry) => ({ createdAt: entry.createdAt.toISOString() }))}
+        total={timelineTotal}
+        selectedTotal={total}
+        from={from}
+        to={to}
       />
 
       <form className="flex flex-wrap items-end gap-3 border border-neutral-200/60 rounded-xl p-4 bg-background-100">
@@ -105,24 +132,8 @@ export default async function AuditLogPage({
             />
           </div>
         </div>
-        <div>
-          <label className="block text-xs font-medium text-foreground-500 uppercase mb-1">From</label>
-          <input
-            type="date"
-            name="from"
-            defaultValue={from ?? ""}
-            className="border border-neutral-200 rounded-lg px-2.5 py-1.5 text-sm bg-background"
-          />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-foreground-500 uppercase mb-1">To</label>
-          <input
-            type="date"
-            name="to"
-            defaultValue={to ?? ""}
-            className="border border-neutral-200 rounded-lg px-2.5 py-1.5 text-sm bg-background"
-          />
-        </div>
+        {from && <input type="hidden" name="from" value={from} />}
+        {to && <input type="hidden" name="to" value={to} />}
         <button
           type="submit"
           className="px-4 py-1.5 bg-primary-600 hover:bg-primary-500 text-white text-sm font-medium rounded-lg transition-colors"

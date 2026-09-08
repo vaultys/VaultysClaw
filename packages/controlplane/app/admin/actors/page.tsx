@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Bot, Info, UserPlus } from "lucide-react";
+import { Bot, UserPlus } from "lucide-react";
 import { ActorDAO, PendingRegistrationDAO, CustomCapabilityDAO } from "@/db";
 import PageChrome from "@/components/layout/PageChrome";
 import { ActorKindBadge } from "@/components/ActorKindBadge";
@@ -17,7 +17,15 @@ import { approveRegistrationAction, denyRegistrationAction } from "./actions";
  * registration *is* the first capability_request/grant round-trip, presented
  * as one action instead of two steps.
  */
-export default async function ActorsPage() {
+const ACTOR_TABS = ["pending", "agents", "humans"] as const;
+type ActorTab = (typeof ACTOR_TABS)[number];
+
+export default async function ActorsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>;
+}) {
+  const { tab } = await searchParams;
   const [actors, pending, awaitingDelivery, customCapabilities] =
     await Promise.all([
       ActorDAO.list(),
@@ -25,12 +33,20 @@ export default async function ActorsPage() {
       PendingRegistrationDAO.listApprovedUndelivered(),
       CustomCapabilityDAO.list(),
     ]);
+  const initialTab: ActorTab | undefined = ACTOR_TABS.some((id) => id === tab)
+    ? (tab as ActorTab)
+    : undefined;
 
   return (
     <div className="p-6 space-y-10">
       <PageChrome
         toolbar={{
           title: "Actors",
+          info: {
+            title: "How actor onboarding works",
+            body:
+              "A registration only proves an identity is asking to join. Approval is where you decide which capabilities, if any, should be granted and delivered as certificates.",
+          },
           description: `${actors.length} registered · ${pending.length} pending approval${
             awaitingDelivery.length > 0
               ? ` · ${awaitingDelivery.length} awaiting delivery`
@@ -58,30 +74,16 @@ export default async function ActorsPage() {
         breadcrumbs={[{ label: "Actors" }]}
       />
 
-      <section className="rounded-xl border border-primary-200 bg-primary-50 px-4 py-3">
-        <div className="flex gap-3">
-          <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary-700" />
-          <div>
-            <h2 className="text-sm font-semibold text-foreground">
-              How actor onboarding works
-            </h2>
-            <p className="mt-1 text-sm leading-6 text-foreground-600">
-              A registration only proves an identity is asking to join. Approval
-              is where you decide which capabilities, if any, should be granted
-              and delivered as certificates.
-            </p>
-          </div>
-        </div>
-      </section>
-
       <ActorDirectoryPanel
+        initialTab={initialTab}
         actors={actors.map((actor) => ({
           did: actor.did,
           name: actor.name,
           kind: actor.kind,
           registeredAt: actor.registeredAt.toISOString(),
         }))}
-        agentsBefore={
+        pendingCount={pending.length}
+        pendingPanel={
           <div className="space-y-6">
             <section>
               <div className="mb-3">

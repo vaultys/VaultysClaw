@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { MoreHorizontal, Pencil } from "lucide-react";
+import { Info, MoreHorizontal, Pencil } from "lucide-react";
 import { useToolbarState, type ToolbarAction } from "./ToolbarContext";
 import ToolbarSearch from "./ToolbarSearch";
 import ToolbarSteps from "./ToolbarSteps";
@@ -407,6 +407,37 @@ function EditableTitle({
   );
 }
 
+function TitleInfo({
+  title,
+  body,
+}: {
+  title?: string;
+  body: string;
+}) {
+  return (
+    <span className="group/info relative inline-flex">
+      <button
+        type="button"
+        aria-label={title ?? "More information"}
+        className="rounded p-0.5 text-foreground-400 transition-colors hover:bg-background-200 hover:text-foreground focus:bg-background-200 focus:text-foreground focus:outline-none"
+      >
+        <Info className="h-3.5 w-3.5" />
+      </button>
+      <span
+        role="tooltip"
+        className="pointer-events-none absolute left-1/2 top-full z-50 mt-2 w-72 -translate-x-1/2 rounded-lg border border-neutral-200 bg-background-100 p-3 text-left text-xs leading-5 text-foreground-600 opacity-0 shadow-xl shadow-black/20 transition-opacity duration-75 group-hover/info:opacity-100 group-focus-within/info:opacity-100"
+      >
+        {title && (
+          <span className="mb-1 block font-semibold text-foreground">
+            {title}
+          </span>
+        )}
+        {body}
+      </span>
+    </span>
+  );
+}
+
 /**
  * Renders the page toolbar configured via `useToolbar`. Mounted once by the
  * app shell, below the TopBar. Renders nothing when no page has set a config.
@@ -455,15 +486,21 @@ export default function Toolbar() {
       >
         <div ref={titleRef} className="min-w-0 shrink-0 max-w-[40%]">
           {config.onTitleChange ? (
-            <EditableTitle
-              value={config.title}
-              onChange={config.onTitleChange}
-              placeholder={config.titlePlaceholder}
-            />
+            <div className="flex min-w-0 items-center gap-1.5">
+              <EditableTitle
+                value={config.title}
+                onChange={config.onTitleChange}
+                placeholder={config.titlePlaceholder}
+              />
+              {config.info && <TitleInfo {...config.info} />}
+            </div>
           ) : (
-            <h1 className="text-lg font-semibold text-foreground truncate">
-              {config.title}
-            </h1>
+            <div className="flex min-w-0 items-center gap-1.5">
+              <h1 className="truncate text-lg font-semibold text-foreground">
+                {config.title}
+              </h1>
+              {config.info && <TitleInfo {...config.info} />}
+            </div>
           )}
           {config.description && (
             <p className="text-foreground-500 text-sm mt-0.5 truncate">

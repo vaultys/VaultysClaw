@@ -61,6 +61,7 @@ export default function PageChrome({
 
   const toolbarKey = JSON.stringify({
     title: toolbar.title,
+    info: toolbar.info,
     description: toolbar.description,
     steps: toolbar.steps,
     search: toolbar.search,

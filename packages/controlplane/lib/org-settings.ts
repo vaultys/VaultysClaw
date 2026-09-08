@@ -15,6 +15,7 @@ export const SETTINGS_KEYS = {
    *  part of the contract, so it lives here rather than inline in that file. */
   litellmBaseUrl: "litellm.baseUrl",
   litellmMasterKeyEnc: "litellm.masterKeyEnc",
+  adminOnboardingDismissed: "admin.onboarding.dismissed",
 } as const;
 
 export const DEFAULT_ORG_NAME = "VaultysClaw";

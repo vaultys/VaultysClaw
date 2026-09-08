@@ -40,7 +40,13 @@ function searchableText(row: AuditLogRow): string {
   ].join(" ").toLowerCase();
 }
 
-export default function AuditLogPanel({ entries }: { entries: AuditLogRow[] }) {
+export default function AuditLogPanel({
+  entries,
+  actorColumnLabel = "Actor",
+}: {
+  entries: AuditLogRow[];
+  actorColumnLabel?: string;
+}) {
   const [query, setQuery] = useState("");
   const [eventType, setEventType] = useState("all");
   const [signedState, setSignedState] = useState("all");
@@ -145,7 +151,7 @@ export default function AuditLogPanel({ entries }: { entries: AuditLogRow[] }) {
       <div className="border border-neutral-200/60 rounded-xl overflow-hidden divide-y divide-neutral-200/60">
         <div className="grid grid-cols-[11rem_1fr_11rem_11rem_5rem] gap-2 px-4 py-2 bg-background-200/40 text-left text-xs text-foreground-500 uppercase font-medium">
           <span>Time</span>
-          <span>Actor</span>
+          <span>{actorColumnLabel}</span>
           <span>Event</span>
           <span>Target</span>
           <span>Signed</span>

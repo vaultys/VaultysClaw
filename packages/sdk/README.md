@@ -22,11 +22,13 @@ const actor = new ActorRuntime({
 
 actor.on("pending",     ({ registrationId }) => console.log("awaiting approval", registrationId));
 actor.on("connected",   ({ did }) => console.log("identity proven", did));
-actor.on("certificate", ({ capabilities }) => console.log("granted", capabilities));
+actor.onCapabilityChange(({ current, added, removed, reason }) => {
+  console.log("capabilities", { current, added, removed, reason });
+});
 
 await actor.start();
 
-if (actor.hasCapability("internet_access")) { /* … */ }
+if (await actor.can("internet_access")) { /* ... */ }
 ```
 
 Run the worked example against a live control plane:
@@ -51,21 +53,18 @@ your Actor must work correctly holding less than it asked for:
 ```ts
 requestedCapabilities: ["internet_access", "file_access"]
 // admin approves file_access only
-actor.hasCapability("internet_access");  // false
-actor.hasCapability("file_access");      // true
+await actor.can("internet_access");  // false
+await actor.can("file_access");      // true
 ```
 
 There is deliberately **no default** for `requestedCapabilities` — an SDK that
 silently asked for something you never named would be requesting authority on
 your behalf.
 
-For scoped grants, use the full decision function rather than the coarse check:
+For scoped grants, pass a resource:
 
 ```ts
-const { allowed, grantingCertId } = actor.resolvePermission({
-  capability: "file_access",
-  resource: "file:///reports/q3.pdf",
-});
+const allowed = await actor.can("file_access", "file:///reports/q3.pdf");
 ```
 
 This delegates to `@vaultysclaw/trust` — the same function the control plane and
@@ -89,10 +88,9 @@ start()
                 └─ cert_issued      ← "certificate"; capabilities granted
 ```
 
-`capability_request` is sent at most once per connection and skipped entirely if
-something is already granted, from both `registration_pending` and
-`auth_complete` — so a known Actor holding nothing is never silently stuck
-waiting on an admin who has no idea anything is wanted.
+`capability_request` asks only for capabilities that are still missing. If the
+control plane creates a custom capability while the Actor is connected, the SDK
+is nudged over the socket and re-requests any newly grantable missing capability.
 
 ## Persistence
 
@@ -101,7 +99,7 @@ Two files, both mode 0600:
 | Path | Contents | Losing it means |
 |---|---|---|
 | `identityPath` | The bare base64 VaultysId secret | You register as a brand new Actor and need approval again |
-| `capabilityStatePath` | The granted certificate and its capabilities | You hold nothing until an admin re-triggers delivery |
+| `capabilityStatePath` | Granted certificates and their capabilities | You hold nothing until an admin re-triggers delivery |
 
 The identity file format is shared with `@vaultysclaw/agent-runtime` and the Go
 SDK, so the same file works across all three.
@@ -123,12 +121,18 @@ Each has already caused a real bug:
    never from certificate metadata: the Go Challenger reconstructs signed
    metadata as empty during verification, so a cert carrying it fails Go-side.
 
+## Runtime API
+
+Use `await actor.can(capability, resource?)` before doing work. Use
+`actor.allows(capability, resource?)` only for cached UI hints or logs.
+`actor.capabilities()` returns the current usable capability names.
+
+`actor.onCapabilityChange(listener)` fires when a connected control plane
+delivers a new certificate, revokes one, or changes the custom capability
+registry in a way that affects the local grant set.
+
 ## Known limitations
 
-- **Revocation is not observed.** The runtime asserts its held certificate is
-  `active`; it does not yet run `cert_status` checks, so a revocation is not
-  noticed until reconnect. Anything relying on prompt revocation must check
-  separately.
 - **Not published to npm** — workspace-only for now.
 
 > **Name collision warning.** On the `origin/sdk` and `origin/go-agent-controller`

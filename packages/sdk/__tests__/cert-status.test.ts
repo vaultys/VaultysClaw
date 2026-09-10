@@ -20,12 +20,33 @@ type Internals = {
   certId: string | null;
   certificate: string | null;
   capabilities: string[];
+  certificates: Map<string, {
+    certId: string;
+    certificate: string;
+    capabilities: string[];
+    resourceLimits: null;
+    scope: null;
+    status: string | null;
+    lastCheckedAt: number | null;
+    issuedAt: number;
+    expiresAt: number | null;
+  }>;
   lastStatus: string | null;
   lastCheckedAt: number | null;
   actorConfig: ActorConfigPayload | null;
   did: string | null;
   applyCertStatus(body: CertStatusResponseBody): void;
+  onCertIssued(payload: {
+    certId: string;
+    certificate: string;
+    capabilities: string[];
+  }): void;
+  onCapabilityRegistryChanged(payload: {
+    reason: "capability_created" | "capability_deleted" | "capability_updated";
+    capability?: string;
+  }): void;
   persistCapabilityState(): void;
+  syncCertificateSnapshot(): void;
 };
 
 function runtime(): ActorRuntime & Internals {
@@ -63,12 +84,19 @@ let rt: ActorRuntime & Internals;
 
 /** A runtime holding a granted, freshly-verified certificate. */
 function granted(caps = ["api_call", "acme:invoice.approve"]): void {
-  rt.certId = "cert-1";
-  rt.certificate = "cert-bytes";
-  rt.capabilities = [...caps];
+  rt.certificates.set("cert-1", {
+    certId: "cert-1",
+    certificate: "cert-bytes",
+    capabilities: [...caps],
+    resourceLimits: null,
+    scope: null,
+    status: "active",
+    lastCheckedAt: Date.now(),
+    issuedAt: 1,
+    expiresAt: null,
+  });
   rt.did = "did:vaultys:test";
-  rt.lastStatus = "active";
-  rt.lastCheckedAt = Date.now();
+  rt.syncCertificateSnapshot();
 }
 
 beforeEach(() => {
@@ -78,6 +106,8 @@ beforeEach(() => {
 describe("a verified status refresh replaces the granted set", () => {
   it("drops a capability the response no longer lists — the whole fail-closed mechanism", () => {
     granted();
+    const seen: unknown[] = [];
+    rt.onCapabilityChange((change) => seen.push(change));
     expect(rt.resolvePermission({ capability: "acme:invoice.approve" }).allowed).toBe(true);
 
     // The control plane filtered the deleted custom capability out of its signed response.
@@ -86,6 +116,15 @@ describe("a verified status refresh replaces the granted set", () => {
     expect(rt.getCapabilities()).toEqual(["api_call"]);
     expect(rt.resolvePermission({ capability: "acme:invoice.approve" }).allowed).toBe(false);
     expect(rt.resolvePermission({ capability: "api_call" }).allowed).toBe(true);
+    expect(seen).toEqual([
+      {
+        current: ["api_call"],
+        added: [],
+        removed: ["acme:invoice.approve"],
+        reason: "status_refresh",
+        certIds: ["cert-1"],
+      },
+    ]);
   });
 
   it("emits `capabilities` only when the set actually changed", () => {
@@ -105,6 +144,65 @@ describe("a verified status refresh replaces the granted set", () => {
     rt.applyCertStatus(statusBody({ capabilities: [] }));
     expect(rt.getCapabilities()).toEqual([]);
     expect(rt.resolvePermission({ capability: "api_call" }).allowed).toBe(false);
+  });
+
+  it("resolves across every held certificate, not just the most recent one", () => {
+    granted(["internet_access"]);
+    rt.certificates.set("cert-2", {
+      certId: "cert-2",
+      certificate: "cert-2-bytes",
+      capabilities: ["knowledge_search"],
+      resourceLimits: null,
+      scope: null,
+      status: "active",
+      lastCheckedAt: Date.now(),
+      issuedAt: 2,
+      expiresAt: null,
+    });
+    rt.syncCertificateSnapshot();
+
+    expect(rt.getCapabilities()).toEqual(["internet_access", "knowledge_search"]);
+    expect(rt.resolvePermission({ capability: "internet_access" }).allowed).toBe(true);
+    expect(rt.resolvePermission({ capability: "knowledge_search" }).allowed).toBe(true);
+  });
+
+  it("emits a capabilityChange event when a new certificate adds authority", () => {
+    granted(["internet_access"]);
+    const seen: unknown[] = [];
+    rt.onCapabilityChange((change) => seen.push(change));
+
+    rt.onCertIssued({
+      certId: "cert-2",
+      certificate: "cert-2-bytes",
+      capabilities: ["knowledge_search"],
+    });
+
+    expect(seen).toEqual([
+      {
+        current: ["internet_access", "knowledge_search"],
+        added: ["knowledge_search"],
+        removed: [],
+        reason: "certificate_issued",
+        certIds: ["cert-2"],
+      },
+    ]);
+  });
+
+  it("emits a capabilityChange event for registry updates even before grants change", () => {
+    granted(["internet_access"]);
+    const seen: unknown[] = [];
+    rt.onCapabilityChange((change) => seen.push(change));
+
+    rt.onCapabilityRegistryChanged({ reason: "capability_created", capability: "acme:invoice.approve" });
+
+    expect(seen).toEqual([
+      {
+        current: ["internet_access"],
+        added: [],
+        removed: [],
+        reason: "capability_created",
+      },
+    ]);
   });
 
   it("ignores a status for a different certificate", () => {
@@ -133,7 +231,8 @@ describe("staleness and fail mode", () => {
   it("denies a stale staple when failClosed", () => {
     granted();
     rt.actorConfig = config(true, 60);
-    rt.lastCheckedAt = Date.now() - 61_000;
+    rt.certificates.get("cert-1")!.lastCheckedAt = Date.now() - 61_000;
+    rt.syncCertificateSnapshot();
     expect(rt.getCertStatus().fresh).toBe(false);
     expect(rt.resolvePermission({ capability: "api_call" }).allowed).toBe(false);
   });
@@ -141,7 +240,8 @@ describe("staleness and fail mode", () => {
   it("keeps a stale staple when fail-open — that is what the setting means", () => {
     granted();
     rt.actorConfig = config(false, 60);
-    rt.lastCheckedAt = Date.now() - 61_000;
+    rt.certificates.get("cert-1")!.lastCheckedAt = Date.now() - 61_000;
+    rt.syncCertificateSnapshot();
     expect(rt.getCertStatus().fresh).toBe(false);
     expect(rt.resolvePermission({ capability: "api_call" }).allowed).toBe(true);
   });
@@ -149,14 +249,16 @@ describe("staleness and fail mode", () => {
   it("allows a staple still inside the bound", () => {
     granted();
     rt.actorConfig = config(true, 60);
-    rt.lastCheckedAt = Date.now() - 30_000;
+    rt.certificates.get("cert-1")!.lastCheckedAt = Date.now() - 30_000;
+    rt.syncCertificateSnapshot();
     expect(rt.resolvePermission({ capability: "api_call" }).allowed).toBe(true);
   });
 
   it("treats a negative bound as unbounded, so nothing is ever stale", () => {
     granted();
     rt.actorConfig = config(true, -1);
-    rt.lastCheckedAt = Date.now() - 10 * 365 * 24 * 3600_000;
+    rt.certificates.get("cert-1")!.lastCheckedAt = Date.now() - 10 * 365 * 24 * 3600_000;
+    rt.syncCertificateSnapshot();
     expect(rt.getCertStatus().fresh).toBe(true);
     expect(rt.resolvePermission({ capability: "api_call" }).allowed).toBe(true);
   });
@@ -171,15 +273,18 @@ describe("staleness and fail mode", () => {
   it("fails closed with no config at all — an unconfigured client is not a trusted one", () => {
     granted();
     rt.actorConfig = null;
-    rt.lastCheckedAt = Date.now() - 3600_000; // older than the fallback interval
+    rt.certificates.get("cert-1")!.lastCheckedAt = Date.now() - 3600_000; // older than the fallback interval
+    rt.syncCertificateSnapshot();
     expect(rt.resolvePermission({ capability: "api_call" }).allowed).toBe(false);
   });
 
   it("denies when the status was never checked at all", () => {
     granted();
     rt.actorConfig = config(true, 60);
-    rt.lastStatus = null;
-    rt.lastCheckedAt = null;
+    const cert = rt.certificates.get("cert-1")!;
+    cert.status = null;
+    cert.lastCheckedAt = null;
+    rt.syncCertificateSnapshot();
     expect(rt.resolvePermission({ capability: "api_call" }).allowed).toBe(false);
   });
 });

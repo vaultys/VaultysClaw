@@ -25,6 +25,8 @@ export type ProtocolMessageType =
   | "cert_challenge"
   | "cert_issued"
   | "cert_failed"
+  | "capabilities_changed"
+  | "capability_registry_changed"
   | "sensor_telemetry"
   | "actor_config"
   | "error";
@@ -118,6 +120,16 @@ export interface CertIssuedPayload {
 
 export interface CertFailedPayload {
   reason: string;
+}
+
+export interface CapabilitiesChangedPayload {
+  reason: "certificate_issued" | "certificate_revoked" | "capability_deleted" | "admin_update";
+  certIds?: string[];
+}
+
+export interface CapabilityRegistryChangedPayload {
+  reason: "capability_created" | "capability_deleted" | "capability_updated";
+  capability?: string;
 }
 
 /** Both cert-status payloads carry the signed token as-is — each side decodes it itself. */

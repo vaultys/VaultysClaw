@@ -17,7 +17,8 @@
     "@vaultys/id": "3.0.0-beta6",
     "@vaultysclaw/policy": "workspace:*",
     "@vaultysclaw/sdk": "workspace:*",
-    "pg": "^8.21.0"
+    "pg": "^8.21.0",
+    "@vaultysclaw/controlplane": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.19.19",

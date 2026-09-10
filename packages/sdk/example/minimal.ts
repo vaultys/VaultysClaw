@@ -40,9 +40,11 @@ actor.on("connected", ({ did }) => {
   console.log(`[connected] identity proven — ${did}`);
 });
 
-actor.on("certificate", ({ certId, capabilities }) => {
-  console.log(`[certificate] granted: ${capabilities.join(", ") || "(none)"}`);
-  console.log(`              cert ${certId}`);
+actor.onCapabilityChange(({ current, added, removed, reason }) => {
+  console.log(
+    `[capabilities] reason=${reason} current=[${current.join(", ")}] ` +
+      `added=[${added.join(", ")}] removed=[${removed.join(", ")}]`
+  );
 });
 
 actor.on("config", (cfg) => {
@@ -57,28 +59,18 @@ console.log(`[start] connecting to ${wsUrl} as "${name}" (did ${actor.getDid()})
 // Poll what we actually hold, so the effect of an approval — and of a restart —
 // is visible without reading the database.
 setInterval(() => {
-  const granted = actor.getCapabilities();
+  const granted = actor.capabilities();
   if (granted.length === 0) {
     console.log("[check] nothing granted yet — doing nothing, correctly");
     return;
   }
 
-  // The coarse check.
-  const net = actor.hasCapability("internet_access");
-
-  // The precise one: same decision function the control plane and the Go SDK
-  // use, resolved locally with no round trip.
-  const decision = actor.resolvePermission({
-    capability: "file_access",
-    resource: "file:///tmp/example.txt",
+  void Promise.all([
+    actor.can("internet_access"),
+    actor.can("file_access", "file:///tmp/example.txt"),
+  ]).then(([net, file]) => {
+    console.log(`[check] granted=[${granted.join(", ")}] internet_access=${net} file_access(/tmp/example.txt)=${file}`);
   });
-
-  console.log(
-    `[check] granted=[${granted.join(", ")}] internet_access=${net} ` +
-      `file_access(/tmp/example.txt)=${decision.allowed}` +
-      (decision.grantingCertId ? ` via ${decision.grantingCertId}` : "") +
-      (decision.reason ? ` — ${decision.reason}` : "")
-  );
 }, 3000);
 
 process.on("SIGINT", () => {

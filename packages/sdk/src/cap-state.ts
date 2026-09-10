@@ -1,12 +1,9 @@
 /**
- * Local persistence of the most recent successful certificate exchange.
- *
- * A port of the Go SDK's `vconn/capstate.go`, and deliberately file-compatible
- * with it.
+ * Local persistence of successful certificate exchanges.
  *
  * Worth persisting because the Challenger certificate is a native, independently
  * verifiable artefact rather than something session-bound: keeping it means a
- * process restart resumes with the same capabilities, instead of holding nothing
+ * process restart resumes with the same certificates, instead of holding nothing
  * until an admin happens to re-trigger delivery.
  */
 
@@ -14,22 +11,27 @@ import fs from "node:fs";
 import path from "node:path";
 import { expandHome } from "./identity.js";
 
-export interface CapabilityState {
+export interface CapabilityStateCertificate {
   certId: string;
   certificate: string;
   capabilities: string[];
   /**
    * The status the control plane last reported for this certificate, and when.
    *
-   * Optional so the file stays readable by — and writable for — the Go SDK's
-   * `vconn/capstate.go`, which this is deliberately format-compatible with.
-   * Absent means "never checked", which is treated as maximally stale rather
-   * than as active: assuming active is what made revocation invisible before
-   * status checking existed at all.
+   * Absent means "never checked", which is treated as maximally stale rather than as active:
+   * assuming active is what made revocation invisible before status checking existed at all.
    */
   lastStatus?: "active" | "revoked" | "superseded" | "expired";
   /** Ms since epoch of the last verified status response. */
   lastCheckedAt?: number;
+  issuedAt?: number;
+  expiresAt?: number | null;
+  resourceLimits?: unknown;
+  scope?: unknown;
+}
+
+export interface CapabilityState {
+  certificates: CapabilityStateCertificate[];
 }
 
 /**
@@ -47,8 +49,13 @@ export function loadCapabilityState(statePath?: string): CapabilityState | null 
 
   const raw = fs.readFileSync(resolved, "utf-8");
   const parsed = JSON.parse(raw) as CapabilityState;
-  if (!parsed || typeof parsed.certId !== "string" || !Array.isArray(parsed.capabilities)) {
+  if (!parsed || !Array.isArray(parsed.certificates)) {
     throw new Error(`Malformed capability state at ${resolved}`);
+  }
+  for (const cert of parsed.certificates) {
+    if (!cert || typeof cert.certId !== "string" || !Array.isArray(cert.capabilities)) {
+      throw new Error(`Malformed capability state at ${resolved}`);
+    }
   }
   return parsed;
 }

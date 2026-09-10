@@ -3,6 +3,7 @@ export type {
   ActorRuntimeConfig,
   ActorRuntimeEvents,
   ActorStatus,
+  CapabilityChange,
 } from "./actor-runtime.js";
 
 export { loadOrCreateIdentity, expandHome } from "./identity.js";
@@ -31,6 +32,8 @@ export type {
   CertChallengePayload,
   CertIssuedPayload,
   CertFailedPayload,
+  CapabilitiesChangedPayload,
+  CapabilityRegistryChangedPayload,
   CertStatusRequestPayload,
   CertStatusResponsePayload,
   ActorConfigPayload,

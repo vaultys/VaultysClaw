@@ -23,7 +23,9 @@ import {
   verifyCertStatusResponseCert,
   type AgentCapability,
   type CertificateStatus,
+  type CertScope,
   type CertStatusResponseBody,
+  type ResourceLimits,
 } from "@vaultysclaw/policy";
 
 import { loadOrCreateIdentity } from "./identity.js";
@@ -44,6 +46,8 @@ import {
   type CertChallengePayload,
   type CertFailedPayload,
   type CertIssuedPayload,
+  type CapabilitiesChangedPayload,
+  type CapabilityRegistryChangedPayload,
   type ErrorPayload,
   type ProtocolMessage,
   type CertStatusResponsePayload,
@@ -103,6 +107,7 @@ export interface ActorRuntimeEvents {
   pending: (payload: RegistrationPendingPayload) => void;
   connected: (payload: AuthCompletePayload) => void;
   certificate: (payload: CertIssuedPayload) => void;
+  capabilityChange: (payload: CapabilityChange) => void;
   /**
    * The granted set changed after a verified status refresh — including to `[]`.
    * A host that caches which operations it may perform must rebuild that cache
@@ -113,6 +118,21 @@ export interface ActorRuntimeEvents {
   config: (payload: ActorConfigPayload) => void;
   message: (message: ProtocolMessage) => void;
   error: (error: Error) => void;
+}
+
+export interface CapabilityChange {
+  current: readonly string[];
+  added: readonly string[];
+  removed: readonly string[];
+  reason:
+    | "certificate_issued"
+    | "certificate_revoked"
+    | "capability_deleted"
+    | "capability_created"
+    | "capability_updated"
+    | "status_refresh"
+    | "admin_update";
+  certIds?: readonly string[];
 }
 
 const DEFAULTS = {
@@ -131,6 +151,18 @@ const DEFAULTS = {
   fallbackStatusIntervalMs: 300_000,
 };
 
+interface HeldCertificate {
+  certId: string;
+  certificate: string;
+  capabilities: string[];
+  resourceLimits: ResourceLimits | null;
+  scope: CertScope | null;
+  status: CertificateStatus | null;
+  lastCheckedAt: number | null;
+  issuedAt: number;
+  expiresAt: number | null;
+}
+
 export class ActorRuntime extends EventEmitter {
   private readonly cfg: Required<Pick<ActorRuntimeConfig, "name" | "kind" | "controlPlaneWsUrl" | "identityPath">> & ActorRuntimeConfig;
   private readonly log: NonNullable<ActorRuntimeConfig["logger"]>;
@@ -145,9 +177,10 @@ export class ActorRuntime extends EventEmitter {
   private certSessionId: string | null = null;
 
   private did: string | null = null;
-  private capabilities: string[] = [];
+  private capabilityNames: string[] = [];
   private certId: string | null = null;
   private certificate: string | null = null;
+  private readonly certificates = new Map<string, HeldCertificate>();
   private actorConfig: ActorConfigPayload | null = null;
 
   private status: ActorStatus = "idle";
@@ -162,6 +195,7 @@ export class ActorRuntime extends EventEmitter {
   private lastStatus: CertificateStatus | null = null;
   private lastCheckedAt: number | null = null;
   private statusTimer: NodeJS.Timeout | null = null;
+  private nextCapabilityChangeReason: CapabilityChange["reason"] | null = null;
   /** In-flight status checks, keyed by the nonce we signed into the request. */
   private readonly pendingStatusChecks = new Map<
     string,
@@ -180,14 +214,23 @@ export class ActorRuntime extends EventEmitter {
     // its authority rather than sitting capability-less until an admin notices.
     const restored = loadCapabilityState(config.capabilityStatePath);
     if (restored) {
-      this.certId = restored.certId;
-      this.certificate = restored.certificate;
-      this.capabilities = restored.capabilities;
-      // Restored, not assumed: a status recorded before the process died is
-      // evidence about the past, and `isStatusFresh` is what decides whether it
-      // is still good enough to act on.
-      this.lastStatus = restored.lastStatus ?? null;
-      this.lastCheckedAt = restored.lastCheckedAt ?? null;
+      for (const cert of restored.certificates) {
+        this.certificates.set(cert.certId, {
+          certId: cert.certId,
+          certificate: cert.certificate,
+          capabilities: cert.capabilities,
+          resourceLimits: (cert.resourceLimits as ResourceLimits | null | undefined) ?? null,
+          scope: (cert.scope as CertScope | null | undefined) ?? null,
+          // Restored, not assumed: a status recorded before the process died is
+          // evidence about the past, and freshness decides whether it can still
+          // back a decision.
+          status: cert.lastStatus ?? null,
+          lastCheckedAt: cert.lastCheckedAt ?? null,
+          issuedAt: cert.issuedAt ?? 0,
+          expiresAt: cert.expiresAt ?? null,
+        });
+      }
+      this.syncCertificateSnapshot();
     }
   }
 
@@ -235,9 +278,23 @@ export class ActorRuntime extends EventEmitter {
     return this.status;
   }
 
+  /** Capabilities currently usable by this Actor — not merely what it requested. */
+  capabilitiesSnapshot(): readonly string[] {
+    return this.capabilityNames;
+  }
+
+  /** Alias for {@link capabilitiesSnapshot}. */
+  capabilities(): readonly string[] {
+    return this.capabilitiesSnapshot();
+  }
+
+  onCapabilityChange(listener: ActorRuntimeEvents["capabilityChange"]): this {
+    return this.on("capabilityChange", listener);
+  }
+
   /** Capabilities actually granted — not what was requested. */
   getCapabilities(): readonly string[] {
-    return this.capabilities;
+    return this.capabilitiesSnapshot();
   }
 
   /** The most recent `actor_config` push, if any. */
@@ -252,7 +309,7 @@ export class ActorRuntime extends EventEmitter {
    * particular resource.
    */
   hasCapability(capability: string): boolean {
-    return this.capabilities.includes(capability);
+    return this.capabilitiesSnapshot().includes(capability);
   }
 
   /**
@@ -283,34 +340,29 @@ export class ActorRuntime extends EventEmitter {
    * must not silently widen what this Actor may do.
    */
   async checkPermission(action: RequestedAction): Promise<PermissionDecision> {
-    if (!this.isStatusFresh()) {
+    if (!this.allStatusesFresh()) {
+      const checkedBefore = new Map(
+        [...this.certificates.entries()].map(([certId, cert]) => [certId, cert.lastCheckedAt] as const)
+      );
       const refreshed = await this.refreshCertStatus();
       if (refreshed) {
-        // A just-verified response is by definition current, so decide on it directly rather than
-        // going through `activeCerts`, whose staleness gate would reject a 0-second bound
-        // immediately after the very check that satisfied it.
-        if (this.lastStatus !== "active" || !this.certId || this.capabilities.length === 0) {
-          return { allowed: false, reason: `No active certificate grants '${action.capability}'` };
-        }
-        return resolvePermission(
-          action,
-          [
-            {
-              id: this.certId,
-              agentDid: this.getDid() ?? "",
-              capabilities: this.capabilities as AgentCapability[],
-              resourceLimits: null,
-              scope: null,
-              status: "active",
-              issuedAt: 0,
-              expiresAt: null,
-            },
-          ],
-          Date.now()
-        );
+        // A just-verified response is current, so decide on it directly rather than going through
+        // `activeCerts`, whose staleness gate rejects a 0-second bound immediately after the live
+        // check that satisfied it.
+        return resolvePermission(action, this.activeCerts({ checkedAfter: checkedBefore }), Date.now());
       }
     }
     return this.resolvePermission(action);
+  }
+
+  /** Main permission API: refresh if needed, then answer whether the action is allowed. */
+  async can(capability: AgentCapability, resource?: string): Promise<boolean> {
+    return (await this.checkPermission({ capability, resource })).allowed;
+  }
+
+  /** Synchronous cached check for UI hints and logs. Use {@link can} before doing real work. */
+  allows(capability: AgentCapability, resource?: string): boolean {
+    return this.resolvePermission({ capability, resource }).allowed;
   }
 
   /**
@@ -359,7 +411,7 @@ export class ActorRuntime extends EventEmitter {
    * open the admin console to find out.
    */
   missingCapabilities(): DeclaredCapability[] {
-    const held = new Set(this.capabilities);
+    const held = new Set(this.capabilityNames);
     return this.manifest.declares.filter((d) => !held.has(d.name));
   }
 
@@ -487,6 +539,12 @@ export class ActorRuntime extends EventEmitter {
       case "cert_failed":
         this.emit("error", new Error(`Certificate issuance failed: ${(message.payload as CertFailedPayload).reason}`));
         break;
+      case "capabilities_changed":
+        await this.onCapabilitiesChanged(message.payload as CapabilitiesChangedPayload);
+        break;
+      case "capability_registry_changed":
+        this.onCapabilityRegistryChanged(message.payload as CapabilityRegistryChangedPayload);
+        break;
       case "actor_config":
         this.actorConfig = message.payload as ActorConfigPayload;
         // The trust block is what drives the refresh cadence, so a pushed config has to re-arm the
@@ -561,7 +619,7 @@ export class ActorRuntime extends EventEmitter {
     // the reconnect is the first moment that is observable. Deferred a tick because the server
     // identity only becomes available once the trailing `auth_challenge` round completes our own
     // challenger (see the note above).
-    if (this.certId) {
+    if (this.certificates.size > 0) {
       setTimeout(() => void this.refreshCertStatus(), 0);
     }
     this.scheduleStatusChecks();
@@ -603,25 +661,33 @@ export class ActorRuntime extends EventEmitter {
   }
 
   private onCertIssued(payload: CertIssuedPayload): void {
-    this.certId = payload.certId;
-    this.certificate = payload.certificate;
-    // Read from the plain field, never from certificate metadata — see the note
-    // on CertIssuedPayload for why the metadata path is unusable.
-    this.capabilities = payload.capabilities ?? [];
+    const before = this.capabilityNames;
+    this.certificates.set(payload.certId, {
+      certId: payload.certId,
+      certificate: payload.certificate,
+      // Read from the plain field, never from certificate metadata — see the note
+      // on CertIssuedPayload for why the metadata path is unusable.
+      capabilities: payload.capabilities ?? [],
+      resourceLimits: null,
+      scope: null,
+      status: "active",
+      lastCheckedAt: Date.now(),
+      issuedAt: Date.now(),
+      expiresAt: null,
+    });
+    this.syncCertificateSnapshot();
     this.certHandshake = null;
     this.certSessionId = null;
-
-    // Freshly issued: the control plane just told us what this certificate carries, which is
-    // exactly what a status check would report. Treating issuance as a verified check is what stops
-    // a `failClosed` client from denying everything for one refresh interval after being granted.
-    this.lastStatus = "active";
-    this.lastCheckedAt = Date.now();
 
     // Failing to persist is worth surfacing but must not drop the grant we are
     // holding in memory right now — `persistCapabilityState` emits rather than throws.
     this.persistCapabilityState();
 
     this.emit("certificate", payload);
+    if (this.capabilitySetChanged(before, this.capabilityNames)) {
+      this.emit("capabilities", this.capabilityNames);
+      this.emitCapabilityChange(before, "certificate_issued", [payload.certId]);
+    }
     this.scheduleStatusChecks();
   }
 
@@ -635,12 +701,31 @@ export class ActorRuntime extends EventEmitter {
    * while deciding) and `auth_complete` (so a known Actor holding nothing is not
    * silently stuck).
    */
-  private maybeRequestCapabilities(): void {
+  private maybeRequestCapabilities(options: { force?: boolean } = {}): void {
     const wanted = this.cfg.requestedCapabilities ?? [];
-    if (this.requestedThisConnection || wanted.length === 0 || this.capabilities.length > 0) return;
+    const held = new Set(this.capabilityNames);
+    const missing = wanted.filter((capability) => !held.has(capability));
+    if ((!options.force && this.requestedThisConnection) || missing.length === 0) return;
     this.requestedThisConnection = true;
-    this.sendRaw("capability_request", { requestedCapabilities: wanted });
-    this.log.info?.(`sdk: requested capabilities — none granted yet: ${wanted.join(", ")}`);
+    this.sendRaw("capability_request", { requestedCapabilities: missing });
+    this.log.info?.(`sdk: requested capabilities — missing grants: ${missing.join(", ")}`);
+  }
+
+  private async onCapabilitiesChanged(payload: CapabilitiesChangedPayload): Promise<void> {
+    const before = this.capabilityNames;
+    this.nextCapabilityChangeReason = payload.reason;
+    await this.refreshCertStatus();
+    this.nextCapabilityChangeReason = null;
+    if (!this.capabilitySetChanged(before, this.capabilityNames)) {
+      this.emitCapabilityChange(before, payload.reason, payload.certIds, { emitIfUnchanged: true });
+    }
+    this.maybeRequestCapabilities({ force: true });
+  }
+
+  private onCapabilityRegistryChanged(payload: CapabilityRegistryChangedPayload): void {
+    const before = this.capabilityNames;
+    this.emitCapabilityChange(before, payload.reason, undefined, { emitIfUnchanged: true });
+    this.maybeRequestCapabilities({ force: true });
   }
 
   /**
@@ -656,24 +741,30 @@ export class ActorRuntime extends EventEmitter {
    * documented meaning of fail-open, and the org setting is where that choice
    * belongs. Whether a *custom* capability is still registered is decided by the
    * control plane before it signs a response, so a name deleted from the registry
-   * simply stops appearing in `this.capabilities` after the next refresh.
+   * simply stops appearing in `this.capabilityNames` after the next refresh.
    */
-  private activeCerts(): CapabilityCertificateLite[] {
-    if (!this.certId || this.capabilities.length === 0) return [];
-    if (this.lastStatus !== null && this.lastStatus !== "active") return [];
-    if (!this.isStatusFresh() && this.failClosed()) return [];
-    return [
-      {
-        id: this.certId,
+  private activeCerts(options: { checkedAfter?: ReadonlyMap<string, number | null> } = {}): CapabilityCertificateLite[] {
+    const out: CapabilityCertificateLite[] = [];
+    for (const cert of this.certificates.values()) {
+      if (cert.capabilities.length === 0) continue;
+      if (cert.status !== null && cert.status !== "active") continue;
+      if (options.checkedAfter) {
+        if (cert.lastCheckedAt === options.checkedAfter.get(cert.certId)) continue;
+      } else if (!this.isCertStatusFresh(cert) && this.failClosed()) {
+        continue;
+      }
+      out.push({
+        id: cert.certId,
         agentDid: this.getDid() ?? "",
-        capabilities: this.capabilities as AgentCapability[],
-        resourceLimits: null,
-        scope: null,
+        capabilities: cert.capabilities as AgentCapability[],
+        resourceLimits: cert.resourceLimits,
+        scope: cert.scope,
         status: "active",
-        issuedAt: 0,
-        expiresAt: null,
-      },
-    ];
+        issuedAt: cert.issuedAt,
+        expiresAt: cert.expiresAt,
+      });
+    }
+    return out;
   }
 
   /** The org's fail mode, from the last `actor_config`. Absent config means fail closed. */
@@ -698,11 +789,24 @@ export class ActorRuntime extends EventEmitter {
 
   /** Whether the last verified status is recent enough to act on without re-querying. */
   private isStatusFresh(now: number = Date.now()): boolean {
+    const cert = this.currentCertificate();
+    return cert ? this.isCertStatusFresh(cert, now) : false;
+  }
+
+  private allStatusesFresh(now: number = Date.now()): boolean {
+    if (this.certificates.size === 0) return false;
+    for (const cert of this.certificates.values()) {
+      if (!this.isCertStatusFresh(cert, now)) return false;
+    }
+    return true;
+  }
+
+  private isCertStatusFresh(cert: HeldCertificate, now: number = Date.now()): boolean {
     const maxAge = this.maxStatusAgeMs();
     if (maxAge === null) return true; // unbounded: whatever we hold counts as fresh
-    if (this.lastCheckedAt === null) return false; // never checked
+    if (cert.lastCheckedAt === null) return false; // never checked
     if (maxAge === 0) return false; // no cached status is ever acceptable
-    return now - this.lastCheckedAt <= maxAge;
+    return now - cert.lastCheckedAt <= maxAge;
   }
 
   /**
@@ -718,7 +822,16 @@ export class ActorRuntime extends EventEmitter {
    * a failed check never throws, and never silently upgrades a stale staple.
    */
   async refreshCertStatus(): Promise<boolean> {
-    if (!this.certId || !this.vaultysId) return false;
+    if (this.certificates.size === 0 || !this.vaultysId) return false;
+    let refreshedAny = false;
+    for (const certId of this.certificates.keys()) {
+      if (await this.refreshOneCertStatus(certId)) refreshedAny = true;
+    }
+    return refreshedAny;
+  }
+
+  private async refreshOneCertStatus(certId: string): Promise<boolean> {
+    if (!this.vaultysId) return false;
     const serverVid = this.serverVid();
     if (!serverVid) {
       this.log.debug?.("sdk: cannot check certificate status — server identity not established yet");
@@ -730,7 +843,7 @@ export class ActorRuntime extends EventEmitter {
     let token: string;
     try {
       token = await signCertStatusRequestCert(this.vaultysId, {
-        certId: this.certId,
+        certId,
         requesterDid: this.getDid() ?? "",
         nonce,
       });
@@ -814,28 +927,33 @@ export class ActorRuntime extends EventEmitter {
 
   /** Record a verified status response: status, timestamp, and the capabilities it reports. */
   private applyCertStatus(body: CertStatusResponseBody): void {
-    if (body.certId !== this.certId) {
+    const cert = this.certificates.get(body.certId);
+    if (!cert) {
       this.log.debug?.(`sdk: ignoring status for another certificate (${body.certId})`);
       return;
     }
 
-    this.lastStatus = body.status;
-    this.lastCheckedAt = body.checkedAt;
-
-    const before = this.capabilities;
+    const before = this.capabilityNames;
     const after = body.capabilities as string[];
-    const changed =
-      before.length !== after.length || before.some((c, i) => c !== after[i]);
-    this.capabilities = after;
+    cert.status = body.status;
+    cert.lastCheckedAt = body.checkedAt;
+    cert.capabilities = after;
+    cert.resourceLimits = body.resourceLimits;
+    cert.scope = body.scope;
+    cert.expiresAt = body.expiresAt;
+    this.syncCertificateSnapshot();
+
+    const changed = this.capabilitySetChanged(before, this.capabilityNames);
 
     this.persistCapabilityState();
 
     if (changed) {
-      const lost = before.filter((c) => !after.includes(c));
+      const lost = before.filter((c) => !this.capabilityNames.includes(c));
       if (lost.length > 0) {
         this.log.warn?.(`sdk: capabilities withdrawn by the control plane: ${lost.join(", ")}`);
       }
-      this.emit("capabilities", this.capabilities);
+      this.emit("capabilities", this.capabilityNames);
+      this.emitCapabilityChange(before, this.nextCapabilityChangeReason ?? "status_refresh", [body.certId]);
     }
     if (body.status !== "active") {
       this.log.warn?.(`sdk: certificate ${body.certId} is ${body.status} — it no longer authorizes anything`);
@@ -861,18 +979,78 @@ export class ActorRuntime extends EventEmitter {
   }
 
   private persistCapabilityState(): void {
-    if (!this.certId || !this.certificate) return;
+    if (this.certificates.size === 0) return;
     try {
+      const current = this.currentCertificate();
       saveCapabilityState(this.cfg.capabilityStatePath, {
-        certId: this.certId,
-        certificate: this.certificate,
-        capabilities: this.capabilities,
-        lastStatus: this.lastStatus ?? undefined,
-        lastCheckedAt: this.lastCheckedAt ?? undefined,
+        certificates: [...this.certificates.values()].map((cert) => ({
+          certId: cert.certId,
+          certificate: cert.certificate,
+          capabilities: cert.capabilities,
+          resourceLimits: cert.resourceLimits,
+          scope: cert.scope,
+          lastStatus: cert.status ?? undefined,
+          lastCheckedAt: cert.lastCheckedAt ?? undefined,
+          issuedAt: cert.issuedAt,
+          expiresAt: cert.expiresAt,
+        })),
       });
+      this.certId = current?.certId ?? null;
+      this.certificate = current?.certificate ?? null;
     } catch (err) {
       this.emit("error", new Error(`Could not persist capability state: ${String(err)}`));
     }
+  }
+
+  private syncCertificateSnapshot(): void {
+    const current = this.currentCertificate();
+    this.certId = current?.certId ?? null;
+    this.certificate = current?.certificate ?? null;
+    this.lastStatus = current?.status ?? null;
+    this.lastCheckedAt = current?.lastCheckedAt ?? null;
+
+    const seen = new Set<string>();
+    const next: string[] = [];
+    for (const cert of this.certificates.values()) {
+      if (cert.status !== null && cert.status !== "active") continue;
+      for (const capability of cert.capabilities) {
+        if (seen.has(capability)) continue;
+        seen.add(capability);
+        next.push(capability);
+      }
+    }
+    this.capabilityNames = next;
+  }
+
+  private emitCapabilityChange(
+    before: readonly string[],
+    reason: CapabilityChange["reason"],
+    certIds?: readonly string[],
+    options: { emitIfUnchanged?: boolean } = {}
+  ): void {
+    const current = [...this.capabilitiesSnapshot()];
+    const added = current.filter((capability) => !before.includes(capability));
+    const removed = before.filter((capability) => !current.includes(capability));
+    if (added.length === 0 && removed.length === 0 && !options.emitIfUnchanged) return;
+    this.emit("capabilityChange", {
+      current,
+      added,
+      removed,
+      reason,
+      ...(certIds && certIds.length > 0 ? { certIds } : {}),
+    });
+  }
+
+  private capabilitySetChanged(before: readonly string[], after: readonly string[]): boolean {
+    return before.length !== after.length || before.some((capability, i) => capability !== after[i]);
+  }
+
+  private currentCertificate(): HeldCertificate | null {
+    let current: HeldCertificate | null = null;
+    for (const cert of this.certificates.values()) {
+      if (!current || cert.issuedAt >= current.issuedAt) current = cert;
+    }
+    return current;
   }
 
   /** (Re)arm the periodic status refresh from the current `trust.maxStatusAgeSeconds`. */

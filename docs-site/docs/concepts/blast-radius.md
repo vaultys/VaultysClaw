@@ -134,11 +134,57 @@ being a loud, explicit operator decision, because it is precisely an
 adversary-in-the-middle signature and should never happen quietly.
 :::
 
+## 4. Tool calls — the harness supervisor
+
+The newest surface, and the only one that governs an agent's actions on the *host*
+rather than its reach off it. `vaultysclaw-sensor` in its **supervise** role
+launches a coding harness and decides every tool call locally, from a signed grant
+and a signed rule set, with no control-plane round trip.
+
+Where the interception point asks *"may this reach that host"*, this asks *"may
+this read that path, run that command"* — the same certificates and the same
+`resolvePermission`, over resource URIs instead of network destinations.
+
+### Two settings decide whether it contains anything
+
+| `mode` | |
+|---|---|
+| `observe` | Decides and records every call, refuses **nothing**. The default, and the right one at first: the resource strings this produces end up inside signed certificates, so they are learned from real traffic before being frozen. `vaultysclaw-sensor report` is how you read them back. |
+| `explicit` | Refuses anything no certificate covers. |
+
+| `sandbox` | |
+|---|---|
+| `off` / `auto` / `require` | Whether tier-B OS confinement is established. `require` **refuses to launch** where it cannot be, rather than continuing in advisory mode. |
+
+:::caution Without OS confinement, `explicit` is advisory
+The decision runs in a hook. A subprocess, or an edited harness configuration,
+goes around it. That makes `explicit` a real control against a cooperating harness
+and no control at all against a determined one — the same asymmetry that justifies
+the interception point, one layer in.
+
+`sandbox: require` is what converts it into kernel-enforced containment, and
+`vaultysclaw-sensor sandbox-check` proves it is actually in force rather than
+assumed.
+:::
+
+:::caution macOS only, today
+The confinement backend is a generated seatbelt profile applied with
+`sandbox-exec`. Linux (user namespaces, Landlock, seccomp) and Windows
+(restricted token / AppContainer) are designed and **not built** — and an unbuilt
+platform reports an error the launcher surfaces, never a silent pass that leaves
+an operator believing they are confined.
+
+`sandbox-exec` is itself deprecated by Apple, while remaining the only way to
+apply a profile to an arbitrary child process from userland.
+:::
+
 ## What is not provided
 
 **Container or hypervisor isolation per agent.** VaultysClaw bounds authority and
-network reach. It does not sandbox the process. If your threat model requires that
-a compromised agent cannot read the host filesystem at all, that is a deployment
-control — run it in a container — and VaultysClaw does not substitute for it.
+network reach, and — for a supervised harness on macOS, with `sandbox: require` —
+confines that one process at the kernel. It does not otherwise sandbox agents. If
+your threat model requires that any compromised agent cannot read the host
+filesystem at all, that is a deployment control — run it in a container — and
+VaultysClaw does not substitute for it.
 
 See the [matrix, domain 3](/docs/zero-trust/matrix#3-resource-boundaries--blast-radius).

@@ -397,6 +397,26 @@ This is also where §4.2 of the proxy doc applies double: launching someone else
 sandbox you control, with a hook reading every tool call, looks exactly like malware. Loud,
 consented, visible.
 
+### A profile that denies the harness itself is a refusal, not a launch
+
+A deny wide enough to cover the harness binary makes the launch impossible, and the way it surfaces
+unaided is `sandbox-exec: execvp() of '…/claude' failed: Operation not permitted` plus an exit code
+— naming neither the deny list nor the rule behind it, while the supervisor's own preceding log line
+correctly reports that confinement is in force. So the supervisor checks before launching and
+refuses with the offending entry named.
+
+`deny file:///Users/someone/*` is the way in. It reads as "keep the agent out of that home
+directory" and is also, to the kernel, a deny on `~/.local/bin/claude`, the harness's state
+directory and its caches. The profile is deliberately **not** adjusted to let the exec through:
+carving the harness path out of an admin's signed deny would enforce something nobody authored, and
+the operator would never learn their rule means more than they think.
+
+The check tests the exec path in three forms — as written, with its directory resolved but the final
+component left alone, and fully resolved. A harness is normally launched through a symlink
+(`~/.local/bin/claude` → `~/.local/share/claude/versions/…`), so resolving first and checking only
+the result reports such a launch as fine and then leaves the kernel to refuse it. The middle form is
+the load-bearing one: `exec` traverses the directory the link sits in whatever the leaf points at.
+
 ## 7. Anti-tamper, and the advisory caveat
 
 Three requirements, all cheap, all in phase 0:
@@ -526,6 +546,25 @@ process at exec time and a running process cannot be re-confined. A file deny ru
 at the tool boundary immediately while its sandbox half waits — which is why the supervisor names
 that case specifically instead of saying "settings changed, restart". Telling an operator to restart
 for a change that already applied is how they learn to ignore the line that matters.
+
+#### A launch waits for the first push
+
+That "the next launch" row makes the launch itself load-bearing, which is why `supervise` waits for
+the control plane's first `actor_config` before it compiles the profile and starts the harness
+(`startupSyncTimeoutMs`, default 3000, 0 to disable).
+
+Without the wait, the profile is compiled from whatever rule set is on disk and the push that lands
+milliseconds later updates tier A only — so a session runs kernel-confined by the *previous* policy
+while the console shows the current one. That failure is close to undiagnosable from the inside: a
+seatbelt denial reaches the agent as a bare `EPERM` with no reason string, so a rule an admin deleted
+yesterday looks exactly like a path the sensor refuses by construction. The startup log now prints
+the compiled `denyAll`/`denyWrite` lists for the same reason — it is the only place a kernel refusal
+can be attributed to the rule or floor entry that caused it.
+
+The wait is bounded and non-fatal in every direction: an unreachable control plane, or an Actor with
+no certificate yet, receives no push at all and must still launch on the artefacts it already
+verified against the pinned anchor. A timeout says what it costs — tier A current, tier B possibly
+one policy behind until the next launch — rather than warning generically.
 
 ## 13. Where rights live
 

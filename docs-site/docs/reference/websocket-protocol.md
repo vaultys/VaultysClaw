@@ -49,7 +49,7 @@ interface ProtocolMessage {
 interface RegisterPayload {
   name: string;      // display label shown in the admin console
   version?: string;
-  kind: string;      // open-ended: "openclaw" | "mcp" | "sensor" | "proxy" | "device" | …
+  kind: string;      // open-ended: "openclaw" | "mcp" | "sensor" | "proxy" | "harness" | "device" | …
 }
 ```
 

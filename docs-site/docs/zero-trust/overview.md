@@ -45,7 +45,7 @@ request, assume breach*. VaultysClaw's interpretation of each, for agents:
 
 ### Authenticate every party, not every message
 
-Every Actor — agent, sensor, proxy, device, human — proves possession of a
+Every Actor — agent, sensor, proxy, harness, device, human — proves possession of a
 VaultysId private key through an SRP-style `Challenger` handshake at connection
 time. There are no bearer tokens for agents, no shared secrets, and no long-lived
 API keys that work for whoever holds them. The public key observed during that

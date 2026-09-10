@@ -146,15 +146,20 @@ answer "is anything actually consuming this queue".
 
 ### `vaultysclaw-sensor` (Go)
 
-Two roles from one binary:
+Three roles from one binary, each opt-in — enabling one is always a deliberate
+act, never a consequence of upgrading:
 
 - **Observe** — polls process and socket state, classifies AI and agent workloads
-  from data-driven rules, and reports graded telemetry with confidence scores and
-  reasons. Registers as `sensor`. Gated entirely on `process_read`.
+  from a data-driven rule catalog, and reports graded telemetry with confidence
+  scores and reasons. Registers as `sensor`. Gated entirely on `process_read`.
 - **Intercept** — a CONNECT proxy that refuses traffic its signed rule set and
   certificate do not authorise. Registers as `proxy`. Decides offline from
   periodically-refreshed artefacts, with a durable audit spool that emits gap
   markers rather than silently dropping records when it overflows.
+- **Supervise** — launches a coding harness and decides every tool call locally
+  from a signed grant and rule set. Registers as `harness`. Governs **resource
+  URIs** where the proxy governs network destinations, which is why the two carry
+  different halves of one signed rule-set format rather than two formats.
 
 It contains a **Go port of `resolvePermission`**. Both implementations run the
 same committed conformance vectors, and a divergence between them is a release

@@ -30,7 +30,29 @@ description: Processes, environment variables, network posture, and what to back
 | `REDIS_URL` | — | BullMQ queue. Unset ⇒ webhooks and channels no-op. |
 | `APPRISE_API_URL` | — | Apprise base URL. Unset ⇒ notification channels off. |
 | `NEXT_PUBLIC_WALLET_URL` | — | Wallet app URL used to build the QR deep link |
+| `DATABASE_POOL_MAX` | — | Prisma/pg pool ceiling, default 40. A non-integer or `< 1` is a **startup error**, not a silent fallback. |
+| `NEXT_PUBLIC_MAP_TILE_URL` | — | Self-hosted tile template for the map. Add its origin to the `img-src` allow-list too. Never embed an API key — proxy it server-side. |
+| `NEXT_PUBLIC_ALLOW_DEV_LOGIN` | — | See the warning below. Leave unset in production. |
 | `LITELLM_BASE_URL` / `LITELLM_MASTER_KEY` | — | Deployment-time **fallback** only — settings edited in the console win |
+
+:::danger `NEXT_PUBLIC_ALLOW_DEV_LOGIN=1` opens the bootstrap path
+It re-enables browser-minted identities. With no human Actor yet, that path hands
+a caller a registration certificate and grants the **first** human
+`admin_console_access` — whoever finds the endpoint first becomes the
+administrator. A software identity minted in a visitor's own browser is not
+evidence of anything.
+
+It exists for the fleet-simulator demo stack, which runs a production build with
+no wallet and no admin. It is `NEXT_PUBLIC_` deliberately: the client half is
+inlined at build time, so a build made without it cannot offer the path and
+turning it on later needs a rebuild — it is not something an environment variable
+can switch on against a shipped image by accident.
+
+Redeeming an **invitation** with a fresh browser identity is ungated and stays
+that way: those routes require an unguessable single-use token that an admin or a
+verified SSO login issued, which is exactly the authorization the bootstrap route
+lacks.
+:::
 
 ### Dispatcher
 

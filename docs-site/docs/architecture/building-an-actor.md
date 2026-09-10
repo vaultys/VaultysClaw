@@ -98,11 +98,11 @@ hold, the way the Go sensor gates its entire poll cycle on `process_read` and
 reads nothing at all until the certificate arrives:
 
 ```
-requested: ["internet_access", "file_access"]
-approved:  ["file_access"]
+requested: ["internet_access", "file_read"]
+approved:  ["file_read"]
 
 hasCapability("internet_access")  → false
-hasCapability("file_access")      → true
+hasCapability("file_read")        → true
 ```
 
 Neither SDK defaults `requestedCapabilities`. An SDK that silently asked for
@@ -113,7 +113,7 @@ particular resource, use the full decision rather than the coarse check:
 
 ```ts
 const { allowed, grantingCertId } = actor.resolvePermission({
-  capability: "file_access",
+  capability: "file_read",
   resource: "file:///reports/q3.pdf",
 });
 ```

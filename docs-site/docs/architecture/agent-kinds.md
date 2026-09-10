@@ -10,6 +10,12 @@ A **kind** is a deploy-time concept: adding one means adding a configuration
 schema and an admin panel component, not a database table, not a registration
 flow, and not a permission model.
 
+Three of the kinds below — `sensor`, `proxy` and `harness` — are the *same Go
+binary* in different roles, and which role it runs decides how it registers.
+Observe-only registers as `sensor`; turning on interception makes it a `proxy`;
+supervising a coding harness makes it a `harness`. Enabling a role is always a
+deliberate act, never a consequence of upgrading.
+
 Everything below shares, unconditionally: one registration handshake, one approval
 flow, the same certificate ledger, the same status-check protocol, and the same
 audit trail.
@@ -99,9 +105,9 @@ The same Go binary with interception active. This is the only kind that
 | | |
 |---|---|
 | **Implementation** | `vaultysclaw-sensor` (Go), intercept role |
-| **`kindConfig`** | Mode, listen address, signed rule set, `maxStatusAgeSeconds` |
+| **`kindConfig`** | `mode`, `listenAddr`, `rules` (the signed rule set), `maxStatusAgeSeconds` |
 | **Capabilities** | Standard agent list |
-| **Admin panel** | **Not built** — a proxy's config must currently be written directly to the Actor record |
+| **Admin panel adds** | Mode and freshness settings, the rule list with add/delete, and whether a change has actually reached the point or is waiting for a reconnect |
 
 Full treatment in [Blast radius](/docs/concepts/blast-radius#3-network--the-interception-point).
 
@@ -111,6 +117,54 @@ posture. The stored config copy is left **unsigned** on purpose: a stored
 signature would need regenerating on every edit, and a stale signature is
 indistinguishable from a tampered one. The signature that makes rules enforceable
 is produced at push time.
+
+## `harness` — supervised coding harness
+
+The same Go binary again, in its third role: **supervise**. It launches a coding
+harness — Claude Code today — and decides *every tool call* locally from a signed
+grant and a signed rule set, with no control-plane round trip.
+
+| | |
+|---|---|
+| **Implementation** | `vaultysclaw-sensor` (Go), supervise role |
+| **`kindConfig`** | `mode`, `sandbox`, `resourceRules`, `maxStatusAgeSeconds` |
+| **Capabilities** | Standard agent list |
+| **Admin panel adds** | Mode and confinement settings, the resource-rule list, and delivery state |
+
+Deliberately shaped as the proxy's sibling: same unsigned-in-the-database storage,
+same sign-at-push-time rule set, same `maxStatusAgeSeconds` semantics. The two
+differ in exactly one thing — **a proxy governs network destinations, a harness
+governs resource URIs** — which is why they carry different halves of one signed
+rule-set format rather than two formats.
+
+### Two settings decide whether anything is actually enforced
+
+| `mode` | Behaviour |
+|---|---|
+| `observe` | Every tool call is decided and recorded. **Nothing is refused.** The default, and it should stay the default on a new deployment: the resource strings this role produces end up inside signed certificates, so they are learned from real traffic before being frozen. |
+| `explicit` | Anything no certificate covers is refused. |
+
+| `sandbox` | Behaviour |
+|---|---|
+| `off` | Never attempts OS confinement. |
+| `auto` | Confines where it can, warns loudly where it cannot. |
+| `require` | **Refuses to launch** where confinement cannot be established, rather than continuing in advisory mode. The setting for an operator who actually depends on it. |
+
+Without OS confinement, even `explicit` is **advisory** — a subprocess, or an
+edited harness config, bypasses the hook. The admin panel says so on the page,
+because both halves of that sentence produce a deployment that looks governed and
+is not.
+
+`vaultysclaw-sensor sandbox-check` proves confinement is really in force for a
+given floor, and `vaultysclaw-sensor report` shows what supervised sessions did
+and the scope they would need — which is how an `observe` deployment learns the
+rules before switching to `explicit`.
+
+### This one usually runs on a person's laptop
+
+Unlike a proxy in a rack, a harness supervisor sits on someone's machine, and a
+rule written here can stop them working. That is a governance property, not a
+detail: the blast radius of a bad rule is a developer who cannot run their tools.
 
 ## `device` — browser, computer, or server
 

@@ -81,3 +81,4 @@ packages/control-plane/tsconfig.tsbuildinfo
 # regenerated on demand and meaningless outside the machine that made them.
 .simdata/
 **/.simdata/
+__tests__/temp/

@@ -22,7 +22,7 @@ integration. VaultysClaw renders a title and body and hands it over. →
 issued automatically when no admin exists. No expiry, system-issued, and
 deliberately loud in the console. → [Bootstrap](/docs/guides/bootstrap)
 
-**Capability** — The verb in a grant: `file_access`, `admin_console_access`,
+**Capability** — The verb in a grant: `file_read`, `admin_console_access`,
 `process_read`. One enum covers agent permissions and interface access alike. →
 [Capabilities](/docs/concepts/capabilities)
 
@@ -54,7 +54,7 @@ the runtime, refusing traffic their certificates do not authorise. Registers as
 kind `proxy`. → [Blast radius](/docs/concepts/blast-radius)
 
 **Kind** — What sort of Actor something is: `openclaw`, `mcp`, `sensor`, `proxy`,
-`device`, `human`. An open-ended string, a deploy-time concept. →
+`harness`, `device`, `human`. An open-ended string, a deploy-time concept. →
 [Agent kinds](/docs/architecture/agent-kinds)
 
 **`kindConfig`** — Kind-specific configuration in one JSON column, rather than

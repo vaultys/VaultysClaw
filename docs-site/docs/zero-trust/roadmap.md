@@ -15,7 +15,7 @@ than by how easy it is to close.
 ### 1. Output filtering — domain 7, zero at every tier
 
 Nothing inspects what an agent returns. Capability gating limits what an agent can
-reach, which reduces exposure, but an agent that legitimately holds `file_access`
+reach, which reduces exposure, but an agent that legitimately holds `file_read`
 to a directory containing credentials will return those credentials without
 comment.
 

@@ -30,7 +30,7 @@ rows. Where the two disagree, this page wins.
 | 5 | [Behavioural monitoring & response](#5-behavioural-monitoring--response) | 🟡 Partial | ⬜ Absent | ⬜ Absent |
 | 6 | [Input validation](#6-input-validation) | 🟡 Partial | ⬜ Absent | ⬜ Absent |
 | 7 | [Output filtering & leak prevention](#7-output-filtering--leak-prevention) | ⬜ Absent | ⬜ Absent | ⬜ Absent |
-| 8 | [Tool access & security](#8-tool-access--security) | ✅ Built | 🟡 Partial | ⬜ Absent |
+| 8 | [Tool access & security](#8-tool-access--security) | ✅ Built | 🟡 Partial | 🟡 Partial |
 | 9 | [Credential protection](#9-credential-protection) | ✅ Built | 🟡 Partial | ⬜ Absent |
 | 10 | [Integrity & recovery](#10-integrity--recovery) | ✅ Built | 🟡 Partial | ⬜ Absent |
 | 11 | [Agent memory protection](#11-agent-memory-protection) | ↩ Inherited | ↩ Inherited | ⬜ Absent |
@@ -149,7 +149,8 @@ chain's parent.
 | Control | Status | Notes |
 |---|---|---|
 | **Network egress enforcement** | ✅ Built | The `proxy` Actor kind is an interception point that refuses agent traffic its signed rule set and certificate do not authorise. Its rules are signed by the control plane at push time, and it enforces a `trust.failClosed` posture derived from the org trust policy. |
-| Container-based isolation per agent | ⬜ Absent | Deployment-time concern, not provided |
+| **Tool-call enforcement on the host** | 🟡 Partial | The `harness` Actor kind decides every tool call from a signed grant and rule set, over resource URIs rather than network destinations. Ships **observe-only** by default — it records and refuses nothing — and `explicit` mode is advisory unless OS confinement is established. |
+| Container-based isolation per agent | 🟡 Partial | Not provided for agents generally — a deployment-time concern. A **supervised harness** is the exception: `sandbox: require` establishes kernel-enforced confinement and refuses to launch without it. **macOS only** (a seatbelt profile via the deprecated `sandbox-exec`); Linux and Windows backends are designed and not built, and report an error rather than a silent pass. |
 | Documented blast-radius analysis per Actor | 🟡 Partial | The certificate ledger makes "what can this Actor reach" mechanically answerable, but no report renders it |
 | Per-workspace trust policy overrides | ⬜ Absent | `trust.failMode` and `trust.stapleTtlSeconds` are org-wide only; the per-workspace override columns are designed but not in the schema |
 
@@ -160,9 +161,18 @@ proxy settings route *all* traffic through it — is not implemented, and the ag
 refuses to start in that mode rather than half-supporting it.
 :::
 
+:::caution A supervisor's default posture refuses nothing
+`mode: observe` is the default and decides, records, and permits everything. That
+is deliberate — the resource strings it produces end up inside signed
+certificates, so they are learned before being frozen — but a deployment left
+there is instrumented, not governed. `vaultysclaw-sensor report` is how you get
+from one to the other.
+:::
+
 ### Advanced — ⬜ Absent
 
-Hardware/hypervisor isolation per sensitive agent: not provided.
+Hardware/hypervisor isolation per sensitive agent: not provided. The harness
+supervisor's confinement is an OS sandbox, not a hypervisor boundary.
 
 ---
 
@@ -302,9 +312,14 @@ binary rather than a mock.
 | Rate limiting on tool calls | ⬜ Absent | No per-Actor call budget or time-window limit |
 | Tool-usage monitoring & alerts | ⬜ Absent | See domain 5 |
 
-### Advanced — ⬜ Absent
+### Advanced — 🟡 Partial
 
-Per-tool sandboxing and hardware isolation: not provided by the control plane.
+Per-tool sandboxing arrived with the [harness supervisor](/docs/concepts/blast-radius#4-tool-calls--the-harness-supervisor):
+tool calls are decided against the ledger on the host, and `sandbox: require`
+backs that with OS confinement. Read the tier honestly, though — it is macOS-only,
+opt-in, and observe-only by default.
+
+Hardware isolation: not provided by the control plane.
 
 ---
 

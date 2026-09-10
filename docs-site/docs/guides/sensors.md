@@ -10,12 +10,16 @@ Your certificate ledger tells you what AI you have **sanctioned**. A sensor tell
 you what is actually **running**. The gap between those two lists is shadow AI,
 and finding it is the sensor's whole purpose.
 
+One binary, three roles, each opt-in: **observe** (this page), **intercept** —
+refusing network traffic — and **supervise** — governing a coding harness's tool
+calls. Observe is what you get by default; the other two are covered at the end.
+
 ## What it does
 
 A Go daemon on a host. It polls process and socket state, correlates by PID, and
-classifies workloads as AI or agent software using **data-driven rules from its
-own configuration** — provider endpoints, local runtimes, MCP servers, agent
-frameworks, browser process names.
+classifies workloads as AI or agent software using **data-driven rules from a
+catalog file** — five of them: provider endpoints, installed AI applications,
+local model runtimes, MCP servers, and agent frameworks.
 
 Telemetry is graded, not binary: a confidence score for "is this AI", another for
 "is this an agent", and the reasons behind each. An operator can see *why*
@@ -73,8 +77,100 @@ framework.
 
 Default config location is `~/.vaultysclaw-sensor/config.yaml`.
 
-Classification rules live in that config as data, not code, so tuning what counts
-as an agent framework or an MCP server does not require rebuilding.
+## Detection rules are a file, including the defaults
+
+What the sensor recognises as AI is data, not code — on both sides:
+
+| | |
+|---|---|
+| **Built-in rules** | `internal/config/default-catalog.yaml`, embedded in the binary. Changing it changes what the project ships. |
+| **Your catalog** | `catalogPath`, default `~/.vaultysclaw-sensor/catalog.yaml`. Merged **additively** over the built-ins. |
+
+Additively is the important word. A file listing one new provider adds one
+provider — it does not discard the rest of the catalog, which is what a plain
+YAML key would do. Reusing a built-in rule's name
+**extends** that rule, so you can add a regional endpoint to `openai` without
+restating its other hosts; `disable:` drops a built-in that misfires in your
+environment without forking the catalog.
+
+```yaml
+# ~/.vaultysclaw-sensor/catalog.yaml — only your additions
+aiApplications:
+  - name: acme_devbot
+    kind: harness
+    processNames: ["devbot"]
+    cmdlineSubstrings: ["@acme/devbot"]
+
+providers:
+  - name: openai                    # extends the built-in rather than replacing it
+    hosts: ["api.eu.openai.com"]
+
+disable:
+  aiApplications: ["xcode"]
+```
+
+Two commands go with it:
+
+```bash
+vaultysclaw-sensor catalog dump    # the effective rule set, ready to edit
+vaultysclaw-sensor catalog check   # validate, and show what your file changed
+```
+
+`check` reports what actually changed rather than only that the file parsed:
+
+```
+providers                38       39   added acme_internal_llm
+aiApplications           31       32   added acme_devbot; disabled xcode
+```
+
+### It reloads without a restart
+
+The catalog is re-read when it changes, checked once per poll cycle. A new coding
+harness ships and is on developers' machines within days; the sensor watching for
+it may be a long-lived daemon on a fleet of laptops nobody wants to restart.
+
+An **invalid** catalog is refused and the running rule set kept, with the reason
+logged. That asymmetry is deliberate: the one failure mode a detection sensor must
+not have is silently detecting less. Nothing latches, so a file caught mid-write
+costs one cycle; deleting the file reverts to the built-ins, which is a legitimate
+way to back out a bad catalog.
+
+Validation also rejects matcher fragments under three characters — a two-character
+substring matches most of the process table, and that flood is far harder to
+diagnose than a startup error naming the rule.
+
+## What "AI usage" and "AI agent" mean here
+
+The application catalog sorts installed software into three kinds, and the
+distinction is the point of the design rather than a detail:
+
+| `kind` | Example | Contributes |
+|---|---|---|
+| `harness` | Claude Code, Codex, Cursor, aider, goose | AI **and** agent confidence — it edits files and runs commands |
+| `assistant` | Kimi, ChatGPT.app, Claude Desktop | AI only — a chat window is usage, not an agent |
+| `ide` | VS Code, Zed, JetBrains | **Nothing on its own.** "VS Code is installed" is not AI usage; it scores only when the same process is also talking to a provider, which is what an inline completion looks like from outside |
+
+A browser sits on the same line as an assistant: a tab open to a model's website
+raises AI confidence and never agent confidence, however long it has been open.
+
+An application is matched by process name, by **executable-path substring** — one
+entry covers a whole app bundle's helper processes — or by command line, for a CLI
+run through `node` or `python`. An app's crash reporters and auto-updaters live
+inside the same bundle and are suppressed: reporting Codex's crashpad handler as
+an agent is noise that buries the process actually talking to a model.
+
+### Provider matching cannot rely on reverse DNS
+
+Worth knowing because it explains a whole class of missed detection. On macOS and
+Windows the OS reports a bare peer IP for every connection, and the major AI APIs
+publish no PTR record — `api.anthropic.com` is an address that, asked for its
+name, returns nothing. Reverse DNS alone therefore matches **no** provider on a
+laptop running several AI tools.
+
+So the sensor also resolves the provider catalog *forward* on a refresh interval
+and inverts it into an address→provider index, rebuilt immediately when the
+catalog reloads. An index hit is weighted **below** a hostname match on purpose:
+CDN address space is shared, so it is good evidence of the provider, not proof.
 
 ## Reading the results
 
@@ -106,5 +202,40 @@ first, particularly:
   starting permissively;
 - `maxStatusAgeSeconds: 0` is the **strictest** setting and denies everything for
   an offline decider; unbounded must be written as a negative;
-- there is **no admin panel** for a proxy's configuration yet — it must be written
-  directly to the Actor record.
+- its configuration **is** editable from the console now — mode, freshness, and
+  the rule list, on the Actor detail page — with the panel showing whether a
+  change has actually reached the point or is waiting for a reconnect.
+
+## Upgrading a sensor to a harness supervisor
+
+The same binary's third role: **supervise**. Instead of watching the host or
+refusing network traffic, it launches a coding harness and decides *every tool
+call* locally, from a signed grant and a signed rule set, with no control-plane
+round trip.
+
+```bash
+vaultysclaw-sensor supervise --config ~/.vaultysclaw-sensor/config.yaml -- claude
+vaultysclaw-sensor report          # what supervised sessions did, and the scope they would need
+vaultysclaw-sensor sandbox-check   # prove OS confinement is really in force
+```
+
+It registers as the [`harness` kind](/docs/architecture/agent-kinds#harness--supervised-coding-harness),
+and like `intercept` it is **off unless asked for** — enabling a role is always a
+deliberate act, never a consequence of upgrading.
+
+Two things decide whether anything is really being enforced, and both are worth
+reading before you rely on it:
+
+- **`mode: observe` refuses nothing.** It decides and records every call. That is
+  the default and should stay the default for a while on a new deployment: the
+  resource strings this role produces end up inside signed certificates, so they
+  are learned from real traffic before being frozen. `report` is how you learn
+  them; `explicit` is what enforces them afterwards.
+- **Without OS confinement, even `explicit` is advisory.** A subprocess or an
+  edited harness config bypasses the hook. `sandbox: require` refuses to launch
+  where confinement cannot be established, rather than continuing in advisory
+  mode — that is the setting for an operator who actually depends on it.
+
+And unlike a proxy in a rack, this one usually runs on **someone's laptop**. A
+rule written here can stop a developer working, which is a governance property
+rather than a footnote.

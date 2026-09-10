@@ -47,6 +47,7 @@ pnpm sensor:start              # the Go sensor against a local collector
 pnpm simulator:up              # database + migrations + build + control plane
 pnpm simulator:demo            # 2,000 estate + 5,000 agent Actors against it
 pnpm simulator stats           # what that control plane currently holds
+pnpm simulator admin --passphrase "…"   # mint an admin human + export its VaultysID for the browser
 pnpm simulator:down            # stop, keeping the data ( :nuke also deletes the volume )
 
 # Build / quality
@@ -174,7 +175,7 @@ Note `stripSensitive` matches the substring `apikey` case-insensitively, so a bo
 | `APPRISE_API_URL` | controlplane, webhook-dispatcher | Self-hosted Apprise API base URL. Unset turns Notification Channels off entirely; webhook delivery is unaffected. |
 | `NEXTAUTH_URL` / `APP_URL` | controlplane | Browser-facing base URL; used to build `adminUrl` deep links (`APP_URL` wins) |
 | `NEXTAUTH_SECRET` | controlplane | NextAuth session secret |
-| `PORT` / `WS_PORT` | controlplane | HTTP + WebSocket ports |
+| `CONTROLPLANE_PORT` / `CONTROLPLANE_WS_PORT` | controlplane | HTTP + WebSocket ports (defaults 3001 / 8081) |
 | `LITELLM_BASE_URL` / `LITELLM_MASTER_KEY` | controlplane | Deployment-time **fallback** for the Model Registry. The `Setting` rows an admin edits under Integrations → Models win, and the master key is stored encrypted there (`lib/vault.ts`). |
 
 ## Design rules

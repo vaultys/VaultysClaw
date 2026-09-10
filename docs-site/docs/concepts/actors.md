@@ -52,17 +52,21 @@ runtime-configurable data.
 | `mcp` | agent | A Model Context Protocol server exposed as an Actor |
 | `sensor` | agent | The Go endpoint daemon in observe-only mode — reports workloads, enforces nothing |
 | `proxy` | agent | The same Go binary with interception active — **refuses traffic**, see [Blast radius](/docs/concepts/blast-radius) |
+| `harness` | agent | A supervised coding harness. Decides every tool call locally against the ledger. |
 | `device` | agent | A browser, computer, or server. Registers exactly like any other kind. |
 
 The `human`/`agent` split is the only grouping concept, and it exists for one
 reason: humans onboard through login, everything else onboards through the
 WebSocket registration handshake.
 
-:::note `sensor` and `proxy` are the same binary
+:::note `sensor`, `proxy` and `harness` are the same binary
 One Go binary, roles selected by config. It registers as `sensor` while
-observe-only and as `proxy` once interception is active. The `proxy` badge is
-danger-coloured in the console on purpose: it means traffic is being refused
-somewhere.
+observe-only, as `proxy` once interception is active, and as `harness` when it is
+supervising a coding harness's tool calls. Each role is opt-in — enabling one is a
+deliberate act, never a consequence of upgrading.
+
+The `proxy` badge is danger-coloured in the console on purpose: it means traffic
+is being refused somewhere.
 :::
 
 ## Humans are Actors
@@ -77,7 +81,7 @@ resolution function over the same certificate rows.
 There is **no role enum**. No Owner/Admin/Member. The session carries no `role`
 field, because a session that carried authority would be a second source of truth
 racing the ledger. `admin_console_access` and `portal_access` are ordinary
-capabilities, granted and revoked and expired identically to `file_access`.
+capabilities, granted and revoked and expired identically to `file_read`.
 
 A `User` row exists as a 1:1 profile extension of a `kind: "human"` Actor —
 name, email, profile-completion state. It holds no authority.

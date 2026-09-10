@@ -15,7 +15,7 @@ The issuance form asks for four things.
 ### Subject
 
 Any Actor — human or not. The picker groups by category, because granting
-`admin_console_access` to a human and `file_access` to an agent are the same
+`admin_console_access` to a human and `file_read` to an agent are the same
 operation on the same ledger, and the UI should not pretend otherwise.
 
 ### Capabilities
@@ -40,7 +40,7 @@ purpose:         quarterly-report-export
 ```
 
 `purpose` is a free-text audit tag. Use it — it is what turns a log line from
-"this Actor held file_access" into "this grant was issued for the Q3 export".
+"this Actor held file_read" into "this grant was issued for the Q3 export".
 
 Where a scope names a host, remember that matching is exact or dot-prefixed
 suffix, **never substring**. See
@@ -63,7 +63,7 @@ This is the just-in-time pattern, and it is an ordinary ledger row:
 
 | Field | Value |
 |---|---|
-| Capabilities | `file_access` |
+| Capabilities | `file_read` |
 | Scope | `resource: file:///reports/q3.pdf`, `purpose: q3-export` |
 | Expiry | ten seconds from now |
 

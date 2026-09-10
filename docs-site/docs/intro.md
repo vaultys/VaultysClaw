@@ -53,6 +53,7 @@ flowchart TB
   MCP["mcp actor<br/>MCP server"]
   SENSOR["sensor<br/>Go binary, telemetry"]
   PROXY["proxy<br/>enforcing interception point"]
+  HARNESS["harness<br/>supervised tool calls"]
   DEVICE["device<br/>browser / host"]
   HUMAN["human<br/>VaultysId wallet or SSO"]
 
@@ -60,6 +61,7 @@ flowchart TB
   MCP <--> WS
   SENSOR <--> WS
   PROXY <--> WS
+  HARNESS <--> WS
   DEVICE <--> WS
   HUMAN --> ADMIN
   HUMAN --> PORTAL

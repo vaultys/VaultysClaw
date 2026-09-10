@@ -35,6 +35,42 @@ Three things about that environment are deliberate:
 - **Postgres runs with `fsync=off`.** Correct *here* precisely because losing the whole volume
   costs nothing. Never do this to a database you care about.
 
+## Getting into the console: `pnpm simulator admin`
+
+The demo stack starts with an empty database, so there is nobody who can open the console to look
+at the fleet the simulator just built. `simulator admin` mints one:
+
+```bash
+pnpm simulator admin --passphrase "at least eight chars" --name "Demo Admin"
+```
+
+It generates a VaultysID server-side, writes the human Actor and a standing
+`admin_console_access` + `portal_access` grant into the ledger, and exports the key two ways:
+
+- **a one-line browser-console snippet** (printed, and saved beside the backup) that loads the key
+  straight into `localStorage`, and
+- **the passphrase-encrypted backup file** `lib/identity-backup.ts` restores — the same format the
+  console's own "Back up identities" writes.
+
+The snippet exists because the proper restore UI **cannot be reached from the browser it is for**:
+backup/restore lives behind the "advanced identity management" opt-in, whose toggle is on
+`/identity` — a page you must already be signed in to open. From a fresh browser with no key that
+is a closed loop. The snippet sets the opt-in too, so the picker and backup panel are there
+afterwards.
+
+Nothing about the resulting Actor is special: it is an ordinary human holding an ordinary
+certificate, and the browser signs in with the same Challenger exchange as always. What *is*
+special is that this bypasses admin approval entirely — **only ever point it at a disposable
+database.**
+
+Two things it deliberately refuses to paper over: a `--email` already held by another human (every
+run mints a *new* identity, so re-running with the same address collides on `User.email`, and a raw
+P2002 from a nested create says nothing useful), and a control plane that has never started (no
+`serverSecret` yet, so there is no key to sign a grant with).
+
+`simulator reset` does not touch it — reset is scoped to the simulator's own name prefixes, so the
+admin survives resetting the fleet, which is the whole point of having one.
+
 ## Commands
 
 ```bash
@@ -42,6 +78,7 @@ pnpm simulator run [options]     # bring a fleet up and keep it active
 pnpm simulator approve           # approve every pending registration (bulk, via the database)
 pnpm simulator stats             # what the control plane currently holds
 pnpm simulator reset             # delete simulated Actors and their identities
+pnpm simulator admin             # mint an admin human + export its VaultysID (see above)
 pnpm simulator --help
 ```
 
@@ -74,6 +111,38 @@ ran.
 Bulk approval must **create the `Actor` row**, not just flip the registration status — that is what
 `approvePendingRegistration` does, and missing it produced a fleet that reconnected forever with a
 growing pending queue and zero errors.
+
+## A run checks the control plane is there first
+
+`run` probes the WebSocket target before spawning anything. The control plane lives in its own
+terminal (`simulator:up` stays in the foreground), so the ordinary mistake is starting a fleet
+without it — and every Actor then fails independently, turning one missing process into thousands
+of identical `ECONNREFUSED` lines that read like the simulator is broken. One probe up front turns
+that into one sentence naming the command to run.
+
+## Sensors get a place on the map
+
+`locations.ts` gives every simulated **sensor** a location, so `/admin/map` has something to draw.
+Only sensors: a sensor is a machine sitting somewhere physical, whereas an `openclaw` agent is a
+process, and pinning one to a city would be inventing a fact.
+
+The cities model Bpifrance's regional network — the Maisons-Alfort head office, the regional
+offices across metropolitan France, and the overseas ones. **City-centre coordinates, not office
+addresses**, and not maintained against anyone's actual site directory; the shape is what matters.
+A fleet dense around Paris, spread thinly across the regions, with a handful of points 7,000 km
+away in the Antilles, Guyane, La Réunion and Mayotte is what makes the map exercise clustering and
+extent-fitting properly. A ring of pins around one city would not.
+
+Two details that are load-bearing:
+
+- **Assignment is by hash of the DID**, not round-robin, so a given sensor lands in the same city
+  on every run even when the fleet size or approval order changes. A demo map that rearranges
+  itself between runs is much harder to talk over.
+- **Each point is jittered a few kilometres** around its city centre. Identical coordinates stack
+  into a single pin that no amount of zooming separates — the map would show "12" forever.
+
+Locations are applied on **update** as well as create, so re-running fills in a fleet that was
+approved before this existed, rather than needing a reset.
 
 ## Ramp and reconnect rates are separate, and both matter
 

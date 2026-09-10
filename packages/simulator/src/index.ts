@@ -7,11 +7,14 @@
  */
 
 import fs from "node:fs";
+import net from "node:net";
+import path from "node:path";
 import { parseConfig, type SimConfig } from "./config.js";
 import { Fleet } from "./fleet.js";
 import { Metrics } from "./metrics.js";
 import { AGENT_MIX, ESTATE_MIX, expandMix, type SimKind } from "./personas.js";
 import { approveSimulatedRegistrations, readStats, resetSimulated, disconnect } from "./db.js";
+import { mintAdmin } from "./admin.js";
 
 /** Every simulated Actor's name starts with its kind, so the DB helpers can scope to them alone. */
 const NAME_PREFIXES = ["openclaw-", "mcp-", "sensor-", "device-", "proxy-"];
@@ -26,6 +29,8 @@ async function main(): Promise<void> {
       return void (await approve(cfg));
     case "reset":
       return void (await reset(cfg));
+    case "admin":
+      return void (await admin(cfg));
     case "run":
       return void (await run(cfg));
   }
@@ -82,7 +87,117 @@ async function reset(cfg: SimConfig): Promise<void> {
   await disconnect();
 }
 
+/**
+ * Mint an admin human and write its VaultysID out as an encrypted backup.
+ *
+ * The file goes to disk rather than to stdout on purpose: it contains a private key, and a key
+ * pasted through a terminal ends up in scrollback and shell history.
+ */
+async function admin(cfg: SimConfig): Promise<void> {
+  if (!cfg.adminPassphrase) {
+    process.stderr.write(
+      "\n  --passphrase is required: the backup file holds a private key and is always encrypted.\n" +
+        "  e.g. pnpm simulator admin --passphrase 'correct horse battery staple'\n\n"
+    );
+    process.exit(1);
+  }
+
+  const result = await mintAdmin({
+    databaseUrl: cfg.databaseUrl,
+    name: cfg.adminName,
+    email: cfg.adminEmail,
+    passphrase: cfg.adminPassphrase,
+  });
+
+  const outPath = cfg.adminOut ?? path.join(cfg.dataDir, result.suggestedFilename);
+  fs.mkdirSync(path.dirname(outPath), { recursive: true });
+  // 0600: it is a private key, and the default umask would leave it group/world readable.
+  fs.writeFileSync(outPath, JSON.stringify(result.backup, null, 2), { mode: 0o600 });
+
+  const snippetPath = `${outPath}.load-in-browser.js`;
+  fs.writeFileSync(snippetPath, `${result.browserSnippet}\n`, { mode: 0o600 });
+
+  process.stdout.write(
+    [
+      "",
+      `  admin actor   ${result.name}`,
+      `  did           ${result.did}`,
+      "  capabilities  admin_console_access, portal_access (standing, no expiry)",
+      `  backup        ${outPath}`,
+      "",
+      "  Fastest way in — paste this into the browser console on the control plane's origin,",
+      "  then reload /login and click \"Sign in with a VaultysID in this browser\":",
+      "",
+      `    ${result.browserSnippet}`,
+      "",
+      `  (also saved to ${snippetPath})`,
+      "",
+      "  The encrypted backup file is the same key, for the console's own restore UI",
+      "  (Identity → Browser keys). That UI only appears once advanced identity management is on,",
+      "  which the snippet above enables for you.",
+      "",
+      "  This key exists only in those two files. Lose them and the Actor is unreachable — mint another.",
+      "",
+    ].join("\n")
+  );
+
+  await disconnect();
+}
+
+/**
+ * Fail fast, and legibly, when nothing is listening.
+ *
+ * The control plane runs in its own terminal (`pnpm simulator:up`), so the ordinary mistake is to
+ * start a fleet without it. Every Actor then fails to connect independently and the run becomes
+ * thousands of identical `ECONNREFUSED`s scrolling past — which reads like the simulator is broken
+ * rather than like nothing is there to connect to. One probe up front turns that into one sentence.
+ */
+async function assertControlPlaneReachable(wsUrl: string): Promise<void> {
+  const { host, port } = parseWsTarget(wsUrl);
+
+  const reachable = await new Promise<boolean>((resolve) => {
+    const socket = net.connect({ host, port });
+    const done = (ok: boolean) => {
+      socket.destroy();
+      resolve(ok);
+    };
+    socket.setTimeout(3000);
+    socket.once("connect", () => done(true));
+    socket.once("timeout", () => done(false));
+    socket.once("error", () => done(false));
+  });
+
+  if (reachable) return;
+
+  process.stderr.write(
+    [
+      "",
+      `  Nothing is listening on ${host}:${port} — the control plane is not running.`,
+      "",
+      "  Start it in another terminal, then run this again:",
+      "",
+      "    pnpm simulator:up",
+      "",
+      "  (that brings up the database, applies migrations, builds, and starts the control plane;",
+      "   it stays in the foreground, which is why it wants its own terminal.)",
+      "",
+    ].join("\n")
+  );
+  process.exit(1);
+}
+
+/** Host and port from a `ws://`/`wss://` URL, defaulting the port the way the schemes do. */
+function parseWsTarget(wsUrl: string): { host: string; port: number } {
+  const url = new URL(wsUrl);
+  return {
+    host: url.hostname,
+    port: url.port ? Number.parseInt(url.port, 10) : url.protocol === "wss:" ? 443 : 80,
+  };
+}
+
 async function run(cfg: SimConfig): Promise<void> {
+  await assertControlPlaneReachable(cfg.wsUrl);
+
   const kinds: SimKind[] = [
     ...expandMix(ESTATE_MIX, cfg.actors),
     ...expandMix(AGENT_MIX, cfg.agents),

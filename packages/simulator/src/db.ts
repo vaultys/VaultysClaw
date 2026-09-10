@@ -14,6 +14,7 @@
 
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
+import { jitterAround, locationForDid } from "./locations.js";
 
 let client: PrismaClient | null = null;
 
@@ -65,6 +66,12 @@ export async function approveSimulatedRegistrations(
     // next connection is treated as a brand-new registrant, files a second PendingRegistration,
     // and no certificate is ever issued. The symptom is a fleet that reconnects forever with a
     // growing pending queue and zero errors.
+    // Sensors get a place on the map. A sensor is a machine sitting somewhere physical, so this is
+    // the kind where a location means something — an `openclaw` agent is a process, and pinning one
+    // to a city would be inventing a fact. Deterministic per DID, so the map looks the same on
+    // every run (see `locations.ts`).
+    const placement = reg.kind === "sensor" ? placeSensor(reg.did) : null;
+
     await db.actor.upsert({
       where: { did: reg.did },
       create: {
@@ -75,6 +82,7 @@ export async function approveSimulatedRegistrations(
         workspaceId: reg.targetWorkspaceId ?? null,
         lastSeen: new Date(),
         kindConfig: {},
+        ...(placement ?? {}),
       },
       update: {
         name: reg.name,
@@ -82,6 +90,10 @@ export async function approveSimulatedRegistrations(
         publicKey: reg.publicKey ?? undefined,
         workspaceId: reg.targetWorkspaceId ?? null,
         lastSeen: new Date(),
+        // Re-applied on update as well as create: a fleet approved before this existed has Actor
+        // rows with no location, and the point is that re-running fills the map in rather than
+        // requiring a reset.
+        ...(placement ?? {}),
       },
     });
 
@@ -101,6 +113,18 @@ export async function approveSimulatedRegistrations(
   }
 
   return { approved: mine.length, byKind };
+}
+
+/**
+ * The location columns for a sensor, ready to spread into an Actor write.
+ *
+ * A city from the modelled network plus a few kilometres of deterministic jitter, so sensors in the
+ * same city stay individually visible at high zoom instead of stacking into one permanent cluster.
+ */
+function placeSensor(did: string): { locationLat: number; locationLon: number; locationLabel: string } {
+  const city = locationForDid(did);
+  const { lat, lon } = jitterAround(city, did);
+  return { locationLat: lat, locationLon: lon, locationLabel: city.label };
 }
 
 /** The per-kind built-in allow-list, mirroring `controlplane/lib/capabilities.ts`. */

@@ -201,6 +201,21 @@ type Supervise struct {
 	// an entry can refuse a path but can never authorize one, which is the only
 	// reason an unsigned local list is admissible here at all.
 	FloorPaths []string `yaml:"floorPaths"`
+	// StartupSyncTimeoutMs bounds how long a launch waits for the first
+	// actor_config push before compiling the tier-B profile and starting the
+	// harness.
+	//
+	// It exists because OS confinement is fixed at exec time: without the wait,
+	// the profile is compiled from whatever rule set happens to be on disk, and
+	// the push that arrives milliseconds later updates tier A only. A session
+	// then runs kernel-confined by the *previous* policy while the console shows
+	// the current one — and since a kernel refusal reaches the agent as a bare
+	// EPERM with no reason, the stale deny looks like a hardcoded one.
+	//
+	// Bounded and non-fatal: an unreachable control plane, or an Actor with no
+	// certificate yet, must not stop a supervisor that is already correctly
+	// provisioned. 0 disables the wait. Ignored when no controlPlaneUrl is set.
+	StartupSyncTimeoutMs int `yaml:"startupSyncTimeoutMs"`
 }
 
 // Supervision modes.
@@ -342,6 +357,11 @@ func DefaultSensorConfig() *Sensor {
 			// backend is not built yet — the same rule that keeps Intercept
 			// disabled by default.
 			Sandbox: SandboxAuto,
+			// Long enough for a local or LAN control plane to deliver the first
+			// push, short enough that an operator does not read it as a hang.
+			// See the field doc for why launching without it is worse than
+			// waiting.
+			StartupSyncTimeoutMs: 3000,
 		},
 	}
 	// Apply, not assignment: the same merge an operator's catalog goes through,

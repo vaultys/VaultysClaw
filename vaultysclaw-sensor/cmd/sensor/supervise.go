@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/vaultys/VaultysClaw/sdk-go/grant"
@@ -161,15 +162,33 @@ func runSupervise(ctx context.Context, cfg *config.Sensor, logger *slog.Logger, 
 	// they arrived over this socket or were placed on disk by hand — so a
 	// failure to connect degrades convenience, never authority, and must not
 	// stop a supervisor that is already correctly provisioned.
+	//
+	// firstConfig stays nil when nothing will ever push, which awaitFirstConfig
+	// reads as "no reason to wait" — a file-provisioned host is already running
+	// current policy and must not pay a startup delay for a sync that cannot
+	// happen.
+	var firstConfig <-chan struct{}
 	if connected {
-		stopConn, err := startSuperviseConnection(ctx, cfg, logger, store, anchor, settings)
+		stopConn, ready, err := startSuperviseConnection(ctx, cfg, logger, store, anchor, settings)
 		if err != nil {
 			return err
 		}
 		defer stopConn()
+		firstConfig = ready
 	} else {
 		logger.Info("supervise: no controlPlaneUrl configured; running fully file-provisioned")
 	}
+
+	// Wait for the first push *before* compiling the tier-B profile below.
+	//
+	// Tier A re-reads the store per decision, so a rule that lands mid-session
+	// applies to the next tool call. The kernel profile cannot: it is applied to
+	// the harness at exec time and a running process cannot be re-confined. So
+	// the one moment when a push has to have arrived is this one — launching
+	// first means confining the session with the previous rule set while the
+	// console shows the current one, and a kernel refusal carries no reason
+	// string to reveal the discrepancy.
+	awaitFirstConfig(ctx, logger, firstConfig, time.Duration(sv.StartupSyncTimeoutMs)*time.Millisecond)
 
 	self, err := os.Executable()
 	if err != nil {
@@ -184,10 +203,22 @@ func runSupervise(ctx context.Context, cfg *config.Sensor, logger *slog.Logger, 
 	if sv.Sandbox != config.SandboxOff {
 		spec := supervise.SpecFromPolicy(interceptConfig().Rules, floor,
 			[]string{sv.GrantPath, sv.AnchorPath, sv.SettingsPath, sv.SpoolPath})
+		if err := checkHarnessIsLaunchable(spec, command[0]); err != nil {
+			return err
+		}
 		sandbox, err = supervise.NewSandbox(spec, filepath.Dir(sv.SocketPath))
 		switch {
 		case err == nil:
 			defer sandbox.Close()
+			// The exact deny list this session is confined by, signed rules and
+			// floor together, resolved. A kernel refusal reaches the agent as a
+			// bare EPERM with no reason, so this log line is the only way an
+			// operator can attribute one — and the only way they can see that a
+			// path they never configured locally was denied by a signed rule.
+			logger.Info("supervise: tier-B profile compiled",
+				"denyAll", spec.DenyAll,
+				"denyWrite", spec.DenyWrite,
+				"note", "fixed for this session: OS confinement is applied at exec time and cannot be changed while the harness runs")
 		case sv.Sandbox == config.SandboxRequire:
 			return fmt.Errorf("supervise: sandbox is set to %q and confinement could not be established: %w", config.SandboxRequire, err)
 		default:
@@ -244,6 +275,44 @@ func runSupervise(ctx context.Context, cfg *config.Sensor, logger *slog.Logger, 
 		return nil
 	}
 	return err
+}
+
+// checkHarnessIsLaunchable refuses a launch whose own confinement would deny
+// executing the harness.
+//
+// Caught here because of how it surfaces otherwise: sandbox-exec reports
+// `execvp() of '…/claude' failed: Operation not permitted` and the supervisor
+// reports the harness's exit code, so an operator sees a failed launch that
+// names neither the deny list nor the rule behind it — and the supervisor's own
+// preceding log line says confinement is working, which it is. The
+// misconfiguration is upstream, in a rule that covers more than its author
+// meant.
+//
+// A `deny file:///Users/someone/*` rule is the way in. It reads as "keep the
+// agent out of that home directory" and is also, to the kernel, "deny
+// ~/.local/bin/claude" — the harness binary, its state directory, and its
+// caches. Fatal rather than a warning: the launch cannot succeed, and the
+// alternative of carving the harness path back out would enforce a policy
+// nobody authored.
+func checkHarnessIsLaunchable(spec supervise.SandboxSpec, harness string) error {
+	// The resolved binary, not the word typed on the command line: what the
+	// kernel checks is the path exec actually reaches. A harness that is not on
+	// PATH is BuildLaunch's error to report, not this check's to guess at.
+	path, err := exec.LookPath(harness)
+	if err != nil {
+		return nil
+	}
+	denied, entry := spec.DeniesExecutable(path)
+	if !denied {
+		return nil
+	}
+	return fmt.Errorf(
+		"supervise: refusing to launch — OS confinement would deny executing the harness itself: %s is inside the denied path %s.\n"+
+			"That entry is either a signed `deny file://…` rule or a supervise.floorPaths entry, and it covers more than the harness's own binary: "+
+			"its state directory and caches are beneath the same path.\n"+
+			"Narrow the rule to what it is meant to protect (a home-directory-wide deny always includes the harness), "+
+			"or set supervise.sandbox: off to run with tier-A governance only",
+		path, entry)
 }
 
 // runHook is the shim the harness executes before every tool call. It must stay
@@ -326,18 +395,22 @@ func startSuperviseConnection(
 	store *intercept.Store,
 	anchor *grant.Anchor,
 	settings *supervise.Settings,
-) (func(), error) {
+) (func(), <-chan struct{}, error) {
 	sv := cfg.Supervise
 
 	id, err := identity.LoadOrCreate(cfg.IdentityPath)
 	if err != nil {
-		return nil, fmt.Errorf("supervise: loading this host's identity: %w", err)
+		return nil, nil, fmt.Errorf("supervise: loading this host's identity: %w", err)
 	}
 	hostname, _ := os.Hostname()
 	name := cfg.DeviceName
 	if name == "" {
 		name = hostname
 	}
+
+	// Closed once, when the first push has been fully handled. See
+	// awaitFirstConfig for why a launch waits on it.
+	firstConfig := &latch{ch: make(chan struct{})}
 
 	localCfg := supervise.Local{
 		Mode:                string(settings.Mode()),
@@ -367,6 +440,13 @@ func startSuperviseConnection(
 		RequestedCapabilities: supervise.EnforcedCapabilities(),
 		Logger:                logger,
 		OnActorConfig: func(payload vconn.ActorConfigPayload) {
+			// Signalled on every path out of this handler, including the ones
+			// that refuse the push: what a launch is waiting for is the control
+			// plane having *had its say*, not the push having been good. A
+			// rejected or empty push is an answer, and waiting past it would
+			// turn a signature failure into a startup hang.
+			defer firstConfig.arrived()
+
 			// The signed half first: written to the same paths a hand-provisioned
 			// deployment uses, so one verification path serves both.
 			if err := supervise.WriteArtefacts(payload, sv.GrantPath, sv.RuleSetPath); err != nil {
@@ -467,7 +547,46 @@ func startSuperviseConnection(
 	return func() {
 		cancel()
 		<-done
-	}, nil
+	}, firstConfig.ch, nil
+}
+
+// latch is a one-shot broadcast: many waiters, one signaller, signalled from a
+// callback that may run more than once.
+type latch struct {
+	ch   chan struct{}
+	once sync.Once
+}
+
+func (l *latch) arrived() { l.once.Do(func() { close(l.ch) }) }
+
+// awaitFirstConfig blocks until the control plane has delivered its first
+// actor_config, the timeout elapses, or the context is cancelled.
+//
+// Bounded and non-fatal in every direction. A host with no certificate yet
+// receives no push at all, an unreachable control plane delivers nothing, and
+// neither may stop a supervisor whose on-disk artefacts were already verified
+// against the pinned anchor. The wait buys one specific thing: that the tier-B
+// profile compiled immediately after this call describes current policy rather
+// than the previous session's.
+//
+// A timeout is reported as what it costs, not as a generic warning — the
+// difference between "tier A is current, tier B may be one policy behind" and
+// "nothing is in force" is the whole reason this is a warning and not an error.
+func awaitFirstConfig(ctx context.Context, logger *slog.Logger, firstConfig <-chan struct{}, timeout time.Duration) {
+	if firstConfig == nil || timeout <= 0 {
+		return
+	}
+	logger.Info("supervise: waiting for the control plane's first configuration push before launching", "timeout", timeout)
+	select {
+	case <-firstConfig:
+		logger.Info("supervise: control-plane configuration synced; compiling confinement from current policy")
+	case <-ctx.Done():
+	case <-time.After(timeout):
+		logger.Warn("supervise: no configuration arrived within the startup sync timeout — launching on the artefacts already on disk. "+
+			"Tier A still picks up a later push on the next tool call, but OS confinement is fixed at launch, so a rule that arrives "+
+			"after this point is enforced at the tool boundary and not by the kernel until the next launch",
+			"timeout", timeout)
+	}
 }
 
 // present renders whether an optional pushed artefact was included, for the log

@@ -52,7 +52,15 @@ export interface SimConfig {
    * and the sweep delivers over the connection the Actor already has.
    */
   reconnectAfterApprove: boolean;
-  command: "run" | "approve" | "stats" | "reset";
+  command: "run" | "approve" | "stats" | "reset" | "admin";
+  /** `admin` only: display name for the minted human. Re-running with the same name reuses it. */
+  adminName: string;
+  /** `admin` only: optional email for the human profile. */
+  adminEmail: string | null;
+  /** `admin` only: passphrase encrypting the exported backup file. */
+  adminPassphrase: string | null;
+  /** `admin` only: where to write the backup. Defaults next to the identities directory. */
+  adminOut: string | null;
 }
 
 const USAGE = `
@@ -62,6 +70,8 @@ vaultysclaw simulator — drives a fleet of real-VaultysId Actors at a live cont
   pnpm simulator approve [options]    approve every pending registration (bulk, via the database)
   pnpm simulator stats                what the control plane currently holds
   pnpm simulator reset                delete simulated actors and their identities
+  pnpm simulator admin [options]      mint an admin human and export its VaultysID as an
+                                      encrypted backup you can restore in the browser
 
 Options
   --actors <n>       estate Actors: sensors, devices, proxies      (default 2000)
@@ -73,6 +83,12 @@ Options
   --reconnect-rate <n> reconnects/second after approval            (default: half of --rate)
   --duration <s>     hold the fleet this long, 0 = until Ctrl-C    (default 120)
   --auto-approve     approve pending registrations mid-run, then reconnect to collect certificates
+
+Options for "admin"
+  --passphrase <s>   encrypts the backup file (required, min 8 chars — it holds a private key)
+  --name <s>         display name for the human                    (default "Demo Admin")
+  --email <s>        optional email for the profile
+  --out <path>       where to write the backup    (default <data-dir>/<generated backup name>)
   --status-refresh <ms>  force every Actor to re-check its certificate this often (0 = persona default)
   --reconnect-after-approve  cycle connections after approving, instead of letting the control
                              plane's delivery sweep hand out grants over existing connections
@@ -97,6 +113,10 @@ export function parseConfig(argv: string[]): SimConfig {
       "reconnect-rate": { type: "string" },
       duration: { type: "string" },
       "auto-approve": { type: "boolean" },
+      name: { type: "string" },
+      email: { type: "string" },
+      passphrase: { type: "string" },
+      out: { type: "string" },
       "status-refresh": { type: "string" },
       "reconnect-after-approve": { type: "boolean" },
       help: { type: "boolean", short: "h" },
@@ -109,7 +129,7 @@ export function parseConfig(argv: string[]): SimConfig {
   }
 
   const command = (positionals[0] ?? "run") as SimConfig["command"];
-  if (!["run", "approve", "stats", "reset"].includes(command)) {
+  if (!["run", "approve", "stats", "reset", "admin"].includes(command)) {
     process.stderr.write(`Unknown command "${command}"\n${USAGE}`);
     process.exit(1);
   }
@@ -128,6 +148,10 @@ export function parseConfig(argv: string[]): SimConfig {
     ),
     durationSeconds: int(values.duration, 120),
     autoApprove: values["auto-approve"] ?? false,
+    adminName: values.name ?? "Demo Admin",
+    adminEmail: values.email ?? null,
+    adminPassphrase: values.passphrase ?? null,
+    adminOut: values.out ?? null,
     statusRefreshMs: int(values["status-refresh"], 0),
     reconnectAfterApprove: values["reconnect-after-approve"] ?? false,
     command,

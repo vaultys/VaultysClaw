@@ -193,6 +193,83 @@ func SpecFromFloor(floor *Floor, ownArtefacts []string) SandboxSpec {
 	return spec
 }
 
+// DeniesExecutable reports whether this profile would prevent the harness from
+// being executed at all, and names the entry responsible.
+//
+// This is a launch-blocking misconfiguration rather than a working confinement,
+// and it has to be caught here because the way it surfaces otherwise is
+// `sandbox-exec: execvp() of '…/claude' failed: Operation not permitted` and an
+// exit code — which names neither the deny list nor the rule that produced it.
+// A `deny file:///Users/someone/*` rule authored to keep an agent out of a home
+// directory also covers the harness binary sitting in `~/.local/bin`, and the
+// kernel cannot tell the two intentions apart.
+//
+// Only DenyAll is consulted: DenyWrite still permits reads, and this
+// supervisor's own artefacts are write-protected precisely so the harness can
+// go on reading the settings file that installs the hook.
+//
+// The profile is deliberately not adjusted to let the exec through. Silently
+// carving the harness path out of an admin's signed deny would enforce
+// something nobody authored, and the operator would never learn their rule
+// means more than they think.
+func (s SandboxSpec) DeniesExecutable(path string) (bool, string) {
+	if path == "" {
+		return false, ""
+	}
+	// Both the path as written and the path after resolving symlinks, because
+	// either one being denied is enough to stop the exec — and for a coding
+	// harness the two routinely differ. `~/.local/bin/claude` is a symlink to a
+	// versioned directory under `~/.local/share`, so a deny on `~/.local/bin`
+	// catches the exec while the resolved target sits outside it entirely.
+	// Resolving first and checking only the result reports such a launch as
+	// fine and then watches the kernel refuse it.
+	// Three forms of the same path, because a deny on any of them stops the
+	// exec and the entries were themselves resolved when the spec was built:
+	//
+	//   1. as written, for the ordinary case where nothing is a symlink;
+	//   2. with its *directory* resolved but the final component left alone —
+	//      the one that matters, since `exec` traverses the directory it is in
+	//      whatever the leaf points at, and a denied entry may be reachable only
+	//      through a resolved ancestor (`/var` → `/private/var`);
+	//   3. fully resolved, for a link *into* a denied directory.
+	candidates := []string{filepath.Clean(path)}
+	add := func(candidate string) {
+		if candidate == "" {
+			return
+		}
+		for _, existing := range candidates {
+			if existing == candidate {
+				return
+			}
+		}
+		candidates = append(candidates, candidate)
+	}
+	dir, leaf := filepath.Split(filepath.Clean(path))
+	if resolvedDir, err := ResolvePath(filepath.Clean(dir), ""); err == nil && resolvedDir != "" {
+		add(filepath.Join(resolvedDir, leaf))
+	}
+	if resolved, err := ResolvePath(path, ""); err == nil {
+		add(resolved)
+	}
+	for _, entry := range s.DenyAll {
+		for _, candidate := range candidates {
+			if pathWithin(candidate, entry) {
+				return true, entry
+			}
+		}
+	}
+	return false, ""
+}
+
+// pathWithin reports whether path is entry or sits beneath it.
+//
+// By path segment, never by string prefix — the same rule Floor.Refuses is
+// careful about, for the same reason: "/Users/fx-old" is not beneath "/Users/fx"
+// and a plain HasPrefix would say it is.
+func pathWithin(path, entry string) bool {
+	return path == entry || strings.HasPrefix(path, entry+string(os.PathSeparator))
+}
+
 // pathKind reports how a path must be named in a profile. This distinction is
 // not cosmetic: naming a file as a directory subtree matches nothing at all, and
 // the resulting profile enforces silently nothing — verified against the real

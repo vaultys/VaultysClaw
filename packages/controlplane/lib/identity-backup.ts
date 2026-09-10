@@ -65,6 +65,7 @@ export interface IdentityBackup {
 
 export class IdentityBackupError extends Error {}
 
+
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
@@ -74,7 +75,13 @@ function toBase64(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
-function fromBase64(value: string): Uint8Array {
+// Return types inferred, not annotated `Uint8Array`. A bare `Uint8Array` means
+// `Uint8Array<ArrayBufferLike>`, which is *not* assignable to WebCrypto's `BufferSource`
+// (`ArrayBufferView<ArrayBuffer> | ArrayBuffer`) under the DOM lib — which is why these values used
+// to need casts at every call site. Inference yields `Uint8Array<ArrayBuffer>` here, so the casts
+// are unnecessary and the file compiles for Node consumers too, where `BufferSource` is not in
+// scope at all.
+function fromBase64(value: string) {
   const binary = atob(value);
   const out = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i);
@@ -88,15 +95,17 @@ function fromBase64(value: string): Uint8Array {
  * body means something else cannot be decrypted as a v1 one by an older build
  * that would then misread it.
  */
-function aad(version: number): Uint8Array {
+function aad(version: number) {
   return encoder.encode(`${BACKUP_FORMAT}/v${version}`);
 }
 
-async function deriveKey(
-  passphrase: string,
-  salt: Uint8Array,
-  iterations: number
-): Promise<CryptoKey> {
+// Return type inferred rather than annotated `Promise<CryptoKey>`: `CryptoKey`, like
+// `BufferSource`, is a DOM-lib global, and this module has to compile for Node consumers too.
+// Inference picks up whatever the ambient WebCrypto type is in each environment.
+// `Uint8Array<ArrayBuffer>`, not a bare `Uint8Array`: the latter widens to
+// `Uint8Array<ArrayBufferLike>`, which admits `SharedArrayBuffer` and so is not assignable to
+// WebCrypto's `BufferSource`. Every caller already passes a plain-buffer array.
+async function deriveKey(passphrase: string, salt: Uint8Array<ArrayBuffer>, iterations: number) {
   const base = await globalThis.crypto.subtle.importKey(
     "raw",
     encoder.encode(passphrase),
@@ -105,7 +114,7 @@ async function deriveKey(
     ["deriveKey"]
   );
   return globalThis.crypto.subtle.deriveKey(
-    { name: "PBKDF2", salt: salt as BufferSource, iterations, hash: "SHA-256" },
+    { name: "PBKDF2", salt: salt, iterations, hash: "SHA-256" },
     base,
     { name: "AES-GCM", length: 256 },
     false,
@@ -132,7 +141,7 @@ export async function createBackup(
   const key = await deriveKey(passphrase, salt, KDF_ITERATIONS);
 
   const ciphertext = await globalThis.crypto.subtle.encrypt(
-    { name: "AES-GCM", iv: iv as BufferSource, additionalData: aad(BACKUP_VERSION) as BufferSource },
+    { name: "AES-GCM", iv: iv, additionalData: aad(BACKUP_VERSION) },
     key,
     encoder.encode(JSON.stringify(identities))
   );
@@ -200,11 +209,11 @@ export async function openBackup(
     plaintext = await globalThis.crypto.subtle.decrypt(
       {
         name: "AES-GCM",
-        iv: fromBase64(backup.cipher.iv) as BufferSource,
-        additionalData: aad(backup.version) as BufferSource,
+        iv: fromBase64(backup.cipher.iv),
+        additionalData: aad(backup.version),
       },
       key,
-      fromBase64(backup.ciphertext) as BufferSource
+      fromBase64(backup.ciphertext)
     );
   } catch {
     throw new IdentityBackupError("Wrong passphrase, or this backup file has been altered.");

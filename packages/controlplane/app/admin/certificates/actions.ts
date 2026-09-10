@@ -10,6 +10,7 @@ import { recordEvent } from "@/lib/audit";
 import { requireAdmin } from "@/lib/require-admin";
 import { grantableCapabilitiesForKind } from "@/lib/capabilities";
 import { certificatePayload, buildAdminUrl } from "@/lib/webhook-payloads";
+import { getWSServerInstance } from "@/lib/ws-server";
 import type { AgentCapability, CertScope } from "@vaultysclaw/policy";
 
 export async function revokeCertificateAction(formData: FormData): Promise<void> {
@@ -27,6 +28,9 @@ export async function revokeCertificateAction(formData: FormData): Promise<void>
     targetType: "certificate",
     targetId: cert.id,
   });
+  const ws = getWSServerInstance();
+  ws?.notifyCapabilitiesChanged(cert.agentDid, "certificate_revoked", [cert.id]);
+  void ws?.pushActorConfig(cert.agentDid);
   revalidatePath("/admin/certificates");
   revalidatePath("/admin");
 }
@@ -97,6 +101,11 @@ export async function issueCertificateAction(formData: FormData): Promise<void> 
     targetType: "certificate",
     targetId: cert.id,
   });
+  const ws = getWSServerInstance();
+  if (!ws?.deliverCertificate(cert)) {
+    ws?.notifyCapabilitiesChanged(cert.agentDid, "certificate_issued", [cert.id]);
+  }
+  void ws?.pushActorConfig(cert.agentDid);
 
   revalidatePath("/admin/certificates");
   revalidatePath("/admin");

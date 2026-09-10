@@ -1,5 +1,15 @@
 "use client";
 
+// OpenLayers' own stylesheet. Not optional and not cosmetic: it is what positions the pieces the
+// renderer creates — `.ol-viewport` (relative, overflow hidden) and the absolutely-positioned
+// `.ol-layer` canvases inside it. Without it the layer canvases are static-flow block elements, so
+// they stack instead of overlaying: the basemap ends up outside the visible box and markers land in
+// the wrong places, which reads as "the tiles are broken" rather than "the CSS is missing".
+//
+// Imported here rather than in `app/globals.css` so it travels with the only component that needs
+// it — the map is one page, and this keeps the dependency and its stylesheet in the same file.
+import "ol/ol.css";
+
 import { useCallback } from "react";
 import { Minus, Plus, RotateCcw } from "lucide-react";
 import { useTheme } from "@/components/ThemeProvider";

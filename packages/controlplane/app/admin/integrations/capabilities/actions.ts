@@ -66,6 +66,7 @@ export async function createCapabilityAction(formData: FormData): Promise<void> 
     targetId: created.id,
   });
 
+  getWSServerInstance()?.notifyCapabilityRegistryChanged("capability_created", created.name);
   revalidatePath("/admin/integrations");
   redirect(`/admin/integrations/capabilities/${created.id}`);
 }
@@ -104,6 +105,7 @@ export async function updateCapabilityAction(formData: FormData): Promise<void> 
     targetId: updated.id,
   });
 
+  getWSServerInstance()?.notifyCapabilityRegistryChanged("capability_updated", updated.name);
   revalidatePath(`/admin/integrations/capabilities/${id}`);
   revalidatePath("/admin/integrations");
 }
@@ -171,7 +173,11 @@ export async function deleteCapabilityAction(formData: FormData): Promise<void> 
   });
 
   const ws = getWSServerInstance();
-  for (const did of holders) void ws?.pushActorConfig(did);
+  ws?.notifyCapabilityRegistryChanged("capability_deleted", capability.name);
+  for (const did of holders) {
+    ws?.notifyCapabilitiesChanged(did, "capability_deleted", affectedCertIds);
+    void ws?.pushActorConfig(did);
+  }
 
   revalidatePath("/admin/integrations");
   redirect("/admin/integrations?tab=capabilities");

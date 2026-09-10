@@ -26,6 +26,8 @@ export type ProtocolMessageType =
   | "cert_challenge"
   | "cert_issued"
   | "cert_failed"
+  | "capabilities_changed"
+  | "capability_registry_changed"
   // A kind:"sensor" Actor's classified AI/agent process observations
   // (vaultysclaw-sensor/docs/vaultysclaw-integration.md §3) — the one
   // kind-specific message type in this file, because "report telemetry" has
@@ -205,6 +207,16 @@ export interface CertIssuedPayload {
 
 export interface CertFailedPayload {
   reason: string;
+}
+
+export interface CapabilitiesChangedPayload {
+  reason: "certificate_issued" | "certificate_revoked" | "capability_deleted" | "admin_update";
+  certIds?: string[];
+}
+
+export interface CapabilityRegistryChangedPayload {
+  reason: "capability_created" | "capability_deleted" | "capability_updated";
+  capability?: string;
 }
 
 /** Mirrors vaultysclaw-sensor's `internal/telemetry.Event`/`Workload`/`Device`/`ProcessInfo`

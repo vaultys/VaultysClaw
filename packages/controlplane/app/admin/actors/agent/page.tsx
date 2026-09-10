@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 import type { ElementType, ReactNode } from "react";
 import {
   Bot,
@@ -11,24 +12,67 @@ import {
   Terminal,
 } from "lucide-react";
 import PageChrome from "@/components/layout/PageChrome";
+import { getWSServerInstance } from "@/lib/ws-server";
 
-const TS_EXAMPLE = `import { ActorRuntime } from "@vaultysclaw/sdk";
+type CodeExampleKey = "typescript" | "go";
+
+interface SetupOption {
+  title: string;
+  icon: ElementType;
+  badge: string;
+  body: string;
+  items: string[];
+  code?: CodeExampleKey;
+}
+
+function localUrlParts(host: string): { hostname: string; port: string | null } {
+  try {
+    const parsed = new URL(`http://${host}`);
+    return { hostname: parsed.hostname, port: parsed.port || null };
+  } catch {
+    const [hostname, port] = host.split(":");
+    return { hostname: hostname || "localhost", port: port || null };
+  }
+}
+
+function configuredWsPort(): string {
+  const serverPort = getWSServerInstance()?.getListeningPort();
+  if (serverPort) return String(serverPort);
+  return process.env.CONTROLPLANE_WS_PORT ?? "8081";
+}
+
+function controlPlaneUrls(host: string, protocol: string) {
+  const { hostname, port } = localUrlParts(host);
+  const wsPort = configuredWsPort();
+  const httpUrl = `${protocol}://${host}`;
+  const wsProtocol = protocol === "https" ? "wss" : "ws";
+
+  return {
+    httpUrl,
+    wsUrl: `${wsProtocol}://${hostname}:${wsPort}`,
+  };
+}
+
+function tsExample(wsUrl: string) {
+  return `import { ActorRuntime } from "@vaultysclaw/sdk";
 
 const actor = new ActorRuntime({
   name: "research-agent",
   kind: "openclaw",
-  controlPlaneWsUrl: "ws://localhost:8081",
+  controlPlaneWsUrl: "${wsUrl}",
   identityPath: "~/.vaultysclaw/research-agent.id",
   requestedCapabilities: ["internet_access", "knowledge_search"],
   capabilityStatePath: "~/.vaultysclaw/research-agent.caps.json",
 });
 
 await actor.start();`;
+}
 
-const GO_EXAMPLE = `id, _ := identity.LoadOrCreate("~/.vaultysclaw/runner.id")
+function goExample(httpUrl: string) {
+  return `id, _ := identity.LoadOrCreate("~/.vaultysclaw/runner.id")
 
 conn := vconn.NewClientConn(vconn.ClientConfig{
-    CollectorURL:          "http://localhost:3001",
+    CollectorURL:          "${httpUrl}",
     Identity:              id,
     Name:                  "runner",
     Kind:                  "openclaw",
@@ -37,8 +81,9 @@ conn := vconn.NewClientConn(vconn.ClientConfig{
 })
 
 go conn.Run(ctx)`;
+}
 
-const setupOptions = [
+const setupOptions: SetupOption[] = [
   {
     title: "Build with the TypeScript SDK",
     icon: Bot,
@@ -47,11 +92,12 @@ const setupOptions = [
       "For agents already running in Node.js or TypeScript. The SDK owns identity, registration, reconnects, certificate delivery, and local permission checks.",
     items: [
       "Choose a stable actor name and kind.",
+      "Use the detected Actor WebSocket endpoint for controlPlaneWsUrl.",
       "Store the identity file on persistent disk.",
       "Declare the capabilities the agent will request.",
       "Start the process, then approve it from the pending queue.",
     ],
-    code: TS_EXAMPLE,
+    code: "typescript",
   },
   {
     title: "Build with the Go SDK",
@@ -61,11 +107,11 @@ const setupOptions = [
       "For daemons, CLIs, sensors, and infrastructure agents that should keep a compact runtime and reconnect without operator help.",
     items: [
       "Load or create one VaultysId identity per deployed agent.",
-      "Point the client at the control plane HTTP endpoint.",
+      "Point CollectorURL at the detected Admin HTTP endpoint.",
       "Request only the capabilities this process can actually use.",
       "Gate behavior on the capabilities that were granted.",
     ],
-    code: GO_EXAMPLE,
+    code: "go",
   },
   {
     title: "Run the sensor or harness",
@@ -150,7 +196,19 @@ function Section({
   );
 }
 
-export default function AddAgentPage() {
+export default async function AddAgentPage() {
+  const requestHeaders = await headers();
+  const host =
+    requestHeaders.get("x-forwarded-host") ??
+    requestHeaders.get("host") ??
+    `localhost:${process.env.CONTROLPLANE_PORT ?? "3001"}`;
+  const protocol = requestHeaders.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
+  const { httpUrl, wsUrl } = controlPlaneUrls(host, protocol);
+  const codeExamples = {
+    typescript: tsExample(wsUrl),
+    go: goExample(httpUrl),
+  };
+
   return (
     <div className="p-6 space-y-6">
       <PageChrome
@@ -163,6 +221,62 @@ export default function AddAgentPage() {
           { label: "Add agent" },
         ]}
       />
+
+      <Section icon={Cable} title="Detected control plane endpoints">
+        <div className="space-y-4">
+          <p className="text-sm leading-6 text-foreground-600">
+            These values are generated from the admin page you are currently using. The HTTP URL
+            comes from this request&apos;s host, and the actor WebSocket port is read from the
+            running server. If the page is rendered without a live WebSocket server, it falls back
+            to{" "}
+            <code className="rounded bg-background-200 px-1.5 py-0.5 text-xs">
+              CONTROLPLANE_WS_PORT
+            </code>{" "}
+            and then the default port. For a local instance running on{" "}
+            <code className="rounded bg-background-200 px-1.5 py-0.5 text-xs">
+              http://localhost:3003
+            </code>{" "}
+            with WebSocket port{" "}
+            <code className="rounded bg-background-200 px-1.5 py-0.5 text-xs">
+              8083
+            </code>
+            , start the control plane with{" "}
+            <code className="rounded bg-background-200 px-1.5 py-0.5 text-xs">
+              CONTROLPLANE_PORT=3003
+            </code>{" "}
+            and{" "}
+            <code className="rounded bg-background-200 px-1.5 py-0.5 text-xs">
+              CONTROLPLANE_WS_PORT=8083
+            </code>
+            .
+          </p>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="rounded-lg border border-neutral-200 bg-background p-4">
+              <div className="text-xs font-medium uppercase text-foreground-500">
+                Admin HTTP
+              </div>
+              <code className="mt-2 block break-all text-sm text-foreground">
+                {httpUrl}
+              </code>
+              <p className="mt-2 text-xs leading-5 text-foreground-500">
+                Use this for Go SDK <code>CollectorURL</code> and HTTP-facing tooling.
+              </p>
+            </div>
+            <div className="rounded-lg border border-neutral-200 bg-background p-4">
+              <div className="text-xs font-medium uppercase text-foreground-500">
+                Actor WebSocket
+              </div>
+              <code className="mt-2 block break-all text-sm text-foreground">
+                {wsUrl}
+              </code>
+              <p className="mt-2 text-xs leading-5 text-foreground-500">
+                Use this for TypeScript SDK <code>controlPlaneWsUrl</code>.
+              </p>
+            </div>
+          </div>
+        </div>
+      </Section>
 
       <Section icon={Bot} title="Pick an onboarding path">
         <div className="grid gap-4 xl:grid-cols-2">
@@ -197,7 +311,7 @@ export default function AddAgentPage() {
                 </ul>
                 {option.code && (
                   <div className="mt-4">
-                    <CodeBlock>{option.code}</CodeBlock>
+                    <CodeBlock>{codeExamples[option.code]}</CodeBlock>
                   </div>
                 )}
               </article>

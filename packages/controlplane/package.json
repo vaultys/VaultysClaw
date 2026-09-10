@@ -53,5 +53,17 @@
     "tsx": "^4.21.0",
     "typescript": "^7",
     "vitest": "^2.1.9"
+  },
+  "exports": {
+    "./identity-backup": {
+      "types": "./lib/identity-backup.ts",
+      "tsx": "./lib/identity-backup.ts",
+      "default": "./lib/identity-backup.ts"
+    },
+    "./browser-identity": {
+      "types": "./lib/browser-identity.ts",
+      "tsx": "./lib/browser-identity.ts",
+      "default": "./lib/browser-identity.ts"
+    }
   }
 }

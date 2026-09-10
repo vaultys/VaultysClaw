@@ -277,6 +277,22 @@ the Model Registry, OIDC/Entra ID single sign-on, the Access Portal shell, and t
   applicable). `vaultysclaw-sensor` populates real `identityEvidence` via an operator-configured
   `agentIdentityPath` pointing at a real agent's own identity file — see that repo's integration
   doc for the sensor-side half.
+- **The map's default view fits the markers**, rather than opening on the world. `useOlMap` fits the
+  extent of `markers` **at view construction**, before the `OlMap` is built, using the container's
+  measured size — deliberately not afterwards. `markers` comes from a Server Component and is
+  present on the first client render, so there is nothing to wait for; fitting later meant moving
+  the view during or just after a render pass, which repeatedly left the basemap holding a stale
+  frame while the markers themselves landed correctly. A `postrender` fallback covers a consumer
+  that loads markers client-side, and it listens with `on`, not `once` — the first render can still
+  have no viewport size, and a one-shot listener is consumed by that failed attempt and never fires
+  again, which made fitting intermittent. "Reset view" re-fits rather than returning to the world,
+  falling back to the world only when nothing is located.
+- **`ol/ol.css` is imported by `components/map/world-map/MapInner.tsx`** and must stay imported. It
+  is not cosmetic: it positions `.ol-viewport` and the absolutely-positioned `.ol-layer` canvases
+  inside it. Without it the layer canvases fall into static flow and stack instead of overlaying,
+  so the basemap ends up outside the visible box while markers still draw — which presents as
+  "the tiles are broken", and sends you looking at tile URLs, the CSP, and the network panel
+  instead of at the missing stylesheet.
 - **Actor location** (`Actor.locationLat`/`locationLon`/`locationLabel`, ported from the old app's
   identical `Agent`/`User` fields) — set from the Actor detail page (`lib/geocode.ts`'s server-side
   Nominatim lookup by city name, or exact coordinates) or from `/admin/map` directly (click a pin →

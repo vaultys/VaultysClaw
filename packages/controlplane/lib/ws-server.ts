@@ -20,6 +20,7 @@
  */
 import { randomBytes, randomUUID } from "crypto";
 import type { WebSocket, WebSocketServer } from "ws";
+import type { CapabilityCertificate } from "@prisma/client";
 import { Challenger, VaultysId, crypto as vCrypto } from "@vaultys/id";
 import pino from "pino";
 import {
@@ -48,6 +49,8 @@ import type {
   AuthCompletePayload,
   AuthFailedPayload,
   CapabilityRequestPayload,
+  CapabilitiesChangedPayload,
+  CapabilityRegistryChangedPayload,
   CertChallengePayload,
   CertFailedPayload,
   CertIssuedPayload,
@@ -146,6 +149,7 @@ export function getWSServerInstance(): ControlPlaneWSServer | null {
 }
 
 export class ControlPlaneWSServer {
+  private wss: WebSocketServer;
   private pending = new Map<AgentSender, PendingConnection>();
   private connected = new Map<string, ConnectedActor>();
   private connectedBySender = new Map<AgentSender, string>();
@@ -168,6 +172,7 @@ export class ControlPlaneWSServer {
   private sweepInFlight = false;
 
   constructor(wss: WebSocketServer) {
+    this.wss = wss;
     wss.on("connection", (ws: WebSocket) => this.handleConnection(ws));
     this.flushTimer = setInterval(() => void this.flushDeferredWrites(), FLUSH_INTERVAL_MS);
     // Never hold the process open for a flush timer — the buffers are best-effort by construction.
@@ -175,6 +180,12 @@ export class ControlPlaneWSServer {
 
     this.deliverySweepTimer = setInterval(() => void this.sweepUndeliveredGrants(), DELIVERY_SWEEP_INTERVAL_MS);
     this.deliverySweepTimer.unref?.();
+  }
+
+  getListeningPort(): number | null {
+    const address = this.wss.address();
+    if (!address || typeof address === "string") return null;
+    return address.port;
   }
 
   /**
@@ -1063,6 +1074,46 @@ export class ControlPlaneWSServer {
       logger.error({ did, err }, "Failed to build actor config; the agent keeps its last verified config");
       return false;
     }
+  }
+
+  notifyCapabilitiesChanged(
+    did: string,
+    reason: CapabilitiesChangedPayload["reason"],
+    certIds?: string[]
+  ): boolean {
+    const actor = this.connected.get(did);
+    if (!actor) return false;
+    this.sendMessage(actor.sender, "capabilities_changed", {
+      reason,
+      ...(certIds && certIds.length > 0 ? { certIds } : {}),
+    } satisfies CapabilitiesChangedPayload);
+    return true;
+  }
+
+  notifyCapabilityRegistryChanged(
+    reason: CapabilityRegistryChangedPayload["reason"],
+    capability?: string
+  ): number {
+    let sent = 0;
+    for (const actor of this.connected.values()) {
+      this.sendMessage(actor.sender, "capability_registry_changed", {
+        reason,
+        ...(capability ? { capability } : {}),
+      } satisfies CapabilityRegistryChangedPayload);
+      sent++;
+    }
+    return sent;
+  }
+
+  deliverCertificate(cert: CapabilityCertificate): boolean {
+    const actor = this.connected.get(cert.agentDid);
+    if (!actor) return false;
+    this.sendMessage(actor.sender, "cert_issued", {
+      certId: cert.id,
+      certificate: cert.certificate,
+      capabilities: cert.capabilities as AgentCapability[],
+    } satisfies CertIssuedPayload);
+    return true;
   }
 
   private sendMessage(sender: AgentSender, type: ProtocolMessageType, payload: unknown): void {

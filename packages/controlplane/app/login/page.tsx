@@ -89,7 +89,7 @@ export default function LoginPage() {
   // localStorage read in an effect, not during render — see lib/advanced-identity.ts.
   const [hasKey, setHasKey] = useState(false);
   const [signInError, setSignInError] = useState<string | null>(null);
-  const [advanced] = useAdvancedIdentity();
+  const [advanced, setAdvanced] = useAdvancedIdentity();
   const cancelled = useRef(false);
 
   useEffect(() => setHasKey(hasBrowserIdentity()), []);
@@ -320,9 +320,29 @@ export default function LoginPage() {
                   ? "Sign in with a VaultysID in this browser"
                   : "Create a VaultysID in this browser"}
               </button>
-              {advanced && (
+              {advanced ? (
                 <div>
                   <BrowserIdentityPicker onSelect={(identity) => startBrowserLogin(identity)} />
+                </div>
+              ) : (
+                /*
+                 * The switch that reveals multi-key management — including backup/restore — lives
+                 * on `/identity`, which requires being signed in. That is a closed loop for the one
+                 * case that needs it most: a fresh browser holding no key, restoring a backup in
+                 * order to sign in. Whoever is looking at this page is exactly that person, so the
+                 * switch is offered here too.
+                 *
+                 * It grants nothing. The flag is per-browser `localStorage` and only decides which
+                 * controls are drawn; every key it manages is one this browser already holds, and
+                 * signing in still needs a real Challenger exchange against a real Actor.
+                 */
+                <div>
+                  <button
+                    onClick={() => setAdvanced(true)}
+                    className="text-[11px] text-foreground-400/80 hover:text-foreground-600 transition-colors underline underline-offset-2"
+                  >
+                    Use a saved or backed-up VaultysID
+                  </button>
                 </div>
               )}
             </div>

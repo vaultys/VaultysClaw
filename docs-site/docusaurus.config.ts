@@ -4,7 +4,7 @@ import type * as Preset from "@docusaurus/preset-classic";
 
 const config: Config = {
   title: "VaultysClaw",
-  tagline: "A Zero Trust plane for AI agents — cryptographic identity, signed capability certificates, live revocation",
+  tagline: "A Zero Trust plane for agents, robots, and machines — cryptographic identity, signed capability certificates distributed for peer-to-peer verification, live revocation",
   favicon: "img/favicon.ico",
 
   url: "https://docs.vaultys.io",

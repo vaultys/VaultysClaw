@@ -1,6 +1,12 @@
 {
   "extends": "@docusaurus/tsconfig",
   "compilerOptions": {
-    "baseUrl": "."
-  }
+    "baseUrl": ".",
+    // @docusaurus/tsconfig sets "jsx": "preserve", which makes TS look for a *global* JSX
+    // namespace. @types/react@19 only declares React.JSX, so under "preserve" every custom
+    // component rejects the `key` prop. "react-jsx" resolves the namespace through
+    // jsxImportSource instead. Type-checking only — Docusaurus compiles with SWC, not tsc.
+    "jsx": "react-jsx"
+  },
+  "exclude": ["build", ".docusaurus"]
 }

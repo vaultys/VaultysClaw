@@ -4,28 +4,33 @@ import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
 import Layout from "@theme/Layout";
 import clsx from "clsx";
 import ArchitectureDiagram from "../components/ArchitectureDiagram";
+import ConsoleExplorer from "../components/ConsoleExplorer";
+import PeerTrustDiagram from "../components/PeerTrustDiagram";
 import {
   ArrowRight,
+  Ban,
   Bot,
-  Brain,
-  Building2,
   CheckCircle2,
   ChevronRight,
+  Cpu,
   FileCheck,
   Fingerprint,
   GitBranch,
   Globe,
-  Heart,
   Key,
   Lock,
-  MessageSquare,
-  Network,
-  Send,
+  RefreshCw,
+  Plane,
+  Radio,
+  ScrollText,
   ShieldCheck,
   Sparkles,
-  Users,
+  Share2,
+  Terminal,
+  Truck,
+  User,
+  Wifi,
   Workflow,
-  Zap,
 } from "lucide-react";
 
 /* ────────────────────────────────────────────────────────────
@@ -40,56 +45,34 @@ function Hero() {
           <div className="col col--7">
             <div className="hero-badge">
               <Sparkles size={12} strokeWidth={2.5} />
-              VaultysId · Agent Identity · Open Source
+              VaultysId · Capability certificates · Open source
             </div>
 
             <h1 className="hero-title">
-              Your agents' identity.
+              Your orchestrator decides what to do.
               <br />
-              <span className="gradient-text">Secure. Sovereign. Yours.</span>
+              <span className="gradient-text">
+                VaultysClaw decides what it may do.
+              </span>
             </h1>
 
             <p className="hero-subtitle">
-              VaultysClaw gives every agent a cryptographic identity powered by
-              VaultysId — a fully decentralised, non-transferable identity
-              standard. Zero Trust security, complete data sovereignty, and
-              predictable flat-rate pricing. No agent traffic ever transits our
-              servers. Your security is not our business model.
+              A trust plane, not a framework. Keep the orchestration you already
+              run and give every actor — software agent, robot, drone, vehicle,
+              sensor, or human — a cryptographic identity and a signed,
+              revocable capability certificate. The control plane distributes
+              those certificates once; after that any two peers verify each
+              other directly, with nothing in the middle.
             </p>
 
-            <div
-              style={{
-                display: "flex",
-                gap: "20px",
-                marginBottom: "28px",
-                flexWrap: "wrap",
-              }}
-            >
+            <div className="hero-facts">
               {[
-                { color: "#3b82f6", label: "Zero Trust" },
-                { color: "#10b981", label: "Sovereign hosting" },
-                { color: "#f59e0b", label: "No vendor lock-in" },
+                { color: "#3b82f6", label: "Identity, not API keys" },
+                { color: "#a78bfa", label: "Verified offline, peer to peer" },
+                { color: "#10b981", label: "Revocation that actually lands" },
               ].map(({ color, label }) => (
-                <div
-                  key={label}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "6px",
-                    fontSize: "0.82rem",
-                    fontWeight: 600,
-                    color: "var(--ifm-color-emphasis-700)",
-                  }}
-                >
-                  <div
-                    style={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: "50%",
-                      background: color,
-                      flexShrink: 0,
-                    }}
-                  />
+                <div key={label} className="hero-fact">
+                  <span style={{ background: color }} />
                   {label}
                 </div>
               ))}
@@ -97,11 +80,10 @@ function Hero() {
 
             <div className="hero-cta-group">
               <Link className="btn-primary" to="/docs/guides/quickstart">
-                Deploy your first agent{" "}
-                <ArrowRight size={16} strokeWidth={2.5} />
+                Start with the SDK <ArrowRight size={16} strokeWidth={2.5} />
               </Link>
               <Link className="btn-secondary" to="/docs/intro">
-                Read the docs
+                What VaultysClaw is
               </Link>
               <a
                 className="btn-secondary"
@@ -125,630 +107,272 @@ function Hero() {
 
 function TerminalPreview() {
   return (
-    <div
-      style={{
-        background: "#0d1117",
-        border: "1px solid #30363d",
-        borderRadius: "12px",
-        overflow: "hidden",
-        boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "8px",
-          padding: "12px 16px",
-          background: "#161b22",
-          borderBottom: "1px solid #21262d",
-        }}
-      >
-        <div
-          style={{
-            width: 10,
-            height: 10,
-            borderRadius: "50%",
-            background: "#ef4444",
-          }}
-        />
-        <div
-          style={{
-            width: 10,
-            height: 10,
-            borderRadius: "50%",
-            background: "#f59e0b",
-          }}
-        />
-        <div
-          style={{
-            width: 10,
-            height: 10,
-            borderRadius: "50%",
-            background: "#10b981",
-          }}
-        />
-        <span
-          style={{
-            marginLeft: "8px",
-            fontSize: "0.78rem",
-            color: "#8b949e",
-            fontFamily: "JetBrains Mono, monospace",
-          }}
-        >
-          vaultys-claw — terminal
+    <div className="code-frame" style={{ boxShadow: "0 20px 60px rgba(0,0,0,0.5)" }}>
+      <div className="term-bar">
+        <div className="mockup-dot red" />
+        <div className="mockup-dot yellow" />
+        <div className="mockup-dot green" />
+        <span>
+          <Terminal size={12} /> invoice-approver — actor runtime
         </span>
       </div>
-      <pre
-        style={{
-          margin: 0,
-          padding: "20px",
-          fontFamily: "JetBrains Mono, monospace",
-          fontSize: "0.78rem",
-          lineHeight: "1.7",
-          color: "#c9d1d9",
-          background: "transparent",
-          overflowX: "auto",
-        }}
-      >
-        <span style={{ color: "#8b949e" }}>$ </span>
-        <span style={{ color: "#79c0ff" }}>git clone</span>
-        <span> github.com/vaultys/vaultysclaw{"\n"}</span>
-        <span style={{ color: "#8b949e" }}>$ </span>
-        <span style={{ color: "#79c0ff" }}>cd</span>
-        <span> vaultysclaw && </span>
-        <span style={{ color: "#79c0ff" }}>pnpm install{"\n"}</span>
-        <span style={{ color: "#8b949e" }}>$ </span>
-        <span style={{ color: "#79c0ff" }}>pnpm dev{"\n\n"}</span>
-        <span style={{ color: "#3fb950" }}>✓</span>
-        <span> Control plane ready on </span>
-        <span style={{ color: "#a5d6ff" }}>:3000{"\n"}</span>
-        <span style={{ color: "#3fb950" }}>✓</span>
-        <span> WebSocket hub ready on </span>
-        <span style={{ color: "#a5d6ff" }}>:8080{"\n"}</span>
-        <span style={{ color: "#3fb950" }}>✓</span>
-        <span> Agent "alice-research" connected{"\n"}</span>
-        <span style={{ color: "#3fb950" }}>✓</span>
-        <span> VaultysId identity loaded{"\n\n"}</span>
+      <pre>
+        <span className="c-dim">$ </span>
+        <span className="c-blue">pnpm add</span>
+        <span> @vaultysclaw/sdk{"\n"}</span>
+        <span className="c-dim">$ </span>
+        <span className="c-blue">node</span>
+        <span> ./agent.js{"\n\n"}</span>
+        <span className="c-green">✓</span>
+        <span> identity loaded </span>
+        <span className="c-cyan">did:vaultys:z6MkwF3jA7Qx…{"\n"}</span>
+        <span className="c-green">✓</span>
+        <span> auth handshake complete (service: auth){"\n"}</span>
+        <span className="c-yellow">…</span>
+        <span> unknown DID → </span>
+        <span className="c-yellow">registration_pending{"\n"}</span>
+        <span className="c-dim">  waiting for an admin decision…{"\n\n"}</span>
+        <span className="c-green">✓</span>
+        <span> cert_issued · 2 of 3 requested capabilities{"\n"}</span>
+        <span className="c-dim">  granted   </span>
+        <span className="c-cyan">api_call, acme:invoice.approve{"\n"}</span>
+        <span className="c-dim">  withheld  </span>
+        <span className="c-red">file_access{"\n"}</span>
+        <span className="c-green">✓</span>
+        <span> staple verified · refresh every 150s{"\n\n"}</span>
+        <span className="c-dim">{"> "}</span>
+        <span>erp_approve_invoice </span>
+        <span className="c-green">allowed{"\n"}</span>
+        <span className="c-dim">{"> "}</span>
+        <span>read_ledger_dump </span>
+        <span className="c-red">denied</span>
+        <span className="c-dim"> (file_access not granted){"\n"}</span>
       </pre>
     </div>
   );
 }
 
 /* ────────────────────────────────────────────────────────────
-   Social proof
+   Bring your own orchestration
    ──────────────────────────────────────────────────────────── */
-const LOGOS = [
-  "ACME Corp",
-  "Nexus AI",
-  "Vertex Labs",
-  "Meridian",
-  "Crestline",
-  "Orbis Tech",
+const ORCHESTRATORS = [
+  "LangGraph",
+  "CrewAI",
+  "Mastra",
+  "Temporal",
+  "n8n",
+  "MCP servers",
+  "Claude Code",
+  "your own while-loop",
 ];
 
-function EnterpriseSection() {
+function OrchestrationStrip() {
   return (
     <section className="enterprise-section">
       <div className="container">
-        <p
-          style={{
-            textAlign: "center",
-            fontSize: "0.8rem",
-            textTransform: "uppercase",
-            letterSpacing: "0.1em",
-            color: "var(--ifm-color-emphasis-500)",
-            fontWeight: 600,
-            marginBottom: "28px",
-          }}
-        >
-          Trusted by teams that take their culture seriously
+        <p className="strip-label">
+          Bring your own orchestration — VaultysClaw governs it as an Actor
         </p>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "center",
-            flexWrap: "wrap",
-            gap: "40px",
-          }}
-        >
-          {LOGOS.map((name) => (
-            <div key={name} className="logo-placeholder">
+        <div className="works-strip">
+          {ORCHESTRATORS.map((name) => (
+            <span key={name} className="works-chip">
+              <Workflow size={14} strokeWidth={1.9} style={{ opacity: 0.6 }} />
               {name}
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-/* ────────────────────────────────────────────────────────────
-   "Not a generic assistant" manifesto
-   ──────────────────────────────────────────────────────────── */
-function ManifestoSection() {
-  return (
-    <section
-      style={{
-        padding: "80px 0",
-        background: "var(--ifm-background-surface-color)",
-      }}
-    >
-      <div className="container">
-        <div className="row" style={{ alignItems: "center", gap: 0 }}>
-          <div className="col col--6">
-            <p className="section-label">Why VaultysClaw</p>
-            <h2 className="section-title">
-              Not a generic assistant.
-              <br />
-              <em>Your</em> agent.
-            </h2>
-            <p className="section-subtitle" style={{ marginBottom: "28px" }}>
-              Most AI tools are blank slates you rent from a cloud provider.
-              They have no memory of who you are, no stake in your outcomes, and
-              no accountability when things go wrong.
-            </p>
-            <p className="section-subtitle" style={{ marginBottom: "36px" }}>
-              VaultysClaw is different. Every agent carries a{" "}
-              <strong>unique, non-transferable identity</strong> — a
-              cryptographic fingerprint that is yours, governed by your
-              policies, and auditable to any action it ever took. You're not
-              deploying a tool. You're extending your team.
-            </p>
-            <div
-              style={{ display: "flex", flexDirection: "column", gap: "16px" }}
-            >
-              {[
-                {
-                  Icon: Heart,
-                  color: "#f472b6",
-                  text: "Agents that reflect your values and communication style",
-                },
-                {
-                  Icon: Users,
-                  color: "#60a5fa",
-                  text: "Governed by your org chart — workspaces, roles, and accountability chains",
-                },
-                {
-                  Icon: Fingerprint,
-                  color: "#a78bfa",
-                  text: "Each agent has a soul: a cryptographic identity that is uniquely, irrevocably theirs",
-                },
-              ].map(({ Icon, color, text }) => (
-                <div
-                  key={text}
-                  style={{
-                    display: "flex",
-                    gap: "14px",
-                    alignItems: "flex-start",
-                  }}
-                >
-                  <div className="manifesto-icon-box">
-                    <Icon size={17} strokeWidth={1.8} style={{ color }} />
-                  </div>
-                  <p
-                    style={{
-                      margin: 0,
-                      fontSize: "0.9rem",
-                      color: "var(--ifm-color-emphasis-700)",
-                      lineHeight: 1.65,
-                    }}
-                  >
-                    {text}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="col col--6" style={{ paddingLeft: "48px" }}>
-            <AgentProfileCard />
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function AgentProfileCard() {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-      {/* Agent identity card */}
-      <div
-        style={{
-          background: "var(--ifm-card-background-color)",
-          border: "1px solid var(--ifm-color-emphasis-200)",
-          borderRadius: "12px",
-          padding: "20px 24px",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "flex-start",
-            marginBottom: "16px",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-            <div
-              style={{
-                width: 42,
-                height: 42,
-                borderRadius: "10px",
-                background: "linear-gradient(135deg, #1d4ed8, #7c3aed)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <Brain size={22} strokeWidth={1.6} style={{ color: "#fff" }} />
-            </div>
-            <div>
-              <div
-                style={{
-                  fontWeight: 700,
-                  fontSize: "0.9rem",
-                  color: "var(--ifm-color-emphasis-900)",
-                }}
-              >
-                alice-research
-              </div>
-              <div
-                style={{
-                  fontSize: "0.72rem",
-                  color: "var(--ifm-color-emphasis-600)",
-                  fontFamily: "JetBrains Mono, monospace",
-                }}
-              >
-                did:vaultys:z6Mkf9x3TQ…
-              </div>
-            </div>
-          </div>
-          <span
-            style={{
-              background: "rgba(16,185,129,0.12)",
-              color: "#3fb950",
-              padding: "3px 10px",
-              borderRadius: "100px",
-              fontSize: "0.72rem",
-              fontWeight: 700,
-              border: "1px solid rgba(16,185,129,0.2)",
-            }}
-          >
-            ● online
-          </span>
-        </div>
-
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: "10px",
-            marginBottom: "14px",
-          }}
-        >
-          {[
-            { label: "Workspace", value: "Research" },
-            { label: "Model", value: "claude-sonnet" },
-            { label: "Role", value: "Analyst" },
-            { label: "Intents", value: "2,841 today" },
-          ].map(({ label, value }) => (
-            <div
-              key={label}
-              style={{
-                background: "var(--ifm-background-surface-color)",
-                border: "1px solid var(--ifm-color-emphasis-200)",
-                borderRadius: "8px",
-                padding: "10px 12px",
-              }}
-            >
-              <div
-                style={{
-                  fontSize: "0.68rem",
-                  color: "var(--ifm-color-emphasis-600)",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.06em",
-                  fontWeight: 600,
-                  marginBottom: "3px",
-                }}
-              >
-                {label}
-              </div>
-              <div
-                style={{
-                  fontSize: "0.85rem",
-                  fontWeight: 600,
-                  color: "var(--ifm-color-emphasis-900)",
-                }}
-              >
-                {value}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div
-          style={{
-            borderTop: "1px solid var(--ifm-color-emphasis-200)",
-            paddingTop: "12px",
-          }}
-        >
-          <div
-            style={{
-              fontSize: "0.72rem",
-              color: "var(--ifm-color-emphasis-600)",
-              marginBottom: "8px",
-              textTransform: "uppercase",
-              letterSpacing: "0.06em",
-              fontWeight: 600,
-            }}
-          >
-            Culture profile
-          </div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-            {[
-              "direct comms",
-              "data-driven",
-              "cite sources",
-              "concise",
-              "EMEA-aware",
-            ].map((tag) => (
-              <span
-                key={tag}
-                style={{
-                  background: "rgba(96,165,250,0.1)",
-                  border: "1px solid rgba(96,165,250,0.22)",
-                  color: "#3b82f6",
-                  padding: "2px 8px",
-                  borderRadius: "5px",
-                  fontSize: "0.72rem",
-                  fontWeight: 600,
-                }}
-              >
-                {tag}
-              </span>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Policy card */}
-      <div
-        style={{
-          background: "var(--ifm-card-background-color)",
-          border: "1px solid var(--ifm-color-emphasis-200)",
-          borderRadius: "12px",
-          padding: "16px 20px",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-            marginBottom: "12px",
-          }}
-        >
-          <ShieldCheck
-            size={15}
-            style={{ color: "#a78bfa" }}
-            strokeWidth={1.8}
-          />
-          <span
-            style={{
-              fontSize: "0.78rem",
-              fontWeight: 700,
-              color: "#a78bfa",
-              textTransform: "uppercase",
-              letterSpacing: "0.07em",
-            }}
-          >
-            Signed Policy
-          </span>
-          <span
-            style={{
-              marginLeft: "auto",
-              fontSize: "0.68rem",
-              color: "var(--ifm-color-emphasis-600)",
-              fontFamily: "JetBrains Mono, monospace",
-            }}
-          >
-            v4 · signed 2m ago
-          </span>
-        </div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-          {["internet_access", "api_call", "file_access"].map((cap) => (
-            <span
-              key={cap}
-              style={{
-                background: "rgba(124,58,237,0.1)",
-                border: "1px solid rgba(124,58,237,0.22)",
-                color: "#a78bfa",
-                padding: "3px 8px",
-                borderRadius: "5px",
-                fontSize: "0.72rem",
-                fontWeight: 600,
-              }}
-            >
-              {cap}
             </span>
           ))}
         </div>
-        <div
-          style={{
-            marginTop: "10px",
-            fontSize: "0.72rem",
-            color: "var(--ifm-color-emphasis-600)",
-            fontFamily: "JetBrains Mono, monospace",
-          }}
-        >
-          sig: a3f9b2…d04c{" "}
-          <CheckCircle2
-            size={11}
-            style={{ color: "#3fb950", display: "inline", marginLeft: "4px" }}
-            strokeWidth={2.5}
-          />
-        </div>
       </div>
-    </div>
+    </section>
   );
 }
 
 /* ────────────────────────────────────────────────────────────
-   Three Pillars
+   The seam: what this is, and what it deliberately is not
    ──────────────────────────────────────────────────────────── */
-const PILLARS = [
+const IS_LIST = [
   {
-    Icon: ShieldCheck,
-    color: "#3b82f6",
-    bg: "rgba(59,130,246,0.1)",
-    border: "rgba(59,130,246,0.25)",
-    label: "Security",
-    headline: "Zero Trust.\nPost-quantum ready.",
-    bullets: [
-      "Every intent cryptographically signed end-to-end",
-      "Post-quantum cryptography — ahead of NIST 2026 mandates",
-      "Built on Anthropic's responsible AI safety framework",
-      "Decentralised VaultysId — no central authority to call or fail",
-    ],
+    Icon: Fingerprint,
+    title: "Who is this agent?",
+    desc: "A VaultysId DID, proven per connection by a challenge/response handshake. Not a bearer token you can copy out of an env file.",
   },
   {
-    Icon: Globe,
-    color: "#10b981",
-    bg: "rgba(16,185,129,0.1)",
-    border: "rgba(16,185,129,0.25)",
-    label: "Sovereignty",
-    headline: "Your data.\nNo vendor control.",
-    bullets: [
-      "Runs fully inside your perimeter — on-premises or private cloud",
-      "Zero inter-agent traffic ever transits our servers",
-      "Open standard + MIT license — no lock-in, ever",
-      "Air-gap support for the highest-security environments",
-    ],
+    Icon: FileCheck,
+    title: "What is it allowed to do?",
+    desc: "A CapabilityCertificate, signed by the control plane and by the Actor itself. Anyone can verify it offline — no network, no database.",
   },
   {
-    Icon: Zap,
-    color: "#f59e0b",
-    bg: "rgba(245,158,11,0.1)",
-    border: "rgba(245,158,11,0.25)",
-    label: "Performance",
-    headline: "Distributed.\nCost-predictable.",
-    bullets: [
-      "Decentralised architecture — agents communicate directly",
-      "Flat-rate per agent tier, not per API call or token",
-      "Up to 20× lower TCO vs. self-deploying SPIRE",
-      "No egress fees, no bandwidth surcharges",
-    ],
+    Icon: RefreshCw,
+    title: "Is that still true?",
+    desc: "The cert_status protocol: a signed, timestamped status any party can request, cache, or staple. Revocation is a ledger write, not a hopeful push.",
+  },
+  {
+    Icon: ScrollText,
+    title: "What actually happened?",
+    desc: "One append-only audit log, every entry attributed to a DID and keyed to the exact certificate that authorised the action.",
   },
 ];
 
-function ThreePillarsSection() {
+const IS_NOT_LIST = [
+  "An agent framework — yours already works",
+  "A workflow engine — that went in the rebuild; run n8n or Temporal",
+  "A model gateway or a prompt router",
+  "A chat product, or anything an end user logs into",
+  "A cloud your agent traffic has to transit",
+];
+
+function SeamSection() {
   return (
-    <section
-      style={{ padding: "80px 0", background: "var(--ifm-background-surface-color)" }}
-    >
+    <section style={{ padding: "80px 0", background: "var(--ifm-background-surface-color)" }}>
       <div className="container">
-        <div style={{ textAlign: "center", marginBottom: "52px" }}>
-          <p className="section-label">The platform</p>
-          <h2 className="section-title">Three pillars. No compromise.</h2>
-          <p
-            className="section-subtitle"
-            style={{ margin: "0 auto", textAlign: "center" }}
-          >
-            The only managed agent identity platform that delivers Zero Trust
-            security, full data sovereignty, and a predictable cost structure —
-            simultaneously.
+        <div style={{ textAlign: "center", marginBottom: "48px" }}>
+          <p className="section-label">The scope</p>
+          <h2 className="section-title">Four questions. That is the whole product.</h2>
+          <p className="section-subtitle" style={{ margin: "0 auto", textAlign: "center" }}>
+            Orchestration is solved. Knowing who an actor is and what it may do,
+            provably, is not — so that is all VaultysClaw answers.
           </p>
         </div>
+
         <div className="row">
-          {PILLARS.map(({ Icon, color, bg, border, label, headline, bullets }) => (
-            <div key={label} className="col col--4" style={{ marginBottom: "24px" }}>
-              <div
-                style={{
-                  background: "var(--ifm-card-background-color)",
-                  border: `1px solid ${border}`,
-                  borderRadius: "16px",
-                  padding: "32px 28px",
-                  height: "100%",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "20px",
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
-                  <div
-                    style={{
-                      width: 48,
-                      height: 48,
-                      borderRadius: "12px",
-                      background: bg,
-                      border: `1px solid ${border}`,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      flexShrink: 0,
-                    }}
-                  >
-                    <Icon size={24} strokeWidth={1.8} style={{ color }} />
-                  </div>
-                  <span
-                    style={{
-                      fontSize: "0.72rem",
-                      fontWeight: 800,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.12em",
-                      color,
-                    }}
-                  >
-                    {label}
-                  </span>
+          {IS_LIST.map(({ Icon, title, desc }) => (
+            <div key={title} className="col col--3" style={{ marginBottom: "20px" }}>
+              <div className="feature-card">
+                <div className="feature-icon blue">
+                  <Icon size={20} strokeWidth={1.8} />
                 </div>
-                <h3
-                  style={{
-                    fontSize: "1.15rem",
-                    fontWeight: 800,
-                    lineHeight: 1.35,
-                    color: "var(--ifm-color-emphasis-900)",
-                    margin: 0,
-                    whiteSpace: "pre-line",
-                  }}
-                >
-                  {headline}
-                </h3>
-                <ul
-                  style={{
-                    listStyle: "none",
-                    padding: 0,
-                    margin: 0,
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "10px",
-                  }}
-                >
-                  {bullets.map((b) => (
-                    <li
-                      key={b}
-                      style={{ display: "flex", gap: "10px", alignItems: "flex-start" }}
-                    >
-                      <CheckCircle2
-                        size={15}
-                        strokeWidth={2.5}
-                        style={{ color, flexShrink: 0, marginTop: "2px" }}
-                      />
-                      <span
-                        style={{
-                          fontSize: "0.88rem",
-                          color: "var(--ifm-color-emphasis-700)",
-                          lineHeight: 1.55,
-                        }}
-                      >
-                        {b}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
+                <div className="feature-title">{title}</div>
+                <div className="feature-desc">{desc}</div>
               </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="not-panel">
+          <div className="not-panel-head">
+            <Ban size={16} strokeWidth={2.2} />
+            What VaultysClaw is deliberately not
+          </div>
+          <ul>
+            {IS_NOT_LIST.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+          <Link className="not-panel-link" to="/docs/reference/removed-surface">
+            What was removed in the rebuild, and why <ChevronRight size={14} />
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ────────────────────────────────────────────────────────────
+   Distribution → peer to peer
+   ──────────────────────────────────────────────────────────── */
+const P2P_POINTS = [
+  {
+    Icon: Share2,
+    color: "#a78bfa",
+    title: "Issuance is a moment, not a dependency",
+    desc: "The control plane signs a certificate and hands it over. That exchange is the only time it has to be reachable — the grant is a durable artefact the holder keeps, not a session it has to maintain.",
+  },
+  {
+    Icon: Wifi,
+    color: "#3fb950",
+    title: "Any peer can check any other peer",
+    desc: "A certificate is signed by the control plane and by its holder, so a second actor verifies it with the issuer's public key alone. No callback, no token introspection endpoint, no shared secret between the two.",
+  },
+  {
+    Icon: Lock,
+    color: "#60a5fa",
+    title: "Nothing in the middle to compromise or meter",
+    desc: "Once distributed, decisions happen where the work happens. There is no broker holding every actor's authority, and no bottleneck that turns an outage into a fleet-wide denial.",
+  },
+  {
+    Icon: RefreshCw,
+    color: "#f0b429",
+    title: "Freshness is a policy, not a hope",
+    desc: "A staple has an age, and trust.maxStatusAgeSeconds says how stale is tolerable. An air-gapped robot can be told to accept an hour-old staple; a payment agent, none at all.",
+  },
+];
+
+function PeerToPeerSection() {
+  return (
+    <section style={{ padding: "80px 0", background: "var(--ifm-background-color)" }}>
+      <div className="container">
+        <div style={{ textAlign: "center", marginBottom: "44px" }}>
+          <p className="section-label">Certificate distribution</p>
+          <h2 className="section-title">Distribute the certificates. Then get out of the way.</h2>
+          <p className="section-subtitle" style={{ margin: "0 auto", textAlign: "center" }}>
+            This is the architectural choice everything else follows from. A
+            capability is a signed certificate, not a lookup against a server —
+            so once it has been distributed, any two actors can establish what
+            the other is allowed to do without either of them talking to us.
+          </p>
+        </div>
+
+        <div className="row" style={{ alignItems: "center" }}>
+          <div className="col col--6" style={{ marginBottom: "24px" }}>
+            <PeerTrustDiagram />
+          </div>
+          <div className="col col--6">
+            <div className="sdk-points">
+              {P2P_POINTS.map(({ Icon, color, title, desc }) => (
+                <div key={title} className="sdk-point">
+                  <div className="sdk-point-icon" style={{ color }}>
+                    <Icon size={17} strokeWidth={1.9} />
+                  </div>
+                  <div>
+                    <strong>{title}</strong>
+                    <p>{desc}</p>
+                  </div>
+                </div>
+              ))}
+              <div className="sdk-links">
+                <Link className="btn-secondary" to="/docs/concepts/trust-verification">
+                  How offline verification works <ChevronRight size={15} />
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ────────────────────────────────────────────────────────────
+   Not only AI
+   ──────────────────────────────────────────────────────────── */
+const ACTOR_KINDS = [
+  { Icon: Bot, label: "Software agents", desc: "An LLM loop, a scheduled job, an MCP server." },
+  { Icon: Plane, label: "Drones", desc: "A mission grant scoped to an airspace and an hour." },
+  { Icon: Cpu, label: "Robots and PLCs", desc: "A cell that may move an axis, and may not open a door." },
+  { Icon: Truck, label: "Vehicles and fleets", desc: "Onboard compute that keeps deciding off-network." },
+  { Icon: Radio, label: "Sensors and gateways", desc: "Telemetry attributed to a DID, not to an IP." },
+  { Icon: User, label: "Humans", desc: "kind: \"human\" — an Actor like any other, no role table." },
+];
+
+function BeyondAISection() {
+  return (
+    <section className="enterprise-section" style={{ paddingBottom: "80px" }}>
+      <div className="container">
+        <div style={{ textAlign: "center", marginBottom: "40px" }}>
+          <p className="section-label">Actors, not just agents</p>
+          <h2 className="section-title">Nothing here is specific to AI</h2>
+          <p className="section-subtitle" style={{ margin: "0 auto", textAlign: "center" }}>
+            An Actor is anything that holds a keypair and takes actions. The
+            protocol never asks whether a model is involved — which is why a
+            drone, a factory cell, and a payments agent are governed by exactly
+            the same ledger, the same certificates, and the same revocation.
+          </p>
+        </div>
+        <div className="kinds-grid">
+          {ACTOR_KINDS.map(({ Icon, label, desc }) => (
+            <div key={label} className="kind-card">
+              <Icon size={18} strokeWidth={1.8} />
+              <strong>{label}</strong>
+              <span>{desc}</span>
             </div>
           ))}
         </div>
@@ -762,80 +386,27 @@ function ThreePillarsSection() {
    ──────────────────────────────────────────────────────────── */
 function AnthropicScoreTeaser() {
   return (
-    <section
-      style={{ padding: "0 0 0", background: "var(--ifm-background-surface-color)" }}
-    >
-      <div className="container" style={{ paddingBottom: "0" }}>
-        <Link
-          to="/zero-trust-score"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            flexWrap: "wrap",
-            gap: "16px",
-            background: "linear-gradient(135deg, rgba(59,130,246,0.08) 0%, rgba(16,185,129,0.08) 100%)",
-            border: "1px solid rgba(59,130,246,0.2)",
-            borderRadius: "14px",
-            padding: "22px 28px",
-            textDecoration: "none",
-            transition: "border-color 0.15s",
-          }}
-        >
+    <section style={{ padding: "0 0 80px", background: "var(--ifm-background-surface-color)" }}>
+      <div className="container">
+        <Link to="/zero-trust-score" className="zt-teaser">
           <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-            <div
-              style={{
-                width: 44,
-                height: 44,
-                borderRadius: 10,
-                background: "rgba(59,130,246,0.12)",
-                border: "1px solid rgba(59,130,246,0.25)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
-              }}
-            >
+            <div className="zt-teaser-icon">
               <ShieldCheck size={22} strokeWidth={1.8} style={{ color: "#3b82f6" }} />
             </div>
             <div>
-              <div
-                style={{
-                  fontSize: "0.72rem",
-                  fontWeight: 700,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.1em",
-                  color: "#3b82f6",
-                  marginBottom: 4,
-                }}
-              >
-                Anthropic Zero Trust AI Agents Framework · May 2026
+              <div className="zt-teaser-kicker">
+                Anthropic Zero Trust AI Agents Framework · self-assessment
               </div>
-              <div
-                style={{
-                  fontWeight: 700,
-                  fontSize: "0.95rem",
-                  color: "var(--ifm-color-emphasis-900)",
-                }}
-              >
-                VaultysClaw covers{" "}
+              <div className="zt-teaser-claim">
+                We publish the matrix instead of claiming compliance —{" "}
                 <span style={{ color: "#3fb950" }}>7 domains fully</span>,{" "}
-                <span style={{ color: "#f59e0b" }}>4 partially</span>, and{" "}
-                <span style={{ color: "#3b82f6" }}>1 on the roadmap</span> — unmatched coverage among open-source agent platforms.
+                <span style={{ color: "#f59e0b" }}>4 partially</span>,{" "}
+                <span style={{ color: "#3b82f6" }}>1 on the roadmap</span>,
+                including where we score zero.
               </div>
             </div>
           </div>
-          <div
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 6,
-              color: "#3b82f6",
-              fontSize: "0.85rem",
-              fontWeight: 700,
-              whiteSpace: "nowrap",
-            }}
-          >
+          <div className="zt-teaser-cta">
             See the full breakdown <ChevronRight size={16} strokeWidth={2.5} />
           </div>
         </Link>
@@ -845,99 +416,184 @@ function AnthropicScoreTeaser() {
 }
 
 /* ────────────────────────────────────────────────────────────
-   Feature cards
+   SDK — the main event
    ──────────────────────────────────────────────────────────── */
-const FEATURES: {
-  Icon: React.ComponentType<{ size: number; strokeWidth: number }>;
-  iconColor: string;
-  title: string;
-  desc: string;
-}[] = [
+const SDK_TABS: { id: string; label: string; note: string; code: string }[] = [
   {
-    Icon: Fingerprint,
-    iconColor: "blue",
-    title: "Every agent has an identity",
-    desc: "A non-transferable VaultysId ties each agent to your organisation. No impersonation, no ambiguity — every action is cryptographically attributed.",
+    id: "ts",
+    label: "agent.ts",
+    note: "@vaultysclaw/sdk · identity, grant, and the staple loop in one object",
+    code: `import { ActorRuntime, loadOrCreateIdentity } from "@vaultysclaw/sdk";
+
+const runtime = new ActorRuntime({
+  name: "invoice-approver",
+  kind: "openclaw",
+  controlPlaneWsUrl: "wss://cp.acme.internal:8081",
+  identityPath: "~/.acme/identity.key",
+  capabilityStatePath: "~/.acme/capabilities.json",
+  capabilityManifestPath: "./capabilities.json",
+  // A request, not a declaration. An admin may approve less —
+  // and your Actor has to work correctly holding less.
+  requestedCapabilities: ["api_call", "file_access", "acme:invoice.approve"],
+});
+
+await runtime.start();          // handshake → maybe pending → cert_issued
+
+// Gate your own operation, whatever an "operation" is for you:
+// a tool call, an HTTP route, a button, a queue consumer.
+if (await runtime.isOperationAllowed("erp_approve_invoice", "invoice:8812")) {
+  await erp.approveInvoice("8812");
+}
+
+// A revocation, or a custom capability deleted from the registry,
+// arrives here — rebuild any cached authorisation on this event.
+runtime.on("capabilities", (held) => cache.rebuild(held));`,
   },
   {
-    Icon: Brain,
-    iconColor: "purple",
-    title: "Encode your culture as policy",
-    desc: "Communication style, escalation rules, data access boundaries — formalise how your organisation works and deploy it as signed, tamper-proof policy.",
+    id: "go",
+    label: "main.go",
+    note: "sdk-go/vconn · the same protocol, the same decisions, in Go",
+    code: `conn := vconn.NewClientConn(vconn.ClientConfig{
+    CollectorURL: "https://cp.acme.internal:8081",
+    Identity:     id,
+    Name:         "invoice-poster",
+    Kind:         "openclaw",
+    RequestedCapabilities: []string{"api_call", "acme:invoice.post"},
+    CapabilityStatePath:   "/var/lib/acme/capabilities.json",
+})
+go conn.Run(ctx)
+
+if !conn.HasCapability("acme:invoice.post") {
+    return errors.New("not granted — refusing to post")
+}
+
+// Or decide from the certificate itself, with no control plane
+// reachable at all. authz.Resolve is a line-for-line port of
+// resolvePermission, pinned by the shared conformance vectors.
+d := authz.Resolve(authz.RequestedAction{
+    Capability: "acme:invoice.post",
+    Resource:   authz.Res("invoice:8812"),
+}, certs, time.Now().UnixMilli())
+
+if !d.Allowed {
+    return fmt.Errorf("denied: %s", d.Reason)
+}`,
   },
   {
-    Icon: Users,
-    iconColor: "blue",
-    title: "Your org chart, reflected in AI",
-    desc: "Workspaces, roles, and capability grants mirror your real team structure. The right people govern the right agents — enforced server-side, always.",
-  },
-  {
-    Icon: Zap,
-    iconColor: "emerald",
-    title: "Real-time coordination",
-    desc: "A persistent WebSocket hub lets agents collaborate in real time — routing work across departments, escalating to humans, and returning results in milliseconds.",
-  },
-  {
-    Icon: ShieldCheck,
-    iconColor: "emerald",
-    title: "Zero-trust security",
-    desc: "All intents, policies, and results are cryptographically signed end-to-end. Tampering is detected instantly, even if an intermediate node is compromised.",
-  },
-  {
-    Icon: Lock,
-    iconColor: "purple",
-    title: "Least-privilege by design",
-    desc: "Grant exactly the permissions each agent needs — file access, internet, code execution — and revoke them in one click, no restart required.",
-  },
-  {
-    Icon: FileCheck,
-    iconColor: "blue",
-    title: "Prove it after the fact",
-    desc: "Every grant is a signed certificate anyone can verify offline, and every action lands in one append-only trail citing the exact certificate that authorised it.",
-  },
-  {
-    Icon: CheckCircle2,
-    iconColor: "emerald",
-    title: "Human judgment, built in",
-    desc: "Flag sensitive actions for mandatory human review. Every approval is logged — who decided what, when, and why. Compliance loves it.",
+    id: "manifest",
+    label: "capabilities.json",
+    note: "Which capability gates which operation — the seam the SDK owns",
+    code: `{
+  "version": 1,
+  "declares": [
+    {
+      "name": "acme:invoice.approve",
+      "label": "Approve invoices",
+      "description": "Marks an invoice approved in the Acme ERP."
+    }
+  ],
+  "bindings": {
+    "erp_approve_invoice": "acme:invoice.approve",
+    "erp_read_invoice": "api_call"
+  }
+}
+
+// The declared set is reported in \`register\`, so an admin sees what
+// is wanted before granting anything. Declaring is not requesting,
+// and requesting is not granting.
+//
+// Parsing is strict: an invalid name, a binding naming an undeclared
+// capability, or a missing file all throw. Degrading to "no
+// capabilities" would look identical to an app that needs none.`,
   },
 ];
 
-function FeaturesSection() {
+function SdkSection() {
+  const [active, setActive] = React.useState(SDK_TABS[0].id);
+  const tab = SDK_TABS.find((t) => t.id === active) ?? SDK_TABS[0];
+
   return (
-    <section className="features-section">
+    <section style={{ padding: "80px 0", background: "var(--ifm-background-color)" }}>
       <div className="container">
-        <div style={{ textAlign: "center", marginBottom: "52px" }}>
-          <p className="section-label">What you get</p>
-          <h2 className="section-title">
-            AI agents that work like your best employee
-          </h2>
-          <p
-            className="section-subtitle"
-            style={{ margin: "0 auto", textAlign: "center" }}
-          >
-            The primitives your organisation needs to deploy AI with confidence
-            — accountability, culture, and zero-trust security baked in from day
-            one.
+        <div style={{ textAlign: "center", marginBottom: "44px" }}>
+          <p className="section-label">The SDK</p>
+          <h2 className="section-title">Two clients. One set of decisions.</h2>
+          <p className="section-subtitle" style={{ margin: "0 auto", textAlign: "center" }}>
+            TypeScript and Go, both driven against a real control plane, both
+            resolving permissions through the same 37 conformance vectors. No
+            tool registry to adopt — the SDK owns one seam: which capability
+            gates which of your operations.
           </p>
         </div>
 
-        <div className="row">
-          {FEATURES.map((f) => (
-            <div
-              key={f.title}
-              className="col col--3"
-              style={{ marginBottom: "20px" }}
-            >
-              <div className="feature-card">
-                <div className={clsx("feature-icon", f.iconColor)}>
-                  <f.Icon size={20} strokeWidth={1.8} />
+        <div className="row" style={{ alignItems: "stretch" }}>
+          <div className="col col--7" style={{ marginBottom: "24px" }}>
+            <div className="code-frame" style={{ height: "100%" }}>
+              <div className="sdk-tabs">
+                {SDK_TABS.map((t) => (
+                  <button
+                    type="button"
+                    key={t.id}
+                    className={clsx("sdk-tab", active === t.id && "active")}
+                    onClick={() => setActive(t.id)}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+              <div className="sdk-note">{tab.note}</div>
+              <pre>{tab.code}</pre>
+            </div>
+          </div>
+
+          <div className="col col--5">
+            <div className="sdk-points">
+              {[
+                {
+                  Icon: Lock,
+                  color: "#60a5fa",
+                  title: "No fallback to allow",
+                  desc: "An unbound operation, an ungranted capability, and an unreachable control plane all deny. There is deliberately no “nothing granted means allow everything” path anywhere in the package.",
+                },
+                {
+                  Icon: RefreshCw,
+                  color: "#a78bfa",
+                  title: "Holding a certificate is not proof it is still good",
+                  desc: "refreshCertStatus() verifies the signed response against the control plane's key from the handshake — not merely because it arrived on an authenticated socket — and the verified result replaces the held set. That is how a revocation lands.",
+                },
+                {
+                  Icon: ShieldCheck,
+                  color: "#3fb950",
+                  title: "Stale means denied, unless you say otherwise",
+                  desc: "Cadence comes from actor_config: refresh at half of maxStatusAgeSeconds, and 0 means no cached status is acceptable at all. No trust config is treated as failClosed.",
+                },
+                {
+                  Icon: Globe,
+                  color: "#f0b429",
+                  title: "Decide with the network down",
+                  desc: "resolvePermission() is synchronous and decides on what is already known. Certificates are signed artefacts — packages/policy verifies one with no network and no database.",
+                },
+              ].map(({ Icon, color, title, desc }) => (
+                <div key={title} className="sdk-point">
+                  <div className="sdk-point-icon" style={{ color }}>
+                    <Icon size={17} strokeWidth={1.9} />
+                  </div>
+                  <div>
+                    <strong>{title}</strong>
+                    <p>{desc}</p>
+                  </div>
                 </div>
-                <div className="feature-title">{f.title}</div>
-                <div className="feature-desc">{f.desc}</div>
+              ))}
+              <div className="sdk-links">
+                <Link className="btn-primary" to="/docs/architecture/building-an-actor">
+                  Build an Actor <ChevronRight size={16} strokeWidth={2.5} />
+                </Link>
+                <Link className="btn-secondary" to="/docs/reference/websocket-protocol">
+                  Protocol reference
+                </Link>
               </div>
             </div>
-          ))}
+          </div>
         </div>
       </div>
     </section>
@@ -945,7 +601,71 @@ function FeaturesSection() {
 }
 
 /* ────────────────────────────────────────────────────────────
-   Architecture (kept for technical credibility)
+   Certificate lifecycle
+   ──────────────────────────────────────────────────────────── */
+const LIFECYCLE = [
+  {
+    step: "01",
+    title: "Register",
+    desc: "The Actor connects and proves its DID with a Challenger handshake. An unknown DID becomes a pending registration — it is connected, and nothing resolves.",
+  },
+  {
+    step: "02",
+    title: "Grant",
+    desc: "An admin picks capabilities from what was requested. A second, independent certificate handshake signs the grant; cert_issued delivers it.",
+  },
+  {
+    step: "03",
+    title: "Enforce",
+    desc: "The Actor gates its own operations on what it holds. Scope, expiry, and resource limits are checked by pure code with an injected clock.",
+  },
+  {
+    step: "04",
+    title: "Re-check",
+    desc: "cert_status_request returns a signed status the holder verifies and staples. A revoked grant, or a deleted custom capability, stops resolving here.",
+  },
+  {
+    step: "05",
+    title: "Prove",
+    desc: "Every decision lands in the append-only audit log, attributed to a DID and keyed to the certificate that authorised it.",
+  },
+];
+
+function LifecycleSection() {
+  return (
+    <section className="features-section">
+      <div className="container">
+        <div style={{ textAlign: "center", marginBottom: "48px" }}>
+          <p className="section-label">Certificate lifecycle</p>
+          <h2 className="section-title">A grant is an artefact, not a session</h2>
+          <p className="section-subtitle" style={{ margin: "0 auto", textAlign: "center" }}>
+            Capabilities are either built-ins from a closed list or admin-defined{" "}
+            <code>vendor:action</code> names from the registry. Both travel
+            through identical machinery — the same certificates, scoping, expiry,
+            revocation, and resolution.
+          </p>
+        </div>
+        <div className="lifecycle">
+          {LIFECYCLE.map(({ step, title, desc }) => (
+            <div key={step} className="lifecycle-step">
+              <span className="lifecycle-num">{step}</span>
+              <strong>{title}</strong>
+              <p>{desc}</p>
+            </div>
+          ))}
+        </div>
+        <div style={{ textAlign: "center", marginTop: "32px" }}>
+          <Link className="btn-secondary" to="/docs/concepts/certificates">
+            How certificates work <ChevronRight size={15} />
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ────────────────────────────────────────────────────────────
+   Architecture
    ──────────────────────────────────────────────────────────── */
 function ArchitectureSection() {
   return (
@@ -954,47 +674,23 @@ function ArchitectureSection() {
         <div className="row" style={{ alignItems: "center" }}>
           <div className="col col--5">
             <p className="section-label">Architecture</p>
-            <h2 className="section-title">Built for where your data lives</h2>
+            <h2 className="section-title">One process you host, clients that dial out</h2>
             <p className="section-subtitle" style={{ marginBottom: "24px" }}>
-              The control plane is your single pane of glass. Agent controllers
-              run wherever your data is — on-premises, private cloud, or at the
-              edge. They connect outbound, so no inbound firewall rules needed.
-              Your IT team will thank you.
+              One Next.js + WebSocket process over Postgres, holding the
+              certificate ledger and the admin console. Actors dial outbound, so
+              there are no inbound firewall rules to negotiate — and no actor
+              traffic transits anything of ours, because nothing of ours is in
+              the path.
             </p>
-            <ul
-              style={{
-                listStyle: "none",
-                padding: 0,
-                margin: 0,
-                display: "flex",
-                flexDirection: "column",
-                gap: "12px",
-              }}
-            >
+            <ul className="check-list">
               {[
-                "VaultysId ensures no agent can impersonate another",
-                "Policies signed and distributed, never assumed",
-                "Agents verify every intent before acting",
-                "All results signed and returned for full auditability",
+                "packages/policy and packages/trust are pure — no Prisma, no Next.js, no sockets",
+                "Humans are Actors (kind: \"human\"), not a separate identity table — there is no role field anywhere",
+                "Access is a ledger lookup, and every mutating admin action authorizes itself",
+                "The Go and TypeScript sides are pinned to each other by shared conformance fixtures",
               ].map((item) => (
-                <li
-                  key={item}
-                  style={{
-                    display: "flex",
-                    alignItems: "flex-start",
-                    gap: "10px",
-                    fontSize: "0.9rem",
-                    color: "var(--ifm-color-emphasis-700)",
-                  }}
-                >
-                  <CheckCircle2
-                    size={16}
-                    style={{
-                      color: "#3fb950",
-                      flexShrink: 0,
-                      marginTop: "3px",
-                    }}
-                  />
+                <li key={item}>
+                  <CheckCircle2 size={16} style={{ color: "#3fb950" }} />
                   {item}
                 </li>
               ))}
@@ -1016,214 +712,49 @@ function ArchitectureSection() {
 }
 
 /* ────────────────────────────────────────────────────────────
-   Dashboard mockup
+   Interactive control plane
    ──────────────────────────────────────────────────────────── */
-const MOCK_AGENTS = [
-  {
-    name: "alice-research",
-    workspace: "Research",
-    caps: ["internet_access", "api_call"],
-    status: "online",
-    model: "claude-sonnet",
-  },
-  {
-    name: "bob-analyst",
-    workspace: "Finance",
-    caps: ["api_call", "file_access"],
-    status: "online",
-    model: "gpt-4o",
-  },
-  {
-    name: "ops-dispatcher",
-    workspace: "Operations",
-    caps: ["mail_send", "api_call"],
-    status: "online",
-    model: "gpt-4o-mini",
-  },
-  {
-    name: "dev-coder",
-    workspace: "Engineering",
-    caps: ["code_execution", "file_access"],
-    status: "offline",
-    model: "llama3.2",
-  },
-];
-
-const NAV_ITEMS = [
-  { Icon: Network, label: "Overview", active: false },
-  { Icon: Bot, label: "Actors", active: true },
-  { Icon: Bot, label: "Sensors", active: false },
-  { Icon: Globe, label: "Map", active: false },
-  { Icon: FileCheck, label: "Certificates", active: false },
-  { Icon: Building2, label: "Workspaces", active: false },
-  { Icon: ShieldCheck, label: "Audit Log", active: false },
-  { Icon: Key, label: "Integrations", active: false },
-];
-
-function DashboardMockup() {
+function ConsoleSection() {
   return (
     <section className="mockup-section">
       <div className="container">
-        <div style={{ textAlign: "center", marginBottom: "48px" }}>
-          <p className="section-label">Control plane</p>
-          <h2 className="section-title">Your whole team, in one place</h2>
-          <p
-            className="section-subtitle"
-            style={{ margin: "0 auto", textAlign: "center" }}
-          >
-            See who's working, what they're doing, and whether they're acting
-            within your organisation's policies — in real time.
+        <div style={{ textAlign: "center", marginBottom: "40px" }}>
+          <p className="section-label">Control plane · try it</p>
+          <h2 className="section-title">Approve something. Then take it away.</h2>
+          <p className="section-subtitle" style={{ margin: "0 auto", textAlign: "center" }}>
+            The admin console, wired to a fake ledger that behaves like the real
+            one. Tick the capabilities you would actually grant, approve an
+            Actor, then revoke its certificate and see what the holder loses.
           </p>
         </div>
-
-        <div className="mockup-window">
-          <div className="mockup-titlebar">
-            <div className="mockup-dot red" />
-            <div className="mockup-dot yellow" />
-            <div className="mockup-dot green" />
-            <div className="mockup-url-bar">
-              https://vaultysclaw.acmecorp.internal
-            </div>
-          </div>
-
-          <div className="mockup-body">
-            <div className="mockup-sidebar">
-              <div className="mockup-sidebar-logo">
-                <div className="logo-dot" />
-                VaultysClaw
-              </div>
-              {NAV_ITEMS.map(({ Icon, label, active }) => (
-                <div
-                  key={label}
-                  className={clsx("mockup-nav-item", active && "active")}
-                >
-                  <span className="nav-icon">
-                    <Icon size={15} strokeWidth={active ? 2.2 : 1.8} />
-                  </span>
-                  {label}
-                </div>
-              ))}
-            </div>
-
-            <div className="mockup-content">
-              <div className="mockup-page-title">Agents</div>
-
-              <div className="mockup-stats-row">
-                <div className="mockup-stat-card">
-                  <div className="mockup-stat-label">Team Members</div>
-                  <div className="mockup-stat-value">12</div>
-                  <div className="mockup-stat-sub">+3 this week</div>
-                </div>
-                <div className="mockup-stat-card">
-                  <div className="mockup-stat-label">Active Now</div>
-                  <div
-                    className="mockup-stat-value"
-                    style={{ color: "#3fb950" }}
-                  >
-                    9
-                  </div>
-                  <div className="mockup-stat-sub">75% uptime</div>
-                </div>
-                <div className="mockup-stat-card">
-                  <div className="mockup-stat-label">Tasks Today</div>
-                  <div className="mockup-stat-value">1,432</div>
-                  <div className="mockup-stat-sub" style={{ color: "#79c0ff" }}>
-                    ↑ 12%
-                  </div>
-                </div>
-              </div>
-
-              <div className="mockup-agent-table">
-                <div className="mockup-table-header">
-                  <span>Agent</span>
-                  <span>Capabilities</span>
-                  <span>Model</span>
-                  <span>Status</span>
-                </div>
-                {MOCK_AGENTS.map((agent) => (
-                  <div className="mockup-table-row" key={agent.name}>
-                    <div>
-                      <div
-                        style={{
-                          color: "#e6edf3",
-                          fontWeight: 600,
-                          fontSize: "0.83rem",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "6px",
-                        }}
-                      >
-                        <Bot
-                          size={13}
-                          style={{ color: "#60a5fa", flexShrink: 0 }}
-                        />
-                        {agent.name}
-                      </div>
-                      <div
-                        style={{
-                          color: "#8b949e",
-                          fontSize: "0.72rem",
-                          paddingLeft: "19px",
-                        }}
-                      >
-                        {agent.workspace}
-                      </div>
-                    </div>
-                    <div>
-                      {agent.caps.map((c) => (
-                        <span key={c} className="mockup-cap-pill">
-                          {c}
-                        </span>
-                      ))}
-                    </div>
-                    <div
-                      style={{
-                        color: "#8b949e",
-                        fontSize: "0.78rem",
-                        fontFamily: "JetBrains Mono, monospace",
-                      }}
-                    >
-                      {agent.model}
-                    </div>
-                    <div>
-                      <span
-                        className={clsx(
-                          "mockup-status-badge",
-                          agent.status === "online" ? "online" : "offline"
-                        )}
-                      >
-                        {agent.status}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
+        <ConsoleExplorer />
+        <p className="mockup-caption">
+          Every number above is derived from the state your clicks change.
+          Nothing here is a screenshot.
+        </p>
       </div>
     </section>
   );
 }
 
 /* ────────────────────────────────────────────────────────────
-   VaultysId — soul of the system
+   VaultysId
    ──────────────────────────────────────────────────────────── */
 const SECURITY_PILLARS = [
   {
     Icon: Globe,
     title: "No central authority",
-    desc: "Identity lives with the agent — no provider to call, no single point of failure.",
+    desc: "Identity lives with the Actor — no provider to call, no single point of failure.",
   },
   {
     Icon: Key,
     title: "Non-transferable by design",
-    desc: "Private keys never leave the entity. Your agent's identity is exclusively its own.",
+    desc: "Private keys never leave the entity. An identity cannot be copied out of a config file.",
   },
   {
     Icon: FileCheck,
     title: "Offline-verifiable",
-    desc: "Agents verify trust locally at execution time — fast, resilient, and auditable.",
+    desc: "A holder verifies a grant locally at decision time — fast, resilient, and auditable.",
   },
 ];
 
@@ -1237,67 +768,23 @@ function SecuritySection() {
               Powered by VaultysId
             </p>
             <h2 className="section-title" style={{ color: "#f8fafc" }}>
-              Identity is the soul of your agents
+              An identity you cannot leak in an env var
             </h2>
-            <p
-              className="section-subtitle"
-              style={{ color: "#94a3b8", marginBottom: "28px" }}
-            >
-              VaultysId gives every agent a cryptographic identity that is
-              uniquely, irrevocably theirs. Not a session token you hand out.
-              Not an API key you can copy. A decentralised identity that embeds
-              accountability into the fabric of every action taken.
+            <p className="section-subtitle" style={{ color: "#94a3b8", marginBottom: "28px" }}>
+              Every Actor holds a VaultysId DID that is uniquely, irrevocably
+              its own. Not a session token you hand out. Not an API key you can
+              paste into a second process and become two agents at once.
             </p>
 
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: "14px",
-                marginBottom: "28px",
-              }}
-            >
+            <div className="vid-pillars">
               {SECURITY_PILLARS.map(({ Icon, title, desc }) => (
-                <div
-                  key={title}
-                  style={{
-                    display: "flex",
-                    gap: "14px",
-                    alignItems: "flex-start",
-                  }}
-                >
-                  <div
-                    style={{
-                      width: 38,
-                      height: 38,
-                      borderRadius: 8,
-                      background: "rgba(124, 58, 237, 0.15)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      flexShrink: 0,
-                    }}
-                  >
-                    <Icon
-                      size={18}
-                      strokeWidth={1.8}
-                      style={{ color: "#a78bfa" }}
-                    />
+                <div key={title} className="vid-pillar">
+                  <div className="vid-pillar-icon">
+                    <Icon size={18} strokeWidth={1.8} style={{ color: "#a78bfa" }} />
                   </div>
                   <div>
-                    <div
-                      style={{
-                        fontWeight: 700,
-                        fontSize: "0.9rem",
-                        color: "#e2e8f0",
-                        marginBottom: 4,
-                      }}
-                    >
-                      {title}
-                    </div>
-                    <div style={{ fontSize: "0.85rem", color: "#94a3b8" }}>
-                      {desc}
-                    </div>
+                    <strong>{title}</strong>
+                    <span>{desc}</span>
                   </div>
                 </div>
               ))}
@@ -1305,125 +792,53 @@ function SecuritySection() {
 
             <Link
               className="btn-secondary"
-              to="/docs/concepts/certificates"
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "6px",
-              }}
+              to="/docs/concepts/trust-verification"
+              style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
             >
-              How certificates work <ChevronRight size={15} />
+              How verification works <ChevronRight size={15} />
             </Link>
           </div>
 
           <div className="col col--7">
-            <div
-              style={{ display: "flex", flexDirection: "column", gap: "16px" }}
-            >
-              {/* Intent signing flow */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
               <div className="security-card highlight">
-                <div
-                  style={{
-                    fontSize: "0.78rem",
-                    fontWeight: 700,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.08em",
-                    color: "#a78bfa",
-                    marginBottom: "16px",
-                  }}
-                >
-                  Every action, signed and attributed
+                <div className="security-card-kicker">
+                  Two independent handshakes, one connection
                 </div>
-                <div
-                  style={{
-                    display: "flex",
-                    flexWrap: "wrap",
-                    gap: "8px",
-                    alignItems: "center",
-                  }}
-                >
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", alignItems: "center" }}>
                   {[
-                    "Create intent",
-                    "Sign w/ DID key",
-                    "Route via WSS",
-                    "Verify signature",
-                    "Check policy",
-                    "Execute",
-                    "Sign result",
-                    "Audit log",
+                    "register",
+                    "auth_challenge",
+                    "auth_complete",
+                    "cert_challenge",
+                    "cert_issued",
+                    "cert_status_request",
+                    "verify + staple",
+                    "decide",
                   ].map((step, i, arr) => (
                     <React.Fragment key={step}>
                       <div className="security-flow-step">{step}</div>
                       {i < arr.length - 1 && (
-                        <ChevronRight
-                          size={13}
-                          style={{ color: "#30363d", flexShrink: 0 }}
-                        />
+                        <ChevronRight size={13} style={{ color: "#30363d", flexShrink: 0 }} />
                       )}
                     </React.Fragment>
                   ))}
                 </div>
               </div>
 
-              {/* Why it matters for culture */}
               <div className="security-card">
-                <div
-                  style={{
-                    fontSize: "0.78rem",
-                    fontWeight: 700,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.08em",
-                    color: "#8b949e",
-                    marginBottom: "14px",
-                  }}
-                >
-                  What this means for your organisation
+                <div className="security-card-kicker dim">
+                  What this buys the people who have to sign off
                 </div>
                 {[
-                  {
-                    Icon: CheckCircle2,
-                    color: "#3fb950",
-                    text: "You always know which agent did what, and under whose authority",
-                  },
-                  {
-                    Icon: CheckCircle2,
-                    color: "#3fb950",
-                    text: "Compromised agents can't affect others — blast radius is always contained",
-                  },
-                  {
-                    Icon: CheckCircle2,
-                    color: "#3fb950",
-                    text: "Delegation is explicit — no implicit trust, no permission creep",
-                  },
-                  {
-                    Icon: CheckCircle2,
-                    color: "#3fb950",
-                    text: "Audit trail satisfies SOC 2, ISO 27001, and GDPR requirements",
-                  },
-                ].map(({ Icon, color, text }) => (
-                  <div
-                    key={text}
-                    style={{
-                      display: "flex",
-                      gap: "10px",
-                      alignItems: "flex-start",
-                      marginBottom: "10px",
-                    }}
-                  >
-                    <Icon
-                      size={14}
-                      strokeWidth={2.5}
-                      style={{ color, flexShrink: 0, marginTop: "3px" }}
-                    />
-                    <span
-                      style={{
-                        fontSize: "0.85rem",
-                        color: "#c9d1d9",
-                        lineHeight: 1.55,
-                      }}
-                    >
-                      {text}
-                    </span>
+                  "You always know which Actor did what, and under whose authority",
+                  "A compromised Actor holds only its own scoped grant — blast radius is bounded by the certificate",
+                  "Delegation is explicit and signed; there is no implicit trust to creep",
+                  "Deleting a registry entry is a mass revoke — it stops resolving on every holder's next refresh",
+                ].map((text) => (
+                  <div key={text} className="security-check">
+                    <CheckCircle2 size={14} strokeWidth={2.5} style={{ color: "#3fb950" }} />
+                    <span>{text}</span>
                   </div>
                 ))}
               </div>
@@ -1436,523 +851,53 @@ function SecuritySection() {
 }
 
 /* ────────────────────────────────────────────────────────────
-   Developer experience / code snippet
+   Conformance
    ──────────────────────────────────────────────────────────── */
-function CodeExampleSection() {
-  const snippet = `// Send a culturally-aware intent to your research agent
-const response = await fetch("/api/intents", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-    agentId: "did:vaultys:z6Mkf9x3T...",   // alice-research
-    action: "brief_ceo",
-    params: {
-      topic: "Q1 EMEA market shifts",
-      tone: "direct",         // your company voice
-      format: "3-bullet-max", // your communication style
-      cite_sources: true,     // your quality bar
-    },
-  }),
-});
-
-const { intentId, sentTo } = await response.json();
-// The agent's identity + your policy = accountable AI`;
-
-  return (
-    <section
-      style={{ padding: "80px 0", background: "var(--ifm-background-color)" }}
-    >
-      <div className="container">
-        <div className="row" style={{ alignItems: "center" }}>
-          <div className="col col--5">
-            <p className="section-label">Developer experience</p>
-            <h2 className="section-title">
-              One call to put your culture to work
-            </h2>
-            <p className="section-subtitle" style={{ marginBottom: "24px" }}>
-              Encoding your culture into an agent is as simple as adding
-              parameters to an API call. The platform handles identity
-              verification, policy enforcement, and signing — you focus on what
-              makes your organisation unique.
-            </p>
-            <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
-              <Link className="btn-primary" to="/docs/reference/websocket-protocol">
-                Explore the protocol <ChevronRight size={16} strokeWidth={2.5} />
-              </Link>
-              <Link className="btn-secondary" to="/docs/guides/quickstart">
-                5-minute quickstart
-              </Link>
-            </div>
-          </div>
-          <div className="col col--7">
-            <div
-              style={{
-                background: "#0d1117",
-                border: "1px solid #30363d",
-                borderRadius: "12px",
-                overflow: "hidden",
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  padding: "10px 16px",
-                  background: "#161b22",
-                  borderBottom: "1px solid #21262d",
-                  fontSize: "0.78rem",
-                  color: "#8b949e",
-                  fontFamily: "JetBrains Mono, monospace",
-                }}
-              >
-                <span
-                  style={{
-                    background: "#238636",
-                    color: "#fff",
-                    padding: "1px 6px",
-                    borderRadius: "4px",
-                    fontSize: "0.7rem",
-                    fontWeight: 700,
-                  }}
-                >
-                  POST
-                </span>
-                /api/intents
-              </div>
-              <pre
-                style={{
-                  margin: 0,
-                  padding: "20px",
-                  fontFamily: "JetBrains Mono, monospace",
-                  fontSize: "0.8rem",
-                  lineHeight: "1.65",
-                  color: "#c9d1d9",
-                  background: "transparent",
-                  overflowX: "auto",
-                }}
-              >
-                {snippet}
-              </pre>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-/* ────────────────────────────────────────────────────────────
-   Quote / testimonial strip
-   ──────────────────────────────────────────────────────────── */
-const QUOTES = [
+const CONFORMANCE = [
   {
-    quote:
-      "For the first time, our AI agents feel like colleagues, not third-party services. They know our tone, our rules, and who gave them permission to act.",
-    author: "Head of Engineering",
-    company: "Meridian",
+    file: "permission-vectors.json",
+    count: "37 cases",
+    desc: "Run by both packages/trust and sdk-go/authz. If the two ever disagree about a permission, a suite goes red.",
   },
   {
-    quote:
-      "The VaultysId model completely changed how we think about AI governance. Every action is attributable. Our compliance team stopped worrying.",
-    author: "CISO",
-    company: "Vertex Labs",
+    file: "capability-names.json",
+    count: "31 cases",
+    desc: "One grammar for capability names, mirrored in packages/policy and sdk-go/capability. Never validate a name by hand.",
   },
   {
-    quote:
-      "We went from 'we can't use AI here' to 'our agents run inside our firewall, on our data, with our policies'. That changed everything.",
-    author: "CTO",
-    company: "Nexus AI",
+    file: "grant-fixture.json",
+    count: "TS-signed",
+    desc: "Signed on the TypeScript side, verified on the Go side. Offline grant verification, proven across the boundary.",
   },
 ];
 
-function QuotesSection() {
+function ConformanceSection() {
   return (
-    <section
-      style={{
-        padding: "80px 0",
-        background: "var(--ifm-background-surface-color)",
-      }}
-    >
+    <section style={{ padding: "80px 0", background: "var(--ifm-background-surface-color)" }}>
       <div className="container">
-        <div style={{ textAlign: "center", marginBottom: "48px" }}>
-          <p className="section-label">What teams say</p>
-          <h2 className="section-title">
-            Culture compounds when agents carry it
-          </h2>
+        <div style={{ textAlign: "center", marginBottom: "44px" }}>
+          <p className="section-label">TS ↔ Go parity</p>
+          <h2 className="section-title">Two implementations, pinned to each other</h2>
+          <p className="section-subtitle" style={{ margin: "0 auto", textAlign: "center" }}>
+            An authorization decision that differs between a Go robot and a
+            TypeScript agent is a security bug. So the logic is not documented as
+            identical — it is tested as identical, from fixtures neither side may
+            change alone.
+          </p>
         </div>
         <div className="row">
-          {QUOTES.map(({ quote, author, company }) => (
-            <div
-              key={company}
-              className="col col--4"
-              style={{ marginBottom: "20px" }}
-            >
-              <div
-                style={{
-                  background: "var(--ifm-card-background-color)",
-                  border: "1px solid var(--ifm-color-emphasis-200)",
-                  borderRadius: "12px",
-                  padding: "28px",
-                  height: "100%",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "20px",
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: "1.5rem",
-                    color: "#3b82f6",
-                    lineHeight: 1,
-                    fontFamily: "Georgia, serif",
-                  }}
-                >
-                  "
+          {CONFORMANCE.map(({ file, count, desc }) => (
+            <div key={file} className="col col--4" style={{ marginBottom: "20px" }}>
+              <div className="conf-card">
+                <div className="conf-file">
+                  <code>{file}</code>
+                  <span>{count}</span>
                 </div>
-                <p
-                  style={{
-                    margin: 0,
-                    fontSize: "0.92rem",
-                    lineHeight: 1.7,
-                    color: "var(--ifm-color-emphasis-800)",
-                    fontStyle: "italic",
-                    flex: 1,
-                  }}
-                >
-                  {quote}
-                </p>
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: "0.85rem" }}>
-                    {author}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: "0.8rem",
-                      color: "var(--ifm-color-emphasis-600)",
-                    }}
-                  >
-                    {company}
-                  </div>
-                </div>
+                <p>{desc}</p>
               </div>
             </div>
           ))}
         </div>
-      </div>
-    </section>
-  );
-}
-
-/* ────────────────────────────────────────────────────────────
-   TCO Comparison
-   ──────────────────────────────────────────────────────────── */
-/* Annual pricing rows: recurring cost per year (steady-state).
-   SPIRE shown as amortized annual (total 3yr / 3) since it has no true
-   recurring licence — the real cost is engineering time. */
-const PRICING_ROWS: {
-  vendor: string;
-  note: string;
-  isVC: boolean;
-  a200: string;  s200?: string;
-  a1000: string; s1000?: string;
-  a5000: string; s5000?: string;
-}[] = [
-  {
-    vendor: "Okta Agent Identity", note: "~€4/agent/month, recurring licence only",
-    isVC: false,
-    a200: "€9,600",    s200:  "+ €30k setup",
-    a1000: "€48,000",  s1000: "+ €80k setup",
-    a5000: "€240,000", s5000: "+ €150k setup",
-  },
-  {
-    vendor: "Microsoft Entra WI", note: "~€2–3/agent/month + full M365/Azure stack required",
-    isVC: false,
-    a200: "€5,760",    s200:  "M365 stack req.",
-    a1000: "€28,800",  s1000: "M365 stack req.",
-    a5000: "€144,000", s5000: "M365 stack req.",
-  },
-  {
-    vendor: "SPIRE (open source)", note: "recurring maintenance only (0.5 FTE)",
-    isVC: false,
-    a200: "€65,000",    s200:  "+ €150–200k setup",
-    a1000: "€75,000",   s1000: "+ €150–200k setup",
-    a5000: "€80,000",   s5000: "+ €150–200k setup",
-  },
-  {
-    vendor: "Orchestration tools", note: "Mastra Enterprise, CrewAI Enterprise — flat enterprise licence + consumption billing · no agent identity layer",
-    isVC: false,
-    a200: "from €60k/yr",  s200:  "+ CPU/egress/tokens",
-    a1000: "from €80k/yr", s1000: "+ CPU/egress/tokens",
-    a5000: "custom",        s5000: "+ CPU/egress/tokens",
-  },
-  {
-    vendor: "VaultysClaw", note: "sponsor & commercial tiers · price lock guaranteed",
-    isVC: true,
-    a200: "", a1000: "", a5000: "",
-  },
-];
-
-const FEATURE_ROWS: {
-  feature: string;
-  okta: string;
-  entra: string;
-  spire: string;
-  orch: string;
-  vc: string;
-  vcGood: boolean;
-}[] = [
-  { feature: "Agent orchestration",       okta: "✗",            entra: "✗",               spire: "✗",             orch: "✓",              vc: "✓",               vcGood: true  },
-  { feature: "Cryptographic identity",    okta: "✓",            entra: "✓",               spire: "✓",             orch: "✗",              vc: "✓",               vcGood: true  },
-  { feature: "Architecture",              okta: "Centralised",  entra: "Centralised",     spire: "Decentralised", orch: "Cloud-hosted",   vc: "Decentralised",   vcGood: true  },
-  { feature: "Managed service",           okta: "✓",            entra: "✓",               spire: "✗",             orch: "✓",              vc: "✓",               vcGood: true  },
-  { feature: "Open source",               okta: "✗",            entra: "✗",               spire: "✓",             orch: "Partial",        vc: "✓",               vcGood: true  },
-  { feature: "Vendor lock-in",            okta: "High",         entra: "Total (Azure)",   spire: "None",          orch: "Medium",         vc: "None",            vcGood: true  },
-  { feature: "Air-gap / on-premises",     okta: "✗",            entra: "Partial",         spire: "✓",             orch: "✗",              vc: "✓",               vcGood: true  },
-  { feature: "Pricing grows with traffic",okta: "✓",            entra: "✓",               spire: "✗",             orch: "✓",              vc: "✗",               vcGood: true  },
-  { feature: "Agent traffic via vendor",  okta: "✓",            entra: "✓",               spire: "✗",             orch: "✓",              vc: "✗",               vcGood: true  },
-];
-
-const thCell: React.CSSProperties = {
-  padding: "10px 20px",
-  fontSize: "0.7rem",
-  fontWeight: 700,
-  textTransform: "uppercase",
-  letterSpacing: "0.07em",
-  color: "var(--ifm-color-emphasis-500)",
-  borderBottom: "1px solid var(--ifm-color-emphasis-200)",
-  whiteSpace: "nowrap",
-  textAlign: "center",
-};
-
-function TCOSection() {
-  return (
-    <section
-      style={{ padding: "80px 0", background: "var(--ifm-background-surface-color)" }}
-    >
-      <div className="container">
-        <div style={{ textAlign: "center", marginBottom: "52px" }}>
-          <p className="section-label">Market comparison</p>
-          <h2 className="section-title">How the alternatives stack up</h2>
-          <p
-            className="section-subtitle"
-            style={{ margin: "0 auto", textAlign: "center", maxWidth: "640px" }}
-          >
-            Six major vendors launched agent identity products in 2026. All
-            centralised. All proprietary. All with costs that grow with your
-            fleet.
-          </p>
-        </div>
-
-        {/* ── Pricing table ── */}
-        <div
-          style={{
-            background: "var(--ifm-card-background-color)",
-            border: "1px solid var(--ifm-color-emphasis-200)",
-            borderRadius: "16px",
-            overflow: "hidden",
-            marginBottom: "28px",
-          }}
-        >
-          <div
-            style={{
-              padding: "16px 28px",
-              borderBottom: "1px solid var(--ifm-color-emphasis-200)",
-              background: "var(--ifm-background-surface-color)",
-            }}
-          >
-            <span style={{ fontWeight: 800, fontSize: "0.95rem", color: "var(--ifm-color-emphasis-900)" }}>
-              Annual pricing by fleet size
-            </span>
-          </div>
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "520px" }}>
-              <thead>
-                <tr>
-                  <th style={{ ...thCell, textAlign: "left", width: "34%" }}>Solution</th>
-                  <th style={thCell}>200 agents / yr</th>
-                  <th style={thCell}>1,000 agents / yr</th>
-                  <th style={thCell}>5,000 agents / yr</th>
-                </tr>
-              </thead>
-              <tbody>
-                {PRICING_ROWS.map(({ vendor, note, isVC, a200, s200, a1000, s1000, a5000, s5000 }) => (
-                  <tr
-                    key={vendor}
-                    style={{
-                      borderBottom: "1px solid var(--ifm-color-emphasis-100)",
-                      background: isVC ? "rgba(59,130,246,0.04)" : undefined,
-                    }}
-                  >
-                    <td style={{ padding: "14px 20px" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                        {isVC && <ShieldCheck size={14} style={{ color: "#3b82f6", flexShrink: 0 }} />}
-                        <span
-                          style={{
-                            fontWeight: 600,
-                            fontSize: "0.88rem",
-                            color: isVC ? "#3b82f6" : "var(--ifm-color-emphasis-900)",
-                          }}
-                        >
-                          {vendor}
-                        </span>
-                      </div>
-                      <div style={{ fontSize: "0.7rem", color: "var(--ifm-color-emphasis-500)", marginTop: "2px", paddingLeft: isVC ? "22px" : "0" }}>
-                        {note}
-                      </div>
-                    </td>
-                    {isVC ? (
-                      <>
-                        <td colSpan={2} style={{ padding: "14px 20px", textAlign: "center" }}>
-                          <span style={{ fontSize: "0.78rem", color: "var(--ifm-color-emphasis-500)", fontStyle: "italic" }}>
-                            pricing on request
-                          </span>
-                        </td>
-                        <td style={{ padding: "14px 20px", textAlign: "center" }}>
-                          <a
-                            href="mailto:contact@vaultys.com"
-                            style={{
-                              display: "inline-flex",
-                              alignItems: "center",
-                              gap: "5px",
-                              background: "#3b82f6",
-                              color: "#fff",
-                              borderRadius: "6px",
-                              padding: "6px 14px",
-                              fontSize: "0.78rem",
-                              fontWeight: 700,
-                              textDecoration: "none",
-                              whiteSpace: "nowrap",
-                            }}
-                          >
-                            Contact us <ArrowRight size={12} strokeWidth={2.5} />
-                          </a>
-                        </td>
-                      </>
-                    ) : (
-                      ([
-                        [a200, s200],
-                        [a1000, s1000],
-                        [a5000, s5000],
-                      ] as [string, string | undefined][]).map(([val, setup], i) => (
-                        <td
-                          key={i}
-                          style={{
-                            padding: "14px 20px",
-                            textAlign: "center",
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          <div style={{ fontFamily: "JetBrains Mono, monospace", fontSize: "0.85rem", color: "var(--ifm-color-emphasis-800)" }}>
-                            {val}
-                          </div>
-                          {setup && (
-                            <div style={{ fontSize: "0.68rem", color: "var(--ifm-color-emphasis-400)", marginTop: "2px" }}>
-                              {setup}
-                            </div>
-                          )}
-                        </td>
-                      ))
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* ── Feature comparison table ── */}
-        <div
-          style={{
-            background: "var(--ifm-card-background-color)",
-            border: "1px solid var(--ifm-color-emphasis-200)",
-            borderRadius: "16px",
-            overflow: "hidden",
-            marginBottom: "28px",
-          }}
-        >
-          <div
-            style={{
-              padding: "16px 28px",
-              borderBottom: "1px solid var(--ifm-color-emphasis-200)",
-              background: "var(--ifm-background-surface-color)",
-            }}
-          >
-            <span style={{ fontWeight: 800, fontSize: "0.95rem", color: "var(--ifm-color-emphasis-900)" }}>
-              Feature comparison
-            </span>
-          </div>
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "520px" }}>
-              <thead>
-                <tr>
-                  <th style={{ ...thCell, textAlign: "left", width: "24%" }}>Feature</th>
-                  <th style={thCell}>Okta</th>
-                  <th style={thCell}>Entra WI</th>
-                  <th style={thCell}>SPIRE</th>
-                  <th style={thCell}>Orchestration†</th>
-                  <th style={{ ...thCell, color: "#3b82f6" }}>VaultysClaw</th>
-                </tr>
-              </thead>
-              <tbody>
-                {FEATURE_ROWS.map(({ feature, okta, entra, spire, orch, vc, vcGood }) => {
-                  const cellStyle = (val: string): React.CSSProperties => ({
-                    padding: "12px 16px",
-                    textAlign: "center",
-                    fontSize: val === "✓" || val === "✗" ? "1rem" : "0.8rem",
-                    color: val === "✓" ? "#3fb950" : val === "✗" ? "var(--ifm-color-emphasis-300)" : "var(--ifm-color-emphasis-700)",
-                    fontWeight: val === "✓" || val === "✗" ? 700 : 500,
-                    whiteSpace: "nowrap",
-                  });
-                  const vcIsCheck = vc === "✓";
-                  const vcIsX = vc === "✗";
-                  return (
-                    <tr
-                      key={feature}
-                      style={{ borderBottom: "1px solid var(--ifm-color-emphasis-100)" }}
-                    >
-                      <td style={{ padding: "12px 20px", fontSize: "0.85rem", fontWeight: 600, color: "var(--ifm-color-emphasis-800)" }}>
-                        {feature}
-                      </td>
-                      {[okta, entra, spire, orch].map((val, i) => (
-                        <td key={i} style={cellStyle(val)}>{val}</td>
-                      ))}
-                      <td
-                        style={{
-                          padding: "12px 16px",
-                          textAlign: "center",
-                          fontSize: vcIsCheck || vcIsX ? "1rem" : "0.8rem",
-                          fontWeight: 700,
-                          color: vcIsCheck ? "#3fb950" : vcIsX ? "var(--ifm-color-emphasis-300)" : vcGood ? "#3b82f6" : "var(--ifm-color-emphasis-700)",
-                          background: "rgba(59,130,246,0.04)",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {vc}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* ── Footnote ── */}
-        <p
-          style={{
-            margin: 0,
-            fontSize: "0.75rem",
-            color: "var(--ifm-color-emphasis-500)",
-            lineHeight: 1.6,
-          }}
-        >
-          Okta ~€4/agent/month recurring licence, integration billed separately ·
-          Microsoft Entra WI ~€2–3/agent/month, requires full M365/Azure stack ·
-          SPIRE: €0 licence, recurring cost is ops/maintenance (0.5 FTE); one-time engineering setup €150k–200k not included in annual figures ·
-          † Orchestration tools (Mastra Enterprise, CrewAI Enterprise): flat enterprise licence + consumption billing on CPU/egress/tokens; no cryptographic agent identity layer ·
-          VaultysClaw: flat-rate per agent tier, price lock guaranteed for early sponsors.
-        </p>
       </div>
     </section>
   );
@@ -1965,56 +910,23 @@ function CTASection() {
   return (
     <section className="cta-section">
       <div className="container" style={{ position: "relative" }}>
-        <p
-          style={{
-            fontSize: "0.78rem",
-            fontWeight: 700,
-            letterSpacing: "0.1em",
-            textTransform: "uppercase",
-            color: "#60a5fa",
-            marginBottom: "16px",
-          }}
-        >
-          Open Source · MIT License · Self-hosted
-        </p>
-        <h2
-          style={{
-            fontSize: "clamp(1.8rem, 3vw, 2.8rem)",
-            fontWeight: 900,
-            color: "#f8fafc",
-            marginBottom: "16px",
-          }}
-        >
-          The open standard for agent identity.
+        <p className="cta-kicker">Open source · Self-hosted · Public alpha</p>
+        <h2 className="cta-title">
+          Keep your orchestration.
           <br />
-          Delivered as a product.
+          Give it an identity it can prove.
         </h2>
-        <p
-          style={{
-            fontSize: "1.05rem",
-            color: "#94a3b8",
-            maxWidth: "560px",
-            margin: "0 auto 36px",
-            lineHeight: "1.7",
-          }}
-        >
-          Zero Trust security. Full data sovereignty. Predictable flat-rate
-          pricing. Deploy in under five minutes — on your infrastructure, with
-          your policies.
+        <p className="cta-sub">
+          A control plane you run, certificates any peer can verify, and two SDKs
+          that refuse to guess. Ten minutes to a connected Actor holding a real
+          grant.
         </p>
-        <div
-          style={{
-            display: "flex",
-            gap: "12px",
-            justifyContent: "center",
-            flexWrap: "wrap",
-          }}
-        >
+        <div className="cta-buttons">
           <Link className="btn-primary" to="/docs/guides/quickstart">
-            Get started free <ArrowRight size={16} strokeWidth={2.5} />
+            Run the quickstart <ArrowRight size={16} strokeWidth={2.5} />
           </Link>
-          <Link className="btn-secondary" to="/docs/architecture/overview">
-            Read the architecture
+          <Link className="btn-secondary" to="/docs/architecture/building-an-actor">
+            Build an Actor
           </Link>
           <a
             className="btn-secondary"
@@ -2037,19 +949,21 @@ export default function Home(): React.ReactElement {
   const { siteConfig } = useDocusaurusContext();
   return (
     <Layout
-      title={`${siteConfig.title} — Give your company a soul`}
-      description="Deploy AI agents that carry your culture, your policies, and your values. VaultysClaw is enterprise AI orchestration secured by VaultysId decentralised identity."
+      title={`${siteConfig.title} — a trust plane for agents, robots, and machines`}
+      description="VaultysClaw secures whatever orchestration you already run: a cryptographic identity for every actor — agent, robot, drone, vehicle, sensor, or human — signed capability certificates any peer verifies offline, and a live revocation protocol. TypeScript and Go SDKs."
     >
       <Hero />
-      <ThreePillarsSection />
+      <OrchestrationStrip />
+      <SeamSection />
+      <PeerToPeerSection />
+      <BeyondAISection />
       <AnthropicScoreTeaser />
-      <ManifestoSection />
-      <FeaturesSection />
+      <SdkSection />
+      <LifecycleSection />
       <ArchitectureSection />
-      <DashboardMockup />
+      <ConsoleSection />
       <SecuritySection />
-      <CodeExampleSection />
-      <TCOSection />
+      <ConformanceSection />
       <CTASection />
     </Layout>
   );

@@ -75,18 +75,20 @@ function ServiceCard({
   );
 }
 
-function AgentCard({
+function ActorCard({
   x,
   y,
   w,
   h,
-  llm,
+  kind,
+  client,
 }: {
   x: number;
   y: number;
   w: number;
   h: number;
-  llm: string;
+  kind: string;
+  client: string;
 }) {
   const cx = x + w / 2;
   return (
@@ -119,28 +121,28 @@ function AgentCard({
         textAnchor="middle"
         letterSpacing="0.8"
       >
-        AGENT CONTROLLER
+        {kind}
       </text>
       <text
         x={cx}
         y={y + 45}
         fill="#e6edf3"
-        fontSize={12}
+        fontSize={11}
         fontFamily={MONO}
         fontWeight="700"
         textAnchor="middle"
       >
-        {llm}
+        {client}
       </text>
       <text
         x={cx}
         y={y + 65}
         fill="#3fb950"
-        fontSize={10}
+        fontSize={9}
         fontFamily={MONO}
         textAnchor="middle"
       >
-        VaultysId ⬡
+        VaultysId ⬡ + cert
       </text>
     </g>
   );
@@ -154,9 +156,16 @@ export default function ArchitectureDiagram() {
   const SRC = { x: WS.x + WS.w / 2, y: WS.y + WS.h }; // 506, 111
 
   const AGENTS = [
-    { x: 10, y: 278, w: 162, h: 88, llm: "LLM: GPT-4o" },
-    { x: 218, y: 278, w: 162, h: 88, llm: "LLM: Claude" },
-    { x: 428, y: 278, w: 162, h: 88, llm: "LLM: Ollama" },
+    {
+      x: 10,
+      y: 278,
+      w: 162,
+      h: 88,
+      kind: "AGENT",
+      client: "@vaultysclaw/sdk",
+    },
+    { x: 218, y: 278, w: 162, h: 88, kind: "DEVICE", client: "sdk-go" },
+    { x: 428, y: 278, w: 162, h: 88, kind: "SENSOR", client: "sdk-go" },
   ];
 
   const MID_Y = (SRC.y + AGENTS[0].y) / 2; // ~194.5
@@ -179,7 +188,7 @@ export default function ArchitectureDiagram() {
           display: "block",
           background: "#0d1117",
         }}
-        aria-label="VaultysClaw architecture: Control Plane with three connected Agent Controllers"
+        aria-label="VaultysClaw architecture: the control plane with three connected Actors — an agent, a device, and a sensor"
       >
         <defs>
           {/* dot-grid background */}
@@ -246,7 +255,7 @@ export default function ArchitectureDiagram() {
           fontWeight="700"
           letterSpacing="1.1"
         >
-          CONTROL PLANE :3000 / :8080
+          CONTROL PLANE :3001 / :8081
         </text>
 
         {/* VaultysId badge */}
@@ -279,8 +288,8 @@ export default function ArchitectureDiagram() {
           y={WS.y}
           w={130}
           h={WS.h}
-          title="Next.js UI"
-          subtitle="Dashboard :3000"
+          title="Admin console"
+          subtitle="admin_console_access"
           accent="#60a5fa"
         />
         <ServiceCard
@@ -288,8 +297,8 @@ export default function ArchitectureDiagram() {
           y={WS.y}
           w={138}
           h={WS.h}
-          title="REST API"
-          subtitle="/api/**  :3000"
+          title="Cert ledger"
+          subtitle="append-only · signed"
           accent="#3fb950"
         />
         <ServiceCard
@@ -297,8 +306,8 @@ export default function ArchitectureDiagram() {
           y={WS.y}
           w={WS.w}
           h={WS.h}
-          title="WebSocket Hub"
-          subtitle=":8080"
+          title="WS server"
+          subtitle="auth · cert_status"
           accent="#a78bfa"
         />
 
@@ -323,7 +332,7 @@ export default function ArchitectureDiagram() {
           textAnchor="middle"
           dominantBaseline="middle"
         >
-          SQLite Database
+          PostgreSQL
         </text>
         <text
           x="289"
@@ -333,7 +342,7 @@ export default function ArchitectureDiagram() {
           fontFamily={MONO}
           textAnchor="middle"
         >
-          agents · intents · policies · workspaces
+          actors · certificates · audit log · workspaces
         </text>
 
         {/* ── Edges: WebSocket Hub → Agents ── */}
@@ -390,7 +399,15 @@ export default function ArchitectureDiagram() {
 
         {/* ── Agent nodes ── */}
         {AGENTS.map((a) => (
-          <AgentCard key={a.llm} x={a.x} y={a.y} w={a.w} h={a.h} llm={a.llm} />
+          <ActorCard
+            key={a.kind}
+            x={a.x}
+            y={a.y}
+            w={a.w}
+            h={a.h}
+            kind={a.kind}
+            client={a.client}
+          />
         ))}
       </svg>
     </div>

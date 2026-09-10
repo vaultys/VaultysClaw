@@ -62,9 +62,7 @@ function ComparisonBlock({
   icon,
   accentColor,
   title,
-  vcLabel,
   vcDesc,
-  tradLabel,
   tradDesc,
   vcDiagram,
   tradDiagram,
@@ -72,9 +70,7 @@ function ComparisonBlock({
   icon: React.ReactNode;
   accentColor: string;
   title: string;
-  vcLabel: string;
   vcDesc: string;
-  tradLabel: string;
   tradDesc: string;
   vcDiagram: React.ReactNode;
   tradDiagram: React.ReactNode;

@@ -93,6 +93,13 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile.controlplane
+      # NEXT_PUBLIC_* must be passed HERE, not in `environment:` — Next.js inlines them into the
+      # client bundle at build time, so a value set at runtime is simply never read. Changing one
+      # means rebuilding the image (`docker compose up --build -d controlplane`).
+      args:
+        NEXT_PUBLIC_WALLET_URL: ${NEXT_PUBLIC_WALLET_URL:-https://wallet.vaultys.net}
+        NEXT_PUBLIC_MAP_TILE_URL: ${NEXT_PUBLIC_MAP_TILE_URL:-}
+        NEXT_PUBLIC_ALLOW_DEV_LOGIN: ${NEXT_PUBLIC_ALLOW_DEV_LOGIN:-}
     ports:
       - "${CONTROLPLANE_PORT:-3000}:3000"
       - "${CONTROLPLANE_WS_PORT:-8080}:8080"
@@ -119,8 +126,6 @@ services:
       # win over both of these.
       LITELLM_BASE_URL: ${LITELLM_BASE_URL:-}
       LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:-}
-      # Dev-only: enables the "connect without the app" browser login option.
-      VC_DEV_LOGIN: ${VC_DEV_LOGIN:-false}
     healthcheck:
       # /login is the one page that renders without a session; a 200 here means Next.js is serving.
       test: ["CMD-SHELL", "curl -sf http://localhost:3000/login >/dev/null || exit 1"]

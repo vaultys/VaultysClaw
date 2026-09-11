@@ -64,6 +64,21 @@ WORKDIR /app/packages/controlplane
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
+# NEXT_PUBLIC_* are inlined into the client bundle by `next build` — they are BUILD inputs, not
+# runtime ones. Setting them in the compose `environment:` block does nothing: the value is already
+# baked into the JS the browser downloads. Hence build args, passed from docker-compose.yml.
+#
+# NEXT_PUBLIC_ALLOW_DEV_LOGIN is build-time by design (see lib/browser-bootstrap.ts): a production
+# image built without it cannot be talked into offering the no-wallet login path afterwards.
+# NEXT_PUBLIC_MAP_TILE_URL pointing at your own tile server also needs that origin added to the CSP
+# img-src in next.config.js, or the browser blocks the tiles.
+ARG NEXT_PUBLIC_WALLET_URL
+ARG NEXT_PUBLIC_MAP_TILE_URL
+ARG NEXT_PUBLIC_ALLOW_DEV_LOGIN
+ENV NEXT_PUBLIC_WALLET_URL=${NEXT_PUBLIC_WALLET_URL}
+ENV NEXT_PUBLIC_MAP_TILE_URL=${NEXT_PUBLIC_MAP_TILE_URL}
+ENV NEXT_PUBLIC_ALLOW_DEV_LOGIN=${NEXT_PUBLIC_ALLOW_DEV_LOGIN}
+
 # No DATABASE_URL needed at build time: db/client.ts reads it at first use, not at import.
 RUN pnpm exec next build
 

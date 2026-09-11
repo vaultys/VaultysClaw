@@ -1,137 +1,116 @@
-# Docker Deployment
+# Docker
 
-All-in-one stack for running VaultysClaw locally or in a self-hosted environment.
+Three compose files live here. Only the first one runs the application; the other two start
+backing services for local work and use different ports so all three can coexist.
 
-## Prerequisites
+| File | What it is | Ports |
+|---|---|---|
+| `docker-compose.yml` | **The deployed stack** — control plane + webhook dispatcher + Postgres + Redis + Apprise. Built by `.github/workflows/docker-build.yml`, started by `.github/workflows/deploy.yml`. | 3000, 8080, 5432, 6380 |
+| `docker-compose.controlplane.yml` | Dev infra for `pnpm controlplane:dev`. Postgres + Redis + Apprise only — the app runs on the host. | 5433, 6381, 8000 |
+| `docker-compose.simulator.yml` | The fleet simulator's own disposable database. | 5434 |
 
-- [Docker](https://docs.docker.com/get-docker/) ≥ 24 with the Compose plugin
-- Ports 3000, 4000, 5001, 5432, 5555, 8080, 9000, 9001 available on the host
+The last two are driven by the root package scripts (`pnpm controlplane:docker:up`,
+`pnpm simulator:up`) — see the root `CLAUDE.md`. Everything below is about the first one.
 
-## Quick start
-
-```bash
-# First run — builds images and starts all services
-docker compose up --build
-
-# Subsequent runs (no code changes)
-docker compose up
-```
-
-The stack is ready when you see `wait-for-db: postgres:5432 is up — starting app.` followed by the Next.js startup output from `control-plane`.
-
-## Services and URLs
-
-| Service         | URL                       | Credentials                                     |
-|-----------------|---------------------------|-------------------------------------------------|
-| Control Plane   | http://localhost:3000     | Passwordless login via VaultysId QR code        |
-| WebSocket       | ws://localhost:8080       | Used by agent controllers                       |
-| LiteLLM proxy   | http://localhost:4000     | Master key: `sk-demo-insecure-changeme`         |
-| MinIO console   | http://localhost:9001     | `minioadmin` / `minioadmin123`                  |
-| MinIO API       | http://localhost:9000     | Same credentials                                |
-| Docling         | http://localhost:5001     | No auth                                         |
-| Prisma Studio   | http://localhost:5555     | No auth (DB browser, dev only)                  |
-| PostgreSQL      | localhost:5432            | User `vaultys`, password `vaultys_dev_secret`   |
-
-> **LiteLLM models** are registered dynamically through the Control Plane UI — no static config required.
-
-## Stop / restart
+## The deployed stack
 
 ```bash
-# Stop all containers (data is preserved)
-docker compose down
+# From the repo root. Fill in the secrets first.
+cp .env.compose.example docker/.env
+$EDITOR docker/.env          # NEXTAUTH_SECRET + PG_PASSWORD at minimum
 
-# Stop and remove all data volumes (full reset)
-docker compose down -v
-
-# Restart a single service without rebuilding
-docker compose restart control-plane
-
-# Rebuild and restart one service after a code change
-docker compose up --build control-plane
+cd docker
+docker compose up --build -d
+docker compose logs -f controlplane
 ```
+
+Compose reads `docker/.env` automatically when run from this directory, which is exactly what the
+deploy workflow does over SSH.
+
+| Service | URL | Notes |
+|---|---|---|
+| Control plane | http://localhost:3000 | Passwordless login via VaultysId QR code |
+| WebSocket | ws://localhost:8080 | Where agents, sensors and the SDK connect |
+| PostgreSQL | localhost:5432 | User `vaultys`, password from `PG_PASSWORD` |
+| Redis | localhost:6380 | Host port only; in-network it is `redis:6379` |
+| Apprise | — | No host port, reachable only inside the compose network |
+| Webhook dispatcher | — | No port; a worker consuming the BullMQ queue |
+
+Ready when `wait-for-db: postgres:5432 is up — starting app.` is followed by
+`HTTP server listening` and `Control plane WebSocket server listening`.
+
+The control plane container runs `prisma migrate deploy` before starting the server, so the schema
+is applied on every deploy.
+
+### What is not in the stack
+
+LiteLLM, MinIO, Docling, Prisma Studio and the notifier were all part of the pre-rebuild
+architecture and were removed in `30bf747`. The Model Registry is now configured in the console
+(Integrations → Models), storing its master key encrypted; `LITELLM_BASE_URL` /
+`LITELLM_MASTER_KEY` remain only as a deployment-time fallback, pointing at a proxy you run
+yourself.
+
+## Images
+
+| Dockerfile | Package | Entrypoint |
+|---|---|---|
+| `Dockerfile.controlplane` | `packages/controlplane` | `prisma migrate deploy && tsx server.ts` |
+| `Dockerfile.webhook-dispatcher` | `packages/webhook-dispatcher` | `node --import tsx src/index.ts` |
+
+Both build from the **repo root** as context (`context: ..`), because a workspace package can't be
+built without the workspace root manifest and its workspace dependencies.
+
+Two things about them are load-bearing:
+
+- **Each lists the workspace packages by hand** — the manifests it copies, and stubs for the ones
+  it doesn't. A new package under `packages/` means updating both files, or workspace resolution
+  fails inside the image while `pnpm install` on the host stays perfectly happy.
+  `docker-build.yml` exists to catch exactly that on a PR.
+- **pnpm is pinned to the exact version** in the root `package.json`'s `packageManager` field.
+  pnpm refuses to run a project pinned to a different version, so bumping that field means bumping
+  both Dockerfiles.
+
+The dispatcher has no Prisma schema of its own: the image copies
+`packages/controlplane/prisma/schema.prisma` in and generates the client from it, mirroring what
+`pnpm controlplane:webhook:prisma` does on the host.
 
 ## Environment variables
 
-All variables have safe defaults for local development. Override by creating a `.env.compose` file and passing it explicitly:
+`.env.compose.example` at the repo root documents every variable with its default. The two that
+must be changed for any non-local deployment are `NEXTAUTH_SECRET` and `PG_PASSWORD`.
+
+## Stop / restart / reset
 
 ```bash
-cp .env.compose.example .env.compose   # if it exists
-docker compose --env-file .env.compose up --build
+docker compose down                     # stop, keep data
+docker compose down -v                  # stop and delete the volumes — full reset, ledger included
+docker compose down --remove-orphans    # also drop containers of services no longer in the file
+docker compose restart controlplane     # restart one service without rebuilding
+docker compose up --build -d controlplane   # rebuild and restart one service after a code change
 ```
 
-| Variable              | Default                        | Description                          |
-|-----------------------|--------------------------------|--------------------------------------|
-| `PG_PASSWORD`         | `vaultys_dev_secret`           | PostgreSQL password                  |
-| `PG_PORT`             | `5432`                         | Host port for PostgreSQL             |
-| `NEXTAUTH_SECRET`     | `insecure-dev-secret-change-me`| NextAuth session signing secret      |
-| `NEXTAUTH_URL`        | `http://localhost:3000`        | Public URL of the control plane      |
-| `LITELLM_MASTER_KEY`  | `sk-demo-insecure-changeme`    | LiteLLM proxy master key             |
-| `MINIO_ROOT_USER`     | `minioadmin`                   | MinIO root user                      |
-| `MINIO_ROOT_PASSWORD` | `minioadmin123`                | MinIO root password                  |
+Persistent data lives in three named volumes: `pgdata` (the ledger — agents, certificates, audit
+log), `redisdata` (queue state) and `appriseconfig`.
 
-> Change `NEXTAUTH_SECRET` and `LITELLM_MASTER_KEY` for any non-local deployment.
-
-## Data persistence
-
-Two named Docker volumes store persistent data:
-
-| Volume     | Contents                                |
-|------------|-----------------------------------------|
-| `pgdata`   | PostgreSQL data (agents, workflows, …)  |
-| `miniodata`| Uploaded files                          |
-
-`docker compose down` preserves them. `docker compose down -v` deletes them.
-
-## Connecting an agent controller
-
-Once the stack is up, start an agent and point it at the control plane:
-
-```bash
-CONTROL_PLANE_URL=http://localhost:3000 \
-LLM_MODEL=<model-id> \
-LLM_API_KEY=<your-key> \
-pnpm agent:dev
-```
-
-Then approve the agent in the Control Plane UI at http://localhost:3000.
+> The compose file deliberately sets no `name:`, so the project name stays the directory (`docker`)
+> and `pgdata` keeps resolving to the existing `docker_pgdata` volume on the deploy server. Naming
+> the project would point the stack at fresh, empty volumes — a new ledger and a lost database.
 
 ## Troubleshooting
 
-**Port already in use**
-
-Check what is using the port and stop it, or override the host port:
+**A port is already in use.** Override the host-side port; the in-container ports never change:
 
 ```bash
-# Example: run PostgreSQL on host port 5433 instead of 5432
-PG_PORT=5433 docker compose up
+PG_PORT=5433 CONTROLPLANE_PORT=3100 docker compose up -d
 ```
 
-**Tables do not exist / `P2021` error**
+**`P2021` / tables do not exist.** Migrations didn't run. Check `docker compose logs controlplane`
+for the `prisma migrate deploy` output, then rebuild: `docker compose up --build -d controlplane`.
 
-The Prisma migrations did not run. This is fixed in the current `Dockerfile.control-plane` (migrations run automatically before the server starts). If you have an older image cached, force a rebuild:
+**Containers can't reach `postgres:5432`.** Usually the aftermath of a failed first start. Clean
+restart: `docker compose down --remove-orphans && docker compose up --build -d`.
 
-```bash
-docker compose down && docker compose up --build
-```
-
-**Containers cannot reach `postgres:5432`**
-
-This is a Docker network edge-case that can occur after a failed first start. Fix it by doing a clean restart:
-
-```bash
-docker compose down --remove-orphans && docker compose up --build
-```
-
-If the problem persists, connect the container manually while the stack is running:
-
-```bash
-docker network connect vaultysclaw_default vaultysclaw-postgres-1
-```
-
-**LiteLLM `source_url` column errors**
-
-A stale `pgdata` volume from an older LiteLLM version. These errors are non-fatal (LiteLLM still starts), but to silence them do a full reset:
-
-```bash
-docker compose down -v && docker compose up --build
-```
+**Webhooks deliver nothing, but the console shows an active subscription.** The dispatcher is
+reading a different Postgres or a different BullMQ prefix than the control plane writes to. In
+this stack both come from the same compose variables (`PG_PASSWORD`, `BULLMQ_PREFIX`); if you
+overrode either for one service only, that's the cause.

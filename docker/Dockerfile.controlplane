@@ -1,0 +1,80 @@
+# packages/controlplane — Next.js admin console + WebSocket server, one process, two ports.
+#
+# Build context is the REPO ROOT (see docker-compose.yml's `context: ..`), because a workspace
+# package cannot be built without the workspace root manifest and its workspace dependencies.
+#
+# Replaces the old Dockerfile.control-plane, which built packages/control-plane — a package removed
+# in 30bf747 along with agent-controller, notifier and litellm.
+FROM node:22-slim
+
+WORKDIR /app
+
+# System deps for native modules (@roamhq/wrtc via @vaultys/id, pg) + curl for the healthcheck.
+RUN apt-get update && apt-get install -y python3 make g++ curl && rm -rf /var/lib/apt/lists/*
+
+# node-pre-gyp is required by @roamhq/wrtc (pulled in by @vaultys/id) during install.
+# pnpm is pinned to the EXACT version in the root package.json's `packageManager` field: pnpm
+# refuses to run a project pinned to a different version (package-manager-strict, on by default),
+# so bumping that field means bumping it here and in Dockerfile.webhook-dispatcher.
+RUN npm install -g pnpm@11.22.0 node-pre-gyp --quiet
+
+# Manifests and the lockfile first, so `pnpm install` is cached independently of the source. The
+# workspace root manifest is what makes pnpm recognise the monorepo layout at all.
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+# Every workspace manifest, not just the ones this image builds: --frozen-lockfile validates the
+# lockfile against ALL importers, so a missing one fails the install. Keep in step with
+# pnpm-workspace.yaml's globs (packages/*, docs-site) — Docker's COPY cannot glob these into place.
+COPY docs-site/package.json                    docs-site/
+COPY packages/controlplane/package.json        packages/controlplane/
+COPY packages/policy/package.json              packages/policy/
+COPY packages/sdk/package.json                 packages/sdk/
+COPY packages/shared/package.json              packages/shared/
+COPY packages/simulator/package.json           packages/simulator/
+COPY packages/trust/package.json               packages/trust/
+COPY packages/webhook-dispatcher/package.json  packages/webhook-dispatcher/
+
+# The Prisma schema must be in place before install: the package's `postinstall` runs
+# `prisma generate`, which fails without it.
+COPY packages/controlplane/prisma/ packages/controlplane/prisma/
+
+# --frozen-lockfile is what makes the image reproduce the host: without it pnpm re-resolves every
+# range and the image can end up on a different TypeScript or Prisma than the build that passed
+# locally — which is exactly how a type error appears only inside Docker.
+RUN pnpm install --frozen-lockfile \
+                 --filter @vaultysclaw/policy \
+                 --filter @vaultysclaw/shared \
+                 --filter @vaultysclaw/trust \
+                 --filter @vaultysclaw/controlplane
+
+# Source. scripts/ carries fix-esm-extensions, which every workspace package's build calls.
+COPY scripts/               scripts/
+COPY packages/policy/       packages/policy/
+COPY packages/shared/       packages/shared/
+COPY packages/trust/        packages/trust/
+COPY packages/controlplane/ packages/controlplane/
+
+# Build the workspace dependencies the control plane imports from `dist` (policy before trust,
+# which depends on it) — .dockerignore excludes dist, so none of it comes from the host.
+RUN pnpm --filter @vaultysclaw/policy build \
+ && pnpm --filter @vaultysclaw/shared build \
+ && pnpm --filter @vaultysclaw/trust build
+
+WORKDIR /app/packages/controlplane
+
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+
+# No DATABASE_URL needed at build time: db/client.ts reads it at first use, not at import.
+RUN pnpm exec next build
+
+# TCP probe: wait for postgres to be reachable before starting. Avoids the P1001 race where the
+# postgres healthcheck passes on loopback but the bridge-network socket isn't ready yet.
+COPY docker/wait-for-db.sh /usr/local/bin/wait-for-db
+RUN chmod +x /usr/local/bin/wait-for-db
+
+# CONTROLPLANE_PORT / CONTROLPLANE_WS_PORT (server.ts) — compose sets these to 3000/8080.
+EXPOSE 3000 8080
+
+# `pnpm start` is not used: the package's tsconfig is noEmit, so dist/server.js never exists.
+# server.ts runs through tsx, exactly as it does in dev.
+CMD ["wait-for-db", "sh", "-c", "pnpm exec prisma migrate deploy && pnpm exec tsx server.ts"]

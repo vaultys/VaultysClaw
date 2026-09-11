@@ -15,9 +15,17 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
+          # Secrets (NEXTAUTH_SECRET, PG_PASSWORD, NEXTAUTH_URL, …) come from `docker/.env` on the
+          # server, which compose picks up automatically because it runs from that directory.
+          # See docker/DOCKER.md; .env.compose.example lists every variable.
           script: |
+            set -e
             cd /home/ubuntu/VaultysClaw
             git pull https://${{ secrets.TOKEN }}@github.com/vaultys/vaultysclaw.git
             cd docker
-            docker compose down
+            # --remove-orphans clears containers of services that no longer exist in the compose
+            # file (litellm, minio, docling, notifier, control-plane and agent-controller were all
+            # removed in 30bf747); without it they keep running and keep holding ports 3000/5432.
+            docker compose down --remove-orphans
             docker compose up --build -d
+            docker compose ps

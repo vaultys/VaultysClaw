@@ -1,0 +1,159 @@
+# VaultysClaw — the deployed stack.
+#
+# This is what .github/workflows/deploy.yml builds and starts on the server
+# (`cd docker && docker compose up --build -d`), and what
+# .github/workflows/docker-build.yml builds on every PR without starting anything.
+#
+# Five services, which is the whole system as described in the root CLAUDE.md:
+#
+#   controlplane        Next.js admin console + WebSocket server (one process, two ports)
+#   webhook-dispatcher  BullMQ consumer: signs webhooks, fans out to Apprise
+#   postgres            the certificate ledger
+#   redis               the BullMQ "webhooks" queue
+#   apprise             Notification Channels
+#
+# Deliberately NOT here:
+#   - LiteLLM. The Model Registry is configured in the console (Integrations → Models) and stores
+#     its master key encrypted; LITELLM_BASE_URL is only a deployment-time fallback. Point it at an
+#     external proxy if you want one — docker/Dockerfile.litellm was removed in 30bf747.
+#   - MinIO, Docling, Prisma Studio, the notifier. All belonged to the pre-rebuild architecture.
+#
+# Quick start (from repo root):
+#   cp .env.compose.example .env.compose     # then fill NEXTAUTH_SECRET + PG_PASSWORD
+#   docker compose -f docker/docker-compose.yml --env-file .env.compose up --build -d
+#
+# Not to be confused with the two dev stacks alongside it, which start backing services ONLY and
+# use different ports so all three can coexist:
+#   docker-compose.controlplane.yml   dev infra for `pnpm controlplane:dev`   (5433/6381/8000)
+#   docker-compose.simulator.yml     the fleet simulator's own database       (5434)
+#
+# No `name:` here, unlike those two — on purpose. The project name stays the default (the
+# directory, i.e. "docker"), which is what the already-deployed stack uses, so `pgdata` keeps
+# resolving to the existing `docker_pgdata` volume. Naming the project would silently point the
+# deploy at fresh, empty volumes: a new ledger and a lost database.
+
+services:
+  # ── PostgreSQL — the certificate ledger ───────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: vaultys
+      POSTGRES_PASSWORD: ${PG_PASSWORD:-vaultys_dev_secret}
+      POSTGRES_DB: vaultysclaw
+    ports:
+      - "${PG_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # -h 127.0.0.1 forces TCP (not the unix socket), so this only reports healthy once a real
+      # network connection works — which is what the other containers need.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U vaultys -d vaultysclaw"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+      start_period: 15s
+    restart: unless-stopped
+
+  # ── Redis — the BullMQ webhook queue ──────────────────────────────────────────
+  # Host port defaults to 6380 to avoid clashing with a local Redis on 6379; in-network clients
+  # always reach it as redis:6379.
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "${REDIS_PORT:-6380}:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  # ── Apprise — backs Notification Channels ─────────────────────────────────────
+  # No host port: it is reachable only from the control plane and the dispatcher on the compose
+  # network. Unsetting APPRISE_API_URL on those services turns Notification Channels off entirely
+  # without affecting webhook delivery.
+  apprise:
+    image: caronc/apprise:latest
+    volumes:
+      - appriseconfig:/config
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8000/ >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+
+  # ── Control plane — HTTP 3000, WebSocket 8080 ─────────────────────────────────
+  # Runs `prisma migrate deploy` before the server starts (see the Dockerfile's CMD), so the
+  # schema is applied on every deploy.
+  controlplane:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.controlplane
+    ports:
+      - "${CONTROLPLANE_PORT:-3000}:3000"
+      - "${CONTROLPLANE_WS_PORT:-8080}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      apprise:
+        condition: service_started
+    environment:
+      DATABASE_URL: postgresql://vaultys:${PG_PASSWORD:-vaultys_dev_secret}@postgres:5432/vaultysclaw
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      APPRISE_API_URL: ${APPRISE_API_URL:-http://apprise:8000}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-insecure-dev-secret-change-me}
+      # Browser-facing base URL; also what adminUrl deep links are built from (APP_URL wins).
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      APP_URL: ${APP_URL:-}
+      # server.ts reads these two — not PORT/WS_PORT.
+      CONTROLPLANE_PORT: "3000"
+      CONTROLPLANE_WS_PORT: "8080"
+      NODE_ENV: production
+      # Deployment-time fallback only; the Setting rows an admin edits under Integrations → Models
+      # win over both of these.
+      LITELLM_BASE_URL: ${LITELLM_BASE_URL:-}
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:-}
+      # Dev-only: enables the "connect without the app" browser login option.
+      VC_DEV_LOGIN: ${VC_DEV_LOGIN:-false}
+    healthcheck:
+      # /login is the one page that renders without a session; a 200 here means Next.js is serving.
+      test: ["CMD-SHELL", "curl -sf http://localhost:3000/login >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 60s
+    restart: unless-stopped
+
+  # ── Webhook dispatcher ────────────────────────────────────────────────────────
+  # BULLMQ_PREFIX must match the control plane's producer prefix or jobs are never seen. It must
+  # also point at the SAME Postgres the control plane writes to — same URL, one source of truth.
+  webhook-dispatcher:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.webhook-dispatcher
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      controlplane:
+        condition: service_started
+    environment:
+      DATABASE_URL: postgresql://vaultys:${PG_PASSWORD:-vaultys_dev_secret}@postgres:5432/vaultysclaw
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      APPRISE_API_URL: ${APPRISE_API_URL:-http://apprise:8000}
+      BULLMQ_PREFIX: ${BULLMQ_PREFIX:-vaultysclaw-controlplane}
+      WEBHOOK_TIMEOUT_MS: ${WEBHOOK_TIMEOUT_MS:-10000}
+      NODE_ENV: production
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  redisdata:
+  appriseconfig:

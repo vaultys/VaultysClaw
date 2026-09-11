@@ -72,11 +72,25 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
+    // The display name and email live on the Actor row, not on the session. Copying them into the
+    // JWT once at sign-in left them frozen for the lifetime of the cookie: a human who set their
+    // name in `app/welcome` (or was renamed by an admin, or completed an SSO binding) kept showing
+    // as whatever they were called at login — "Unnamed" for a plain self-registration — until they
+    // signed out. So re-read them from the DB whenever this callback runs. That is only on the
+    // `/api/auth/*` routes: `getServerSession` decodes the token and calls `session` alone, so the
+    // 50-odd server-side session lookups add no query.
     async jwt({ token, user }) {
       if (user) {
         token.did = user.did;
         token.name = user.name;
         token.email = user.email;
+      }
+      if (token.did) {
+        const actor = await UserDAO.findByDid(token.did);
+        if (actor) {
+          token.name = actor.name;
+          token.email = actor.humanProfile?.email ?? null;
+        }
       }
       return token;
     },

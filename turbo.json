@@ -10,6 +10,10 @@
       "outputs": []
     },
     "type-check": {
+      // ^build: policy/shared/trust are consumed as built `dist`, so a package cannot be
+      // type-checked before its workspace dependencies are built. Locally dist already exists
+      // from a previous build, which is why a fresh checkout (CI) was the only place this failed.
+      "dependsOn": ["^build"],
       "outputs": []
     },
     "dev": {
@@ -17,6 +21,9 @@
       "persistent": true
     },
     "test": {
+      // ^build for the same reason as type-check: vitest resolves @vaultysclaw/* through their
+      // package.json entry points, which point into dist.
+      "dependsOn": ["^build"],
       "outputs": ["coverage/**"]
     }
   }

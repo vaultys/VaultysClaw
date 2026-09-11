@@ -1,13 +1,18 @@
 {
   "name": "@vaultysclaw/webhook-dispatcher",
   "version": "0.0.1",
-  "description": "Webhook dispatcher service — consumes webhook events from BullMQ, signs them (HMAC) and POSTs them to configured endpoints",
+  "description": "Webhook dispatcher service \u2014 consumes webhook events from BullMQ, signs them (HMAC) and POSTs them to configured endpoints",
   "type": "module",
   "scripts": {
+    "predev": "pnpm prisma:sync",
     "dev": "node --import tsx --watch src/index.ts",
     "start": "node --import tsx src/index.ts",
+    "prisma:sync": "mkdir -p prisma && cp ../controlplane/prisma/schema.prisma prisma/schema.prisma && prisma generate --schema=prisma/schema.prisma --generator client",
+    "prebuild": "pnpm prisma:sync",
     "build": "tsc --noEmit",
+    "pretype-check": "pnpm prisma:sync",
     "type-check": "tsc --noEmit",
+    "pretest": "pnpm prisma:sync",
     "test": "vitest run"
   },
   "dependencies": {

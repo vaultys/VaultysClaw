@@ -397,9 +397,9 @@ pattern everywhere else.
 - **Event catalog**: this package's own events (`actor.registration_requested`, `actor.approved`,
   `actor.denied`, `actor.updated`, `certificate.issued`, `certificate.revoked`) were added to
   `@vaultysclaw/shared`'s `WEBHOOK_EVENTS` under new "Actors"/"Certificates" groups — the catalog is
-  genuinely shared across both control-plane packages, not forked. `workspace.created`/`updated`
-  are reused as-is from the existing "Workspaces" group (`workspace.deleted` has no emission site
-  yet — there's no workspace-delete action in this rebuild at all). `lib/webhook-events.ts`'s
+  genuinely shared across both control-plane packages, not forked. `workspace.created`/`updated`/`deleted`
+  are reused as-is from the existing "Workspaces" group (`deleteWorkspaceAction` in
+  `app/admin/workspaces/actions.ts` emits the last one). `lib/webhook-events.ts`'s
   `CONTROLPLANE_WEBHOOK_EVENTS` filters the shared catalog down to just these groups — the
   create/edit forms and the docs page all read from it, not the raw shared catalog, so an admin
   here is never offered a checkbox for an event (e.g. `agent.created`, `model.updated`) that

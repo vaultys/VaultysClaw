@@ -114,7 +114,11 @@ const RENDERERS: Record<string, Renderer> = {
   }),
   "workspace.deleted": (p) => ({
     title: "Workspace deleted",
-    body: `Workspace "${str(p.name)}" was deleted.`,
+    body:
+      `Workspace "${str(p.name)}" was deleted` +
+      (Number(p.affectedGrants) > 0 ? `, revoking ${str(p.affectedGrants)} scoped certificate(s)` : "") +
+      (Number(p.unassignedActors) > 0 ? `; ${str(p.unassignedActors)} actor(s) are now unassigned` : "") +
+      ".",
     type: "warning",
   }),
 };

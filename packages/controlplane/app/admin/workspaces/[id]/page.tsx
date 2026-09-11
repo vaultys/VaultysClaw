@@ -5,6 +5,7 @@ import { WorkspaceDAO, ActorDAO, CapabilityCertificateDAO } from "@/db";
 import PageChrome from "@/components/layout/PageChrome";
 import { ActorKindBadge } from "@/components/ActorKindBadge";
 import ActorSearchSelect from "@/components/ActorSearchSelect";
+import DeleteWorkspacePanel from "@/components/DeleteWorkspacePanel";
 import { encodeDidParam } from "@/lib/actor-route";
 import { categoryForKind } from "@/lib/actor-kinds";
 import { updateWorkspaceAction, assignActorWorkspaceAction } from "../actions";
@@ -54,10 +55,14 @@ export default async function WorkspaceDetailPage({
 
   const activeTab: TabId = TABS.some((t) => t.id === tabParam) ? (tabParam as TabId) : "overview";
 
-  const [workspaceActors, allActors, activeCerts] = await Promise.all([
+  const [workspaceActors, allActors, activeCerts, scopedCerts] = await Promise.all([
     ActorDAO.list({ workspaceId: id }),
     ActorDAO.list(),
     CapabilityCertificateDAO.list({ status: "active" }),
+    // What a delete would actually revoke — both the `workspaceId`-stamped and the
+    // `CertScope`-pinned certificates, of every kind, not just the humans the Access
+    // tab lists below.
+    WorkspaceDAO.listActiveScopedCertificates(id),
   ]);
 
   const unassignedActors = allActors.filter((a) => a.workspaceId !== id);
@@ -148,6 +153,22 @@ export default async function WorkspaceDetailPage({
           </p>
         </section>
       )}
+
+      {activeTab === "overview" &&
+        (workspace.isDefault ? (
+          <p className="text-xs text-foreground-400 max-w-lg">
+            The default workspace cannot be deleted — the control plane recreates it at boot
+            (<span className="font-mono">WorkspaceDAO.ensureDefault</span>), and everything that
+            falls back to it would point at nothing in the meantime.
+          </p>
+        ) : (
+          <DeleteWorkspacePanel
+            id={workspace.id}
+            name={workspace.name}
+            actorCount={workspaceActors.length}
+            scopedCertificateCount={scopedCerts.length}
+          />
+        ))}
 
       {activeTab === "actors" && (
         <section className="space-y-4">

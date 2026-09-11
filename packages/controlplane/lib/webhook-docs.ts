@@ -153,9 +153,15 @@ const EXAMPLE_PAYLOADS: Record<string, Record<string, unknown>> = {
 
   "workspace.created": workspacePayload(sampleWorkspace),
   "workspace.updated": workspacePayload(sampleWorkspace),
-  // Not wired yet — this rebuild has no workspace-delete action (see CLAUDE.md); shape shown for
-  // reference, matching the emission-site convention this event already uses elsewhere.
-  "workspace.deleted": { id: sampleWorkspace.id, name: sampleWorkspace.name },
+  // Deletion reports what it cost: `affectedGrants` is how many active certificates were scoped to
+  // the workspace and were therefore revoked, `unassignedActors` how many Actors lost their
+  // assignment (none of them are deleted). Recorded before the row goes, so the workspace fields
+  // are still the real ones.
+  "workspace.deleted": {
+    ...workspacePayload(sampleWorkspace),
+    unassignedActors: 4,
+    affectedGrants: 2,
+  },
 
   "capability.created": customCapabilityPayload(sampleCustomCapability),
   "capability.updated": customCapabilityPayload({

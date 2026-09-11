@@ -87,7 +87,10 @@ async function registerHumanFromInvitation(
 ): Promise<boolean> {
   const invitation = await InvitationDAO.findValidByToken(rawToken);
   if (!invitation) {
-    logger.warn({ did }, "Invitation redemption attempted with an invalid/expired/used token");
+    logger.warn(
+      { did },
+      "Invitation redemption attempted with an invalid/expired/used token"
+    );
     return false;
   }
 
@@ -110,12 +113,20 @@ async function registerHumanFromInvitation(
 
   let actor: Awaited<ReturnType<typeof UserDAO.ensureExists>>;
   try {
-    actor = await UserDAO.ensureExists(did, invitation.name, invitation.email, publicKey);
+    actor = await UserDAO.ensureExists(
+      did,
+      invitation.name,
+      invitation.email,
+      publicKey
+    );
   } catch (err) {
     // Lost a race against a concurrent registration claiming the same address between the check
     // above and this write. Same outcome, same reasoning: fail the redemption, keep the invitation.
     if (err instanceof DuplicateEmailError) {
-      logger.warn({ did, invitedEmail: invitation.email }, "Invitation redemption lost an email race");
+      logger.warn(
+        { did, invitedEmail: invitation.email },
+        "Invitation redemption lost an email race"
+      );
       return false;
     }
     throw err;
@@ -161,14 +172,21 @@ async function registerHumanFromInvitation(
     targetId: did,
   });
 
-  logger.info({ did, invitedBy: invitation.createdBy }, "Human onboarded via invitation");
+  logger.info(
+    { did, invitedBy: invitation.createdBy },
+    "Human onboarded via invitation"
+  );
   return true;
 }
 
-async function registerHuman(contact: VaultysId, invitationToken?: string): Promise<boolean> {
+async function registerHuman(
+  contact: VaultysId,
+  invitationToken?: string
+): Promise<boolean> {
   const did = contact.toVersion(1).did;
   const publicKey = Buffer.from(contact.id).toString("base64");
-  if (invitationToken) return registerHumanFromInvitation(did, publicKey, invitationToken);
+  if (invitationToken)
+    return registerHumanFromInvitation(did, publicKey, invitationToken);
   await UserDAO.ensureExists(did, "Unnamed", null, publicKey);
   logger.info({ did }, "New human Actor registered");
   return true;
@@ -189,12 +207,16 @@ interface LoginResult {
   isNewRegistration: boolean;
 }
 
-async function handleSuccess(cert: MutableCert, challenger: Challenger): Promise<LoginResult> {
+async function handleSuccess(
+  cert: MutableCert,
+  challenger: Challenger
+): Promise<LoginResult> {
   const contact = challenger.getContactId();
   const did = contact.toVersion(1).did;
   const meta = JSON.parse(cert.metadata ?? "{}") as Record<string, unknown>;
   const isNewRegistration = cert.register === 1;
-  const invitationToken = typeof meta.invitationToken === "string" ? meta.invitationToken : undefined;
+  const invitationToken =
+    typeof meta.invitationToken === "string" ? meta.invitationToken : undefined;
 
   const ok = isNewRegistration
     ? await registerHuman(contact, invitationToken)
@@ -210,16 +232,24 @@ export class UserLoginChannel {
   /** `invitationToken` (packages/controlplane/CLAUDE.md "Human onboarding via invite"), when
    *  given, rides along in the row's initial `metadata` — `handleSuccess`/the P2P early-completion
    *  branch both read it back out and thread it into `registerHuman` on completion. */
-  static async createRegistrationCertificate(invitationToken?: string): Promise<AuthCertificate> {
+  static async createRegistrationCertificate(
+    invitationToken?: string
+  ): Promise<AuthCertificate> {
     const key = crypto.randomBytes(32).toString("hex");
     return AuthCertificateDAO.create({
       id: crypto.randomBytes(16).toString("hex"),
       key,
-      registration: crypto.hash("sha256", Buffer.from(`vaultys-${key}-server`)).toString("hex"),
-      connection: crypto.hash("sha256", Buffer.from(`connecting-${key}-vaultys`)).toString("hex"),
+      registration: crypto
+        .hash("sha256", Buffer.from(`vaultys-${key}-server`))
+        .toString("hex"),
+      connection: crypto
+        .hash("sha256", Buffer.from(`connecting-${key}-vaultys`))
+        .toString("hex"),
       register: 1,
       data: "",
-      metadata: invitationToken ? JSON.stringify({ invitationToken }) : undefined,
+      metadata: invitationToken
+        ? JSON.stringify({ invitationToken })
+        : undefined,
     });
   }
 
@@ -228,8 +258,12 @@ export class UserLoginChannel {
     return AuthCertificateDAO.create({
       id: crypto.randomBytes(16).toString("hex"),
       key,
-      registration: crypto.hash("sha256", Buffer.from(`vaultys-${key}-server`)).toString("hex"),
-      connection: crypto.hash("sha256", Buffer.from(`connecting-${key}-vaultys`)).toString("hex"),
+      registration: crypto
+        .hash("sha256", Buffer.from(`vaultys-${key}-server`))
+        .toString("hex"),
+      connection: crypto
+        .hash("sha256", Buffer.from(`connecting-${key}-vaultys`))
+        .toString("hex"),
       register: 0,
       data: "",
     });
@@ -250,12 +284,22 @@ export class UserLoginChannel {
     issuedBy: string
   ): Promise<AuthCertificate> {
     const key = crypto.randomBytes(32).toString("hex");
-    const meta: CertRoundMeta = { kind: "certificate", humanDid, capabilities, certId, issuedBy };
+    const meta: CertRoundMeta = {
+      kind: "certificate",
+      humanDid,
+      capabilities,
+      certId,
+      issuedBy,
+    };
     return AuthCertificateDAO.create({
       id: crypto.randomBytes(16).toString("hex"),
       key,
-      registration: crypto.hash("sha256", Buffer.from(`vaultys-${key}-server`)).toString("hex"),
-      connection: crypto.hash("sha256", Buffer.from(`connecting-${key}-vaultys`)).toString("hex"),
+      registration: crypto
+        .hash("sha256", Buffer.from(`vaultys-${key}-server`))
+        .toString("hex"),
+      connection: crypto
+        .hash("sha256", Buffer.from(`connecting-${key}-vaultys`))
+        .toString("hex"),
       register: 0,
       data: "",
       metadata: JSON.stringify(meta),
@@ -273,7 +317,7 @@ export class UserLoginChannel {
   static async startP2PSession(cert: AuthCertificate): Promise<string> {
     const { PeerjsChannel } = await import("@vaultys/channel-peerjs");
 
-    const channel = new PeerjsChannel(cert.key, "initiator");
+    const channel = new PeerjsChannel(cert.key, "initiator", "0.peerjs.com");
     const connectionString = channel.getConnectionString();
 
     void (async () => {
@@ -296,27 +340,42 @@ export class UserLoginChannel {
               : Promise.race([
                   channel.receive(),
                   new Promise<never>((_, reject) =>
-                    setTimeout(() => reject(new Error("p2p-round-timeout")), 5_000)
+                    setTimeout(
+                      () => reject(new Error("p2p-round-timeout")),
+                      5_000
+                    )
                   ),
                 ]));
           } catch (receiveErr) {
-            const isTimeout = receiveErr instanceof Error && receiveErr.message === "p2p-round-timeout";
-            if (isTimeout && challenger.state === 1 && verifyProtocol(challenger)) {
+            const isTimeout =
+              receiveErr instanceof Error &&
+              receiveErr.message === "p2p-round-timeout";
+            if (
+              isTimeout &&
+              challenger.state === 1 &&
+              verifyProtocol(challenger)
+            ) {
               const contactDid = challenger.getContactDid();
-              const hisKeyRaw = (challenger as unknown as { hisKey: Buffer }).hisKey;
+              const hisKeyRaw = (challenger as unknown as { hisKey: Buffer })
+                .hisKey;
               if (contactDid && hisKeyRaw) {
                 const contact = VaultysId.fromId(hisKeyRaw);
                 const isNewRegistration = mutableCert.register === 1;
-                const initialMeta = JSON.parse(mutableCert.metadata ?? "{}") as Record<string, unknown>;
+                const initialMeta = JSON.parse(
+                  mutableCert.metadata ?? "{}"
+                ) as Record<string, unknown>;
                 const invitationToken =
-                  typeof initialMeta.invitationToken === "string" ? initialMeta.invitationToken : undefined;
+                  typeof initialMeta.invitationToken === "string"
+                    ? initialMeta.invitationToken
+                    : undefined;
                 const ok = await (isNewRegistration
                   ? registerHuman(contact, invitationToken)
                   : loginHuman(contact));
                 // Idempotent and a no-op once any admin exists (isBootstrapAdminNeeded) — which is
                 // guaranteed here anyway, since creating an invite in the first place requires
                 // already being an authenticated admin.
-                if (ok && isNewRegistration) await ensureBootstrapAdmin(contactDid);
+                if (ok && isNewRegistration)
+                  await ensureBootstrapAdmin(contactDid);
                 mutableCert.metadata = JSON.stringify({ did: contactDid });
                 await AuthCertificateDAO.update(cert.id, {
                   status: ok ? 2 : -2,
@@ -337,16 +396,23 @@ export class UserLoginChannel {
           mutableCert.status = challenger.state;
 
           if (challenger.hasFailed()) {
-            await AuthCertificateDAO.update(cert.id, { status: -2, data: mutableCert.data });
+            await AuthCertificateDAO.update(cert.id, {
+              status: -2,
+              data: mutableCert.data,
+            });
             break;
           }
           if (!verifyProtocol(challenger)) {
-            await AuthCertificateDAO.update(cert.id, { status: -2, data: mutableCert.data });
+            await AuthCertificateDAO.update(cert.id, {
+              status: -2,
+              data: mutableCert.data,
+            });
             break;
           }
           if (challenger.isComplete()) {
             const result = await handleSuccess(mutableCert, challenger);
-            if (result.ok && result.isNewRegistration) await ensureBootstrapAdmin(result.did);
+            if (result.ok && result.isNewRegistration)
+              await ensureBootstrapAdmin(result.did);
             await AuthCertificateDAO.update(cert.id, {
               status: result.ok ? 2 : -2,
               data: mutableCert.data,
@@ -384,9 +450,15 @@ export class UserLoginChannel {
     const cert = await AuthCertificateDAO.findByRegistration(token);
     if (!cert) return new Uint8Array([0]);
 
-    const existingMeta = JSON.parse(cert.metadata ?? "{}") as Partial<CertRoundMeta>;
+    const existingMeta = JSON.parse(
+      cert.metadata ?? "{}"
+    ) as Partial<CertRoundMeta>;
     if (existingMeta.kind === "certificate") {
-      return UserLoginChannel.handleCertificateRequest(cert, existingMeta as CertRoundMeta, data);
+      return UserLoginChannel.handleCertificateRequest(
+        cert,
+        existingMeta as CertRoundMeta,
+        data
+      );
     }
 
     const mutableCert: MutableCert = { ...cert };
@@ -420,14 +492,20 @@ export class UserLoginChannel {
     mutableCert.status = challenger.state;
 
     if (challenger.hasFailed() || !verifyProtocol(challenger)) {
-      await AuthCertificateDAO.update(cert.id, { status: -2, data: mutableCert.data });
+      await AuthCertificateDAO.update(cert.id, {
+        status: -2,
+        data: mutableCert.data,
+      });
       return new Uint8Array([0]);
     }
 
     if (challenger.isComplete()) {
       const result = await handleSuccess(mutableCert, challenger);
       if (!result.ok) {
-        await AuthCertificateDAO.update(cert.id, { status: -2, data: mutableCert.data });
+        await AuthCertificateDAO.update(cert.id, {
+          status: -2,
+          data: mutableCert.data,
+        });
         return new Uint8Array([0]);
       }
       if (result.isNewRegistration && (await isBootstrapAdminNeeded())) {
@@ -437,7 +515,10 @@ export class UserLoginChannel {
           BOOTSTRAP_ADMIN_CERT_ID,
           "system:bootstrap"
         );
-        const meta = JSON.parse(mutableCert.metadata ?? "{}") as Record<string, unknown>;
+        const meta = JSON.parse(mutableCert.metadata ?? "{}") as Record<
+          string,
+          unknown
+        >;
         // Only `key` is needed — BrowserChannel derives its own request-route token from it,
         // exactly like the login round's own key does (see lib/browser-connect.ts).
         meta.certRound = { key: certRound.key };
@@ -489,7 +570,10 @@ export class UserLoginChannel {
       // lib/ws-server.ts's agent issuance, so every embedder in this codebase agrees on one
       // format any Challenger implementation (not just this TS one) can decode.
       const metadata = isFirstRound
-        ? ({ capabilities: JSON.stringify(meta.capabilities) } satisfies Record<string, string>)
+        ? ({ capabilities: JSON.stringify(meta.capabilities) } satisfies Record<
+            string,
+            string
+          >)
         : undefined;
       await challenger.update(decoded, metadata);
     } catch (err) {
@@ -516,12 +600,19 @@ export class UserLoginChannel {
         issuedBy: meta.issuedBy,
       });
       logger.info(
-        { certId: meta.certId, humanDid: meta.humanDid, granted: persisted !== null },
+        {
+          certId: meta.certId,
+          humanDid: meta.humanDid,
+          granted: persisted !== null,
+        },
         "Certificate round completed"
       );
     }
 
-    await AuthCertificateDAO.update(cert.id, { status: challenger.state, data: dataB64 });
+    await AuthCertificateDAO.update(cert.id, {
+      status: challenger.state,
+      data: dataB64,
+    });
     return CryptoChannel.encrypt(certificate, uintkey);
   }
 

@@ -79,6 +79,22 @@ The dispatcher has no Prisma schema of its own: the image copies
 `.env.compose.example` at the repo root documents every variable with its default. The two that
 must be changed for any non-local deployment are `NEXTAUTH_SECRET` and `PG_PASSWORD`.
 
+### The `NEXT_PUBLIC_*` ones are build inputs
+
+`NEXT_PUBLIC_WALLET_URL`, `NEXT_PUBLIC_MAP_TILE_URL` and `NEXT_PUBLIC_ALLOW_DEV_LOGIN` are inlined
+into the client bundle by `next build`. Putting them in a container's environment does nothing —
+the value the browser runs is already baked in. They are passed as `build.args` in
+`docker-compose.yml` instead, so changing one means rebuilding:
+
+```bash
+NEXT_PUBLIC_WALLET_URL=https://wallet.example.com docker compose up --build -d controlplane
+```
+
+`NEXT_PUBLIC_ALLOW_DEV_LOGIN=1` (the no-wallet login path) is build-time by design: an image built
+without it cannot be talked into offering that path later. `NEXT_PUBLIC_MAP_TILE_URL` pointing at
+your own tile server also needs that origin added to the CSP `img-src` in
+`packages/controlplane/next.config.js`, or the browser blocks the tiles.
+
 ## Stop / restart / reset
 
 ```bash

@@ -64,15 +64,48 @@ export async function deleteTemplateAction(formData: FormData): Promise<void> {
   revalidatePath("/admin/certificates/templates");
 }
 
-/** Assign, or clear, a workspace's default template. */
-export async function assignTemplateAction(formData: FormData): Promise<void> {
-  await requireAdmin();
-  const workspaceId = formData.get("workspaceId") as string;
+/**
+ * Workspace attachment.
+ *
+ * Both admin surfaces — this page's "Workspaces" section and the workspace
+ * detail page's Confinement tab — post to these same three actions, so each
+ * revalidates both paths rather than guessing where the form was submitted
+ * from.
+ */
+function readPair(formData: FormData): { workspaceId: string; templateId: string } {
+  const workspaceId = ((formData.get("workspaceId") as string) ?? "").trim();
   const templateId = ((formData.get("templateId") as string) ?? "").trim();
   if (!workspaceId) throw new Error("Missing workspace");
+  return { workspaceId, templateId };
+}
 
-  if (templateId === "") await SrtTemplateDAO.unassign(workspaceId);
-  else await SrtTemplateDAO.assign(workspaceId, templateId);
-
+function revalidateBoth(workspaceId: string) {
   revalidatePath("/admin/certificates/templates");
+  revalidatePath(`/admin/workspaces/${workspaceId}`);
+}
+
+/** Attach a template to a workspace, without changing its default. */
+export async function attachTemplateAction(formData: FormData): Promise<void> {
+  await requireAdmin();
+  const { workspaceId, templateId } = readPair(formData);
+  if (templateId === "") return;
+  await SrtTemplateDAO.attach(workspaceId, templateId);
+  revalidateBoth(workspaceId);
+}
+
+/** Detach a template from a workspace. */
+export async function detachTemplateAction(formData: FormData): Promise<void> {
+  await requireAdmin();
+  const { workspaceId, templateId } = readPair(formData);
+  if (templateId === "") throw new Error("Missing template");
+  await SrtTemplateDAO.detach(workspaceId, templateId);
+  revalidateBoth(workspaceId);
+}
+
+/** Mark a template as a workspace's default — an empty id clears it. */
+export async function setDefaultTemplateAction(formData: FormData): Promise<void> {
+  await requireAdmin();
+  const { workspaceId, templateId } = readPair(formData);
+  await SrtTemplateDAO.setDefault(workspaceId, templateId === "" ? null : templateId);
+  revalidateBoth(workspaceId);
 }

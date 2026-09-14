@@ -84,6 +84,7 @@ export default function IssueCertificateForm({
   customCapabilities,
   templates,
   defaultTemplateByActor,
+  workspaceTemplatesByActor,
   defaultActorDid,
   defaultResource,
   action,
@@ -91,8 +92,10 @@ export default function IssueCertificateForm({
   actors: ActorSearchOption[];
   customCapabilities: CustomCapabilityOption[];
   templates: TemplateOption[];
-  /** Actor DID → the template assigned to that actor's workspace, if any. */
+  /** Actor DID → the default template of that actor's workspace, if any. */
   defaultTemplateByActor: Record<string, string>;
+  /** Actor DID → every template attached to that actor's workspace. */
+  workspaceTemplatesByActor: Record<string, string[]>;
   defaultActorDid?: string;
   defaultResource?: string;
   action: (formData: FormData) => Promise<void>;
@@ -110,6 +113,13 @@ export default function IssueCertificateForm({
   }, [actorDid, defaultTemplateByActor]);
 
   const template = templates.find((t) => t.id === templateId);
+
+  // The actor's workspace templates are surfaced first — a sort, never a
+  // filter. Every template stays reachable, because a workspace's list is a
+  // convenience and an admin may legitimately want one from elsewhere.
+  const workspaceTemplateIds = new Set(actorDid ? (workspaceTemplatesByActor[actorDid] ?? []) : []);
+  const workspaceTemplates = templates.filter((t) => workspaceTemplateIds.has(t.id));
+  const otherTemplates = templates.filter((t) => !workspaceTemplateIds.has(t.id));
   const selectedActor = actors.find((actor) => actor.did === actorDid);
   const builtins = selectedActor ? builtinsForKind(selectedActor.kind) : BUILTINS_BY_KIND.all;
   const showCustomCapabilities = !!selectedActor && selectedActor.kind !== "sensor" && customCapabilities.length > 0;
@@ -236,11 +246,32 @@ export default function IssueCertificateForm({
               className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background"
             >
               <option value="">No template</option>
-              {templates.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
+              {workspaceTemplates.length === 0 ? (
+                templates.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))
+              ) : (
+                <>
+                  <optgroup label="This actor's workspace">
+                    {workspaceTemplates.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                  {otherTemplates.length > 0 && (
+                    <optgroup label="Other templates">
+                      {otherTemplates.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                </>
+              )}
             </select>
             <p className="text-xs text-foreground-400 mt-1">
               {template?.description ??

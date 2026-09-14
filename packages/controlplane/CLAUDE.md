@@ -363,7 +363,11 @@ the Model Registry, OIDC/Entra ID single sign-on, the Access Portal shell, and t
   `assignActorWorkspaceAction`, a *separate* action from `updateActorAction` so assigning a workspace
   never touches a human's email as a side effect — and Access, listing humans holding a
   `CertScope.resource = "workspace:<id>"` grant, with a deep link into
-  `app/admin/certificates/new` that pre-fills the resource field via a `resource` search param).
+  `app/admin/certificates/new` that pre-fills the resource field via a `resource` search param,
+  and Confinement — the workspace's `SrtTemplate`s, several per workspace with at most one
+  `isDefault`, rendered by the shared `components/WorkspaceTemplates.tsx` that the templates
+  page reuses; the "at most one default" invariant is a **partial unique index**, not DAO
+  discipline).
   Tabs are plain `?tab=` query-param links, not the ported `Toolbar`'s client-side `tabs` action kind
   (that one takes an `onChange` closure, which — like `onClick` — can't cross the Server→Client
   Component boundary from a page that fetches its own data; `PageChrome` doesn't bridge it (yet)).

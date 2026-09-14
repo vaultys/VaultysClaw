@@ -1,6 +1,19 @@
 import type { SrtTemplate } from "@prisma/client";
 import { prisma } from "./client";
 
+/** One template attached to a workspace, with the template itself resolved. */
+export interface AttachedTemplate {
+  template: SrtTemplate;
+  isDefault: boolean;
+  assignedAt: Date;
+}
+
+/** The same attachment, without the join — for the all-workspaces overviews. */
+export interface WorkspaceAttachment {
+  templateId: string;
+  isDefault: boolean;
+}
+
 /**
  * Reusable tier-B confinement settings, in sandbox-runtime's own schema.
  *
@@ -70,38 +83,93 @@ export class SrtTemplateDAO {
     await prisma.srtTemplate.delete({ where: { id } });
   }
 
-  /** Every workspace's assigned default, keyed by workspace id. */
+  /** Every workspace's default template, keyed by workspace id. */
   static async assignments(): Promise<Map<string, string>> {
-    const rows = await prisma.srtTemplateWorkspace.findMany();
+    const rows = await prisma.srtTemplateWorkspace.findMany({ where: { isDefault: true } });
     return new Map(rows.map((r) => [r.workspaceId, r.templateId]));
+  }
+
+  /** Every workspace's attached templates, keyed by workspace id. */
+  static async workspaceAttachments(): Promise<Map<string, WorkspaceAttachment[]>> {
+    const rows = await prisma.srtTemplateWorkspace.findMany();
+    const byWorkspace = new Map<string, WorkspaceAttachment[]>();
+    for (const row of rows) {
+      const list = byWorkspace.get(row.workspaceId) ?? [];
+      list.push({ templateId: row.templateId, isDefault: row.isDefault });
+      byWorkspace.set(row.workspaceId, list);
+    }
+    return byWorkspace;
+  }
+
+  /** The templates attached to one workspace, the default first, then by name. */
+  static async listForWorkspace(workspaceId: string): Promise<AttachedTemplate[]> {
+    const rows = await prisma.srtTemplateWorkspace.findMany({
+      where: { workspaceId },
+      include: { template: true },
+      orderBy: [{ isDefault: "desc" }, { template: { name: "asc" } }],
+    });
+    return rows.map((row) => ({
+      template: row.template,
+      isDefault: row.isDefault,
+      assignedAt: row.assignedAt,
+    }));
   }
 
   /** The template to pre-fill for an actor in this workspace, if any. */
   static async forWorkspace(workspaceId: string | null): Promise<SrtTemplate | null> {
     if (!workspaceId) return null;
-    const row = await prisma.srtTemplateWorkspace.findUnique({
-      where: { workspaceId },
+    const row = await prisma.srtTemplateWorkspace.findFirst({
+      where: { workspaceId, isDefault: true },
       include: { template: true },
     });
     return row?.template ?? null;
   }
 
   /**
-   * Assign a template as a workspace's default, replacing any existing one.
+   * Attach a template to a workspace, leaving the workspace's default alone.
    *
-   * An upsert rather than an insert because the model allows one default per
-   * workspace: assigning a second must replace the first, not leave two
-   * candidates and no rule for choosing between them.
+   * Idempotent — re-attaching an already-attached template is a no-op rather
+   * than an error, because both admin surfaces can submit the same pair and
+   * neither is the authority on what the other is currently showing.
    */
-  static async assign(workspaceId: string, templateId: string): Promise<void> {
-    await prisma.srtTemplateWorkspace.upsert({
-      where: { workspaceId },
-      create: { workspaceId, templateId },
-      update: { templateId, assignedAt: new Date() },
+  static async attach(workspaceId: string, templateId: string): Promise<void> {
+    await prisma.srtTemplateWorkspace.createMany({
+      data: [{ workspaceId, templateId }],
+      skipDuplicates: true,
     });
   }
 
-  static async unassign(workspaceId: string): Promise<void> {
-    await prisma.srtTemplateWorkspace.deleteMany({ where: { workspaceId } });
+  /**
+   * Detach a template from a workspace.
+   *
+   * Detaching the default simply leaves the workspace with no default; nothing
+   * is promoted in its place, because there is no rule for choosing which of
+   * the remaining templates an admin meant.
+   */
+  static async detach(workspaceId: string, templateId: string): Promise<void> {
+    await prisma.srtTemplateWorkspace.deleteMany({ where: { workspaceId, templateId } });
+  }
+
+  /**
+   * Set — or clear, with `null` — a workspace's default template.
+   *
+   * One transaction, clearing first, so the partial unique index backing the
+   * "at most one default" invariant is never transiently violated. Marking a
+   * template default also **attaches** it (the upsert), so there is no state in
+   * which a workspace's default is not one of its templates.
+   */
+  static async setDefault(workspaceId: string, templateId: string | null): Promise<void> {
+    await prisma.$transaction(async (tx) => {
+      await tx.srtTemplateWorkspace.updateMany({
+        where: { workspaceId, isDefault: true },
+        data: { isDefault: false },
+      });
+      if (templateId === null) return;
+      await tx.srtTemplateWorkspace.upsert({
+        where: { workspaceId_templateId: { workspaceId, templateId } },
+        create: { workspaceId, templateId, isDefault: true },
+        update: { isDefault: true },
+      });
+    });
   }
 }

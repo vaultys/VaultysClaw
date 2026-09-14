@@ -283,7 +283,7 @@ model Workspace {
   actors       Actor[]
   certificates CapabilityCertificate[]
   modelAccess  ModelWorkspaceAccess[]
-  srtTemplate  SrtTemplateWorkspace?
+  srtTemplates SrtTemplateWorkspace[]
 }
 
 // ─── Sensor telemetry ─────────────────────────────────────────────────────────
@@ -658,19 +658,25 @@ model SrtTemplate {
   @@index([name])
 }
 
-// A workspace's default template. Pre-fills the issuance form for an actor in
-// that workspace; the admin can change or clear it before signing.
+// The templates attached to a workspace. Several per workspace; at most one
+// marked `isDefault`, which is the one pre-selected at issuance. Same shape as
+// `ModelWorkspaceAccess` — an org-global resource crossed with a workspace —
+// plus the one extra bit this needs.
 //
-// At most one default per workspace — `workspaceId` is the primary key rather
-// than the pair, so assigning a second template to a workspace replaces the
-// first instead of silently leaving two candidates and no rule for choosing.
+// The "at most one default" invariant is held by a **partial unique index** on
+// (`workspaceId`) WHERE `isDefault`, created in the migration: Prisma cannot
+// express a partial index, and an invariant of this kind must not rest on DAO
+// discipline alone. `setDefault` clears the others in the same transaction, so
+// the index is a backstop, not the normal path.
 model SrtTemplateWorkspace {
-  workspaceId String   @id
+  workspaceId String
   templateId  String
+  isDefault   Boolean  @default(false)
   assignedAt  DateTime @default(now())
 
   template  SrtTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
   workspace Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
+  @@id([workspaceId, templateId])
   @@index([templateId])
 }

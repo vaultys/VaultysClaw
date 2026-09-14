@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { SrtTemplateDAO, WorkspaceDAO } from "@/db";
 import PageChrome from "@/components/layout/PageChrome";
-import { deleteTemplateAction, assignTemplateAction } from "./actions";
+import WorkspaceTemplates from "@/components/WorkspaceTemplates";
+import { deleteTemplateAction } from "./actions";
 
 /** Summarise a template's settings without rendering the whole block. */
 function summarise(settings: unknown, allowedDomains: string[]): string {
@@ -20,11 +21,18 @@ function summarise(settings: unknown, allowedDomains: string[]): string {
 }
 
 export default async function TemplatesPage() {
-  const [templates, workspaces, assignments] = await Promise.all([
+  const [templates, workspaces, attachments] = await Promise.all([
     SrtTemplateDAO.list(),
     WorkspaceDAO.list(),
-    SrtTemplateDAO.assignments(),
+    SrtTemplateDAO.workspaceAttachments(),
   ]);
+
+  const summaries = templates.map((t) => ({
+    id: t.id,
+    name: t.name,
+    description: t.description,
+  }));
+  const byId = new Map(summaries.map((t) => [t.id, t]));
 
   return (
     <div className="p-6 max-w-4xl">
@@ -90,42 +98,42 @@ export default async function TemplatesPage() {
         </ul>
       )}
 
-      <h2 className="text-sm font-medium text-foreground mb-1.5">Workspace defaults</h2>
+      <h2 className="text-sm font-medium text-foreground mb-1.5">Workspaces</h2>
       <p className="text-xs text-foreground-500 mb-3">
-        Issuing a certificate to an actor in a workspace pre-selects that workspace&apos;s template.
-        The admin can edit or clear it before signing, and the certificate records whatever was
-        actually submitted.
+        A workspace&apos;s templates are offered first when issuing a certificate to an actor in it,
+        and the one marked <strong>Default</strong> is pre-selected. The admin can edit or clear it
+        before signing, and the certificate records whatever was actually submitted.
       </p>
-      <ul className="space-y-2">
-        {workspaces.map((workspace) => (
-          <li
-            key={workspace.id}
-            className="flex items-center justify-between gap-4 border border-neutral-200 rounded-lg px-4 py-2"
-          >
-            <span className="text-sm text-foreground">{workspace.name}</span>
-            <form action={assignTemplateAction} className="flex items-center gap-2">
-              <input type="hidden" name="workspaceId" value={workspace.id} />
-              <select
-                name="templateId"
-                defaultValue={assignments.get(workspace.id) ?? ""}
-                className="border border-neutral-200 rounded-lg px-2 py-1 text-sm bg-background"
-              >
-                <option value="">No default</option>
-                {templates.map((template) => (
-                  <option key={template.id} value={template.id}>
-                    {template.name}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="submit"
-                className="px-2 py-1 text-xs border border-neutral-200 rounded-lg hover:bg-neutral-50"
-              >
-                Save
-              </button>
-            </form>
-          </li>
-        ))}
+      <ul className="space-y-3">
+        {workspaces.map((workspace) => {
+          const attached = (attachments.get(workspace.id) ?? [])
+            .map((a) => ({ template: byId.get(a.templateId), isDefault: a.isDefault }))
+            // A row whose template vanished can't happen (the FK cascades), but
+            // the map lookup is still an Option and narrowing it here keeps the
+            // component's props honest.
+            .filter((a): a is { template: (typeof summaries)[number]; isDefault: boolean } => !!a.template)
+            .sort((a, b) => Number(b.isDefault) - Number(a.isDefault) || a.template.name.localeCompare(b.template.name));
+
+          return (
+            <li key={workspace.id} className="border border-neutral-200 rounded-lg px-4 py-3">
+              <div className="flex items-center justify-between gap-4 mb-2">
+                <span className="text-sm font-medium text-foreground">{workspace.name}</span>
+                <Link
+                  href={`/admin/workspaces/${workspace.id}?tab=confinement`}
+                  className="text-xs text-foreground-400 hover:text-foreground shrink-0"
+                >
+                  Open workspace →
+                </Link>
+              </div>
+              <WorkspaceTemplates
+                workspaceId={workspace.id}
+                attached={attached}
+                allTemplates={summaries}
+                compact
+              />
+            </li>
+          );
+        })}
       </ul>
     </div>
   );

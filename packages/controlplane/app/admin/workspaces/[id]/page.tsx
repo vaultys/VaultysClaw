@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
-import { WorkspaceDAO, ActorDAO, CapabilityCertificateDAO } from "@/db";
+import { WorkspaceDAO, ActorDAO, CapabilityCertificateDAO, SrtTemplateDAO } from "@/db";
 import PageChrome from "@/components/layout/PageChrome";
 import { ActorKindBadge } from "@/components/ActorKindBadge";
 import ActorSearchSelect from "@/components/ActorSearchSelect";
 import DeleteWorkspacePanel from "@/components/DeleteWorkspacePanel";
+import WorkspaceTemplates from "@/components/WorkspaceTemplates";
 import { encodeDidParam } from "@/lib/actor-route";
 import { categoryForKind } from "@/lib/actor-kinds";
 import { updateWorkspaceAction, assignActorWorkspaceAction } from "../actions";
@@ -15,6 +16,7 @@ const TABS = [
   { id: "overview", label: "Overview" },
   { id: "actors", label: "Actors" },
   { id: "access", label: "Access" },
+  { id: "confinement", label: "Confinement" },
   { id: "budgets", label: "Budgets & Model Access" },
 ] as const;
 
@@ -55,15 +57,18 @@ export default async function WorkspaceDetailPage({
 
   const activeTab: TabId = TABS.some((t) => t.id === tabParam) ? (tabParam as TabId) : "overview";
 
-  const [workspaceActors, allActors, activeCerts, scopedCerts] = await Promise.all([
-    ActorDAO.list({ workspaceId: id }),
-    ActorDAO.list(),
-    CapabilityCertificateDAO.list({ status: "active" }),
-    // What a delete would actually revoke — both the `workspaceId`-stamped and the
-    // `CertScope`-pinned certificates, of every kind, not just the humans the Access
-    // tab lists below.
-    WorkspaceDAO.listActiveScopedCertificates(id),
-  ]);
+  const [workspaceActors, allActors, activeCerts, scopedCerts, allTemplates, attachedTemplates] =
+    await Promise.all([
+      ActorDAO.list({ workspaceId: id }),
+      ActorDAO.list(),
+      CapabilityCertificateDAO.list({ status: "active" }),
+      // What a delete would actually revoke — both the `workspaceId`-stamped and the
+      // `CertScope`-pinned certificates, of every kind, not just the humans the Access
+      // tab lists below.
+      WorkspaceDAO.listActiveScopedCertificates(id),
+      SrtTemplateDAO.list(),
+      SrtTemplateDAO.listForWorkspace(id),
+    ]);
 
   const unassignedActors = allActors.filter((a) => a.workspaceId !== id);
 
@@ -313,6 +318,35 @@ export default async function WorkspaceDetailPage({
           >
             Issue a workspace-scoped certificate →
           </Link>
+        </section>
+      )}
+
+      {activeTab === "confinement" && (
+        <section className="space-y-4 border border-neutral-200/60 rounded-xl bg-background-100 p-4 max-w-lg">
+          <div>
+            <h2 className="text-sm font-semibold text-foreground mb-1">Confinement templates</h2>
+            <p className="text-xs text-foreground-500">
+              Reusable tier-B settings offered when issuing a certificate to an actor in this
+              workspace; the one marked <strong>Default</strong> is pre-selected. A template{" "}
+              <strong>grants nothing and enforces nothing on its own</strong> — the signed
+              certificate is the artefact, and editing a template never reaches back into grants
+              already issued.
+            </p>
+          </div>
+
+          <WorkspaceTemplates
+            workspaceId={workspace.id}
+            attached={attachedTemplates}
+            allTemplates={allTemplates}
+          />
+
+          <p className="text-xs text-foreground-400 pt-2 border-t border-neutral-200/60">
+            Templates themselves are created under{" "}
+            <Link href="/admin/certificates/templates" className="text-primary-600 hover:underline">
+              Certificates → Confinement templates
+            </Link>
+            .
+          </p>
         </section>
       )}
 

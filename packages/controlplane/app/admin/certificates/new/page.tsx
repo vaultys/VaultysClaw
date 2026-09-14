@@ -11,19 +11,24 @@ export default async function NewCertificatePage({
   searchParams: Promise<{ resource?: string; agentDid?: string }>;
 }) {
   const customCapabilities = await CustomCapabilityDAO.list();
-  const [actors, templates, assignments, { resource, agentDid }] = await Promise.all([
+  const [actors, templates, assignments, attachments, { resource, agentDid }] = await Promise.all([
     ActorDAO.list(),
     SrtTemplateDAO.list(),
     SrtTemplateDAO.assignments(),
+    SrtTemplateDAO.workspaceAttachments(),
     searchParams,
   ]);
 
   // Resolved here rather than in the client component, which has no workspace
   // vocabulary and should not grow one just to look up a default.
   const defaultTemplateByActor: Record<string, string> = {};
+  const workspaceTemplatesByActor: Record<string, string[]> = {};
   for (const actor of actors) {
-    const templateId = actor.workspaceId ? assignments.get(actor.workspaceId) : undefined;
+    if (!actor.workspaceId) continue;
+    const templateId = assignments.get(actor.workspaceId);
     if (templateId) defaultTemplateByActor[actor.did] = templateId;
+    const attached = attachments.get(actor.workspaceId);
+    if (attached?.length) workspaceTemplatesByActor[actor.did] = attached.map((a) => a.templateId);
   }
 
   return (
@@ -58,6 +63,7 @@ export default async function NewCertificatePage({
           allowedDomains: template.allowedDomains,
         }))}
         defaultTemplateByActor={defaultTemplateByActor}
+        workspaceTemplatesByActor={workspaceTemplatesByActor}
         defaultActorDid={agentDid}
         defaultResource={resource}
         action={issueCertificateAction}

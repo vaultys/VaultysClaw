@@ -25,6 +25,8 @@ import {
   addActorLinkAction,
   deleteActorLinkAction,
 } from "../actions";
+import { ActorEgoGraph } from "@/components/graph/ActorEgoGraph";
+import { buildEgoGraph } from "@/lib/actor-graph";
 import { decodeDidParam, encodeDidParam } from "@/lib/actor-route";
 import type { CertScope } from "@vaultysclaw/policy";
 import { getWebhookEvent } from "@vaultysclaw/shared";
@@ -97,10 +99,10 @@ export default async function ActorDetailPage({
   searchParams,
 }: {
   params: Promise<{ did: string }>;
-  searchParams: Promise<{ tab?: string }>;
+  searchParams: Promise<{ tab?: string; depth?: string }>;
 }) {
   const { did: didParam } = await params;
-  const { tab: tabParam } = await searchParams;
+  const { tab: tabParam, depth: depthParam } = await searchParams;
   const did = decodeDidParam(didParam);
   const actor = await ActorDAO.findByDid(did);
   if (!actor) notFound();
@@ -108,6 +110,8 @@ export default async function ActorDetailPage({
   const activeTab: TabId = TABS.some((tab) => tab.id === tabParam)
     ? (tabParam as TabId)
     : "overview";
+
+  const egoDepth = depthParam === "2" ? 2 : 1;
 
   const [
     certs,
@@ -118,6 +122,7 @@ export default async function ActorDetailPage({
     registryNames,
     targetedAuditEntries,
     performedAuditEntries,
+    egoGraph,
   ] = await Promise.all([
     CapabilityCertificateDAO.list({ agentDid: did }),
     WorkspaceDAO.list(),
@@ -127,6 +132,11 @@ export default async function ActorDetailPage({
     CustomCapabilityDAO.listNames(),
     AuditLogDAO.list({ targetType: "actor", targetId: did }, 80),
     AuditLogDAO.list({ actorDid: did }, 80),
+    // A bounded crawl of this Actor's neighbourhood, not a slice of the whole estate — see
+    // `buildEgoGraph`. Only fetched for the tab that shows it.
+    activeTab === "relationships"
+      ? buildEgoGraph(did, { depth: egoDepth })
+      : Promise.resolve(null),
   ]);
 
   const activeCount = certs.filter((c) => c.status === "active").length;
@@ -615,6 +625,20 @@ export default async function ActorDetailPage({
 
       {activeTab === "relationships" && (
         <>
+          {egoGraph && (
+            <section className="space-y-3">
+              <h2 className="text-sm font-semibold text-foreground-700">
+                Relationship graph
+              </h2>
+              <p className="text-xs text-foreground-400">
+                This Actor and everything within {egoDepth} hop
+                {egoDepth === 1 ? "" : "s"} of it — ownership and links together. The lists below
+                are the same data, and are where you edit it.
+              </p>
+              <ActorEgoGraph data={egoGraph} focusDid={did} depth={egoDepth} />
+            </section>
+          )}
+
           <section className="space-y-3">
             <h2 className="text-sm font-semibold text-foreground-700">
               Ownership

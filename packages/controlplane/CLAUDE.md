@@ -75,7 +75,7 @@ the Model Registry, OIDC/Entra ID single sign-on, the Access Portal shell, and t
   first mount (Integrations kept saying "webhooks" on every tab); the "obvious" fix of depending on
   the raw objects instead crashed the page ("Maximum update depth exceeded") because inline JSX
   object/array literals are fresh references every render, so that dependency never settles.
-- **Full nav shape** (`components/layout/Sidebar.tsx`): Overview, Actors, Sensors, Map,
+- **Full nav shape** (`components/layout/Sidebar.tsx`): Overview, Actors, Sensors, Map, Graph,
   Certificates, Workspaces, Settings, Integrations (both tabs), and Audit Log are all real.
 - **`app/admin/certificates/`** — the real Certificates page (docs/PAGE_DESIGN.md §1.5): list with
   status badges, scope, and the "Never" expiry rendered in warning-amber (never neutral, per the
@@ -307,6 +307,29 @@ the Model Registry, OIDC/Entra ID single sign-on, the Access Portal shell, and t
   type like the old app's sensor-only "assigned user". Edited from the Actor detail page's
   Relationships section; shown (read-only) on the Sensors list as a stand-in for what "assigned
   user" used to show.
+- **`/admin/graph`** (`app/admin/graph/page.tsx`, `lib/actor-graph.ts`, `components/graph/**`) — the
+  three relationships above, drawn instead of listed: `Actor.ownerDid`, `ActorLink`, and workspace
+  membership, as a 3D force-directed graph. **Read-only and purely a projection** — no schema
+  change, no Server Action, no new semantics; ownership stays descriptive. Shares one component
+  with the ego view on an Actor's Relationships tab, which sits *alongside* the textual lists there
+  (those carry the edit forms and are the accessible view). `3d-force-graph` is driven imperatively
+  by `components/graph/actor-graph/useActorForceGraph.ts`, the same shape as `useOlMap.ts` — the
+  React wrapper was rejected because refiltering must not restart the simulation or move the
+  camera, which means diffing the data and reusing node objects so their simulated positions
+  survive. Four things here are load-bearing and easy to undo by accident:
+  - **`nodeLabel`/`linkLabel` are disabled** (`() => ""`). The library assigns them to `innerHTML`,
+    and `Actor.name`/`ActorLink.label` are operator-entered text; hover is rendered by
+    `GraphTooltip.tsx`, where React escapes it — and where a real `<a>` gives back ⌘-click.
+  - **Links are cloned on every push.** The engine rewrites `link.source`/`target` into node
+    references, so re-feeding a link it has already ingested resolves endpoints against stale nodes.
+  - **Colours come from the `app/theme.css` tokens** via `getComputedStyle`, not a second hex table
+    (`components/map/world-map/types.ts`'s parallel maps are the drift worth not repeating) — but
+    in **comma** syntax: three.js does not parse `rgb(r g b / a)` and silently renders black.
+  - **`ESTATE_NODE_CAP` (1,500) is about the RSC payload, not WebGL.** A 7,000-Actor simulator
+    estate serializes to megabytes of flight stream before a frame is drawn. The cap keeps
+    connected Actors first, since a fleet's isolated agents are most of the nodes and none of the
+    relationships; `?workspace=` is the only filter that narrows in SQL, which is why it lives in
+    the URL while every other filter is local state.
 - `lib/user-login-channel.ts` + `lib/auth-config.ts` + `app/login/page.tsx` — the passwordless
   QR-code login (reused in spirit from `packages/control-plane`'s `UserServerChannel`/
   `useVaultysConnect`, trimmed to only the P2P wallet-pairing flow — the browser-extension

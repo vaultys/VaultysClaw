@@ -164,6 +164,13 @@ export class ActorDAO {
     });
   }
 
+  /** Actors owned by any of these DIDs (`Actor.ownerDid`) — one query per BFS hop for the
+   *  relationship graph's ego view, instead of scanning the whole table. */
+  static async listByOwnerDids(dids: string[]): Promise<Actor[]> {
+    if (dids.length === 0) return [];
+    return prisma.actor.findMany({ where: { ownerDid: { in: dids } } });
+  }
+
   /** Every Actor with a location set — the map page's marker source. */
   static async listLocated(): Promise<Actor[]> {
     return prisma.actor.findMany({

@@ -34,6 +34,17 @@ export class ActorLinkDAO {
     return { from, to };
   }
 
+  /** Every link touching any of these Actors, in one query — the batched counterpart of
+   *  `listForActor`, so walking a neighbourhood costs a query per hop rather than per actor. */
+  static async listForActors(dids: string[]): Promise<ActorLinkWithActors[]> {
+    if (dids.length === 0) return [];
+    return prisma.actorLink.findMany({
+      where: { OR: [{ fromDid: { in: dids } }, { toDid: { in: dids } }] },
+      include: { from: true, to: true },
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
   static async list(): Promise<ActorLinkWithActors[]> {
     return prisma.actorLink.findMany({
       include: { from: true, to: true },

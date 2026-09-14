@@ -11,6 +11,7 @@ import {
   Users,
   Radio,
   Map,
+  Share2,
   KeyRound,
   ScrollText,
   Globe2,
@@ -77,6 +78,13 @@ const NAV_ITEMS: NavItem[] = [
     icon: Map,
     label: "Map",
     description: "Where actors and sensors are located",
+    exact: false,
+  },
+  {
+    href: "/admin/graph",
+    icon: Share2,
+    label: "Graph",
+    description: "How actors relate to each other",
     exact: false,
   },
   {

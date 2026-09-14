@@ -117,7 +117,7 @@ func (s *Store) Reload() error {
 	case err == nil:
 		body, verr := grant.Verify(s.anchor.VaultysID(), token, time.Now())
 		if verr != nil {
-			return fmt.Errorf("intercept: verifying the capability grant: %w", verr)
+			return signatureError("capability grant", s.grantPath, s.anchor.DID(), verr)
 		}
 		// The control plane asserts current status separately from the signature
 		// (see internal/grant). Until an actor_config push has been received
@@ -144,7 +144,7 @@ func (s *Store) Reload() error {
 		case err == nil:
 			ruleSet, err = rules.VerifySet(s.anchor.VaultysID(), rulesToken)
 			if err != nil {
-				return fmt.Errorf("intercept: verifying the rule set: %w", err)
+				return signatureError("rule set", s.ruleSetPath, s.anchor.DID(), err)
 			}
 			if err := ruleSet.Validate(s.attributionAvailable); err != nil {
 				return fmt.Errorf("intercept: %w", err)
@@ -240,4 +240,33 @@ func fileModTime(path string) time.Time {
 		return info.ModTime()
 	}
 	return time.Time{}
+}
+
+// signatureError explains a failed signature check in terms of what actually
+// goes wrong in practice.
+//
+// The bare error is "invalid signature", which is true and useless: it says
+// nothing about *whose* signature was expected, and the overwhelmingly common
+// cause is not a forged artefact but a control plane whose identity changed —
+// a reset database regenerates `serverSecret`, and every artefact signed by the
+// old key then fails against the anchor pinned from the new one. That failure is
+// fatal at startup, so an operator meets it as a supervisor that will not launch
+// with no indication of which file to remove.
+//
+// Deliberately not softened into a warning. A rule set that does not verify
+// cannot be loaded, and continuing without it would silently drop every deny it
+// carried — the one direction this design never degrades in. The fix is to say
+// which file, whose signature was expected, and that deleting it is safe because
+// the control plane re-pushes it on connect.
+func signatureError(kind, path, anchorDID string, err error) error {
+	if !errors.Is(err, grant.ErrBadSignature) {
+		return fmt.Errorf("intercept: verifying the %s: %w", kind, err)
+	}
+	return fmt.Errorf(
+		"intercept: the %s at %s was not signed by the pinned control-plane identity (%s).\n"+
+			"The usual cause is that the control plane's identity changed — resetting its database "+
+			"regenerates the key it signs with — so an artefact written by the previous one can no longer verify.\n"+
+			"Deleting that file is safe when a control plane is configured: it is re-pushed on connect. "+
+			"If the identity is genuinely meant to have changed, re-pin it by updating controlPlaneId and removing the anchor: %w",
+		kind, path, anchorDID, err)
 }

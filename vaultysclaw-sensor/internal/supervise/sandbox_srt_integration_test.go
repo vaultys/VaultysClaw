@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -141,4 +142,45 @@ func TestSRTPrecedenceBetweenAllowAndDeny(t *testing.T) {
 			t.Fatalf("the artefact was modified: %q", body)
 		}
 	})
+}
+
+// The harness's own flags must reach the harness, not srt's option parser.
+//
+// This shipped broken: the wrapper emitted `srt --settings <sandbox> claude
+// --settings <hook file>`, srt read the second --settings as its own on a
+// last-wins basis, and refused to start because Claude Code's hook settings are
+// not a sandbox configuration. Every launch failed with an error naming the
+// wrong file. The old seatbelt wrapper had the separator; the port dropped it.
+func TestSRTWrapDoesNotSwallowTheHarnessFlags(t *testing.T) {
+	if _, err := findSRT(); err != nil {
+		t.Skipf("srt not installed: %v", err)
+	}
+
+	dir := t.TempDir()
+	resolved, err := ResolvePath(dir, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A file that is valid JSON but not an srt config — exactly what a harness
+	// settings file is. If srt reads it, it fails; if it is passed through, echo
+	// simply prints the path.
+	decoy := filepath.Join(resolved, "harness-settings.json")
+	if err := os.WriteFile(decoy, []byte(`{"hooks":{}}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	sandbox, err := NewSandbox(SandboxSpec{AllowedDomains: []string{"api.anthropic.com"}}, resolved)
+	if err != nil {
+		t.Fatalf("NewSandbox: %v", err)
+	}
+	defer sandbox.Close()
+
+	argv := sandbox.Wrap([]string{"/bin/echo", "--settings", decoy})
+	out, err := exec.Command(argv[0], argv[1:]...).CombinedOutput()
+	if err != nil {
+		t.Fatalf("the wrapped command failed — srt most likely consumed the harness's flags: %v\n%s", err, out)
+	}
+	if !strings.Contains(string(out), decoy) {
+		t.Errorf("the harness's own --settings did not reach it; got %q", out)
+	}
 }

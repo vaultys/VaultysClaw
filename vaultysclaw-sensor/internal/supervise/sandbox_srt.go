@@ -236,7 +236,13 @@ func NewSandbox(spec SandboxSpec, dir string) (*Sandbox, error) {
 
 	return &Sandbox{
 		Wrap: func(command []string) []string {
-			return append([]string{bin, "--settings", path}, command...)
+			// "--" is load-bearing, not decoration. Without it srt's own option
+			// parser keeps reading past the command name and swallows the
+			// harness's flags: `claude --settings <hook settings>` gave srt a
+			// second --settings, last-wins, and it tried to load Claude Code's
+			// hook file as a sandbox configuration and refused to start. The
+			// harness's arguments are data to this layer, never options.
+			return append([]string{bin, "--settings", path, "--"}, command...)
 		},
 		Description: fmt.Sprintf(
 			"sandbox-runtime (srt) via %s — %d paths denied outright, %d write-protected, %d domains allowed / %d denied",
@@ -318,7 +324,7 @@ func runSRTCanary(bin string, spec SandboxSpec, dir string) error {
 	if err := exec.Command(probe[0], probe[1:]...).Run(); err != nil {
 		return fmt.Errorf("supervise: the sandbox self-test is inconclusive — the canary is unreadable even unconfined: %w", err)
 	}
-	confined := append([]string{"--settings", settingsPath}, probe...)
+	confined := append([]string{"--settings", settingsPath, "--"}, probe...)
 	out, err := exec.Command(bin, confined...).CombinedOutput()
 	if err == nil {
 		return fmt.Errorf(

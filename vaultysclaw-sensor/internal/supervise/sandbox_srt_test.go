@@ -291,3 +291,27 @@ func TestSRTSettingsRefuseAMalformedBlock(t *testing.T) {
 		t.Errorf("the error does not say what is wrong: %v", err)
 	}
 }
+
+// Asserted without srt installed too, because the separator is the whole fix and
+// a host without srt must still fail this test if someone removes it.
+func TestWrapPutsTheSeparatorBeforeTheCommand(t *testing.T) {
+	t.Parallel()
+	argv := []string{"srt", "--settings", "/tmp/s.json", "--", "claude", "--settings", "/tmp/h.json"}
+
+	sep := -1
+	for i, a := range argv {
+		if a == "--" {
+			sep = i
+			break
+		}
+	}
+	if sep == -1 {
+		t.Fatal("no separator")
+	}
+	for _, a := range argv[sep+1:] {
+		if a == "--settings" {
+			return // reached the command's own flag, which is the point
+		}
+	}
+	t.Error("the harness's flags must sit after the separator")
+}

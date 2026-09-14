@@ -283,3 +283,44 @@ func TestSummaryDescribesWhatIsEnforced(t *testing.T) {
 		}
 	}
 }
+
+// The error an operator actually meets when a control plane's database is reset.
+//
+// The bare "invalid signature" is true and useless — it names neither the file
+// to remove nor whose signature was expected — and this failure is fatal at
+// startup, so it presents as a supervisor that simply will not launch. This has
+// cost real debugging sessions twice; the message is the fix, so it is asserted.
+func TestSignatureErrorNamesTheFileAndTheAnchor(t *testing.T) {
+	t.Parallel()
+	err := signatureError("rule set", "/home/fx/.vaultysclaw/rules.token", "did:vaultys:00abc", grant.ErrBadSignature)
+
+	for _, want := range []string{
+		"rule set",
+		"/home/fx/.vaultysclaw/rules.token",
+		"did:vaultys:00abc",
+		"identity changed",
+		"re-pushed on connect",
+	} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("the message does not mention %q:\n%v", want, err)
+		}
+	}
+	if !errors.Is(err, grant.ErrBadSignature) {
+		t.Error("the sentinel must survive wrapping so callers can still match on it")
+	}
+}
+
+// Only a signature failure gets the rotation explanation. A malformed token is a
+// different problem, and telling someone their control plane's identity changed
+// when it has not would send them to re-pin something that is already correct.
+func TestSignatureErrorLeavesOtherFailuresAlone(t *testing.T) {
+	t.Parallel()
+	err := signatureError("rule set", "/tmp/rules.token", "did:vaultys:00abc", grant.ErrMalformed)
+
+	if strings.Contains(err.Error(), "identity changed") {
+		t.Errorf("a malformed token was explained as an identity rotation:\n%v", err)
+	}
+	if !errors.Is(err, grant.ErrMalformed) {
+		t.Error("the underlying error must still be matchable")
+	}
+}

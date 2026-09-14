@@ -138,6 +138,30 @@ export function workspacePayload(ws: AnyRecord): AnyRecord {
   };
 }
 
+/**
+ * `killswitch.armed` / `killswitch.disarmed`. Explicit allow-list, like every
+ * builder here — the reason is admin-authored free text and is the point of the
+ * event, but nothing else about the switch is secret either way.
+ *
+ * `affectedActors` is how many connected Actors were actually cut off at arming
+ * time (0 for a disarm), not how many certificates exist — no certificate is
+ * written by a kill switch.
+ */
+export function killSwitchPayload(
+  row: AnyRecord,
+  extra: { workspaceName?: string | null; affectedActors?: number } = {}
+): AnyRecord {
+  return {
+    scope: row.scopeType ?? null,
+    workspaceId: row.workspaceId ?? null,
+    workspaceName: extra.workspaceName ?? null,
+    reason: row.reason ?? null,
+    armedBy: row.armedBy ?? null,
+    armedAt: row.armedAt ?? null,
+    affectedActors: extra.affectedActors ?? 0,
+  };
+}
+
 export function modelAdminUrl(id: string): string | null {
   return buildAdminUrl(`/admin/integrations/models/${id}`);
 }

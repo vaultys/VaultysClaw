@@ -15,6 +15,7 @@ import {
   modelPayload,
   proxyConfigPayload,
   workspacePayload,
+  killSwitchPayload,
 } from "./webhook-payloads";
 
 // ── Representative sample domain objects ────────────────────────────────────
@@ -150,6 +151,30 @@ const EXAMPLE_PAYLOADS: Record<string, Record<string, unknown>> = {
     revokedBy: "did:vaultys:0071ec50c977d4e05682764806c7fc03556de6af",
     revokedReason: "No longer needed",
   }),
+
+  // No certificate fields here on purpose: a kill switch writes nothing to the
+  // ledger, so there is no cert id or revocation reason to report. `affectedActors`
+  // is how many *connected* Actors were cut off at arming time.
+  "killswitch.armed": killSwitchPayload(
+    {
+      scopeType: "workspace",
+      workspaceId: "default",
+      reason: "Suspected credential compromise on the build fleet",
+      armedBy: "did:vaultys:0071ec50c977d4e05682764806c7fc03556de6af",
+      armedAt: "2026-07-17T10:00:00.000Z",
+    },
+    { workspaceName: "Default", affectedActors: 12 }
+  ),
+  "killswitch.disarmed": killSwitchPayload(
+    {
+      scopeType: "workspace",
+      workspaceId: "default",
+      reason: "Suspected credential compromise on the build fleet",
+      armedBy: "did:vaultys:0071ec50c977d4e05682764806c7fc03556de6af",
+      armedAt: "2026-07-17T10:00:00.000Z",
+    },
+    { workspaceName: "Default" }
+  ),
 
   "workspace.created": workspacePayload(sampleWorkspace),
   "workspace.updated": workspacePayload(sampleWorkspace),

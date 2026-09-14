@@ -29,6 +29,7 @@ import {
   filterAgainstRegistry,
   type AgentCapability,
   type CertificateStatus,
+  type CertScope,
 } from "@vaultysclaw/policy";
 import {
   ActorDAO,
@@ -44,6 +45,13 @@ import { recordEvent } from "./audit";
 import { buildAdminUrl } from "./webhook-payloads";
 import { WsSender, type AgentSender } from "./agent-sender";
 import { buildActorConfig } from "./actor-config";
+import {
+  getKillSwitchState,
+  invalidateKillSwitchCache,
+  killSwitchReason,
+  resolveCertStatus,
+  suppressionForActor,
+} from "./kill-switch";
 import type {
   AuthChallengePayload,
   AuthCompletePayload,
@@ -57,6 +65,7 @@ import type {
   CertStatusRequestPayload,
   CertStatusResponsePayload,
   ErrorPayload,
+  KillSwitchPayload,
   ProtocolMessage,
   ProtocolMessageType,
   DeclaredCapability,
@@ -532,6 +541,22 @@ export class ControlPlaneWSServer {
 
       const existing = await ActorDAO.findByDid(did);
       if (existing) {
+        // Refuse to seat an Actor that an armed kill switch covers. The identity
+        // is proven and the row is fine — what is withheld is the session, so
+        // nothing downstream (config push, grant delivery, redelivery) runs for
+        // a suspended Actor.
+        //
+        // The refusal carries the admin's reason so the client logs *why* it is
+        // being turned away. It cannot then ask for its own status, so it learns
+        // nothing more until the switch is disarmed; the SDK's own reconnect
+        // backoff (up to 30 s) is what makes recovery automatic, with no admin
+        // action beyond disarming.
+        const suppression = suppressionForActor(existing, await getKillSwitchState());
+        if (suppression) {
+          this.failHandshake(pending, killSwitchReason(suppression));
+          return;
+        }
+
         // Buffered rather than awaited: this was a synchronous write sitting inside the handshake,
         // so every reconnecting Actor paid a database round trip before it could be told it was
         // connected. Nothing reads `lastSeen` closely enough to justify that (see `lastSeenBuffer`).
@@ -915,30 +940,24 @@ export class ControlPlaneWSServer {
       return;
     }
 
-    const cert = await CapabilityCertificateDAO.findById(requestBody.certId);
+    const cert = await CapabilityCertificateDAO.findByIdWithActor(requestBody.certId);
     if (!cert) {
       this.sendError(sender, `Unknown certificate: ${requestBody.certId}`);
       return;
     }
 
-    let status = cert.status as CertificateStatus;
-    if (status === "active" && cert.expiresAt && cert.expiresAt.getTime() <= Date.now()) {
-      status = "expired";
-    }
-
-    // Fail closed on a custom capability the registry no longer knows about
-    // (docs/CUSTOM_CAPABILITIES.md). This is the *authoritative* propagation path for a
-    // registry deletion: the row on the certificate is left untouched, but what we sign
-    // here — and therefore what the holder keeps after its next refresh — omits the name.
-    //
-    // If the filter empties the list we still report the row's real `status`. "An active
-    // certificate with nothing left on it" is the honest answer; collapsing it to `revoked`
-    // would misreport the ledger, and the holder's own fail-closed handling of an empty
-    // capability set is what actually stops it acting.
-    const registryNames = new Set(await CustomCapabilityDAO.listNames());
-    const effectiveCapabilities = filterAgainstRegistry(
-      cert.capabilities as string[],
-      registryNames
+    const { status, capabilities: effectiveCapabilities } = resolveCertStatus(
+      {
+        status: cert.status,
+        capabilities: cert.capabilities as string[],
+        workspaceId: cert.workspaceId,
+        scope: cert.scope as CertScope | null,
+        expiresAt: cert.expiresAt ? cert.expiresAt.getTime() : null,
+      },
+      cert.agent,
+      await getKillSwitchState(),
+      new Set(await CustomCapabilityDAO.listNames()),
+      Date.now()
     );
 
     const serverVid = await ServerIdentityDAO.getServerVaultysId();
@@ -955,6 +974,9 @@ export class ControlPlaneWSServer {
     this.statusCheckBuffer.push({
       certId: cert.id,
       requesterDid,
+      // The status we *signed*, which under an armed kill switch is not the
+      // row's own. This table records what a requester was told, so that is the
+      // right value; the ledger row remains the record of what was issued.
       status,
       // Recorded now rather than at flush time, so a batched write still says when the check
       // actually happened.
@@ -1103,6 +1125,73 @@ export class ControlPlaneWSServer {
       sent++;
     }
     return sent;
+  }
+
+  /**
+   * Push `kill_switch` to every connected Actor the freshly-armed switch covers,
+   * then close their sockets.
+   *
+   * The push goes first and matters on its own: a cooperating holder marks its
+   * certificates suspended on receipt, so it stops authorizing before the socket
+   * drops rather than at its next status refresh. Closing the socket is the
+   * cheap part — a modified binary reconnects regardless, which is why the
+   * handshake refusal and the signed `revoked` status, not this, are what
+   * actually enforce the switch (docs/CERTIFICATE_WEB_OF_TRUST.md §1).
+   *
+   * Returns how many Actors were reached, for the admin's confirmation and the
+   * `killswitch.armed` payload.
+   *
+   * Disarming has no counterpart here: the affected sockets are already closed
+   * and their clients reconnect on their own once the handshake stops refusing
+   * them.
+   */
+  async notifyKillSwitchArmed(row: {
+    scopeType: string;
+    workspaceId: string | null;
+    reason: string;
+    armedAt: Date;
+  }): Promise<number> {
+    // Read through the same predicate the status handler and handshake use, so
+    // "who gets cut off" cannot drift between the three.
+    const state = await getKillSwitchState();
+    const payload: KillSwitchPayload = {
+      scope: row.scopeType === "global" ? "global" : "workspace",
+      ...(row.workspaceId ? { workspaceId: row.workspaceId } : {}),
+      reason: row.reason,
+      armedAt: row.armedAt.toISOString(),
+    };
+
+    const connected = [...this.connected.values()];
+
+    // A workspace-scoped switch needs each Actor's `workspaceId`, which the
+    // connection map does not carry. One batched read, not one per Actor: this
+    // runs against the whole connected fleet, and a query per socket is exactly
+    // the shape that collapsed a 7,000-Actor ramp before (see "Scale" in this
+    // package's CLAUDE.md). A global switch needs no lookup at all.
+    const workspaceByDid = new Map<string, string | null>();
+    if (!state.global) {
+      const rows = await ActorDAO.findManyByDid(connected.map((a) => a.did));
+      for (const row of rows) workspaceByDid.set(row.did, row.workspaceId);
+    }
+
+    // Snapshot first: closing a socket mutates `connected` from the close
+    // handler, and iterating a map while it is being deleted from skips entries.
+    const targets = connected.filter((actor) =>
+      suppressionForActor(
+        { kind: actor.kind, workspaceId: workspaceByDid.get(actor.did) ?? null },
+        state
+      )
+    );
+
+    for (const actor of targets) {
+      this.sendMessage(actor.sender, "kill_switch", payload);
+      actor.sender.close();
+    }
+    logger.warn(
+      { scope: payload.scope, workspaceId: row.workspaceId, reason: row.reason, disconnected: targets.length },
+      "Kill switch armed — disconnected covered Actors"
+    );
+    return targets.length;
   }
 
   deliverCertificate(cert: CapabilityCertificate): boolean {

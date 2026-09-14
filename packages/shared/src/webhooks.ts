@@ -332,6 +332,22 @@ export const WEBHOOK_EVENTS: WebhookEventDef[] = [
     description: "A capability certificate was revoked.",
     group: "Certificates",
   },
+  // ── Kill switches (the reversible, emergency counterpart to revocation —
+  // packages/controlplane/lib/kill-switch.ts) ─────────────────────────────────
+  {
+    type: "killswitch.armed",
+    label: "Kill switch armed",
+    description:
+      "An emergency kill switch was armed, suspending every certificate it covers org-wide or for one workspace. No certificate is revoked — the suspension is computed and reversible.",
+    group: "Kill Switch",
+  },
+  {
+    type: "killswitch.disarmed",
+    label: "Kill switch disarmed",
+    description:
+      "An emergency kill switch was disarmed; the certificates it covered authorize again, with no re-issuance.",
+    group: "Kill Switch",
+  },
 ];
 
 /** Look up an event definition by its type key. */

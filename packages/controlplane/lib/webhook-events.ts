@@ -11,7 +11,14 @@
  */
 import { WEBHOOK_EVENTS, type WebhookEventDef } from "@vaultysclaw/shared";
 
-const EMITTED_GROUPS = new Set(["Actors", "Certificates", "Workspaces", "Models", "Capabilities"]);
+const EMITTED_GROUPS = new Set([
+  "Actors",
+  "Certificates",
+  "Workspaces",
+  "Models",
+  "Capabilities",
+  "Kill Switch",
+]);
 
 export const CONTROLPLANE_WEBHOOK_EVENTS: WebhookEventDef[] = WEBHOOK_EVENTS.filter((e) =>
   EMITTED_GROUPS.has(e.group)

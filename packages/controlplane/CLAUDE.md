@@ -763,6 +763,82 @@ may hold a name; what it *permits* is decided by whichever application binds an 
 - **Events**: `capability.created` / `updated` / `deleted` (group "Capabilities" in the shared
   catalog). `capability.deleted` carries `affectedGrants`.
 
+## Kill switches
+
+The **reversible** emergency counterpart to revocation: suspend every grant in the org, or in one
+workspace, and put it all back without re-issuing anything. `lib/kill-switch.ts` is the whole
+decision; `db/kill-switch.dao.ts` is the state.
+
+- **Nothing is written to the ledger.** Suspension is *computed* when a decision is made, from a
+  `KillSwitch` row that is entirely separate from `CapabilityCertificate`. That is what makes it
+  reversible: `CapabilityCertificateDAO.revoke` fills in `revokedAt`/`revokedBy`/`revokedReason`
+  and has no `unrevoke`, so coming back from a real revoke means a new cert and a new
+  `cert_challenge` per Actor. Disarming means deleting one row.
+- **`CertificateStatus` stays the closed four-value union.** A fifth `"suspended"` state was
+  rejected: it would have had to change `packages/policy`, `packages/trust`, `packages/sdk`,
+  `sdk-go/authz` and the shared `conformance/` vectors, to be treated by every one of them exactly
+  as `"revoked"` already is. **This feature changed no conformance fixture and no Go code** — if a
+  change here starts wanting one, that is the signal to reconsider the approach, not the fixture.
+- **A row's existence is the state.** Armed = present, disarmed = gone; `id` is `"global"` or the
+  workspace's own id. Arm/disarm history lives in the audit log, deliberately not in a
+  `disarmedAt` column that would turn the hot-path read into a scan.
+- **Humans are always exempt**, and this is load-bearing, not a nicety: `admin_console_access` is
+  itself a capability carried by a certificate (`lib/capabilities.ts`), and the console is the only
+  way to disarm. Without the exemption, arming the global switch is unrecoverable through the UI.
+  `suppressionFor` returns `null` for `kind: "human"` before anything else, and
+  `__tests__/kill-switch.test.ts` pins it.
+- **A workspace switch matches three ways**: the certificate's `workspaceId`, a
+  `CertScope.resource` of `workspace:<id>`, or the *holder's* own `Actor.workspaceId`. The first
+  two are what `WorkspaceDAO.listActiveScopedCertificates` matches when a workspace is deleted; the
+  third is a deliberate widening. A kill switch must over-include, a deletion must under-include —
+  one is reversible and the other revokes for good.
+
+**Four enforcement points, one predicate.** All of them call into `lib/kill-switch.ts`:
+
+1. **`lib/ws-server.ts`'s `handleCertStatusRequest` — the authoritative one.** The signed response,
+   not the stored row, is what a holder keeps (same principle as the custom-capability registry
+   filter). The logic lives in `resolveCertStatus`, pure and separate from the handler precisely so
+   its invariant is testable: **a suspended certificate is signed as `revoked` while its row still
+   says `active`.** Note this is the opposite of the registry filter's rule two lines below it,
+   which keeps the row's real status — the difference is that nothing here writes to the ledger, so
+   the audit trail stays honest and only the live authorization answer changes.
+2. **The handshake** (`handleAuthChallenge`): a covered Actor is refused via the existing
+   `failHandshake`, carrying the admin's reason so the client logs why. It then cannot query its
+   own status, and learns nothing more until the switch is disarmed — the SDK's reconnect backoff
+   makes recovery automatic with no admin action beyond disarming.
+3. **`lib/access-control.ts`'s `hasCapability`**, against the one certificate `resolvePermission`
+   actually granted on. A no-op for the console (humans are exempt), but it must not authorize what
+   the status protocol would refuse.
+4. **Both issuance paths** (`app/admin/certificates/actions.ts`, `lib/registrations.ts`): refused
+   while armed, rather than minting a real ledger row that authorizes nothing.
+
+**Consequence worth knowing**: refusing the handshake also cuts off `kind: "sensor"` Actors, so
+workload telemetry stops for the duration of an incident. That was the deliberate choice (a kill
+switch that leaves a covered Actor connected is a weaker switch); exempting sensors is one branch
+in `suppressionFor` if a deployment would rather keep the visibility.
+
+**Live effect**: `notifyKillSwitchArmed` pushes the new `kill_switch` protocol message to covered
+connected Actors and then closes their sockets. The push matters on its own — the SDK marks every
+held certificate `revoked` locally on receipt, so a cooperating holder stops authorizing before the
+socket drops. Closing is the cheap part; a modified binary reconnects regardless, which is exactly
+why the handshake refusal and the signed status, not the disconnect, are what enforce this
+(docs/CERTIFICATE_WEB_OF_TRUST.md §1). Disarming pushes nothing: those sockets are already gone and
+their clients come back on their own.
+
+**Caching.** The armed set is cached in-process for 5 s with explicit invalidation on every
+arm/disarm, mirroring `CustomCapabilityDAO`'s name cache and for the same reason — see Scale below.
+The HTTP and WS servers share one process (`server.ts`), so a Server Action's invalidation reaches
+the status handler; the TTL only bounds out-of-band changes.
+
+**UI**: `components/KillSwitchPanel.tsx` (one component, both scopes) on `/admin/settings` and a
+workspace's Overview tab, plus a persistent red banner in `app/admin/layout.tsx` so an armed switch
+is visible on every admin route — a switch someone forgot to disarm is its own incident. Actions
+live in `app/admin/kill-switch/actions.ts`, both starting with `requireAdmin()`.
+
+**Events**: `killswitch.armed` / `killswitch.disarmed` (group "Kill Switch", registered in
+`lib/webhook-events.ts` — a group missing from that set is subscribable nowhere). `armed` renders
+as Apprise `failure`, the only event in the catalog that does.
+
 ## Scale
 
 The connection lifecycle is the hot path, and it was written as if one Actor connected at a time.

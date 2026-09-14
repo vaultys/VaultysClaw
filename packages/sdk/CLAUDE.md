@@ -42,6 +42,21 @@ async variants that refresh first; use those for anything consequential.
 There is deliberately **no** "nothing granted means allow everything" fallback anywhere in this
 package. An unbound operation, an ungranted capability, and an unreachable control plane all deny.
 
+## Kill switches
+
+A `kill_switch` message means the control plane armed an emergency suspension covering this Actor
+(`packages/controlplane/lib/kill-switch.ts`). `onKillSwitch` marks **every held certificate
+`revoked` locally** straight away and emits `capabilityChange` with reason `"kill_switch"` — the
+control plane closes the socket immediately after sending it, and waiting for the next status
+refresh would leave a window in which this runtime still believed it was granted. The event is
+emitted even when nothing was granted to lose: an application listening for it is how it learns to
+stand down.
+
+Like everything else here, this does **not** call `stop()` — the runtime never stops itself, it
+only stops authorizing. Recovery is automatic and needs no application code: the suspension is
+reversible on the control plane's side, the reconnect loop keeps retrying, and the fresh status
+fetched after the handshake stops being refused is what restores the capabilities.
+
 ## The capability manifest
 
 `capabilities.json` (path via `capabilityManifestPath`) declares which capabilities the application

@@ -115,6 +115,25 @@ Three things to know before touching this area:
   stops resolving on every holder's next refresh. That signed response — not the stored certificate
   row — is what a client keeps.
 
+## Kill switches
+
+The reversible emergency control, alongside (not instead of) revocation: an admin can suspend every
+grant **org-wide** or **per-workspace** and put it all back with no certificate re-issuance.
+
+- **Nothing is written to the certificate ledger.** Suspension is computed from a separate
+  `KillSwitch` row at the moment a decision is made — `packages/controlplane/lib/kill-switch.ts` is
+  the single predicate, and every enforcement point calls it. Revocation stays the one-way ledger
+  write it always was.
+- **`CertificateStatus` is still the closed four-value union.** A suspended certificate is *signed*
+  as `revoked` while its row stays `active`. No new state means `packages/policy`,
+  `packages/trust`, `sdk-go/` and the `conformance/` fixtures are untouched by this feature — if a
+  change here starts wanting a fifth status, reconsider the change rather than the fixtures.
+- **Humans are always exempt.** `admin_console_access` is itself a certificate capability, so a
+  switch that covered humans would lock every admin out of the only UI that can disarm it.
+
+See `packages/controlplane/CLAUDE.md` → "Kill switches" for the four enforcement points and the
+sensor-telemetry tradeoff.
+
 ## Webhooks & Notification Channels
 
 One event pipeline, two kinds of delivery. A domain event is recorded in the audit log and enqueued

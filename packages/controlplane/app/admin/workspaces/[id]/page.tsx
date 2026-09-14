@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
-import { WorkspaceDAO, ActorDAO, CapabilityCertificateDAO, SrtTemplateDAO } from "@/db";
+import { WorkspaceDAO, ActorDAO, CapabilityCertificateDAO, SrtTemplateDAO, KillSwitchDAO } from "@/db";
 import PageChrome from "@/components/layout/PageChrome";
 import { ActorKindBadge } from "@/components/ActorKindBadge";
 import ActorSearchSelect from "@/components/ActorSearchSelect";
 import DeleteWorkspacePanel from "@/components/DeleteWorkspacePanel";
+import KillSwitchPanel from "@/components/KillSwitchPanel";
 import WorkspaceTemplates from "@/components/WorkspaceTemplates";
 import { encodeDidParam } from "@/lib/actor-route";
 import { categoryForKind } from "@/lib/actor-kinds";
@@ -57,7 +58,15 @@ export default async function WorkspaceDetailPage({
 
   const activeTab: TabId = TABS.some((t) => t.id === tabParam) ? (tabParam as TabId) : "overview";
 
-  const [workspaceActors, allActors, activeCerts, scopedCerts, allTemplates, attachedTemplates] =
+  const [
+    workspaceActors,
+    allActors,
+    activeCerts,
+    scopedCerts,
+    allTemplates,
+    attachedTemplates,
+    killSwitch,
+  ] =
     await Promise.all([
       ActorDAO.list({ workspaceId: id }),
       ActorDAO.list(),
@@ -68,6 +77,7 @@ export default async function WorkspaceDetailPage({
       WorkspaceDAO.listActiveScopedCertificates(id),
       SrtTemplateDAO.list(),
       SrtTemplateDAO.listForWorkspace(id),
+      KillSwitchDAO.findByWorkspace(id),
     ]);
 
   const unassignedActors = allActors.filter((a) => a.workspaceId !== id);
@@ -157,6 +167,26 @@ export default async function WorkspaceDetailPage({
             {workspace.createdAt.toISOString().slice(0, 10)}
           </p>
         </section>
+      )}
+
+      {/* Above the delete panel, and available for the default workspace too:
+          suspending is the reversible action, deleting is not, and the default
+          workspace is exactly the one most likely to hold a misbehaving fleet. */}
+      {activeTab === "overview" && (
+        <KillSwitchPanel
+          scope="workspace"
+          workspaceId={workspace.id}
+          workspaceName={workspace.name}
+          armed={
+            killSwitch
+              ? {
+                  reason: killSwitch.reason,
+                  armedBy: killSwitch.armedBy,
+                  armedAt: killSwitch.armedAt.toISOString(),
+                }
+              : null
+          }
+        />
       )}
 
       {activeTab === "overview" &&

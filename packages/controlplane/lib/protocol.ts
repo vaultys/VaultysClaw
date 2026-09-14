@@ -28,6 +28,7 @@ export type ProtocolMessageType =
   | "cert_failed"
   | "capabilities_changed"
   | "capability_registry_changed"
+  | "kill_switch"
   // A kind:"sensor" Actor's classified AI/agent process observations
   // (vaultysclaw-sensor/docs/vaultysclaw-integration.md §3) — the one
   // kind-specific message type in this file, because "report telemetry" has
@@ -212,6 +213,24 @@ export interface CertFailedPayload {
 export interface CapabilitiesChangedPayload {
   reason: "certificate_issued" | "certificate_revoked" | "capability_deleted" | "admin_update";
   certIds?: string[];
+}
+
+/**
+ * An emergency kill switch was armed and this Actor falls under it
+ * (`lib/kill-switch.ts`). Pushed just before the control plane closes the
+ * socket, so the holder stops authorizing immediately rather than waiting for
+ * its next status refresh.
+ *
+ * Advisory, like every other push in this protocol: what actually stops a
+ * cooperating holder is that its certificates now resolve as `revoked` on any
+ * status check, and that the handshake is refused until the switch is disarmed.
+ */
+export interface KillSwitchPayload {
+  scope: "global" | "workspace";
+  workspaceId?: string;
+  /** The admin's reason, verbatim — surfaced in the client's own logs. */
+  reason: string;
+  armedAt: string;
 }
 
 export interface CapabilityRegistryChangedPayload {

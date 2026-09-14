@@ -1,5 +1,6 @@
-import { ServerIdentityDAO, SettingsDAO } from "@/db";
+import { KillSwitchDAO, ServerIdentityDAO, SettingsDAO } from "@/db";
 import PageChrome from "@/components/layout/PageChrome";
+import KillSwitchPanel from "@/components/KillSwitchPanel";
 import { updateGeneralSettingsAction, updateTrustPolicyAction } from "./actions";
 import {
   DEFAULT_ORG_NAME,
@@ -27,11 +28,12 @@ import {
  * are not a server-side gate on what a compromised one attempts.
  */
 export default async function SettingsPage() {
-  const [serverVid, orgName, failMode, stapleTtlSeconds] = await Promise.all([
+  const [serverVid, orgName, failMode, stapleTtlSeconds, killSwitch] = await Promise.all([
     ServerIdentityDAO.getServerVaultysId(),
     SettingsDAO.get(SETTINGS_KEYS.orgName),
     SettingsDAO.get(SETTINGS_KEYS.trustFailMode),
     SettingsDAO.get(SETTINGS_KEYS.trustStapleTtlSeconds),
+    KillSwitchDAO.findGlobal(),
   ]);
 
   const serverPublicKey = Buffer.from(serverVid.id).toString("base64");
@@ -39,6 +41,22 @@ export default async function SettingsPage() {
   return (
     <div className="p-6 max-w-2xl space-y-8">
       <PageChrome toolbar={{ title: "Settings" }} breadcrumbs={[{ label: "Settings" }]} />
+
+      {/* First, not last: this is the control an admin comes here for during an
+          incident, and hunting for it below three configuration sections is the
+          wrong thing to be doing at that moment. */}
+      <KillSwitchPanel
+        scope="global"
+        armed={
+          killSwitch
+            ? {
+                reason: killSwitch.reason,
+                armedBy: killSwitch.armedBy,
+                armedAt: killSwitch.armedAt.toISOString(),
+              }
+            : null
+        }
+      />
 
       <section className="space-y-3">
         <h2 className="text-sm font-semibold text-foreground-700">Server identity</h2>

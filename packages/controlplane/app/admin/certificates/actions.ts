@@ -11,6 +11,7 @@ import { requireAdmin } from "@/lib/require-admin";
 import { grantableCapabilitiesForKind } from "@/lib/capabilities";
 import { certificatePayload, buildAdminUrl } from "@/lib/webhook-payloads";
 import { getWSServerInstance } from "@/lib/ws-server";
+import { getKillSwitchState, killSwitchReason, suppressionForActor } from "@/lib/kill-switch";
 import type { AgentCapability, CertScope } from "@vaultysclaw/policy";
 import { parseResourceLimits } from "@/lib/certificate-form";
 
@@ -60,6 +61,18 @@ export async function issueCertificateAction(formData: FormData): Promise<void> 
   // something should be told it didn't apply, not left to notice later.
   const actor = await ActorDAO.findByDid(agentDid);
   if (!actor) throw new Error("Actor not found");
+
+  // Refuse while a kill switch covers this Actor. The grant would be a real
+  // ledger row that authorizes nothing — every status check would report it
+  // `revoked` — so issuing it would tell an admin they had granted something
+  // they had not.
+  const suppression = suppressionForActor(actor, await getKillSwitchState());
+  if (suppression) {
+    throw new Error(
+      `Cannot issue while a kill switch is armed — ${killSwitchReason(suppression)}. Disarm it first.`
+    );
+  }
+
   const grantable = await grantableCapabilitiesForKind(actor.kind);
   const rejected = submitted.filter((c) => !grantable.includes(c));
   if (rejected.length > 0) {

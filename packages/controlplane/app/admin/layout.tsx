@@ -5,7 +5,7 @@ import { authOptions } from "@/lib/auth-config";
 import { hasCapability } from "@/lib/access-control";
 import AppShell from "@/components/layout/AppShell";
 import SignOutButton from "@/components/SignOutButton";
-import { ActorDAO, CapabilityCertificateDAO, SettingsDAO, WorkspaceDAO } from "@/db";
+import { ActorDAO, CapabilityCertificateDAO, KillSwitchDAO, SettingsDAO, WorkspaceDAO } from "@/db";
 import { encodeDidParam } from "@/lib/actor-route";
 import { DEFAULT_ORG_NAME, SETTINGS_KEYS } from "@/lib/org-settings";
 import type { AdminCommandItem } from "@/components/layout/AdminCommandPalette";
@@ -46,11 +46,12 @@ export default async function AdminLayout({
     );
   }
 
-  const [orgNameSetting, actors, certificates, workspaces] = await Promise.all([
+  const [orgNameSetting, actors, certificates, workspaces, killSwitches] = await Promise.all([
     SettingsDAO.get(SETTINGS_KEYS.orgName),
     ActorDAO.list(),
     CapabilityCertificateDAO.list(),
     WorkspaceDAO.list(),
+    KillSwitchDAO.list(),
   ]);
   const orgName = orgNameSetting ?? DEFAULT_ORG_NAME;
   const actorByDid = new Map(actors.map((actor) => [actor.did, actor]));
@@ -94,5 +95,39 @@ export default async function AdminLayout({
     })),
   ];
 
-  return <AppShell orgName={orgName} commandItems={commandItems}>{children}</AppShell>;
+  // Rendered in the layout, so an armed switch is visible on every admin route
+  // rather than only on the page that armed it. A kill switch someone forgot to
+  // disarm is its own incident — the estate looks dead for no visible reason —
+  // and this is the cheapest possible way to make that impossible to miss.
+  const workspaceNameById = new Map(workspaces.map((w) => [w.id, w.name]));
+  const killSwitchBanner =
+    killSwitches.length > 0 ? (
+      <div
+        role="alert"
+        className="border-b border-danger-200 bg-danger-600 px-4 py-2 text-xs text-white"
+      >
+        {killSwitches.map((ks) => (
+          <p key={ks.id}>
+            <strong>Kill switch armed</strong>
+            {ks.scopeType === "global"
+              ? " org-wide"
+              : ` for workspace "${workspaceNameById.get(ks.workspaceId ?? "") ?? ks.workspaceId}"`}
+            : {ks.reason} —{" "}
+            <Link
+              href={ks.scopeType === "global" ? "/admin/settings" : `/admin/workspaces/${ks.workspaceId}`}
+              className="underline"
+            >
+              disarm
+            </Link>
+          </p>
+        ))}
+      </div>
+    ) : null;
+
+  return (
+    <AppShell orgName={orgName} commandItems={commandItems}>
+      {killSwitchBanner}
+      {children}
+    </AppShell>
+  );
 }

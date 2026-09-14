@@ -284,6 +284,30 @@ model Workspace {
   certificates CapabilityCertificate[]
   modelAccess  ModelWorkspaceAccess[]
   srtTemplates SrtTemplateWorkspace[]
+  killSwitch   KillSwitch?
+}
+
+// ─── Kill switches ────────────────────────────────────────────────────────────
+// An emergency, *reversible* suspension of authorization
+// (docs/CERTIFICATE_WEB_OF_TRUST.md §3.5 is the irreversible counterpart).
+//
+// The presence of a row means "armed"; disarming deletes it. Nothing here ever
+// writes to `CapabilityCertificate` — suspension is computed at the moment a
+// status request is answered (`lib/kill-switch.ts`), so the ledger keeps telling
+// the truth about what was issued and disarming is instant, with no certificate
+// re-issuance and no fresh `cert_challenge` handshake.
+//
+// `id` is "global" for the org-wide switch, or the workspace's own id for a
+// per-workspace one. The arm/disarm history lives in the audit log, not here.
+model KillSwitch {
+  id          String   @id
+  scopeType   String
+  workspaceId String?  @unique
+  reason      String
+  armedBy     String
+  armedAt     DateTime @default(now())
+
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 }
 
 // ─── Sensor telemetry ─────────────────────────────────────────────────────────

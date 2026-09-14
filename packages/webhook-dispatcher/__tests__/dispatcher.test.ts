@@ -250,6 +250,41 @@ describe("renderNotification", () => {
     expect(renderNotification({ ...JOB, eventType: "does.not.exist" })).toBeNull();
   });
 
+  it("renders an armed kill switch as a failure, not routine news", () => {
+    // The severity is the message. A kill switch arriving in a channel styled
+    // like a workspace rename is a kill switch nobody acts on.
+    const r = renderNotification({
+      eventType: "killswitch.armed",
+      payload: {
+        scope: "global",
+        workspaceId: null,
+        workspaceName: null,
+        reason: "Suspected key compromise",
+        affectedActors: 12,
+      },
+      occurredAt: "2026-07-16T10:00:00.000Z",
+    });
+    expect(r).not.toBeNull();
+    expect(r!.type).toBe("failure");
+    expect(r!.title).toMatch(/kill switch/i);
+    expect(r!.body).toContain("Suspected key compromise");
+    expect(r!.body).toContain("12");
+    // The reversibility has to be in the alert itself: whoever reads it at 3am
+    // needs to know this is recoverable without re-issuing anything.
+    expect(r!.body).toMatch(/suspended, not revoked/i);
+  });
+
+  it("names the workspace when a scoped kill switch is disarmed", () => {
+    const r = renderNotification({
+      eventType: "killswitch.disarmed",
+      payload: { scope: "workspace", workspaceId: "ws-1", workspaceName: "Marketing", reason: "resolved" },
+      occurredAt: "2026-07-16T10:00:00.000Z",
+    });
+    expect(r).not.toBeNull();
+    expect(r!.type).toBe("success");
+    expect(r!.body).toContain("Marketing");
+  });
+
   it("appends who did it and a link back to the admin console when present", () => {
     const r = renderNotification({
       ...JOB,

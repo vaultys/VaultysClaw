@@ -102,6 +102,26 @@ const RENDERERS: Record<string, Renderer> = {
     body: `A certificate for ${str(p.agentDid)} was revoked${p.revokedReason ? `: ${str(p.revokedReason)}` : "."}`,
     type: "warning",
   }),
+  // The one event in this catalog that is an emergency by definition, hence
+  // "failure" rather than "warning": an armed kill switch should not look like
+  // routine noise in whatever channel receives it.
+  "killswitch.armed": (p) => {
+    const scope = p.scope === "global" ? "org-wide" : `workspace "${str(p.workspaceName ?? p.workspaceId)}"`;
+    const affected = typeof p.affectedActors === "number" ? p.affectedActors : 0;
+    return {
+      title: "Kill switch ARMED",
+      body: `An emergency kill switch was armed ${scope}: ${str(p.reason)}. ${affected} connected Actor(s) were disconnected. Certificates are suspended, not revoked — disarming restores them immediately.`,
+      type: "failure",
+    };
+  },
+  "killswitch.disarmed": (p) => {
+    const scope = p.scope === "global" ? "org-wide" : `workspace "${str(p.workspaceName ?? p.workspaceId)}"`;
+    return {
+      title: "Kill switch disarmed",
+      body: `The ${scope} kill switch was disarmed. Covered certificates authorize again; Actors reconnect on their own.`,
+      type: "success",
+    };
+  },
   "workspace.created": (p) => ({
     title: "Workspace created",
     body: `Workspace "${str(p.name)}" was created.`,

@@ -55,6 +55,23 @@ export class CapabilityCertificateDAO {
     return prisma.capabilityCertificate.findUnique({ where: { id } });
   }
 
+  /**
+   * The row plus the `kind`/`workspaceId` of the Actor holding it, in one query.
+   *
+   * Only the kill-switch predicate (`lib/kill-switch.ts`) needs the holder's
+   * kind, and it needs it on the `cert_status_request` hot path — hence a
+   * dedicated method rather than widening `findById`, which several callers use
+   * where the join would be dead weight.
+   */
+  static async findByIdWithActor(
+    id: string
+  ): Promise<(CapabilityCertificate & { agent: { kind: string; workspaceId: string | null } }) | null> {
+    return prisma.capabilityCertificate.findUnique({
+      where: { id },
+      include: { agent: { select: { kind: true, workspaceId: true } } },
+    });
+  }
+
   /** Batched lookup for the Audit Log's live re-verification of certificate-related entries — one
    *  query for a page of rows, not N+1. */
   static async findManyByIds(ids: string[]): Promise<CapabilityCertificate[]> {

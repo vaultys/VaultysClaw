@@ -48,6 +48,7 @@ import {
   type CertIssuedPayload,
   type CapabilitiesChangedPayload,
   type CapabilityRegistryChangedPayload,
+  type KillSwitchPayload,
   type ErrorPayload,
   type ProtocolMessage,
   type CertStatusResponsePayload,
@@ -131,6 +132,7 @@ export interface CapabilityChange {
     | "capability_created"
     | "capability_updated"
     | "status_refresh"
+    | "kill_switch"
     | "admin_update";
   certIds?: readonly string[];
 }
@@ -545,6 +547,9 @@ export class ActorRuntime extends EventEmitter {
       case "capability_registry_changed":
         this.onCapabilityRegistryChanged(message.payload as CapabilityRegistryChangedPayload);
         break;
+      case "kill_switch":
+        this.onKillSwitch(message.payload as KillSwitchPayload);
+        break;
       case "actor_config":
         this.actorConfig = message.payload as ActorConfigPayload;
         // The trust block is what drives the refresh cadence, so a pushed config has to re-arm the
@@ -926,6 +931,43 @@ export class ActorRuntime extends EventEmitter {
   }
 
   /** Record a verified status response: status, timestamp, and the capabilities it reports. */
+  /**
+   * An emergency kill switch was armed and covers this Actor
+   * (control plane: `lib/kill-switch.ts`).
+   *
+   * Every held certificate is marked `revoked` locally straight away, so nothing
+   * authorizes anything from this point on — the control plane closes the socket
+   * immediately after sending this, and waiting for the next status refresh
+   * would leave a window in which we still believed we were granted.
+   *
+   * The suspension is reversible on the control plane's side, but that is not
+   * this runtime's business: recovery happens by reconnecting once the
+   * handshake stops refusing us, and the fresh status we then fetch is what
+   * restores the capabilities. Deliberately does not call `stop()` — this
+   * runtime never stops itself, it only stops authorizing.
+   */
+  private onKillSwitch(payload: KillSwitchPayload): void {
+    const scope = payload.scope === "global" ? "org-wide" : `workspace ${payload.workspaceId ?? ""}`;
+    this.log.warn?.(`sdk: kill switch armed (${scope}): ${payload.reason} — all capabilities suspended`);
+
+    const before = this.capabilityNames;
+    const certIds: string[] = [];
+    for (const cert of this.certificates.values()) {
+      if (cert.status === "revoked") continue;
+      cert.status = "revoked";
+      certIds.push(cert.certId);
+    }
+    if (certIds.length === 0) return;
+
+    this.syncCertificateSnapshot();
+    this.persistCapabilityState();
+    this.emit("capabilities", this.capabilityNames);
+    // `emitIfUnchanged`: a holder with no capabilities left to lose still needs
+    // to hear that it was cut off, and a listener keyed on this event is how an
+    // application learns to stand down.
+    this.emitCapabilityChange(before, "kill_switch", certIds, { emitIfUnchanged: true });
+  }
+
   private applyCertStatus(body: CertStatusResponseBody): void {
     const cert = this.certificates.get(body.certId);
     if (!cert) {

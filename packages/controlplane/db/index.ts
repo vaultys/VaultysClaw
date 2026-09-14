@@ -7,6 +7,7 @@ export { CertStatusCheckDAO } from "./cert-status-check.dao";
 export { SensorWorkloadDAO, SHADOW_THRESHOLD, type SensorWorkloadInput } from "./sensor-workload.dao";
 export { ActorLinkDAO, type ActorLinkWithActors } from "./actor-link.dao";
 export { WorkspaceDAO } from "./workspace.dao";
+export { KillSwitchDAO, GLOBAL_KILL_SWITCH_ID } from "./kill-switch.dao";
 export { UserDAO } from "./user.dao";
 export { PendingRegistrationDAO } from "./pending-registration.dao";
 export { AuthCertificateDAO } from "./auth-certificate.dao";

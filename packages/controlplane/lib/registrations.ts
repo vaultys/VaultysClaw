@@ -11,6 +11,7 @@ import type { AgentCapability } from "@vaultysclaw/policy";
 import { PendingRegistrationDAO, ActorDAO } from "@/db";
 import { getWSServerInstance } from "./ws-server";
 import { grantableCapabilitiesForKind } from "./capabilities";
+import { getKillSwitchState, killSwitchReason, suppressionForActor } from "./kill-switch";
 import { recordEvent } from "./audit";
 import { actorPayload, actorAdminUrl, buildAdminUrl, type PerformedBy } from "./webhook-payloads";
 
@@ -22,6 +23,21 @@ export async function approvePendingRegistration(
   const registration = await PendingRegistrationDAO.findById(registrationId);
   if (!registration || registration.status !== "pending") {
     throw new Error("Registration not found or already resolved");
+  }
+
+  // Refuse while a kill switch covers where this Actor would land. Approving
+  // would create the Actor and mint a grant that authorizes nothing (every
+  // status check reports it `revoked`) for a client whose handshake is being
+  // refused anyway — leaving the registration pending is the honest outcome, and
+  // it can be approved for real once the switch is disarmed.
+  const suppression = suppressionForActor(
+    { kind: registration.kind, workspaceId: registration.targetWorkspaceId },
+    await getKillSwitchState()
+  );
+  if (suppression) {
+    throw new Error(
+      `Cannot approve while a kill switch is armed — ${killSwitchReason(suppression)}. Disarm it first.`
+    );
   }
 
   const actor = await ActorDAO.upsert({

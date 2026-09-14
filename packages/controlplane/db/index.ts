@@ -17,3 +17,4 @@ export { ModelDAO, type SafeModel } from "./model.dao";
 export { CustomCapabilityDAO } from "./custom-capability.dao";
 export { InvitationDAO } from "./invitation.dao";
 export { SsoConnectionDAO, SsoIdentityDAO } from "./sso.dao";
+export { SrtTemplateDAO } from "./srt-template.dao";

@@ -12,6 +12,7 @@ import { grantableCapabilitiesForKind } from "@/lib/capabilities";
 import { certificatePayload, buildAdminUrl } from "@/lib/webhook-payloads";
 import { getWSServerInstance } from "@/lib/ws-server";
 import type { AgentCapability, CertScope } from "@vaultysclaw/policy";
+import { parseResourceLimits } from "@/lib/certificate-form";
 
 export async function revokeCertificateAction(formData: FormData): Promise<void> {
   const session = await getServerSession(authOptions);
@@ -70,6 +71,7 @@ export async function issueCertificateAction(formData: FormData): Promise<void> 
   const capabilities = submitted;
 
   const scope: CertScope | null = resource ? { resource } : null;
+  const resourceLimits = parseResourceLimits(formData);
 
   let expiresAt: number | null;
   if (expiryPreset === "never") {
@@ -91,6 +93,7 @@ export async function issueCertificateAction(formData: FormData): Promise<void> 
     agentDid,
     capabilities,
     scope,
+    resourceLimits,
     expiresAt,
     issuedBy: performedBy.did,
   });
@@ -111,3 +114,4 @@ export async function issueCertificateAction(formData: FormData): Promise<void> 
   revalidatePath("/admin");
   redirect("/admin/certificates");
 }
+

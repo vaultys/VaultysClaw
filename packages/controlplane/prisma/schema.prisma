@@ -283,6 +283,7 @@ model Workspace {
   actors       Actor[]
   certificates CapabilityCertificate[]
   modelAccess  ModelWorkspaceAccess[]
+  srtTemplate  SrtTemplateWorkspace?
 }
 
 // ─── Sensor telemetry ─────────────────────────────────────────────────────────
@@ -620,4 +621,56 @@ model CustomCapability {
   updatedAt   DateTime @updatedAt
 
   @@index([vendor])
+}
+
+// ─── Confinement templates ───────────────────────────────────────────────────
+// Reusable tier-B confinement settings, in the native schema of Anthropic's
+// sandbox-runtime (`srt`), for pasting into certificates at issuance
+// (docs/HARNESS_SUPERVISOR.md §6).
+//
+// **A template grants nothing and enforces nothing.** It is an authoring
+// convenience: the signed certificate is the artefact, and it records whatever
+// the admin actually submitted. A template edited after a certificate was issued
+// does not reach back into that certificate — it cannot, because the grant is
+// signed and immutable — which is exactly why a workspace assignment pre-fills
+// the form rather than claiming to control it.
+//
+// `settings` is stored opaquely, as the certificate carries it. srt owns that
+// schema and validates it at launch; mirroring it in a Prisma model would be a
+// fourth copy to keep in step with a third-party research preview.
+
+model SrtTemplate {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  // The srt block, verbatim. Unknown keys are preserved through the builder.
+  settings    Json
+  // Domain scope issued alongside the block, kept separate because it lands in
+  // a different field of the certificate (`resourceLimits.allowedDomains`) and
+  // means something different: absent is "no limit", empty is "deny everything".
+  allowedDomains String[] @default([])
+  createdBy   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspaces SrtTemplateWorkspace[]
+
+  @@index([name])
+}
+
+// A workspace's default template. Pre-fills the issuance form for an actor in
+// that workspace; the admin can change or clear it before signing.
+//
+// At most one default per workspace — `workspaceId` is the primary key rather
+// than the pair, so assigning a second template to a workspace replaces the
+// first instead of silently leaving two candidates and no rule for choosing.
+model SrtTemplateWorkspace {
+  workspaceId String   @id
+  templateId  String
+  assignedAt  DateTime @default(now())
+
+  template  SrtTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  workspace Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([templateId])
 }

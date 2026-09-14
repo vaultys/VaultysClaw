@@ -381,17 +381,95 @@ Distinct reasons per outcome is the acceptance criterion, exactly as it was for 
 
 ## 6. Phase 2 — tier B, the part that makes it true
 
-Launch the harness confined, by the supervisor that already owns the process:
+Launch the harness confined, by the supervisor that already owns the process. The three mechanisms
+this needs are:
 
 | Platform | Mechanism |
 |---|---|
-| macOS | `sandbox-exec` seatbelt profile: deny `file-write-*` outside the workspace, deny network except the loopback proxy |
-| Linux | user namespace + bwrap bind-mounts, Landlock for path rules, seccomp, per-cgroup nftables redirect into tier C |
-| Windows | restricted token / AppContainer + a WFP filter |
+| macOS | `sandbox-exec` seatbelt profile |
+| Linux | bubblewrap bind-mounts + seccomp |
+| Windows | inheriting ACEs for a dedicated sandbox account + a WFP egress fence |
 
-Start with one platform end to end rather than three half-built. Egress from the confined process is
-forced into the **existing** tier-1 proxy, so `internet_access` and `allowedDomains` cover the
-harness's child processes with no new enforcement code.
+**These are not implemented here.** They are implemented by Anthropic's
+[sandbox-runtime](https://github.com/anthropic-experimental/sandbox-runtime) (`srt`, Apache-2.0),
+which covers all three behind one configuration format, and `internal/supervise/sandbox_srt.go`
+drives it. Writing them here would mean maintaining three backends — two of which this project
+cannot test on every change — to arrive at what an existing dependency already does. The cost is a
+Node runtime on the host and a research-preview dependency whose Windows support is alpha; it is
+acceptable only because the failure mode is loud, never silent: srt missing yields
+`ErrSandboxUnavailable`, which `sandbox: require` turns into a refusal to launch.
+
+### Where the settings come from
+
+The certificate carries them, as an `srt` block inside `resourceLimits`, in srt's own schema:
+
+```json
+{ "resourceLimits": { "srt": {
+    "filesystem": { "denyRead": ["~/.aws"], "allowRead": [], "allowWrite": ["/work"], "denyWrite": [] },
+    "network":    { "allowedDomains": ["api.anthropic.com"], "deniedDomains": [] }
+} } }
+```
+
+srt's schema is **not** re-modelled in TypeScript, Go and a conformance table. It is carried opaquely
+(`Record<string, unknown>` / `json.RawMessage`) and merged, so a key this binary has never heard of
+still reaches srt, and srt — not us — validates it. Mirroring a third-party research preview's schema
+would go stale in the one direction that matters: an unrecognised field decodes to nothing, and a
+confinement an admin wrote goes silently unenforced.
+
+It lives on the certificate rather than in the kindConfig because it is part of the grant. Changing
+what a host may reach means issuing a new certificate, which is the same act as changing any other
+term of one.
+
+**The block is a base, not the final settings.** `BuildSRTSettings` merges into it: `DenyAll` is
+unioned into `denyRead` and `denyWrite`, this supervisor's own artefacts into `denyWrite`, and signed
+host denies into `deniedDomains`. So a block that says nothing about `~/.ssh` does not un-protect it.
+Adding policy must never remove protection, and a signed block is policy being added. A malformed
+block is refused outright rather than ignored — falling back to derived settings would enforce
+something other than what was signed while reporting confinement as active.
+
+What the merge cannot do is override srt's own precedence, which differs by direction and was
+measured rather than assumed:
+
+| Case | Result |
+|---|---|
+| Floor deny **nested inside** a block's `allowRead` region | denied — the more specific deny wins |
+| Floor path named **identically** in the block's `allowRead` | **allowed — the block lifts it** |
+| Own artefact in both `allowWrite` and `denyWrite` | denied — `denyWrite` always wins |
+
+The read row is a deliberate capability, not a hole, and it matches what `Decide` already does one
+tier up: a signed `allow` rule is evaluated before the floor and can settle a call the floor would
+refuse (§ "The floor always runs"). Tier B now expresses the same thing, where the seatbelt profile
+could not. It takes an admin naming the exact path inside a signed certificate — this is not
+reachable by accident.
+
+The write row is the one that must never have an exception, and does not: anti-tamper (§7) holds
+whatever a block says, so a certificate cannot make this supervisor's own grant, anchor, settings or
+spool writable by what it supervises.
+
+A block that declares `network.allowedDomains` owns the egress scope, including when it declares an
+empty one: empty means deny-all, which is a scope and the strictest, not an absence. Only a block
+silent on the subject falls back to the certificate's own `allowedDomains`.
+
+### Polarity, and the one thing that changed
+
+srt's **read** model is deny-then-allow — reads permitted everywhere, `denyRead` carving holes —
+which is the polarity the floor and every signed `deny file://…` rule already had, so the
+translation is direct. **Writes** are the other way round (`allowWrite` grants, `denyWrite`
+overrides), so preserving "writes permitted except where denied" means granting `/` and letting the
+denies win.
+
+What genuinely changed is the network. The seatbelt profile covered the filesystem and nothing else,
+so a certificate's `allowedDomains` was advisory for this role. srt **requires** an egress
+allow-list — `network.allowedDomains` is mandatory and `"*"` is rejected as overly broad — so the
+certificate's domain scope is now enforced beneath the tool boundary, and a signed
+`deny https://…` rule becomes a `deniedDomains` entry as well as a refusal at the hook.
+
+The corollary is a state that has no rendering: a certificate that sets **no** domain limit. srt
+cannot express "unrestricted", and both alternatives are wrong — inventing a domain list is policy
+nobody signed, and an empty list means the opposite (deny everything), which would break a harness
+whose admin asked for the least restriction. So it is reported as confinement being unavailable,
+which `require` turns into a refusal naming the fix and `auto` into a warning plus tier-A-only. Note
+that empty and absent are opposites here, and `domainScope` keeps them apart deliberately.
 
 This is also where §4.2 of the proxy doc applies double: launching someone else's processes in a
 sandbox you control, with a hook reading every tool call, looks exactly like malware. Loud,

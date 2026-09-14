@@ -1,12 +1,14 @@
 package supervise
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/vaultys/VaultysClaw/sdk-go/authz"
 	"github.com/vaultys/VaultysClaw/sdk-go/rules"
 )
 
@@ -44,6 +46,40 @@ type SandboxSpec struct {
 	// that matters: §7's requirement that a supervisor's own configuration not
 	// be editable by what it supervises.
 	DenyWrite []string
+
+	// AllowedDomains is the egress allow-list, from the certificate's own
+	// allowedDomains. DeniedDomains overrides it, and carries the signed
+	// `deny https://…` rules the tool boundary already enforces — authored once,
+	// enforced both at the tool call and below it.
+	//
+	// This half has no predecessor: the seatbelt profile this replaces covered
+	// the filesystem and nothing else, so a certificate's domain scope was
+	// advisory for this role. It is now the kernel's.
+	AllowedDomains []string
+	DeniedDomains  []string
+
+	// Base is the `srt` block from the certificate's resourceLimits, in srt's
+	// own schema, as authored by the admin who issued the grant.
+	//
+	// Carried as raw JSON and merged rather than parsed into fields: srt owns
+	// this schema, and a Go mirror of it would go stale against a third-party
+	// research preview in the one direction that matters — an unrecognised key
+	// would decode to nothing, and a confinement an admin wrote would silently
+	// not be enforced. Unknown keys are passed through untouched.
+	//
+	// It is a *base*, not the final settings: DenyAll and DenyWrite are merged
+	// into it and are not removable by it. See BuildSRTSettings.
+	Base []byte
+
+	// NetworkUnrestricted marks a certificate that places no limit on egress.
+	//
+	// It is a distinct state rather than an empty AllowedDomains, which means
+	// the opposite — deny everything. The backend refuses to build a sandbox for
+	// it, because the mechanism cannot express "no limit" and the alternatives
+	// are both wrong: inventing a domain list is policy nobody signed, and
+	// treating it as deny-all would silently break every harness whose admin
+	// asked for the least restriction, not the most.
+	NetworkUnrestricted bool
 }
 
 // Sandbox is a prepared confinement, ready to wrap a command.
@@ -67,9 +103,15 @@ func (s *Sandbox) Close() {
 // supervision stays advisory. It is a distinct error rather than a silent
 // fallback because "we tried to confine and could not" and "we never tried" must
 // not look the same to an operator.
+// Platform is empty when the cause is not the platform at all — the tool is
+// missing, or the policy cannot be expressed. Naming a platform in those cases
+// sends an operator looking for a port that exists.
 type ErrSandboxUnavailable struct{ Platform, Why string }
 
 func (e ErrSandboxUnavailable) Error() string {
+	if e.Platform == "" {
+		return "supervise: OS confinement could not be established: " + e.Why
+	}
 	return fmt.Sprintf("supervise: no OS confinement backend for %s: %s", e.Platform, e.Why)
 }
 
@@ -97,8 +139,17 @@ func (e ErrSandboxUnavailable) Error() string {
 // not policy — a supervisor whose grant, anchor and hook settings are writable
 // by what it supervises is not supervising anything, and no admin should have to
 // remember to say so.
-func SpecFromPolicy(ruleSet *rules.Set, floor *Floor, ownArtefacts []string) SandboxSpec {
+func SpecFromPolicy(ruleSet *rules.Set, floor *Floor, ownArtefacts []string, certs []authz.Certificate) SandboxSpec {
 	spec := SandboxSpec{DenyWrite: resolveAll(ownArtefacts)}
+	spec.Base = certSRTBlock(certs)
+	spec.AllowedDomains, spec.NetworkUnrestricted = domainScope(certs)
+	spec.DeniedDomains = signedHostDenies(ruleSet)
+	// A block that states its own egress scope answers the question
+	// allowedDomains would have: the admin wrote it into the grant deliberately,
+	// and it is the more expressive of the two.
+	if baseDeclaresNetwork(spec.Base) {
+		spec.NetworkUnrestricted = false
+	}
 	own := map[string]bool{}
 	for _, p := range spec.DenyWrite {
 		own[p] = true
@@ -113,6 +164,102 @@ func SpecFromPolicy(ruleSet *rules.Set, floor *Floor, ownArtefacts []string) San
 		spec.DenyAll = append(spec.DenyAll, p)
 	}
 	return spec
+}
+
+// domainScope reads the egress allow-list off the certificate, and reports
+// whether there is one at all.
+//
+// An absent or empty AllowedDomains means *no limit* — the same reading
+// intercept.domainsFor gives it, and the two must not drift. It is returned as
+// the unrestricted flag rather than as an empty list because an empty list means
+// the opposite downstream: deny everything.
+//
+// Only the first certificate is consulted, matching the control plane's own
+// rule that an interception point's authority is its single grant.
+func domainScope(certs []authz.Certificate) (domains []string, unrestricted bool) {
+	for _, cert := range certs {
+		if cert.ResourceLimits == nil || len(cert.ResourceLimits.AllowedDomains) == 0 {
+			return nil, true
+		}
+		return append([]string{}, cert.ResourceLimits.AllowedDomains...), false
+	}
+	// No certificate at all: this host authorizes nothing yet, and a domain list
+	// cannot be invented for it.
+	return nil, true
+}
+
+// certSRTBlock returns the certificate's `srt` block, or nil when it carries
+// none. Only the first certificate is consulted, for the reason domainScope
+// gives: an interception point's authority is its single grant.
+func certSRTBlock(certs []authz.Certificate) []byte {
+	for _, cert := range certs {
+		if cert.ResourceLimits == nil || len(cert.ResourceLimits.SRT) == 0 {
+			return nil
+		}
+		return append([]byte{}, cert.ResourceLimits.SRT...)
+	}
+	return nil
+}
+
+// baseDeclaresNetwork reports whether the block sets an egress scope of its own.
+//
+// Presence of the key is what counts, not whether the list has entries: an
+// explicitly empty allowedDomains means "deny everything", which is a scope, and
+// the strictest one. Only a block that says nothing at all falls back to the
+// certificate's allowedDomains.
+func baseDeclaresNetwork(base []byte) bool {
+	if len(base) == 0 {
+		return false
+	}
+	var doc struct {
+		Network *struct {
+			AllowedDomains *[]string `json:"allowedDomains"`
+		} `json:"network"`
+	}
+	if err := json.Unmarshal(base, &doc); err != nil {
+		return false
+	}
+	return doc.Network != nil && doc.Network.AllowedDomains != nil
+}
+
+// signedHostDenies extracts the hostnames a verified rule set denies, so a
+// signed `deny https://vaultys.com` is refused below the tool boundary as well
+// as at it.
+//
+// `subject: any` only, for the reason signedFileDenies gives: this role cannot
+// evaluate a subject-scoped rule, and the enforcement layer beneath it has no
+// notion of a subject either.
+//
+// The port is dropped. srt matches a bare hostname on every port and takes an
+// optional ":port" suffix, but a rule's resource URI carries a *scheme* whose
+// default port is implied rather than written — turning https:// into ":443"
+// would silently stop denying the same host on any other port, which is less
+// than the rule says.
+func signedHostDenies(set *rules.Set) []string {
+	if set == nil {
+		return nil
+	}
+	var out []string
+	seen := map[string]bool{}
+	for _, r := range set.ResourceRules {
+		if r.Effect != rules.EffectDeny || r.Subject != rules.SubjectAny {
+			continue
+		}
+		for _, pattern := range r.Resources {
+			u, err := url.Parse(strings.TrimSuffix(pattern, "/*"))
+			if err != nil || u.Hostname() == "" {
+				continue
+			}
+			if u.Scheme != "http" && u.Scheme != "https" {
+				continue
+			}
+			if host := u.Hostname(); !seen[host] {
+				seen[host] = true
+				out = append(out, host)
+			}
+		}
+	}
+	return out
 }
 
 // signedFileDenies extracts the filesystem paths a verified rule set denies.
@@ -170,10 +317,17 @@ func resolveAll(paths []string) []string {
 	return out
 }
 
-// SpecFromFloor is SpecFromPolicy with no signed rules — the unprovisioned case.
+// SpecFromFloor is SpecFromPolicy with no signed rules — the unprovisioned case,
+// and what `sandbox-check` diagnoses with.
+//
+// Egress is denied outright rather than left unrestricted. That is not a policy
+// decision about real traffic: this spec never governs a harness, only a
+// diagnostic probe that reads files, and denying everything keeps the check
+// runnable on a host with no certificate instead of refusing for want of a
+// domain list it has no way to obtain.
 func SpecFromFloor(floor *Floor, ownArtefacts []string) SandboxSpec {
 	own := map[string]bool{}
-	var spec SandboxSpec
+	spec := SandboxSpec{AllowedDomains: []string{}, DeniedDomains: []string{}}
 	for _, p := range ownArtefacts {
 		resolved, err := ResolvePath(p, "")
 		if err != nil || resolved == "" {

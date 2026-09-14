@@ -28,6 +28,12 @@ export default async function CertificatesPage() {
           actions: [
             {
               kind: "button",
+              id: "templates",
+              label: "Confinement templates",
+              href: "/admin/certificates/templates",
+            },
+            {
+              kind: "button",
               id: "issue",
               label: "Issue certificate",
               variant: "primary",

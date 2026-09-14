@@ -1,8 +1,17 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import SrtBuilder from "@/components/SrtBuilder";
 import ActorSearchSelect, { type ActorSearchOption } from "@/components/ActorSearchSelect";
 import type { AgentCapability } from "@vaultysclaw/policy";
+
+export interface TemplateOption {
+  id: string;
+  name: string;
+  description: string | null;
+  settings: Record<string, unknown> | null;
+  allowedDomains: string[];
+}
 
 export interface CustomCapabilityOption {
   id: string;
@@ -73,17 +82,34 @@ function groupCapabilities(caps: CustomCapabilityOption[]): [string, CustomCapab
 export default function IssueCertificateForm({
   actors,
   customCapabilities,
+  templates,
+  defaultTemplateByActor,
   defaultActorDid,
   defaultResource,
   action,
 }: {
   actors: ActorSearchOption[];
   customCapabilities: CustomCapabilityOption[];
+  templates: TemplateOption[];
+  /** Actor DID → the template assigned to that actor's workspace, if any. */
+  defaultTemplateByActor: Record<string, string>;
   defaultActorDid?: string;
   defaultResource?: string;
   action: (formData: FormData) => Promise<void>;
 }) {
   const [actorDid, setActorDid] = useState(defaultActorDid ?? "");
+  const [templateId, setTemplateId] = useState(
+    defaultActorDid ? (defaultTemplateByActor[defaultActorDid] ?? "") : ""
+  );
+
+  // Follow the actor's workspace default when the actor changes. Deliberately
+  // not derived state: once an admin picks a template by hand it is theirs, and
+  // recomputing it on every render would silently undo that.
+  useEffect(() => {
+    setTemplateId(actorDid ? (defaultTemplateByActor[actorDid] ?? "") : "");
+  }, [actorDid, defaultTemplateByActor]);
+
+  const template = templates.find((t) => t.id === templateId);
   const selectedActor = actors.find((actor) => actor.did === actorDid);
   const builtins = selectedActor ? builtinsForKind(selectedActor.kind) : BUILTINS_BY_KIND.all;
   const showCustomCapabilities = !!selectedActor && selectedActor.kind !== "sensor" && customCapabilities.length > 0;
@@ -166,7 +192,8 @@ export default function IssueCertificateForm({
         </div>
       )}
 
-      <div>
+      <section className="border-t border-neutral-200 pt-5">
+        <h2 className="text-sm font-semibold text-foreground mb-4">Scope &amp; expiry</h2>
         <label className="block text-sm font-medium text-foreground mb-1.5">
           Scope — resource (optional)
         </label>
@@ -180,7 +207,70 @@ export default function IssueCertificateForm({
         <p className="text-xs text-foreground-400 mt-1">
           Leaving this empty issues a standing grant, not scoped to one resource.
         </p>
-      </div>
+      </section>
+
+      <section className="border-t border-neutral-200 pt-5">
+        <h2 className="text-sm font-semibold text-foreground">OS confinement (tier B)</h2>
+        <p className="text-xs text-foreground-500 mt-1 mb-4">
+          Enforced below the tool boundary by{" "}
+          <a
+            href="https://github.com/anthropic-experimental/sandbox-runtime"
+            target="_blank"
+            rel="noreferrer"
+            className="underline"
+          >
+            sandbox-runtime
+          </a>{" "}
+          on the host holding this certificate. The host merges its own safety floor in on top;
+          nothing set here can remove those denies.
+        </p>
+
+        {templates.length > 0 && (
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-foreground mb-1.5">
+              Start from a template
+            </label>
+            <select
+              value={templateId}
+              onChange={(e) => setTemplateId(e.target.value)}
+              className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background"
+            >
+              <option value="">No template</option>
+              {templates.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-foreground-400 mt-1">
+              {template?.description ??
+                "Pre-fills the fields below. Whatever you submit is what gets signed."}
+            </p>
+          </div>
+        )}
+
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-foreground mb-1.5">
+            Allowed domains
+          </label>
+          <input
+            key={`domains-${templateId}`}
+            type="text"
+            name="allowedDomains"
+            defaultValue={template?.allowedDomains.join(", ") ?? ""}
+            placeholder="api.anthropic.com, github.com"
+            className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background"
+          />
+          <p className="text-xs text-foreground-400 mt-1">
+            Leaving this empty means <strong>no domain limit</strong>. A supervised harness with
+            confinement set to <code>require</code> cannot express that and will refuse to launch.
+          </p>
+        </div>
+
+        {/* Remounted per template so picking one reloads the builder's initial
+            state; the builder owns its edits from that point on. */}
+        <SrtBuilder key={`srt-${templateId}`} name="srt" defaultValue={template?.settings ?? null} />
+      </section>
 
       <div>
         <label className="block text-sm font-medium text-foreground mb-1.5">Expiry</label>

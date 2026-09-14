@@ -214,6 +214,27 @@ export interface ResourceLimits {
   maxTokensPerDay?: number;
   maxRequestsPerHour?: number;
   allowedDomains?: string[];
+  /**
+   * Tier-B OS confinement settings, in the native schema of Anthropic's
+   * sandbox-runtime (`srt`), which the harness supervisor drives.
+   *
+   * **Deliberately opaque.** This is passed through to srt as authored and
+   * validated by srt, not re-modelled here: mirroring its schema in TypeScript,
+   * again in Go, and a third time in a conformance table would mean three
+   * places to update whenever it gains a field, and two of them would be wrong
+   * for a while. An unknown key is carried, never dropped — dropping one would
+   * silently weaken a confinement an admin wrote.
+   *
+   * Carried on the certificate rather than in the kindConfig because it is part
+   * of the grant: changing what a host may reach requires issuing a new
+   * certificate, which is the same act as changing any other term of it.
+   *
+   * The supervisor does not enforce this verbatim. Its local safety floor and
+   * its own artefacts are merged in and take precedence, so a block that omits
+   * `~/.ssh` does not un-protect it — adding policy must never remove
+   * protection. See `docs/HARNESS_SUPERVISOR.md` §6.
+   */
+  srt?: Record<string, unknown>;
 }
 
 /**

@@ -17,6 +17,7 @@
 package authz
 
 import (
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strings"
@@ -67,6 +68,19 @@ type ResourceLimits struct {
 	MaxTokensPerDay    *int     `json:"maxTokensPerDay,omitempty"`
 	MaxRequestsPerHour *int     `json:"maxRequestsPerHour,omitempty"`
 	AllowedDomains     []string `json:"allowedDomains,omitempty"`
+	// SRT is tier-B OS confinement configuration in the native schema of
+	// Anthropic's sandbox-runtime, which the harness supervisor drives.
+	//
+	// Held as raw JSON on purpose. This side neither parses nor validates it:
+	// srt owns that schema, and a Go mirror of it would be a second definition
+	// to keep in step with a third-party research preview — silently stale
+	// exactly when it matters, because an unrecognised field would decode to
+	// nothing and a confinement an admin wrote would go unenforced. Carrying the
+	// bytes means a field this binary has never heard of still reaches srt.
+	//
+	// Not consulted by Resolve; see the type doc. internal/supervise merges the
+	// local safety floor into it before use, and the floor wins.
+	SRT json.RawMessage `json:"srt,omitempty"`
 }
 
 // Certificate is the minimal shape Resolve needs — the Go twin of

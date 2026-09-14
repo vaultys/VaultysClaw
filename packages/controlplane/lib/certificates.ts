@@ -97,6 +97,8 @@ export async function issueAdminGrant(input: {
   workspaceId?: string | null;
   capabilities: AgentCapability[];
   scope?: CertScope | null;
+  /** Domain scope and tier-B confinement settings; see {@link ResourceLimits}. */
+  resourceLimits?: ResourceLimits | null;
   expiresAt: number | null;
   issuedBy: string;
 }): Promise<CapabilityCertificate> {
@@ -110,6 +112,7 @@ export async function issueAdminGrant(input: {
     workspaceId: input.workspaceId,
     capabilities: input.capabilities,
     scope: input.scope,
+    resourceLimits: input.resourceLimits,
     requestCert,
     expiresAt: input.expiresAt,
     issuedBy: input.issuedBy,

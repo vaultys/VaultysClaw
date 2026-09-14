@@ -201,8 +201,12 @@ func runSupervise(ctx context.Context, cfg *config.Sensor, logger *slog.Logger, 
 	// and the unbypassable one from the same entry.
 	var sandbox *supervise.Sandbox
 	if sv.Sandbox != config.SandboxOff {
-		spec := supervise.SpecFromPolicy(interceptConfig().Rules, floor,
-			[]string{sv.GrantPath, sv.AnchorPath, sv.SettingsPath, sv.SpoolPath})
+		// Read once, so the filesystem denies and the egress scope in the profile
+		// come from the same instant of policy — a spec assembled from two reads
+		// could describe a combination that never existed.
+		policy := interceptConfig()
+		spec := supervise.SpecFromPolicy(policy.Rules, floor,
+			[]string{sv.GrantPath, sv.AnchorPath, sv.SettingsPath, sv.SpoolPath}, policy.Certs)
 		if err := checkHarnessIsLaunchable(spec, command[0]); err != nil {
 			return err
 		}
@@ -220,7 +224,7 @@ func runSupervise(ctx context.Context, cfg *config.Sensor, logger *slog.Logger, 
 				"denyWrite", spec.DenyWrite,
 				"note", "fixed for this session: OS confinement is applied at exec time and cannot be changed while the harness runs")
 		case sv.Sandbox == config.SandboxRequire:
-			return fmt.Errorf("supervise: sandbox is set to %q and confinement could not be established: %w", config.SandboxRequire, err)
+			return fmt.Errorf("supervise: sandbox is set to %q: %w", config.SandboxRequire, err)
 		default:
 			// auto: continue, but an operator must never have to infer that
 			// confinement silently did not happen.

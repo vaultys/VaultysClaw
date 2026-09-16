@@ -399,8 +399,8 @@ the Model Registry, OIDC/Entra ID single sign-on, the Access Portal shell, and t
 - **`app/admin/settings/{page.tsx,actions.ts}` + `lib/org-settings.ts`** (docs/PAGE_DESIGN.md §1.9)
   — Server identity (a plain read of `ServerIdentityDAO.getServerVaultysId()`, no new state);
   Trust policy (`updateTrustPolicyAction` persists `trust.failMode`/`trust.stapleTtlSeconds` as
-  `Setting` rows, trust doc §5.3 — genuinely written, not yet read by any verifier, and the page
-  says so); General (`updateGeneralSettingsAction` sets `org.name`, which `app/admin/layout.tsx`
+  `Setting` rows, trust doc §5.3 — these are the **org-wide defaults** a workspace may override,
+  see "Trust policy" below); General (`updateGeneralSettingsAction` sets `org.name`, which `app/admin/layout.tsx`
   reads and threads through `AppShell` → `Sidebar` as the `orgName` prop — the one piece of this
   page that's fully wired end to end, not just persisted). `lib/org-settings.ts` centralizes the
   `Setting` key strings and defaults so the page, its actions, and the layout can't drift on them.
@@ -773,10 +773,11 @@ may hold a name; what it *permits* is decided by whichever application binds an 
   certificate and pushes `actor_config` to connected holders. Steps beyond the delete are belt and
   braces; the status filter is what actually enforces it.
 - **`actor_config` is no longer proxy-only.** Every kind now receives one, because the `trust`
-  block is meaningful to anything that re-checks its own status. `resolveOrgTrust` maps the org-wide
-  `trust.stapleTtlSeconds` for non-proxy kinds (0 keeps its strict "no cached status is acceptable"
-  meaning, negative is unbounded); `proxy` keeps its own `maxStatusAgeSeconds` for the reason
-  documented in that file. Before this, the Settings knob reached nothing at all.
+  block is meaningful to anything that re-checks its own status. `resolveInheritedTrust` maps the
+  resolved `stapleTtlSeconds` for non-enforcing kinds (0 keeps its strict "no cached status is
+  acceptable" meaning, negative is unbounded); `proxy` and `harness` keep their own
+  `maxStatusAgeSeconds` for the reason documented in that file. Before this, the Settings knob
+  reached nothing at all. The block is resolved **per Actor** — see "Trust policy" below.
 - **Declared capabilities**: an Actor reports its manifest in `register`
   (`RegisterPayload.declaredCapabilities`), stored on `Actor.declaredCapabilities` once the
   handshake proves the DID. Purely informational — it drives the wanted/registered/granted table on
@@ -785,6 +786,41 @@ may hold a name; what it *permits* is decided by whichever application binds an 
   issues the grant.
 - **Events**: `capability.created` / `updated` / `deleted` (group "Capabilities" in the shared
   catalog). `capability.deleted` carries `affectedGrants`.
+
+## Trust policy
+
+Two knobs (trust doc §5): `failMode` — what a verifier does when it cannot reach the control plane —
+and `stapleTtlSeconds` — how stale a signed status may be. Org-wide `Setting` rows, overridable
+per workspace by `Workspace.certFailMode` / `certStapleTtlSeconds`, where **`null` means inherit**.
+
+- **`lib/trust-policy.ts` is the single predicate.** `resolveTrustPolicy(workspaceId)` returns the
+  effective pair plus a `source` per field (`"workspace"` | `"org"`) that the admin UI displays and
+  nothing decides on. `composeTrustPolicy` is the pure half, and is what the tests exercise.
+- **Inheritance is per field**, so a workspace can pin its fail mode and keep following the org on
+  staleness. `null` is the only spelling of "inherit": a stored `0` is a real, and the strictest,
+  staple TTL, so any falsy-based check here silently loosens the strictest setting.
+- **The most *specific* scope wins — the opposite of the kill switch**, where an armed global switch
+  short-circuits the workspace. That one is an emergency brake (most restrictive wins); this is
+  configuration. Do not align them.
+- **Resolved before the wire.** `lib/actor-config.ts` builds `actor_config.trust` from
+  `actor.workspaceId` (already loaded, no extra round trip). A client receives an already-resolved
+  pair, so the protocol, `packages/policy`, `packages/trust`, `sdk-go/` and `conformance/` are
+  untouched by this feature. The enforcing kinds still take `maxStatusAgeSeconds` from their own
+  `kindConfig` — an offline decider cannot run the live query `0` describes — but the fail mode
+  does reach them.
+- **Cached 5 s, invalidated by every write** (`invalidateTrustPolicyCache`), mirroring
+  `lib/kill-switch.ts` and for the same reason — `buildActorConfig` is on the connection path, see
+  Scale below. The whole state is two queries, so the hot path is cheaper than before this feature.
+- **Saving re-pushes.** `updateWorkspaceTrustPolicyAction` pushes to that workspace's connected
+  Actors, `updateTrustPolicyAction` to all of them, via `pushActorConfigMany` /
+  `pushActorConfigToAll` (bounded by `CONFIG_PUSH_CONCURRENCY`, offline Actors skipped). Before
+  this, a fail-mode change only landed on an Actor's next reconnect — which for a long-lived agent
+  may be never, although `lib/protocol.ts` claimed otherwise.
+- **UI**: `components/TrustPolicyForm.tsx`, one component for both scopes. A workspace's **Settings**
+  tab holds every mutation (kill switch, trust policy, identity, delete); its **Overview** tab is
+  read-only and shows the *effective* policy with an inherited/overridden badge per field.
+- **Events**: no new event — a workspace override change is a `workspace.updated` whose `changes`
+  carry the two fields (`from: null` = it used to inherit).
 
 ## Kill switches
 

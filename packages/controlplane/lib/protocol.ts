@@ -108,7 +108,8 @@ export interface ErrorPayload {
 /**
  * Kind-specific configuration for a connected Actor
  * (docs/PROXY_ARCHITECTURE.md §12). Pushed on connect and whenever the
- * Actor's `kindConfig`, certificates, or the org trust settings change.
+ * Actor's `kindConfig`, certificates, its workspace's trust policy, or the
+ * org-wide trust settings change.
  *
  * The two `*Token` fields are the load-bearing part, and they are tokens rather
  * than decoded objects on purpose: each is signed by the control plane and
@@ -153,9 +154,13 @@ export interface ActorConfigPayload {
   /** A signed rule set (`lib/proxy-rules.ts`), or null when none is configured. */
   ruleSetToken: string | null;
   /**
-   * Org trust policy, resolved for this Actor.
+   * The trust policy, resolved for this Actor.
    *
-   * `maxStatusAgeSeconds` deliberately does **not** simply mirror
+   * "Resolved" is the operative word, and it now covers two things. The Actor's workspace may
+   * override either field of the org-wide policy, and `lib/trust-policy.ts` settles that before the
+   * payload is built — a recipient has no vocabulary for workspaces and never learns one.
+   *
+   * And `maxStatusAgeSeconds` deliberately does **not** simply mirror
    * `trust.stapleTtlSeconds`. That setting's 0 means "force a live status query
    * every time" (trust doc §5.2) — the strictest choice available — and an
    * interception point deciding offline cannot perform a live query at all. So

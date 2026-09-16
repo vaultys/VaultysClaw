@@ -280,6 +280,14 @@ model Workspace {
   isDefault   Boolean  @default(false)
   createdAt   DateTime @default(now())
 
+  // Per-workspace trust policy overrides (docs/CERTIFICATE_WEB_OF_TRUST.md §5.3).
+  // `null` means "inherit the org-wide `Setting`" — resolved field by field, and
+  // only ever in `lib/trust-policy.ts`. A stored 0 is a real value ("force a live
+  // status query every time", the strictest option), which is why the absence of
+  // an override is a NULL and never an empty string or a sentinel number.
+  certFailMode         String?
+  certStapleTtlSeconds Int?
+
   actors       Actor[]
   certificates CapabilityCertificate[]
   modelAccess  ModelWorkspaceAccess[]

@@ -10,6 +10,8 @@ import KillSwitchPanel from "@/components/KillSwitchPanel";
 import WorkspaceTemplates from "@/components/WorkspaceTemplates";
 import { encodeDidParam } from "@/lib/actor-route";
 import { categoryForKind } from "@/lib/actor-kinds";
+import TrustPolicyForm from "@/components/TrustPolicyForm";
+import { getOrgTrustDefaults, resolveTrustPolicy } from "@/lib/trust-policy";
 import { updateWorkspaceAction, assignActorWorkspaceAction } from "../actions";
 import type { CertScope } from "@vaultysclaw/policy";
 
@@ -18,6 +20,7 @@ const TABS = [
   { id: "actors", label: "Actors" },
   { id: "access", label: "Access" },
   { id: "confinement", label: "Confinement" },
+  { id: "settings", label: "Settings" },
   { id: "budgets", label: "Budgets & Model Access" },
 ] as const;
 
@@ -38,11 +41,32 @@ function TabLink({ id, active, label }: { id: string; active: boolean; label: st
   );
 }
 
+/** Where an effective trust-policy value came from — see `lib/trust-policy.ts`. */
+function SourceBadge({ source }: { source: "workspace" | "org" }) {
+  return (
+    <span
+      className={`text-[10px] px-1.5 py-0.5 rounded-full border uppercase tracking-wide ${
+        source === "workspace"
+          ? "border-primary-200 text-primary-700 bg-primary-100/50"
+          : "border-neutral-200 text-foreground-500"
+      }`}
+    >
+      {source === "workspace" ? "This workspace" : "Inherited"}
+    </span>
+  );
+}
+
 /**
- * Workspace detail (docs/PAGE_DESIGN.md §1.7): Overview/Actors/Access tabs are
- * real, backed by the existing schema; Budgets & Model Access is a stub —
+ * Workspace detail (docs/PAGE_DESIGN.md §1.7). Budgets & Model Access is a stub —
  * that needs the token-budget + model-registry schema this rebuild hasn't
- * ported yet (rebuild doc §8, step 4+).
+ * ported yet (rebuild doc §8, step 4+); every other tab is real.
+ *
+ * **Overview reads, Settings writes.** Overview carries no form at all: it answers
+ * "what is this workspace and what is currently in force for it", including the
+ * *effective* trust policy with each field marked inherited or overridden. Everything
+ * that changes the workspace — kill switch, trust policy, identity, deletion — lives
+ * on Settings, so an admin is never one stray click from a fleet-wide change while
+ * reading a summary.
  */
 export default async function WorkspaceDetailPage({
   params,
@@ -66,6 +90,8 @@ export default async function WorkspaceDetailPage({
     allTemplates,
     attachedTemplates,
     killSwitch,
+    trustPolicy,
+    orgTrust,
   ] =
     await Promise.all([
       ActorDAO.list({ workspaceId: id }),
@@ -78,6 +104,11 @@ export default async function WorkspaceDetailPage({
       SrtTemplateDAO.list(),
       SrtTemplateDAO.listForWorkspace(id),
       KillSwitchDAO.findByWorkspace(id),
+      // What this workspace's Actors are actually pushed, overrides and inheritance
+      // already settled — the same call `lib/actor-config.ts` makes, so the page
+      // cannot describe a policy the fleet isn't running.
+      resolveTrustPolicy(id),
+      getOrgTrustDefaults(),
     ]);
 
   const unassignedActors = allActors.filter((a) => a.workspaceId !== id);
@@ -124,86 +155,238 @@ export default async function WorkspaceDetailPage({
       </div>
 
       {activeTab === "overview" && (
-        <section className="space-y-4 border border-neutral-200/60 rounded-xl bg-background-100 p-4 max-w-lg">
-          <form action={updateWorkspaceAction} className="space-y-4">
-            <input type="hidden" name="id" value={workspace.id} />
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-1.5">Name</label>
-              <input
-                type="text"
-                name="name"
-                defaultValue={workspace.name}
-                required
-                className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-1.5">Description</label>
-              <textarea
-                name="description"
-                rows={3}
-                defaultValue={workspace.description ?? ""}
-                className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-1.5">Color</label>
-              <input
-                type="color"
-                name="color"
-                defaultValue={workspace.color}
-                className="h-9 w-16 border border-neutral-200 rounded-lg bg-background p-0.5"
-              />
-            </div>
-            <button
-              type="submit"
-              className="px-4 py-2 bg-primary-600 hover:bg-primary-500 text-white text-sm font-medium rounded-lg transition-colors"
+        <section className="space-y-4 max-w-lg">
+          <div className="border border-neutral-200/60 rounded-xl bg-background-100 p-4 space-y-3">
+            <h2 className="text-sm font-semibold text-foreground">Identity</h2>
+            <dl className="text-sm space-y-1.5">
+              <div className="flex gap-2">
+                <dt className="text-foreground-500 w-28 shrink-0">Slug</dt>
+                <dd className="font-mono text-xs pt-0.5">{workspace.slug}</dd>
+              </div>
+              <div className="flex gap-2">
+                <dt className="text-foreground-500 w-28 shrink-0">Created</dt>
+                <dd>{workspace.createdAt.toISOString().slice(0, 10)}</dd>
+              </div>
+              {workspace.description && (
+                <div className="flex gap-2">
+                  <dt className="text-foreground-500 w-28 shrink-0">Description</dt>
+                  <dd className="text-foreground-700">{workspace.description}</dd>
+                </div>
+              )}
+            </dl>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { label: "Actors", value: workspaceActors.length, tab: "actors" },
+              { label: "Scoped grants", value: scopedCerts.length, tab: "access" },
+              { label: "Templates", value: attachedTemplates.length, tab: "confinement" },
+            ].map((stat) => (
+              <Link
+                key={stat.label}
+                href={`?tab=${stat.tab}`}
+                className="border border-neutral-200/60 rounded-xl bg-background-100 p-4 hover:border-primary-300 transition-colors"
+              >
+                <div className="text-xl font-semibold text-foreground">{stat.value}</div>
+                <div className="text-xs text-foreground-500">{stat.label}</div>
+              </Link>
+            ))}
+          </div>
+
+          {/* Read-only on purpose: the arm/disarm control is one tab away, and an
+              admin reading a summary should not be able to cut a fleet off by
+              mis-clicking inside it. */}
+          <div
+            className={`border rounded-xl p-4 ${
+              killSwitch
+                ? "border-danger-200 bg-danger-100/50"
+                : "border-neutral-200/60 bg-background-100"
+            }`}
+          >
+            <h2
+              className={`text-sm font-semibold ${
+                killSwitch ? "text-danger-700" : "text-foreground"
+              }`}
             >
-              Save changes
-            </button>
-          </form>
-          <p className="text-xs text-foreground-400 pt-2 border-t border-neutral-200/60">
-            Slug: <span className="font-mono">{workspace.slug}</span> · Created{" "}
-            {workspace.createdAt.toISOString().slice(0, 10)}
-          </p>
+              Kill switch {killSwitch ? "ARMED" : "disarmed"}
+            </h2>
+            {killSwitch ? (
+              <dl className="text-xs text-foreground-600 space-y-1 mt-2">
+                <div>
+                  <dt className="inline font-medium">Reason: </dt>
+                  <dd className="inline">{killSwitch.reason}</dd>
+                </div>
+                <div>
+                  <dt className="inline font-medium">Armed by: </dt>
+                  <dd className="inline font-mono">{killSwitch.armedBy}</dd>
+                </div>
+                <div>
+                  <dt className="inline font-medium">Armed at: </dt>
+                  <dd className="inline">{killSwitch.armedAt.toISOString()}</dd>
+                </div>
+              </dl>
+            ) : (
+              <p className="text-xs text-foreground-500 mt-1">
+                Every non-human Actor in this workspace is authorized normally.
+              </p>
+            )}
+            <Link href="?tab=settings" className="text-xs text-primary-600 hover:underline">
+              {killSwitch ? "Disarm in Settings →" : "Arm in Settings →"}
+            </Link>
+          </div>
+
+          {/* The effective policy, not the stored columns: what this workspace's
+              Actors are actually pushed. Each field says where it came from,
+              because "closed" alone can't distinguish a deliberate local choice
+              from an org default that may change under it. */}
+          <div className="border border-neutral-200/60 rounded-xl bg-background-100 p-4 space-y-3">
+            <h2 className="text-sm font-semibold text-foreground">Trust policy in force</h2>
+            <dl className="text-sm space-y-2">
+              <div className="flex gap-2 items-baseline">
+                <dt className="text-foreground-500 w-28 shrink-0">Fail mode</dt>
+                <dd className="flex items-center gap-2">
+                  <span className="text-foreground">
+                    {trustPolicy.failClosed ? "closed" : "open"}
+                  </span>
+                  <SourceBadge source={trustPolicy.source.failMode} />
+                </dd>
+              </div>
+              <div className="flex gap-2 items-baseline">
+                <dt className="text-foreground-500 w-28 shrink-0">Staple TTL</dt>
+                <dd className="flex items-center gap-2">
+                  <span className="text-foreground">
+                    {trustPolicy.stapleTtlSeconds < 0
+                      ? "unbounded"
+                      : `${trustPolicy.stapleTtlSeconds}s`}
+                  </span>
+                  <SourceBadge source={trustPolicy.source.stapleTtl} />
+                </dd>
+              </div>
+            </dl>
+            <p className="text-xs text-foreground-400">
+              An interception point (<span className="font-mono">proxy</span>,{" "}
+              <span className="font-mono">harness</span>) keeps the staleness bound from its own
+              config — it decides offline and cannot run a live query — but the fail mode above
+              applies to it too.
+            </p>
+            <Link href="?tab=settings" className="text-xs text-primary-600 hover:underline">
+              Change in Settings →
+            </Link>
+          </div>
         </section>
       )}
 
-      {/* Above the delete panel, and available for the default workspace too:
-          suspending is the reversible action, deleting is not, and the default
-          workspace is exactly the one most likely to hold a misbehaving fleet. */}
-      {activeTab === "overview" && (
-        <KillSwitchPanel
-          scope="workspace"
-          workspaceId={workspace.id}
-          workspaceName={workspace.name}
-          armed={
-            killSwitch
-              ? {
-                  reason: killSwitch.reason,
-                  armedBy: killSwitch.armedBy,
-                  armedAt: killSwitch.armedAt.toISOString(),
-                }
-              : null
-          }
-        />
-      )}
-
-      {activeTab === "overview" &&
-        (workspace.isDefault ? (
-          <p className="text-xs text-foreground-400 max-w-lg">
-            The default workspace cannot be deleted — the control plane recreates it at boot
-            (<span className="font-mono">WorkspaceDAO.ensureDefault</span>), and everything that
-            falls back to it would point at nothing in the meantime.
-          </p>
-        ) : (
-          <DeleteWorkspacePanel
-            id={workspace.id}
-            name={workspace.name}
-            actorCount={workspaceActors.length}
-            scopedCertificateCount={scopedCerts.length}
+      {activeTab === "settings" && (
+        <div className="space-y-6 max-w-lg">
+          {/* First, as on /admin/settings: this is the control an admin comes here
+              for during an incident, and hunting for it below the configuration
+              sections is the wrong thing to be doing at that moment. Available for
+              the default workspace too — it is the one most likely to hold a
+              misbehaving fleet. */}
+          <KillSwitchPanel
+            scope="workspace"
+            workspaceId={workspace.id}
+            workspaceName={workspace.name}
+            armed={
+              killSwitch
+                ? {
+                    reason: killSwitch.reason,
+                    armedBy: killSwitch.armedBy,
+                    armedAt: killSwitch.armedAt.toISOString(),
+                  }
+                : null
+            }
           />
-        ))}
+
+          <section className="space-y-3">
+            <h2 className="text-sm font-semibold text-foreground-700">Trust policy</h2>
+            <p className="text-xs text-foreground-400">
+              What this workspace&apos;s verifiers do when they can&apos;t reach the control plane
+              (docs/CERTIFICATE_WEB_OF_TRUST.md §5). Each field inherits the
+              organization&apos;s{" "}
+              <Link href="/admin/settings" className="text-primary-600 hover:underline">
+                default
+              </Link>{" "}
+              independently until you set it here. Saving re-pushes the policy to this
+              workspace&apos;s connected Actors immediately — the rest pick it up on their next
+              connection.
+            </p>
+            <TrustPolicyForm
+              scope="workspace"
+              workspaceId={workspace.id}
+              value={{
+                failMode: workspace.certFailMode,
+                stapleTtlSeconds: workspace.certStapleTtlSeconds,
+              }}
+              inherited={{
+                failMode: orgTrust.failMode,
+                stapleTtlSeconds: orgTrust.stapleTtlSeconds,
+              }}
+            />
+          </section>
+
+          <section className="space-y-3">
+            <h2 className="text-sm font-semibold text-foreground-700">Workspace identity</h2>
+            <form
+              action={updateWorkspaceAction}
+              className="space-y-4 border border-neutral-200/60 rounded-xl bg-background-100 p-4"
+            >
+              <input type="hidden" name="id" value={workspace.id} />
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1.5">Name</label>
+                <input
+                  type="text"
+                  name="name"
+                  defaultValue={workspace.name}
+                  required
+                  className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1.5">
+                  Description
+                </label>
+                <textarea
+                  name="description"
+                  rows={3}
+                  defaultValue={workspace.description ?? ""}
+                  className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1.5">Color</label>
+                <input
+                  type="color"
+                  name="color"
+                  defaultValue={workspace.color}
+                  className="h-9 w-16 border border-neutral-200 rounded-lg bg-background p-0.5"
+                />
+              </div>
+              <button
+                type="submit"
+                className="px-4 py-2 bg-primary-600 hover:bg-primary-500 text-white text-sm font-medium rounded-lg transition-colors"
+              >
+                Save changes
+              </button>
+            </form>
+          </section>
+
+          {workspace.isDefault ? (
+            <p className="text-xs text-foreground-400">
+              The default workspace cannot be deleted — the control plane recreates it at boot
+              (<span className="font-mono">WorkspaceDAO.ensureDefault</span>), and everything that
+              falls back to it would point at nothing in the meantime.
+            </p>
+          ) : (
+            <DeleteWorkspacePanel
+              id={workspace.id}
+              name={workspace.name}
+              actorCount={workspaceActors.length}
+              scopedCertificateCount={scopedCerts.length}
+            />
+          )}
+        </div>
+      )}
 
       {activeTab === "actors" && (
         <section className="space-y-4">

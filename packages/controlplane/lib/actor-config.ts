@@ -19,15 +19,10 @@ import {
   CapabilityCertificateDAO,
   ActorDAO,
   ServerIdentityDAO,
-  SettingsDAO,
   CustomCapabilityDAO,
 } from "@/db";
 import { isCustomCapability } from "@vaultysclaw/policy";
-import {
-  DEFAULT_STAPLE_TTL_SECONDS,
-  DEFAULT_TRUST_FAIL_MODE,
-  SETTINGS_KEYS,
-} from "./org-settings";
+import { resolveTrustPolicy } from "./trust-policy";
 import {
   parseProxyKindConfig,
   proxyKindConfigWarnings,
@@ -72,9 +67,14 @@ export interface ActorConfigResult {
  * Returns null only when the Actor does not exist.
  *
  * Every kind gets a payload, because the `trust` block is meaningful to all of them: a client that
- * re-checks its certificate status needs to know the org's fail mode and how stale a stapled status
- * may be (docs/CUSTOM_CAPABILITIES.md Phase 3). Before that, this message was proxy-only and the
- * org-wide `trust.stapleTtlSeconds` an admin edits under Settings reached nothing at all.
+ * re-checks its certificate status needs to know the fail mode in force for it and how stale a
+ * stapled status may be (docs/CUSTOM_CAPABILITIES.md Phase 3). Before that, this message was
+ * proxy-only and the `trust.stapleTtlSeconds` an admin edits under Settings reached nothing at all.
+ *
+ * The `trust` block is resolved *for this Actor*, not copied from the org: `lib/trust-policy.ts`
+ * takes the Actor's workspace overrides where they exist and the org-wide settings everywhere else.
+ * The wire format is unchanged by that — the recipient has always received an already-resolved
+ * pair and has no vocabulary for workspaces.
  *
  * Only the two **enforcing** kinds — `proxy` and `harness` — get a
  * `kindConfig`/`ruleSetToken`/`grantToken`. Those are offline enforcement inputs and mean nothing to
@@ -87,7 +87,7 @@ export async function buildActorConfig(did: string): Promise<ActorConfigResult |
   const warnings: string[] = [];
 
   if (actor.kind === "harness") {
-    return buildHarnessConfig(did, actor.kindConfig, warnings);
+    return buildHarnessConfig(did, actor.kindConfig, actor.workspaceId, warnings);
   }
 
   if (actor.kind !== "proxy") {
@@ -104,7 +104,7 @@ export async function buildActorConfig(did: string): Promise<ActorConfigResult |
         // behalf, so there is nothing for a grant token to authorize here.
         grantToken: null,
         ruleSetToken: null,
-        trust: await resolveOrgTrust(),
+        trust: await resolveInheritedTrust(actor.workspaceId),
       },
       warnings,
     };
@@ -125,7 +125,7 @@ export async function buildActorConfig(did: string): Promise<ActorConfigResult |
 
   const grantToken = await resolveGrantToken(did, warnings);
   const ruleSetToken = await signRuleSet(kindConfig);
-  const trust = await resolveTrust(kindConfig);
+  const trust = await resolveTrust(kindConfig, actor.workspaceId);
 
   // Config-shaped warnings come from one place — `proxyKindConfigWarnings` — so
   // this function and the admin panel cannot drift into two differently-worded
@@ -171,6 +171,7 @@ async function signKindConfig(kindConfig: unknown): Promise<string> {
 async function buildHarnessConfig(
   did: string,
   raw: unknown,
+  workspaceId: string | null,
   warnings: string[]
 ): Promise<ActorConfigResult> {
   let kindConfig: HarnessKindConfig;
@@ -202,7 +203,7 @@ async function buildHarnessConfig(
       // the proxy's is for the proxy: an offline decider cannot perform the live
       // query `trust.stapleTtlSeconds` describes, so the value is translated at
       // the push rather than copied.
-      trust: await resolveTrustFrom(kindConfig.maxStatusAgeSeconds),
+      trust: await resolveTrustFrom(kindConfig.maxStatusAgeSeconds, workspaceId),
     },
     warnings,
   };
@@ -301,21 +302,27 @@ async function signRuleSet(config: ProxyKindConfig): Promise<string | null> {
 }
 
 /**
- * Resolve the trust block, translating org settings rather than copying them.
+ * Resolve the trust block, translating settings rather than copying them.
  *
- * `trust.failMode` maps cleanly: `closed` → `failClosed: true`.
+ * `failMode` maps cleanly: `closed` → `failClosed: true`. Which `failMode` applies is
+ * `lib/trust-policy.ts`'s call — the Actor's workspace overrides the org-wide value when it sets
+ * one, and inherits it otherwise.
  *
- * `trust.stapleTtlSeconds` does **not** map *for this kind*, and this is the one place that
- * mismatch is handled — see `resolveOrgTrust` below for every other kind, where it does map. Its 0 means "force a live status query every time"
+ * The staple TTL does **not** map *for this kind*, and this is the one place that
+ * mismatch is handled — see `resolveInheritedTrust` below for every other kind, where it does map.
+ * Its 0 means "force a live status query every time"
  * (`CERTIFICATE_WEB_OF_TRUST.md` §5.2) — the strictest option — and an
  * interception point deciding offline cannot query anything. Inheriting the
  * number would either hand the loosest behaviour to the admin who asked for the
  * strictest, or make every proxy deny everything by default. So the proxy's own
- * `maxStatusAgeSeconds` is authoritative for this kind, and the org-wide staple
- * TTL is deliberately not consulted here (it is, for other kinds).
+ * `maxStatusAgeSeconds` is authoritative for this kind, and neither the org-wide nor the
+ * workspace staple TTL is consulted here (they are, for other kinds).
  */
-async function resolveTrust(config: ProxyKindConfig): Promise<ActorConfigPayload["trust"]> {
-  return resolveTrustFrom(config.maxStatusAgeSeconds);
+async function resolveTrust(
+  config: ProxyKindConfig,
+  workspaceId: string | null
+): Promise<ActorConfigPayload["trust"]> {
+  return resolveTrustFrom(config.maxStatusAgeSeconds, workspaceId);
 }
 
 /**
@@ -325,34 +332,37 @@ async function resolveTrust(config: ProxyKindConfig): Promise<ActorConfigPayload
  * Shared by both enforcing kinds because the reasoning is identical and must not
  * drift: an offline decider cannot perform the live query `stapleTtlSeconds: 0`
  * describes, so its own number is authoritative and is translated at the push
- * rather than copied from the org setting.
+ * rather than copied from the resolved policy. `failClosed` still comes from that policy,
+ * so a workspace can put its interception points into fail-open without touching their configs.
  */
-async function resolveTrustFrom(maxStatusAgeSeconds: number): Promise<ActorConfigPayload["trust"]> {
+async function resolveTrustFrom(
+  maxStatusAgeSeconds: number,
+  workspaceId: string | null
+): Promise<ActorConfigPayload["trust"]> {
   return {
-    failClosed: await resolveFailClosed(),
+    failClosed: (await resolveTrustPolicy(workspaceId)).failClosed,
     maxStatusAgeSeconds,
   };
 }
 
 /**
- * The trust block for every kind that is **not** a proxy.
+ * The trust block for every kind that is **not** an interception point.
  *
- * Here the org-wide `trust.stapleTtlSeconds` maps directly, and its 0 keeps its strict meaning:
+ * Here the staple TTL maps directly, and its 0 keeps its strict meaning:
  * "force a live status query every time" is something an online client genuinely can do, unlike an
  * interception point deciding offline (which is the whole reason the proxy kind carries its own
  * number instead — see `resolveTrust` above). A negative value stays unbounded, and has to be
  * written explicitly to mean that, so it can never be reached by omission.
+ *
+ * Both halves come from `lib/trust-policy.ts`: the Actor's workspace first, falling back field by
+ * field to the org-wide `Setting` an admin edits under Settings.
  */
-async function resolveOrgTrust(): Promise<ActorConfigPayload["trust"]> {
-  const raw = await SettingsDAO.get(SETTINGS_KEYS.trustStapleTtlSeconds);
-  const parsed = raw === null || raw === undefined ? Number.NaN : Number.parseInt(raw, 10);
+async function resolveInheritedTrust(
+  workspaceId: string | null
+): Promise<ActorConfigPayload["trust"]> {
+  const policy = await resolveTrustPolicy(workspaceId);
   return {
-    failClosed: await resolveFailClosed(),
-    maxStatusAgeSeconds: Number.isFinite(parsed) ? parsed : DEFAULT_STAPLE_TTL_SECONDS,
+    failClosed: policy.failClosed,
+    maxStatusAgeSeconds: policy.stapleTtlSeconds,
   };
-}
-
-async function resolveFailClosed(): Promise<boolean> {
-  const failMode = (await SettingsDAO.get(SETTINGS_KEYS.trustFailMode)) ?? DEFAULT_TRUST_FAIL_MODE;
-  return failMode !== "open";
 }

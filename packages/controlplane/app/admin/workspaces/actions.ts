@@ -10,6 +10,7 @@ import { requireAdmin } from "@/lib/require-admin";
 import { getWSServerInstance } from "@/lib/ws-server";
 import { recordEvent } from "@/lib/audit";
 import { workspacePayload, buildAdminUrl, diffFields } from "@/lib/webhook-payloads";
+import { invalidateTrustPolicyCache } from "@/lib/trust-policy";
 
 function slugify(name: string): string {
   return (
@@ -75,6 +76,81 @@ export async function updateWorkspaceAction(formData: FormData): Promise<void> {
     targetType: "workspace",
     targetId: workspace.id,
   });
+  revalidatePath(`/admin/workspaces/${id}`);
+  revalidatePath("/admin/workspaces");
+}
+
+/**
+ * Set (or clear) this workspace's trust-policy overrides — fail mode and staple TTL,
+ * docs/CERTIFICATE_WEB_OF_TRUST.md §5.3.
+ *
+ * `"inherit"` on either field is stored as NULL, and that is the *only* way to say
+ * "use the org-wide value": a cleared number field would be indistinguishable from
+ * `0`, which is a real and deliberately strict staple TTL ("force a live query every
+ * time"). The two fields inherit independently, so a workspace can pin its fail mode
+ * and still follow the org on staleness.
+ *
+ * Separate from `updateWorkspaceAction` on purpose. That one posts name/description/color
+ * from a different form, and a shared action would have to treat every absent field as
+ * "unchanged", which is exactly the ambiguity that makes "clear this override" unexpressible.
+ */
+export async function updateWorkspaceTrustPolicyAction(formData: FormData): Promise<void> {
+  const performedBy = await requireAdmin();
+
+  const id = formData.get("id") as string;
+  if (!id) throw new Error("Workspace is required");
+
+  const failModeRaw = formData.get("failMode") as string;
+  if (failModeRaw !== "inherit" && failModeRaw !== "open" && failModeRaw !== "closed") {
+    throw new Error("Fail mode must be 'inherit', 'open' or 'closed'");
+  }
+  const certFailMode = failModeRaw === "inherit" ? null : failModeRaw;
+
+  const stapleTtlMode = formData.get("stapleTtlMode") as string;
+  if (stapleTtlMode !== "inherit" && stapleTtlMode !== "custom") {
+    throw new Error("Staple TTL must either be inherited or set explicitly");
+  }
+  let certStapleTtlSeconds: number | null = null;
+  if (stapleTtlMode === "custom") {
+    const parsed = Number.parseInt(formData.get("stapleTtlSeconds") as string, 10);
+    if (!Number.isFinite(parsed) || parsed < 0) {
+      throw new Error("Staple TTL must be a non-negative number of seconds");
+    }
+    certStapleTtlSeconds = parsed;
+  }
+
+  const before = await WorkspaceDAO.findById(id);
+  if (!before) throw new Error("Workspace not found");
+
+  const workspace = await WorkspaceDAO.update(id, { certFailMode, certStapleTtlSeconds });
+  // Before the push, not after: a stale cache would let the fan-out below rebuild
+  // every Actor's config from the values that were just replaced.
+  invalidateTrustPolicyCache();
+
+  await recordEvent({
+    eventType: "workspace.updated",
+    payload: {
+      ...workspacePayload(workspace),
+      performedBy,
+      adminUrl: buildAdminUrl(`/admin/workspaces/${workspace.id}?tab=settings`),
+      changes: diffFields(before, workspace, ["certFailMode", "certStapleTtlSeconds"]),
+    },
+    performedBy,
+    targetType: "workspace",
+    targetId: workspace.id,
+  });
+
+  // Push the new policy to this workspace's connected Actors rather than leaving it
+  // for their next reconnect — for a long-lived agent that may be never, and the
+  // whole point of the fail-mode knob is that it applies when the admin says so.
+  // `pushActorConfigMany` skips the offline ones and bounds how many payloads are
+  // built at once.
+  const ws = getWSServerInstance();
+  if (ws) {
+    const actors = await ActorDAO.list({ workspaceId: id });
+    void ws.pushActorConfigMany(actors.map((a) => a.did));
+  }
+
   revalidatePath(`/admin/workspaces/${id}`);
   revalidatePath("/admin/workspaces");
 }

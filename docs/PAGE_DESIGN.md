@@ -165,12 +165,19 @@ Unified `IntentLog`/`ActivityLog` (merged, per `REBUILD_ARCHITECTURE.md` §7).
 
 - **List**: name, actor count, member count (humans with any cert scoped to this workspace),
   budget usage bar.
-- **Detail tabs**:
-  - **Overview** — name, description, color, default capabilities for new actors here.
+- **Detail tabs** — **Overview reads, Settings writes**: a summary tab carries no form at all, so
+  an admin scanning a workspace is never one stray click from a fleet-wide change.
+  - **Overview** — identity (slug, created, description), counts that link into the other tabs,
+    the kill-switch state, and the **effective** trust policy with each field badged *Inherited* or
+    *This workspace*. Read-only throughout.
   - **Actors** — actors assigned to this workspace (link into §1.4).
   - **Access** — humans holding a workspace-scoped `admin_console_access` or `portal_access` cert
     (`CertScope.resource = "workspace:<id>"`) — this *is* workspace-level admin/member management
     now, expressed as scoped certs rather than a separate `UserWorkspace` role table (§6).
+  - **Confinement** — the tier-B templates offered when issuing a certificate here.
+  - **Settings** — everything that mutates the workspace, in incident-first order: kill switch,
+    trust policy (fail mode and staple TTL, each inheriting the org default independently until set
+    — trust doc §5.3/§5.4), workspace identity, then delete.
   - **Budgets & Model Access** — token budgets, `WorkspaceRouterKey`, allowed models (unchanged
     from today).
 
@@ -194,8 +201,8 @@ Unified `IntentLog`/`ActivityLog` (merged, per `REBUILD_ARCHITECTURE.md` §7).
 - **Server identity** — the control plane's own DID and public key, displayed plainly ("this is
   the identity that signs every certificate and policy in your organization") — makes the root of
   trust visible rather than an implementation detail buried in `SettingsDAO`.
-- **Trust policy** — org-wide defaults for fail-open/closed and staple TTL (trust doc §5); a note
-  that workspaces can override these (link to §1.7's per-workspace settings once added there).
+- **Trust policy** — org-wide defaults for fail-open/closed and staple TTL (trust doc §5), which a
+  workspace overrides field by field on its own Settings tab (§1.7). Same component both places.
 - **General** — whatever minimal org-level config remains (naming, branding) — deliberately small.
 
 ## 2. Access Portal

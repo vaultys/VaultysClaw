@@ -427,18 +427,51 @@ What a verifier does when it cannot reach the control plane to check status:
 
 ### 5.3 Storage
 
+Implemented. `null` on either column means "inherit the org-wide setting", and that is the only
+spelling of it: a stored `0` is a real staple TTL — the strictest one — so an empty-string or
+sentinel-number encoding would silently turn the strictest setting into the inherited one.
+
 ```prisma
 // Setting (existing model) rows, org-wide default:
 //   "trust.failMode"          -> "open" | "closed"
 //   "trust.stapleTtlSeconds"  -> number as string
 
-// Workspace (existing model) — add nullable override columns:
 model Workspace {
   // ...existing fields...
   certFailMode         String? // null = inherit org default
   certStapleTtlSeconds Int?    // null = inherit org default
 }
 ```
+
+### 5.4 Resolution
+
+`packages/controlplane/lib/trust-policy.ts` is the **only** place an effective policy is decided —
+the same role `lib/kill-switch.ts` plays for suspension. The two fields inherit **independently**,
+so a workspace can pin its fail mode and keep following the org on staleness.
+
+The precedence is deliberately the opposite of the kill switch's. There, an armed global switch
+short-circuits and the workspace is never consulted: it is an emergency brake, so the most
+*restrictive* scope wins. Here the most *specific* scope wins, because this is configuration — a
+workspace that says `open` means it. The two must not be "harmonised".
+
+Resolution happens **server-side, before the wire**: `lib/actor-config.ts` builds each Actor's
+`actor_config.trust` from its own workspace, so a client receives an already-resolved pair and has
+no vocabulary for workspaces. The protocol is unchanged by this feature, and so are
+`packages/policy`, `packages/trust`, `sdk-go/` and the `conformance/` fixtures.
+
+One exception, unchanged from before: for the two **enforcing** kinds (`proxy`, `harness`) the
+staple TTL still comes from the Actor's own `kindConfig.maxStatusAgeSeconds`, because an offline
+decider cannot perform the live query `stapleTtlSeconds: 0` describes. The **fail mode** does reach
+them, so a workspace can put its interception points into fail-open without touching their configs.
+
+The resolved state (both settings plus every workspace override, in two queries) is cached for 5 s
+and invalidated by every write, because `buildActorConfig` runs on the connection path — see
+`packages/controlplane/CLAUDE.md` → "Scale" for why an uncached read there is a scaling hazard.
+
+**UI**: `components/TrustPolicyForm.tsx`, one component for both scopes — `/admin/settings` for the
+org defaults, a workspace's Settings tab for its overrides. The workspace's Overview tab shows the
+*effective* policy with each field marked inherited or overridden. Saving either scope re-pushes
+`actor_config` to the connected Actors it affects instead of waiting for their next reconnect.
 
 ## 6. REST API: from session/API-key to VaultysId
 

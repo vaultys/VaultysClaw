@@ -97,6 +97,13 @@ const FLUSH_INTERVAL_MS = 5_000;
 const DELIVERY_SWEEP_INTERVAL_MS = 3_000;
 const DELIVERY_SWEEP_BATCH = 100;
 
+/**
+ * How many `actor_config` payloads to build at once when re-pushing to a set of
+ * Actors (`pushActorConfigMany`). Same reasoning as the delivery sweep's batch:
+ * each build costs several queries and, for the enforcing kinds, a signature.
+ */
+const CONFIG_PUSH_CONCURRENCY = 25;
+
 const HANDSHAKE_TIMEOUT_MS = 30_000;
 const DEFAULT_GRANT_TTL_MS = 365 * 24 * 60 * 60 * 1000;
 
@@ -1192,6 +1199,43 @@ export class ControlPlaneWSServer {
       "Kill switch armed — disconnected covered Actors"
     );
     return targets.length;
+  }
+
+  /**
+   * Re-push config to a set of Actors, skipping the ones that are offline.
+   *
+   * Bounded rather than a `void push(...)` per DID: every push rebuilds a payload
+   * (several queries, and a signature for the enforcing kinds), so firing one per
+   * Actor at once against a fleet is the same stampede the connection ramp exists
+   * to avoid — see this package's CLAUDE.md "Scale". Filtering against `connected`
+   * first means a 7,000-Actor workspace with 12 Actors online does 12 builds.
+   *
+   * Returns how many were actually sent, so an admin action can say "applied now"
+   * versus "will apply on reconnect" instead of implying the former.
+   */
+  async pushActorConfigMany(dids: string[]): Promise<number> {
+    const online = dids.filter((did) => this.connected.has(did));
+    let sent = 0;
+    for (let i = 0; i < online.length; i += CONFIG_PUSH_CONCURRENCY) {
+      const batch = online.slice(i, i + CONFIG_PUSH_CONCURRENCY);
+      const results = await Promise.all(batch.map((did) => this.pushActorConfig(did)));
+      sent += results.filter(Boolean).length;
+    }
+    return sent;
+  }
+
+  /**
+   * Re-push config to every connected Actor.
+   *
+   * What an org-wide trust-policy change needs: the `trust` block is resolved per
+   * Actor at build time, so nothing else has to be recomputed here — but every
+   * Actor's copy of it is now out of date, and for a long-lived agent the next
+   * reconnect may be never.
+   */
+  async pushActorConfigToAll(): Promise<number> {
+    // Snapshot the keys first: a push awaits, and a socket closing meanwhile
+    // mutates `connected` under the iteration.
+    return this.pushActorConfigMany([...this.connected.keys()]);
   }
 
   deliverCertificate(cert: CapabilityCertificate): boolean {

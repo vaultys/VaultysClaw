@@ -162,7 +162,11 @@ export interface CertStatusResponsePayload {
 
 /**
  * Kind-specific configuration, pushed on connect and whenever the Actor's
- * config, certificates, or the org trust policy change.
+ * config, certificates, or the trust policy in force for it change.
+ *
+ * `trust` arrives already resolved for this Actor: the control plane settles the org-wide
+ * policy against any override its workspace carries before sending. There is nothing to
+ * resolve on this side, and no workspace concept on the wire.
  *
  * The two `*Token` fields are signed by the control plane and meant to be
  * verified offline by the recipient, so the transport carrying them never has to

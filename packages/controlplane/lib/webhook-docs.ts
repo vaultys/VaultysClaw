@@ -52,6 +52,11 @@ const sampleWorkspace = {
   color: "#6366f1",
   isDefault: false,
   createdAt: "2026-07-16T09:00:00.000Z",
+  // `null` on a trust override means "inherits the org-wide setting", which is
+  // the common case — so the sample shows one pinned field and one inherited,
+  // the shape a reader most needs to be able to tell apart.
+  certFailMode: "open",
+  certStapleTtlSeconds: null,
 };
 
 /** Shaped like `db/model.dao.ts`'s `SafeModel` — `workspaceAccess` rows and the
@@ -176,8 +181,17 @@ const EXAMPLE_PAYLOADS: Record<string, Record<string, unknown>> = {
     { workspaceName: "Default" }
   ),
 
-  "workspace.created": workspacePayload(sampleWorkspace),
-  "workspace.updated": workspacePayload(sampleWorkspace),
+  "workspace.created": workspacePayload({
+    ...sampleWorkspace,
+    certFailMode: null,
+    certStapleTtlSeconds: null,
+  }),
+  // Also fired when a workspace's trust policy changes, where `changes` is the
+  // interesting half: `from: null` means the field used to inherit the org setting.
+  "workspace.updated": {
+    ...workspacePayload(sampleWorkspace),
+    changes: [{ field: "certFailMode", from: null, to: "open" }],
+  },
   // Deletion reports what it cost: `affectedGrants` is how many active certificates were scoped to
   // the workspace and were therefore revoked, `unassignedActors` how many Actors lost their
   // assignment (none of them are deleted). Recorded before the row goes, so the workspace fields

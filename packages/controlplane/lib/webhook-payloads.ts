@@ -135,6 +135,11 @@ export function workspacePayload(ws: AnyRecord): AnyRecord {
     color: ws.color ?? null,
     isDefault: ws.isDefault ?? false,
     createdAt: ws.createdAt ?? null,
+    // Trust-policy overrides (docs/CERTIFICATE_WEB_OF_TRUST.md §5.3). `null` is
+    // meaningful and is kept as such: it means "inherits the org-wide setting",
+    // not "unknown" — so `?? null` here is the identity, never a default.
+    certFailMode: ws.certFailMode ?? null,
+    certStapleTtlSeconds: ws.certStapleTtlSeconds ?? null,
   };
 }
 

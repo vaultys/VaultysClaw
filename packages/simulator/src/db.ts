@@ -15,6 +15,10 @@
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { jitterAround, locationForDid } from "./locations.js";
+import { ownerIndexForDid } from "./ownership.js";
+import { PERSONAS, type SimKind } from "./personas.js";
+import { HUMAN_CAPABILITIES, SIM_EMAIL_DOMAIN, type SimHuman } from "./people.js";
+import { issueStandingGrant, serverIdentity } from "./grants.js";
 
 let client: PrismaClient | null = null;
 
@@ -145,6 +149,196 @@ function allowedForKind(kind: string): string[] {
   ];
 }
 
+/**
+ * Write the human population into the ledger: an Actor, a profile, and a `portal_access` grant.
+ *
+ * Idempotent, and cheap on a rerun: the Actor upsert is the only unconditional write, and a person
+ * who already holds an active certificate is not issued a second one. Without that check every run
+ * would append another thousand rows to an append-only ledger, and the certificate list would be
+ * mostly duplicates of the same standing grant.
+ *
+ * Writing these directly is the same deliberate back door `simulator admin` uses — `human` is
+ * onboarded through login, not through the registration handshake, so there is no client-side route
+ * to here. See `grants.ts`.
+ */
+export async function upsertPeople(
+  databaseUrl: string | undefined,
+  people: SimHuman[],
+  onProgress?: (done: number, total: number) => void
+): Promise<{ created: number; granted: number }> {
+  if (people.length === 0) return { created: 0, granted: 0 };
+  const db = prisma(databaseUrl);
+  const serverVid = await serverIdentity(db);
+
+  let created = 0;
+  let granted = 0;
+  let done = 0;
+
+  await mapLimit(people, 16, async (person) => {
+    const existing = await db.actor.findUnique({ where: { did: person.did } });
+    if (!existing) created++;
+
+    await db.actor.upsert({
+      where: { did: person.did },
+      create: {
+        did: person.did,
+        name: person.name,
+        kind: "human",
+        // Normally captured from the handshake. Recorded here too, or the certificate detail page
+        // cannot independently re-verify anything this identity signs.
+        publicKey: person.publicKey,
+        kindConfig: {},
+        humanProfile: {
+          create: { email: person.email, profileCompletedAt: new Date() },
+        },
+      },
+      update: {
+        name: person.name,
+        publicKey: person.publicKey,
+        // Upsert rather than update: a rerun against a database where the Actor row survived but
+        // the profile did not would otherwise leave a human with no email — which is also the
+        // marker every other operation here scopes on, so it would leak out of `reset`.
+        humanProfile: {
+          upsert: {
+            create: { email: person.email, profileCompletedAt: new Date() },
+            update: { email: person.email },
+          },
+        },
+      },
+    });
+
+    const holds = await db.capabilityCertificate.count({
+      where: { agentDid: person.did, status: "active" },
+    });
+    if (holds === 0) {
+      await issueStandingGrant(db, serverVid, person.did, HUMAN_CAPABILITIES, "simulator:people");
+      granted++;
+    }
+
+    done++;
+    if (onProgress && (done % 50 === 0 || done === people.length)) onProgress(done, people.length);
+  });
+
+  return { created, granted };
+}
+
+export interface OwnershipResult {
+  /** Actors whose `ownerDid` this pass wrote. */
+  assigned: number;
+  /** Actors that already pointed at the owner this pass would have chosen. */
+  unchanged: number;
+  /** Actors of a kind that deliberately has no owner (see `Persona.ownedByHuman`). */
+  ownerless: number;
+  /** How many of the people actually ended up owning something. */
+  owners: number;
+  /** The largest number of Actors any one person owns — the tail of the skew, worth seeing. */
+  busiest: number;
+}
+
+/**
+ * Point every simulated Actor at the person it belongs to.
+ *
+ * Deliberately a **separate pass** rather than a field set during approval, for two reasons:
+ *
+ * 1. Approval only ever walks the *pending* queue, so a fleet approved by an earlier run — the
+ *    normal case on the second and every subsequent run — would never get an owner. `locations.ts`
+ *    hit this and worked around it by re-applying on update; a pass over everything is the version
+ *    that actually covers a fleet approved before the feature existed.
+ * 2. It keeps ownership recomputable. The mapping is a pure function of the DID
+ *    (`ownership.ts`), so running this again is a no-op — which is what makes it safe to call on
+ *    every run.
+ *
+ * This is authoritative for simulated Actors: an owner reassigned by hand in the console is put
+ * back on the next run. That is the right trade for a demo fixture, and the wrong one for anything
+ * else — which is why it is scoped by name prefix like every other write in this file.
+ */
+export async function assignOwnership(
+  databaseUrl: string | undefined,
+  namePrefixes: string[],
+  people: SimHuman[]
+): Promise<OwnershipResult> {
+  const empty = {
+    assigned: 0,
+    unchanged: 0,
+    ownerless: 0,
+    owners: 0,
+    busiest: 0,
+  };
+  if (people.length === 0) return empty;
+
+  const db = prisma(databaseUrl);
+  const actors = await db.actor.findMany({
+    where: {
+      OR: namePrefixes.map((prefix) => ({ name: { startsWith: prefix } })),
+    },
+    select: { did: true, kind: true, ownerDid: true },
+  });
+
+  // Grouped by target owner so this is one `updateMany` per person rather than one per Actor —
+  // 7,000 round trips would take longer than the ramp they are supposed to decorate.
+  const changesByOwner = new Map<string, string[]>();
+  /** Every Actor each person ends up owning, changed or not — this is what `busiest` reads. */
+  const tallyByOwner = new Map<string, number>();
+  const result = { ...empty };
+
+  for (const actor of actors) {
+    if (!PERSONAS[actor.kind as SimKind]?.ownedByHuman) {
+      result.ownerless++;
+      continue;
+    }
+    const ownerDid = people[ownerIndexForDid(actor.did, people.length)].did;
+    tallyByOwner.set(ownerDid, (tallyByOwner.get(ownerDid) ?? 0) + 1);
+
+    if (actor.ownerDid === ownerDid) {
+      result.unchanged++;
+      continue;
+    }
+    result.assigned++;
+    const pendingForOwner = changesByOwner.get(ownerDid);
+    if (pendingForOwner) pendingForOwner.push(actor.did);
+    else changesByOwner.set(ownerDid, [actor.did]);
+  }
+
+  await mapLimit([...changesByOwner.entries()], 16, async ([ownerDid, dids]) => {
+    // Chunked: `IN (…)` with 7,000 parameters is a query Postgres will accept and nothing will
+    // enjoy. One person never owns anywhere near that many, but the ceiling should not depend on
+    // the skew staying mild.
+    for (const batch of chunk(dids, 500)) {
+      await db.actor.updateMany({
+        where: { did: { in: batch } },
+        data: { ownerDid },
+      });
+    }
+  });
+
+  result.owners = tallyByOwner.size;
+  result.busiest = Math.max(0, ...tallyByOwner.values());
+  return result;
+}
+
+/** Run `fn` over `items` with at most `limit` in flight — the pool has 60 connections, and 7,000
+ *  concurrent queries would spend all of them queuing. */
+async function mapLimit<T>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<void>
+): Promise<void> {
+  let cursor = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (cursor < items.length) {
+      const item = items[cursor++];
+      await fn(item);
+    }
+  });
+  await Promise.all(workers);
+}
+
+function chunk<T>(items: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
+  return out;
+}
+
 export interface FleetStats {
   actors: number;
   actorsByKind: Record<string, number>;
@@ -154,20 +348,43 @@ export interface FleetStats {
   revokedCerts: number;
   statusChecks: number;
   customCapabilities: number;
+  /** Simulated humans, identified by their reserved email domain (see `people.ts`). */
+  people: number;
+  /** Actors pointing at an owner — the ownership edges `/admin/graph` has to draw. */
+  owned: number;
+  /** Distinct people actually owning something. Less than `people` when the skew leaves a tail. */
+  owners: number;
 }
 
 export async function readStats(databaseUrl: string | undefined): Promise<FleetStats> {
   const db = prisma(databaseUrl);
-  const [actors, pending, approvedUndelivered, activeCerts, revokedCerts, statusChecks, custom] =
-    await Promise.all([
-      db.actor.groupBy({ by: ["kind"], _count: { _all: true } }),
-      db.pendingRegistration.count({ where: { status: "pending" } }),
-      db.pendingRegistration.count({ where: { status: "approved", deliveredAt: null } }),
-      db.capabilityCertificate.count({ where: { status: "active" } }),
-      db.capabilityCertificate.count({ where: { status: "revoked" } }),
-      db.certStatusCheck.count(),
-      db.customCapability.count(),
-    ]);
+  const [
+    actors,
+    pending,
+    approvedUndelivered,
+    activeCerts,
+    revokedCerts,
+    statusChecks,
+    custom,
+    people,
+    owned,
+  ] = await Promise.all([
+    db.actor.groupBy({ by: ["kind"], _count: { _all: true } }),
+    db.pendingRegistration.count({ where: { status: "pending" } }),
+    db.pendingRegistration.count({
+      where: { status: "approved", deliveredAt: null },
+    }),
+    db.capabilityCertificate.count({ where: { status: "active" } }),
+    db.capabilityCertificate.count({ where: { status: "revoked" } }),
+    db.certStatusCheck.count(),
+    db.customCapability.count(),
+    db.actor.count({ where: SIMULATED_PEOPLE }),
+    db.actor.groupBy({
+      by: ["ownerDid"],
+      where: { ownerDid: { not: null } },
+      _count: { _all: true },
+    }),
+  ]);
 
   const actorsByKind: Record<string, number> = {};
   for (const row of actors) actorsByKind[row.kind] = row._count._all;
@@ -181,6 +398,9 @@ export async function readStats(databaseUrl: string | undefined): Promise<FleetS
     revokedCerts,
     statusChecks,
     customCapabilities: custom,
+    people,
+    owned: owned.reduce((n, row) => n + row._count._all, 0),
+    owners: owned.length,
   };
 }
 
@@ -194,14 +414,33 @@ export async function readStats(databaseUrl: string | undefined): Promise<FleetS
 export async function resetSimulated(
   databaseUrl: string | undefined,
   namePrefixes: string[]
-): Promise<{ actors: number; registrations: number }> {
+): Promise<{ actors: number; people: number; registrations: number }> {
   const db = prisma(databaseUrl);
   const or = namePrefixes.map((prefix) => ({ name: { startsWith: prefix } }));
 
   const actors = await db.actor.deleteMany({ where: { OR: or } });
-  const registrations = await db.pendingRegistration.deleteMany({ where: { OR: or } });
-  return { actors: actors.count, registrations: registrations.count };
+  // The people go too, scoped by the reserved email domain rather than by name — they are named
+  // after actual people, so there is no prefix to match on, and a domain that cannot exist is a
+  // stricter filter than a prefix anyway. `User` cascades from `Actor`; the agents' `ownerDid`
+  // is `onDelete: SetNull`, so removing the population unlinks the fleet rather than deleting it.
+  //
+  // The `simulator admin` human survives this: it is minted with no email, or with a real one.
+  const people = await db.actor.deleteMany({ where: SIMULATED_PEOPLE });
+  const registrations = await db.pendingRegistration.deleteMany({
+    where: { OR: or },
+  });
+  return {
+    actors: actors.count,
+    people: people.count,
+    registrations: registrations.count,
+  };
 }
+
+/** Every Actor this simulator created as a person. See `people.ts` on why the email is the marker. */
+const SIMULATED_PEOPLE = {
+  kind: "human",
+  humanProfile: { is: { email: { endsWith: `@${SIM_EMAIL_DOMAIN}` } } },
+} as const;
 
 export async function disconnect(): Promise<void> {
   await client?.$disconnect();

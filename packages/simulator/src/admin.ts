@@ -18,16 +18,12 @@
  * approval — appropriate for a stack whose whole purpose is being reset, and for nothing else.
  */
 
-import { randomUUID } from "node:crypto";
 import { VaultysId } from "@vaultys/id";
-import {
-  signCapabilityGrantCert,
-  signCapabilityRequestCert,
-  type AgentCapability,
-} from "@vaultysclaw/policy";
+import type { AgentCapability } from "@vaultysclaw/policy";
 import { createBackup, backupFilename } from "@vaultysclaw/controlplane/identity-backup";
 import type { BrowserIdData } from "@vaultysclaw/controlplane/browser-identity";
 import { prisma } from "./db.js";
+import { issueStandingGrant, serverIdentity } from "./grants.js";
 
 /** What an admin needs to actually use the console. `portal_access` rides along so the same
  *  identity also works if you land on `/portal` rather than `/admin`. */
@@ -73,14 +69,7 @@ export async function mintAdmin(input: {
 }): Promise<MintedAdmin> {
   const db = prisma(input.databaseUrl);
 
-  const serverSecret = await db.setting.findUnique({ where: { key: "serverSecret" } });
-  if (!serverSecret?.value) {
-    throw new Error(
-      "This control plane has no server identity yet — start it once (`pnpm simulator:up`) so it " +
-        "can generate one, then run this again."
-    );
-  }
-  const serverVid = VaultysId.fromSecret(serverSecret.value, "base64").toVersion(1);
+  const serverVid = await serverIdentity(db);
 
   // `User.email` is unique, and this command mints a *fresh* identity every run — so re-running it
   // with the same `--email` collides on a row this command itself created a moment ago. Caught here
@@ -129,44 +118,15 @@ export async function mintAdmin(input: {
     update: { name: input.name, lastSeen: new Date() },
   });
 
-  // The co-signed request/grant pair, exactly as `lib/certificates.ts`'s `issueAdminGrant` builds
-  // it: the control plane signs both halves, which is the ledger's own signal that nobody actually
-  // asked for this grant — a system-issued one (trust doc §3.2).
-  const certId = randomUUID();
-  const requestCert = await signCapabilityRequestCert(serverVid, {
-    agentDid: identity.did,
-    requestedCapabilities: ADMIN_CAPABILITIES,
-    nonce: `simulator-admin-${Date.now()}`,
-  });
-  const certificate = await signCapabilityGrantCert(serverVid, {
-    certId,
-    agentDid: identity.did,
-    workspaceId: null,
-    grantedCapabilities: ADMIN_CAPABILITIES,
-    resourceLimits: null,
-    scope: null,
-    requestCert,
-    // Standing, like the bootstrap grant. A demo admin whose access silently expires mid-demo is
-    // a worse failure than one that outlives the database it is for — and the database is
-    // disposable anyway.
-    expiresAt: null,
-  });
-
-  await db.capabilityCertificate.create({
-    data: {
-      id: certId,
-      agentDid: identity.did,
-      workspaceId: null,
-      capabilities: ADMIN_CAPABILITIES as never,
-      resourceLimits: undefined,
-      scope: undefined,
-      certFormat: "packcert",
-      certificate,
-      requestCertificate: requestCert,
-      expiresAt: null,
-      issuedBy: "simulator:admin",
-    },
-  });
+  // A standing admin grant, co-signed by the control plane — see `grants.ts` for why both halves
+  // carry the server's signature rather than the subject's.
+  const certId = await issueStandingGrant(
+    db,
+    serverVid,
+    identity.did,
+    ADMIN_CAPABILITIES,
+    "simulator:admin"
+  );
 
   const backup = await createBackup([browserIdentity], input.passphrase);
 

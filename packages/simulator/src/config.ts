@@ -8,12 +8,25 @@
 
 import { parseArgs } from "node:util";
 import path from "node:path";
+import { defaultHumanCount } from "./people.js";
 
 export interface SimConfig {
   /** Non-agent Actors: the estate the agents run on (sensors, devices, proxies). */
   actors: number;
   /** Agent-kind Actors: the things doing work (openclaw, mcp). */
   agents: number;
+  /**
+   * How many people own that fleet.
+   *
+   * Defaults to a ratio of the fleet size rather than to a constant, so `--actors 200` does not
+   * quietly produce an org with more employees than machines. 0 turns the population off entirely,
+   * which is the pre-ownership behaviour and the right thing when the run is purely a load test.
+   *
+   * Unlike everything else here, these Actors never connect: `human` is onboarded through login,
+   * not the registration handshake, so they are written into the ledger rather than driven over the
+   * wire. See `people.ts`.
+   */
+  humans: number;
   wsUrl: string;
   databaseUrl: string | undefined;
   dataDir: string;
@@ -52,7 +65,7 @@ export interface SimConfig {
    * and the sweep delivers over the connection the Actor already has.
    */
   reconnectAfterApprove: boolean;
-  command: "run" | "approve" | "stats" | "reset" | "admin";
+  command: "run" | "approve" | "stats" | "reset" | "admin" | "people";
   /** `admin` only: display name for the minted human. Re-running with the same name reuses it. */
   adminName: string;
   /** `admin` only: optional email for the human profile. */
@@ -76,6 +89,7 @@ vaultysclaw simulator — drives a fleet of real-VaultysId Actors at a live cont
 Options
   --actors <n>       estate Actors: sensors, devices, proxies      (default 2000)
   --agents <n>       agent Actors: openclaw, mcp                   (default 5000)
+  --humans <n>       people who own that fleet, 0 = none       (default: a fifth of the fleet)
   --url <ws>         control plane WebSocket                       (default ws://localhost:8081)
   --data-dir <path>  where identities live; reused across runs     (default .simdata)
   --rate <n>         new connections per second while ramping      (default 100)
@@ -106,6 +120,7 @@ export function parseConfig(argv: string[]): SimConfig {
     options: {
       actors: { type: "string" },
       agents: { type: "string" },
+      humans: { type: "string" },
       url: { type: "string" },
       "data-dir": { type: "string" },
       rate: { type: "string" },
@@ -129,14 +144,18 @@ export function parseConfig(argv: string[]): SimConfig {
   }
 
   const command = (positionals[0] ?? "run") as SimConfig["command"];
-  if (!["run", "approve", "stats", "reset", "admin"].includes(command)) {
+  if (!["run", "approve", "stats", "reset", "admin", "people"].includes(command)) {
     process.stderr.write(`Unknown command "${command}"\n${USAGE}`);
     process.exit(1);
   }
 
+  const actors = int(values.actors, 2000);
+  const agents = int(values.agents, 5000);
+
   return {
-    actors: int(values.actors, 2000),
-    agents: int(values.agents, 5000),
+    actors,
+    agents,
+    humans: int(values.humans, defaultHumanCount(actors + agents)),
     wsUrl: values.url ?? process.env.CONTROLPLANE_WS_URL ?? "ws://localhost:8081",
     databaseUrl: process.env.DATABASE_URL,
     dataDir: path.resolve(values["data-dir"] ?? ".simdata"),

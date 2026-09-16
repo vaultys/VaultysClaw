@@ -13,7 +13,15 @@ import { parseConfig, type SimConfig } from "./config.js";
 import { Fleet } from "./fleet.js";
 import { Metrics } from "./metrics.js";
 import { AGENT_MIX, ESTATE_MIX, expandMix, type SimKind } from "./personas.js";
-import { approveSimulatedRegistrations, readStats, resetSimulated, disconnect } from "./db.js";
+import {
+  approveSimulatedRegistrations,
+  assignOwnership,
+  readStats,
+  resetSimulated,
+  upsertPeople,
+  disconnect,
+} from "./db.js";
+import { loadPeople, type SimHuman } from "./people.js";
 import { mintAdmin } from "./admin.js";
 
 /** Every simulated Actor's name starts with its kind, so the DB helpers can scope to them alone. */
@@ -31,6 +39,8 @@ async function main(): Promise<void> {
       return void (await reset(cfg));
     case "admin":
       return void (await admin(cfg));
+    case "people":
+      return void (await people(cfg));
     case "run":
       return void (await run(cfg));
   }
@@ -47,6 +57,8 @@ async function showStats(cfg: SimConfig): Promise<void> {
       "",
       `  actors                 ${s.actors}`,
       kinds,
+      `  simulated people       ${s.people}`,
+      `  owned actors           ${s.owned} across ${s.owners} owner(s)`,
       `  pending approval       ${s.pending}`,
       `  approved, undelivered  ${s.approvedUndelivered}`,
       `  active certificates    ${s.activeCerts}`,
@@ -70,18 +82,76 @@ async function approve(cfg: SimConfig): Promise<void> {
       ? "Certificates are minted on the Actor's next connection, over a live exchange — rerun `run` to collect them.\n"
       : "Nothing pending. Run the fleet first.\n"
   );
+  // Approving is the moment the Actor rows come into existence, so it is also the moment there is
+  // something to own. Doing it here as well as in `run` means the two-terminal flow
+  // (`run` then `approve`) ends up with the same graph the one-shot `--auto-approve` flow does.
+  await populate(cfg);
   await disconnect();
 }
 
+/** `simulator people` — build the population and (re)draw the ownership edges, nothing else. */
+async function people(cfg: SimConfig): Promise<void> {
+  if (cfg.humans === 0) {
+    process.stdout.write("--humans is 0, so there is no population to build.\n");
+    return;
+  }
+  await populate(cfg);
+  await disconnect();
+}
+
+/**
+ * Mint the people, then point the fleet at them.
+ *
+ * Silently does nothing without a `DATABASE_URL`: `run` against a control plane you only reach over
+ * the wire is a legitimate way to use this — it was the only way before approval existed here — and
+ * ownership is an admin-side fact, like approval. Better to run the fleet and say so than to refuse
+ * to start.
+ */
+async function populate(cfg: SimConfig): Promise<SimHuman[]> {
+  if (cfg.humans === 0) return [];
+  if (!cfg.databaseUrl) {
+    process.stdout.write(
+      "  no DATABASE_URL — skipping the human population; the fleet will run unowned.\n"
+    );
+    return [];
+  }
+
+  const roster = await loadPeople(cfg.dataDir, cfg.humans, (done, total) =>
+    progress("  minting identities", done, total)
+  );
+  const { created, granted } = await upsertPeople(cfg.databaseUrl, roster, (done, total) =>
+    progress("  writing people   ", done, total)
+  );
+  const owned = await assignOwnership(cfg.databaseUrl, NAME_PREFIXES, roster);
+
+  process.stdout.write(
+    `\r  people          ${roster.length} (${created} new, ${granted} granted portal_access)` +
+      "".padEnd(20) +
+      "\n" +
+      `  ownership       ${owned.assigned} assigned, ${owned.unchanged} already correct, ` +
+      `${owned.ownerless} ownerless by kind\n` +
+      `                  ${owned.owners} owner(s), busiest holds ${owned.busiest}\n`
+  );
+  return roster;
+}
+
+/** A single rewritten line on a TTY, a periodic one everywhere else — same rule as the fleet
+ *  display, and for the same reason: `\r` into a pipe makes one unreadable mega-line. */
+function progress(label: string, done: number, total: number): void {
+  if (process.stdout.isTTY === true) process.stdout.write(`\r${label} ${done}/${total}`);
+  else if (done === total) process.stdout.write(`${label} ${done}/${total}\n`);
+}
+
 async function reset(cfg: SimConfig): Promise<void> {
-  const { actors, registrations } = await resetSimulated(cfg.databaseUrl, NAME_PREFIXES);
+  const { actors, people, registrations } = await resetSimulated(cfg.databaseUrl, NAME_PREFIXES);
   let identities = 0;
   if (fs.existsSync(cfg.dataDir)) {
     identities = fs.readdirSync(cfg.dataDir).length;
     fs.rmSync(cfg.dataDir, { recursive: true, force: true });
   }
   process.stdout.write(
-    `removed ${actors} actor(s), ${registrations} pending registration(s), ${identities} local identit(ies)\n` +
+    `removed ${actors} actor(s), ${people} simulated human(s), ${registrations} pending ` +
+      `registration(s), ${identities} local identit(ies)\n` +
       "Certificates and status checks cascaded with their Actors.\n"
   );
   await disconnect();
@@ -213,12 +283,19 @@ async function run(cfg: SimConfig): Promise<void> {
       "",
       `  control plane   ${cfg.wsUrl}`,
       `  fleet           ${total} actors — ${composition}`,
+      `  people          ${cfg.humans === 0 ? "none (--humans 0)" : `${cfg.humans} owning the fleet`}`,
       `  ramp            ${cfg.ratePerSecond}/s, ≤${cfg.maxInFlight} handshakes in flight`,
       `  identities      ${cfg.dataDir} (reused across runs)`,
       `  duration        ${cfg.durationSeconds === 0 ? "until Ctrl-C" : cfg.durationSeconds + "s after ramp"}`,
       "",
     ].join("\n")
   );
+
+  // Before the ramp, not during it: minting a thousand identities is a few seconds of CPU, and
+  // doing it while the fleet is handshaking would show up in the latency numbers the run exists to
+  // measure. On a rerun this also re-draws ownership for the fleet already in the database, so a
+  // `run` with no `--auto-approve` still ends with a populated graph.
+  const roster = await populate(cfg);
 
   const metrics = new Metrics();
   const fleet = new Fleet(cfg, metrics);
@@ -276,6 +353,16 @@ async function run(cfg: SimConfig): Promise<void> {
       process.stdout.write(
         `  approved ${result.approved}; the control plane will deliver over the existing ` +
           `connections — no reconnect needed.\n`
+      );
+    }
+
+    // Approval is what creates the Actor rows, so on a first run there was nothing to own when
+    // `populate` ran. Re-running the assignment here is what gives a fresh database an ownership
+    // graph in one command; on a rerun it finds everything already correct and writes nothing.
+    if (roster.length > 0) {
+      const owned = await assignOwnership(cfg.databaseUrl, NAME_PREFIXES, roster);
+      process.stdout.write(
+        `  ownership: ${owned.assigned} newly assigned across ${owned.owners} owner(s)\n`
       );
     }
   }

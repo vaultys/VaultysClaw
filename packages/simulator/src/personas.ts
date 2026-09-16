@@ -33,6 +33,16 @@ export interface Persona {
    * status live — the parts most likely to be broken.
    */
   churnPerMinute: number;
+  /**
+   * Whether an Actor of this kind belongs to a person.
+   *
+   * The same judgement `locations.ts` makes about the map: a fact is only worth inventing when the
+   * real thing has one. A laptop, a sensor-bearing machine and a coding agent all have somebody
+   * whose they are — that is who gets called when the grant is wrong. A `proxy` does not: it is an
+   * interception point the org runs, sitting in front of traffic from many people at once, and
+   * naming one of them its owner would be a claim the real deployment never makes.
+   */
+  ownedByHuman: boolean;
 }
 
 export const PERSONAS: Record<SimKind, Persona> = {
@@ -42,6 +52,7 @@ export const PERSONAS: Record<SimKind, Persona> = {
     requestedCapabilities: ["file_access", "code_execution", "internet_access", "knowledge_search"],
     statusRefreshMs: null,
     telemetryMs: null,
+    ownedByHuman: true,
     churnPerMinute: 0.02,
   },
   // An MCP server: narrower, and more likely to be restarted by whatever supervises it.
@@ -50,6 +61,7 @@ export const PERSONAS: Record<SimKind, Persona> = {
     requestedCapabilities: ["api_call", "knowledge_search"],
     statusRefreshMs: null,
     telemetryMs: null,
+    ownedByHuman: true,
     churnPerMinute: 0.05,
   },
   // A workload sensor: one capability, and the only kind that pushes data on a timer.
@@ -58,6 +70,7 @@ export const PERSONAS: Record<SimKind, Persona> = {
     requestedCapabilities: ["process_read"],
     statusRefreshMs: null,
     telemetryMs: 30_000,
+    ownedByHuman: true,
     churnPerMinute: 0.01,
   },
   // A laptop or phone: idle most of the time, on a network that comes and goes.
@@ -66,6 +79,7 @@ export const PERSONAS: Record<SimKind, Persona> = {
     requestedCapabilities: ["file_access"],
     statusRefreshMs: null,
     telemetryMs: null,
+    ownedByHuman: true,
     churnPerMinute: 0.25,
   },
   // An interception point: enforces offline, so it re-checks aggressively and never churns
@@ -75,6 +89,7 @@ export const PERSONAS: Record<SimKind, Persona> = {
     requestedCapabilities: ["internet_access", "api_call"],
     statusRefreshMs: 60_000,
     telemetryMs: null,
+    ownedByHuman: false,
     churnPerMinute: 0.0,
   },
 };

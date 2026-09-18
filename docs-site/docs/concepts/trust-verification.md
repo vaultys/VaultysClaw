@@ -104,7 +104,7 @@ control-plane-to-Actor link; everything else generalises it outward.
 
 ## Trust policy: fail mode and staple TTL
 
-Two knobs, org-wide today.
+Two knobs, set org-wide under Settings and overridable **per workspace**.
 
 ### Fail mode
 
@@ -138,15 +138,46 @@ maximum laxity. Inheriting the number would have handed the loosest behaviour to
 the admin who asked for the strictest.
 :::
 
+### Where a value comes from
+
+| Level | How it is set |
+|---|---|
+| Org-wide | Settings → Trust policy. The default for everything. |
+| Workspace | The workspace's Settings tab. Overrides **per field** — a workspace can pin its fail mode and keep following the org on staleness. |
+
+**Empty means inherit, and it is the only spelling of inherit.** A stored `0`
+staple TTL is a real, and the strictest, value — clearing a field is not a way to
+loosen it.
+
+The most **specific** scope wins, which is deliberately the opposite of the
+[kill switch](/docs/guides/kill-switch), where an armed global switch
+short-circuits every workspace. One is configuration; the other is an emergency
+brake.
+
+A workspace's Overview tab shows the *effective* pair with an inherited/overridden
+badge per field.
+
+### It reaches the Actor
+
+An Actor receives an **already-resolved** policy in its configuration push — it
+never learns which level a value came from, and has no concept of workspaces.
+Saving a policy re-pushes to the affected connected Actors immediately; before
+this, a fail-mode change only landed on an Actor's next reconnect, which for a
+long-lived agent may be never.
+
+Every kind now receives the block, not just the interception points, because the
+fail mode and the staleness bound are meaningful to anything that re-checks its
+own status.
+
 ## Current state
 
 | Piece | Status |
 |---|---|
 | `cert_status_request` / `cert_status_response` over WebSocket | Built and verified — a real client's signed request produces a verified, signed response, persisted as a status-check row |
 | Status-check audit history in the console | Built |
-| `trust.failMode` | Persisted, with one consumer: the interception point's fail-closed posture |
-| `trust.stapleTtlSeconds` | Persisted, deliberately unread — see the warning above |
-| Per-workspace overrides | Not in the schema; org-wide is the only level today |
+| `trust.failMode` | Resolved and delivered to every connected Actor's configuration; the interception point's fail-closed posture is its enforcing consumer |
+| `trust.stapleTtlSeconds` | Delivered to every non-enforcing kind; deliberately **not** inherited by the enforcing kinds — see the warning above |
+| Per-workspace overrides | Built, per field, with `null` meaning inherit |
 | Peer-to-peer status checks between agents | Designed, not built |
 
 The peer-to-peer gap is worth stating plainly: direct agent-to-agent data channels

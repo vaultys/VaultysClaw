@@ -1,5 +1,5 @@
 ---
-sidebar_position: 8
+sidebar_position: 10
 title: Model registry
 description: Catalogue the LLM endpoints your organisation sanctions, and record which workspaces may use each — with an honest account of what is and is not enforced.
 ---

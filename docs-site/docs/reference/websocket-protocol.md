@@ -40,6 +40,7 @@ interface ProtocolMessage {
 | `cert_status_request` | Any → CP | Ask whether a certificate is still good |
 | `cert_status_response` | CP → Any | Signed status answer |
 | `actor_config` | CP → Actor | Kind-specific configuration push |
+| `kill_switch` | CP → Actor | An emergency [kill switch](/docs/guides/kill-switch) covering this Actor was armed — pushed just before the socket is closed |
 | `sensor_telemetry` | Actor → CP | Sensor workload observations |
 | `error` | CP → Actor | Protocol error |
 
@@ -167,7 +168,7 @@ interface ActorConfigPayload {
   kindConfig: unknown;    // kind-specific
   grantToken: string;     // the Actor's certificate
   ruleSetToken: string;   // signed rule set, for proxy kinds
-  trust: { failClosed: boolean };
+  trust: { failClosed: boolean; maxStatusAgeSeconds: number };
 }
 ```
 
@@ -176,9 +177,35 @@ produced **at push time** — the stored copy is left unsigned on purpose, becau
 stored signature would need regenerating on every edit and a stale one is
 indistinguishable from a tampered one.
 
-`trust.failClosed` is translated from the org trust policy. Note it does **not**
-carry the staple TTL — see
+The `trust` block is **already resolved** for this Actor: its workspace may
+override either trust-policy field, and the control plane settles that before
+building the payload. A recipient has no vocabulary for workspaces and never
+learns one. Saving a policy re-pushes this message to the affected connected
+Actors, rather than waiting for their next reconnect.
+
+`trust.failClosed` is translated from the resolved fail mode. `maxStatusAgeSeconds`
+is **not** a copy of the staple TTL: the enforcing kinds (`proxy`, `harness`) carry
+their own number, because an offline decider cannot perform the live query that a
+staple TTL of `0` describes. Every other kind does inherit the resolved TTL, where
+`0` keeps its strict meaning and unbounded must be written as a negative. See
 [why](/docs/concepts/trust-verification#trust-policy-fail-mode-and-staple-ttl).
+
+## Kill switch
+
+```ts
+interface KillSwitchPayload {
+  scope: "global" | "workspace";
+  workspaceId?: string;
+  reason: string;     // the admin's reason, verbatim — log it
+  armedAt: string;
+}
+```
+
+Advisory, like every other push in this protocol. What actually stops a
+cooperating holder is that its certificates now answer `revoked` on any status
+check, and that its handshake is refused until the switch is disarmed. Expect the
+socket to close right after this message; reconnect with your normal backoff —
+recovery is automatic once an admin disarms.
 
 ## Sensor telemetry
 

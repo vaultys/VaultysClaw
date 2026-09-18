@@ -1,5 +1,5 @@
 ---
-sidebar_position: 7
+sidebar_position: 9
 title: Notification channels
 description: Human-facing alerts fanned out through a self-hosted Apprise container — Slack, email, PagerDuty, ntfy, and the rest.
 ---

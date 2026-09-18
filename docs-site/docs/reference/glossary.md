@@ -60,6 +60,11 @@ kind `proxy`. → [Blast radius](/docs/concepts/blast-radius)
 **`kindConfig`** — Kind-specific configuration in one JSON column, rather than
 per-kind columns that are null for everything else.
 
+**Kill switch** — The reversible emergency control: suspends every grant it
+covers, org-wide or per workspace, without writing to the ledger. A suspended
+certificate is *signed* as `revoked` while its row stays active; humans are always
+exempt. → [Kill switches](/docs/guides/kill-switch)
+
 **Ledger** — The `CapabilityCertificate` table. Append-only in the sense that rows
 are never deleted and never mutated after issue except to flip status.
 
@@ -90,6 +95,11 @@ valid for a configured TTL. What lets an offline verifier decide.
 
 **Staple TTL** — How long a stapled status may back a decision. **`0` is the
 strictest value**, not the loosest. → [Trust verification](/docs/concepts/trust-verification#trust-policy-fail-mode-and-staple-ttl)
+
+**Confinement template** — A reusable set of tier-B sandbox settings, attachable
+to workspaces. It pre-fills the issuance form and nothing more; the signed
+certificate records what the admin actually submitted. →
+[Workspaces](/docs/guides/workspaces#confinement-templates)
 
 **Vault** — The signcrypt-to-self primitive protecting every stored secret, keyed
 by the control plane's own VaultysId.

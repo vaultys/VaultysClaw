@@ -58,10 +58,8 @@ embedded request bytes.
 | Event | Trigger |
 |---|---|
 | `workspace.created` | A workspace is created |
-| `workspace.updated` | Name, description, or colour changes — with a diff |
-
-`workspace.deleted` exists in the shared catalog but **has no emission site** —
-there is no workspace-delete action in this control plane at all.
+| `workspace.updated` | Name, description, or colour changes — **and a trust-policy override change**, carried in the same `changes` diff (`from: null` means the field used to inherit the org-wide value) rather than as its own event type |
+| `workspace.deleted` | A workspace is deleted; its scoped certificates are revoked first and the count is carried in the payload |
 
 ## Models
 
@@ -86,6 +84,18 @@ secret.
 Both carry the *shape* of the change — mode, rule counts, freshness bound — and
 never the rule set itself. The two kinds are siblings by design, so their payloads
 are too.
+
+## Kill switches
+
+| Event | Trigger |
+|---|---|
+| `killswitch.armed` | An emergency [kill switch](/docs/guides/kill-switch) is armed, suspending every certificate it covers org-wide or for one workspace |
+| `killswitch.disarmed` | It is disarmed; the covered certificates authorise again, with no re-issuance |
+
+Both carry the scope, the workspace when there is one, the admin's reason, who
+armed it, and how many Actors it covers. **No certificate is revoked** by either
+event — subscribers that treat `killswitch.armed` as a revocation feed will be
+wrong in both directions.
 
 ## Custom capabilities
 

@@ -120,6 +120,11 @@ relation type, because the previous design's sensor-only "assigned user" field w
 exactly the kind of single-purpose relation that needs replacing the moment a
 second use case appears.
 
+Both relations, plus workspace membership, are drawn on the console's **Graph**
+page and on an Actor's own Relationships tab. That view is a projection: the
+textual lists beside it carry the edit forms, and nothing about the graph changes
+what a permission check resolves.
+
 :::caution Ownership is not authority
 Recording that a device belongs to a human grants that device nothing. Until
 delegation certificates are built, an Actor's permissions are only what its own

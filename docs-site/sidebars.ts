@@ -48,6 +48,8 @@ const sidebars: SidebarsConfig = {
         "guides/onboarding-actors",
         "guides/issuing-certificates",
         "guides/human-onboarding",
+        "guides/workspaces",
+        "guides/kill-switch",
         "guides/webhooks",
         "guides/notification-channels",
         "guides/model-registry",

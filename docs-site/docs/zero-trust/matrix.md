@@ -152,7 +152,8 @@ chain's parent.
 | **Tool-call enforcement on the host** | 🟡 Partial | The `harness` Actor kind decides every tool call from a signed grant and rule set, over resource URIs rather than network destinations. Ships **observe-only** by default — it records and refuses nothing — and `explicit` mode is advisory unless OS confinement is established. |
 | Container-based isolation per agent | 🟡 Partial | Not provided for agents generally — a deployment-time concern. A **supervised harness** is the exception: `sandbox: require` establishes kernel-enforced confinement and refuses to launch without it. **macOS only** (a seatbelt profile via the deprecated `sandbox-exec`); Linux and Windows backends are designed and not built, and report an error rather than a silent pass. |
 | Documented blast-radius analysis per Actor | 🟡 Partial | The certificate ledger makes "what can this Actor reach" mechanically answerable, but no report renders it |
-| Per-workspace trust policy overrides | ⬜ Absent | `trust.failMode` and `trust.stapleTtlSeconds` are org-wide only; the per-workspace override columns are designed but not in the schema |
+| Per-workspace trust policy overrides | ✅ Built | Both `trust.failMode` and `trust.stapleTtlSeconds` override per field from a workspace, `null` meaning inherit; the resolved pair is pushed to that workspace's connected Actors on save |
+| Reversible org-wide / per-workspace suspension | ✅ Built | A [kill switch](/docs/guides/kill-switch) suspends every grant it covers at four enforcement points — status responses, the handshake, the console's own capability check, and issuance — without writing to the ledger, so disarming restores everything with no re-issuance. Humans are exempt, or arming it would be unrecoverable |
 
 :::caution The proxy governs a zone, not an agent
 An interception point governs everything pointed at it. Two agents behind one
@@ -417,7 +418,7 @@ and memory-poisoning detection: **absent** at every tier.
 |---|---|---|
 | Policy versioning & approval audit | ✅ Built | Every grant records who approved it and what was actually granted — including when an admin approves a *reduced* set relative to what was requested |
 | **Model-access enforcement** | ⬜ Absent | The registry records which workspaces may use which model and audits every change. **Nothing enforces it at inference time.** That needs the LiteLLM virtual-key path plus an LLM-config push to Actors, neither of which exists. The console states this limitation directly rather than implying a guarantee. |
-| Trust-policy enforcement | 🟡 Partial | `trust.failMode` has exactly one consumer — the proxy interception point's fail-closed posture. `trust.stapleTtlSeconds` is persisted and deliberately **not** inherited by the proxy, because its strictest value (0, "always query live") would become the loosest behaviour for a decider that is offline by design. |
+| Trust-policy enforcement | 🟡 Partial | Both knobs are resolved (workspace over org, per field) and pushed to every connected Actor, and a change takes effect without waiting for a reconnect. The enforcing consumer is still the proxy interception point's fail-closed posture; `trust.stapleTtlSeconds` is deliberately **not** inherited by the enforcing kinds, because its strictest value (0, "always query live") would become the loosest behaviour for a decider that is offline by design. |
 | Formal governance process | ⬜ Absent | Organisational, not technical |
 
 ### Advanced — ⬜ Absent

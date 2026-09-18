@@ -22,11 +22,12 @@ is a ledger lookup, exactly like every other authorisation decision.
 | **Actors** | Unified list of every Actor, filterable by kind, with inline approve/deny for pending registrations and a full detail page per Actor |
 | **Sensors** | Fleet view — sensor count, online now, observed and shadow workload counts — plus a per-device workload table |
 | **Map** | Actors placed geographically, clustered, with live online state read from the actual connection map rather than a stored field |
+| **Graph** | The same estate drawn as relationships instead of listed — ownership, actor links, and workspace membership as a 3D force-directed graph. Read-only, and a projection of existing data: no new semantics, nothing editable here |
 | **Certificates** | The ledger: issue, inspect, revoke. Detail view shows decoded payloads, which key verified which signature, independent re-verification, and status-check history |
-| **Workspaces** | List and tabbed detail — Overview, Actors, Access |
+| **Workspaces** | List and tabbed detail — Overview, Actors, Access, Confinement, Settings — including that workspace's own [trust policy override and kill switch](/docs/guides/workspaces) |
 | **Audit Log** | Filterable append-only trail with live certificate re-verification |
 | **Integrations** | Webhooks, Notification Channels, Model Registry, Identity (OIDC/Entra) |
-| **Settings** | Server identity, trust policy, organisation name |
+| **Settings** | Server identity, org-wide trust policy, the org-wide [kill switch](/docs/guides/kill-switch), organisation name |
 
 An unauthenticated visitor is redirected to login. An authenticated visitor
 without the capability sees **"Access denied"** — not a redirect loop, which is

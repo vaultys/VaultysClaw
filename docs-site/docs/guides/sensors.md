@@ -1,5 +1,5 @@
 ---
-sidebar_position: 9
+sidebar_position: 11
 title: Sensors & shadow AI
 description: Deploy the endpoint sensor to discover what AI is actually running on your hosts, and correlate it against the ledger.
 ---

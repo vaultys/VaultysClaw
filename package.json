@@ -42,7 +42,8 @@
     "simulator:build": "sh -c 'set -a; . ./docker/simulator.env; set +a; exec pnpm --filter @vaultysclaw/controlplane exec next build'",
     "doctor": "bash quick-start.sh --check",
     "setup": "bash quick-start.sh",
-    "setup:down": "bash quick-start.sh --down"
+    "setup:down": "bash quick-start.sh --down",
+    "demo": "pnpm simulator:prisma && sh -c 'set -a; . ./docker/simulator.env; set +a; exec pnpm --filter @vaultysclaw/simulator guided'"
   },
   "devDependencies": {
     "@types/node": "^22.20.1",

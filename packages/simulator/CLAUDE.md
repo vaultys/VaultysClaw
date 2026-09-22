@@ -263,3 +263,12 @@ ownership distribution. The last one is worth the space: `db.ts` writes whatever
 `ownerIndexForDid` returns, so a bug there is not an exception but a graph that looks subtly wrong,
 or an out-of-range index that becomes an owner DID pointing at nothing. Both are far cheaper to
 catch here than in a 7,000-Actor run. Run: `pnpm --filter @vaultysclaw/simulator test`.
+
+## Guided presenter
+
+`pnpm demo` runs `src/guided/main.ts` at localhost:3011 against the isolated simulator.
+See [GUIDED_DEMO.md](GUIDED_DEMO.md) for the six-step live walkthrough. Its only database writes
+provision new demo workspaces and placement/ownership metadata. Approval and emergency controls
+remain authenticated console operations. File effects are gated by the actual SDK decision.
+Restart creates fresh identities and retains historical ledger data; never use the fleet reset
+helper as an implicit shortcut here. Test the operation boundaries in `guided-checks.test.ts`.

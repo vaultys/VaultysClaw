@@ -40,6 +40,11 @@ Old workflow, memory and agent-controller tests should not be treated as current
 
 ## Milestone 2: one repeatable client story
 
+First implementation: `pnpm demo` provides a local presenter with two live SDK agents, six
+verified steps, console links and JSON evidence export. See
+[the presenter guide](../packages/simulator/GUIDED_DEMO.md). Approval and suspension are manual
+console actions; expanded fictional fleets and fully integrated presenter controls remain future work.
+
 Extend `packages/simulator`; retain real VaultysId identities and SDK protocol traffic.
 Start with a fictional organization, two workspaces and roughly 50 actors rather than the
 7,000-actor load preset. Keep scenario data and credentials in the isolated demo environment.

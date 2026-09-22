@@ -72,10 +72,18 @@ packages/trust: permission resolution
 The current product focuses on identity and trust. The former agent controller, workflow editor
 and bundled agent execution tools are no longer part of this repository's supported architecture.
 
+## Guided client demo
+
+Start `pnpm simulator:up` and sign in at **http://localhost:3003/login**. In another terminal,
+run `pnpm demo`, then open **http://localhost:3011**. The presenter guides you through approval,
+allowed and denied file operations, workspace suspension, recovery and an evidence report.
+Administrative actions use the normal console. See the [presenter guide](packages/simulator/GUIDED_DEMO.md).
+
 ## Fleet simulation
 
-The simulator uses its own database and ports (**3003 / WebSocket 8083**). It is currently an
-engineering simulator; a guided client presentation is the next product milestone.
+The simulator uses its own database and ports (**3003 / WebSocket 8083**). The existing fleet
+runner supports engineering tests; a separate guided presenter demonstrates
+real access decisions with two spotlight agents. See the [guided demo](packages/simulator/GUIDED_DEMO.md).
 
 After completing the [development prerequisites](CONTRIBUTING.md):
 

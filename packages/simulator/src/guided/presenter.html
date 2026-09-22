@@ -1,0 +1,444 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>VaultysClaw · Live trust walkthrough</title>
+    <style>
+      :root {
+        font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+        color: #17293b;
+        background: #f3f6f5;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+      }
+      header {
+        background: #112c34;
+        color: white;
+        padding: 24px 5%;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      header strong {
+        font-size: 21px;
+        letter-spacing: -0.6px;
+      }
+      .badge {
+        font-size: 12px;
+        background: #26454a;
+        color: #b8efdc;
+        padding: 7px 12px;
+        border-radius: 30px;
+      }
+      main {
+        max-width: 1240px;
+        margin: 36px auto;
+        padding: 0 28px;
+        display: grid;
+        grid-template-columns: 240px 1fr;
+        gap: 32px;
+      }
+      h1 {
+        font-size: 36px;
+        letter-spacing: -1.2px;
+        margin: 9px 0 18px;
+        line-height: 1.15;
+      }
+      h2 {
+        font-size: 18px;
+      }
+      p {
+        line-height: 1.65;
+        color: #526470;
+      }
+      .eyebrow {
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        font-size: 11px;
+        font-weight: 700;
+        color: #26815f;
+      }
+      nav ol {
+        list-style: none;
+        padding: 0;
+        display: grid;
+        gap: 10px;
+      }
+      nav li {
+        padding: 15px;
+        border-radius: 12px;
+        color: #526470;
+        font-size: 14px;
+      }
+      nav .current {
+        background: #d9eee3;
+        color: #155b40;
+        font-weight: 700;
+      }
+      nav .done {
+        color: #258260;
+      }
+      section {
+        min-width: 0;
+      }
+      .panel {
+        background: white;
+        border: 1px solid #dce5e0;
+        border-radius: 18px;
+        padding: 26px;
+        box-shadow: 0 6px 25px #21392f05;
+      }
+      .controls {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-top: 24px;
+      }
+      button,
+      a.button {
+        font: inherit;
+        font-size: 13px;
+        font-weight: 650;
+        cursor: pointer;
+        border-radius: 9px;
+        padding: 11px 16px;
+        border: 1px solid #cfddd6;
+        background: white;
+        color: #244638;
+        text-decoration: none;
+      }
+      button.primary {
+        background: #186747;
+        border-color: #186747;
+        color: white;
+      }
+      button:disabled {
+        opacity: 0.45;
+        cursor: wait;
+      }
+      a {
+        color: #216b54;
+      }
+      #error {
+        color: #9e352e;
+        background: #fff0ed;
+        border-radius: 10px;
+        padding: 14px;
+        display: none;
+        line-height: 1.5;
+      }
+      #cards {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        margin: 22px 0;
+      }
+      .card {
+        border: 1px solid #dce5e0;
+        border-radius: 14px;
+        background: white;
+        padding: 20px;
+      }
+      .card h3 {
+        margin: 0 0 12px;
+      }
+      .card code {
+        font-size: 11px;
+        overflow-wrap: anywhere;
+        color: #65756d;
+      }
+      .card p {
+        margin: 8px 0;
+        font-size: 13px;
+      }
+      .card a {
+        font-size: 12px;
+        display: inline-block;
+        margin: 8px 12px 0 0;
+      }
+      .status {
+        font-size: 12px;
+        color: #236b4d;
+        font-weight: 600;
+      }
+      #events {
+        max-height: 340px;
+        overflow: auto;
+      }
+      .event {
+        padding: 14px 0;
+        border-top: 1px solid #edf1ee;
+        font-size: 13px;
+        line-height: 1.5;
+      }
+      .event small {
+        color: #79887f;
+      }
+      .result {
+        padding: 7px 10px;
+        margin-top: 6px;
+        background: #eef7f1;
+        border-radius: 7px;
+      }
+      .note {
+        font-size: 12px;
+        color: #758278;
+        margin-top: 20px;
+      }
+      .expectation {
+        border-left: 3px solid #58a783;
+        padding-left: 14px;
+        color: #285c44;
+      }
+      footer {
+        padding: 0 28px 35px;
+        max-width: 1240px;
+        margin: auto;
+        font-size: 12px;
+        color: #758278;
+      }
+      @media (max-width: 760px) {
+        main {
+          grid-template-columns: 1fr;
+          margin: 20px auto;
+          padding: 0 16px;
+          gap: 12px;
+        }
+        nav ol {
+          display: none;
+        }
+        #cards {
+          grid-template-columns: 1fr;
+        }
+        h1 {
+          font-size: 28px;
+        }
+        header {
+          padding: 18px;
+        }
+        .badge {
+          font-size: 10px;
+        }
+        .panel {
+          padding: 20px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <strong
+        >VaultysClaw
+        <span style="font-weight: 400; opacity: 0.55"
+          >/ Trust walkthrough</span
+        ></strong
+      ><span class="badge">LIVE SDK · LOCAL ENVIRONMENT</span>
+    </header>
+    <main>
+      <nav>
+        <div class="eyebrow">Northstar · Fictional company</div>
+        <h2>One incident.<br />Six clear steps.</h2>
+        <ol id="steps"></ol>
+        <p class="note">
+          Real identities, real grants, and measured decisions. No model
+          provider or business system is required.
+        </p>
+      </nav>
+      <section>
+        <div class="panel">
+          <div class="eyebrow" id="progress">Guided demonstration</div>
+          <h1 id="title">See trust in action.</h1>
+          <p id="instruction">
+            Start the simulator control plane and sign in as its administrator.
+            Then start the walkthrough here.
+          </p>
+          <p class="expectation" id="outcome"></p>
+          <div id="error" role="alert"></div>
+          <div class="controls">
+            <button class="primary" id="next">Start walkthrough</button
+            ><button id="pause">Pause</button
+            ><button id="restart">Restart with new identities</button
+            ><a
+              class="button"
+              href="http://localhost:3003/admin/actors?tab=pending"
+              target="_blank"
+              rel="noopener"
+              >Open approvals ↗</a
+            ><a class="button" href="/report" id="download">Download report</a>
+          </div>
+          <p class="note">
+            Approvals and emergency controls are performed in the admin console.
+            Pause stops walkthrough steps, not live connections. Restart
+            preserves prior actors, grants and audit history.
+          </p>
+        </div>
+        <div id="cards"></div>
+        <div class="panel">
+          <h2>Observed evidence</h2>
+          <p class="note">
+            Operation checks are local SDK observations; administrative audit
+            events are recorded separately in the console.
+          </p>
+          <div id="events" aria-live="polite">
+            Start a run to collect evidence.
+          </div>
+          <a
+            href="http://localhost:3003/admin/audit"
+            target="_blank"
+            rel="noopener"
+            >Open console audit log ↗</a
+          >
+        </div>
+      </section>
+    </main>
+    <footer>
+      This walkthrough proves the behavior of these SDK clients and their
+      guarded local file operations. It does not claim to restrict arbitrary
+      processes or measure fleet-wide response time.
+    </footer>
+    <script>
+      const token = "__TOKEN__";
+      let requestPending = false;
+      const $ = (id) => document.getElementById(id);
+      function element(tag, text, cls) {
+        const n = document.createElement(tag);
+        n.textContent = text;
+        if (cls) n.className = cls;
+        return n;
+      }
+      async function render() {
+        try {
+          const response = await fetch("/state");
+          if (!response.ok) throw Error("Could not read demo state");
+          const s = await response.json();
+          const step = s.steps[s.stage];
+          $("progress").textContent = s.runId
+            ? `Step ${s.stage + 1} of ${s.steps.length} · Run ${s.runId.slice(0, 6)}`
+            : "Guided demonstration";
+          $("title").textContent = step.title;
+          $("instruction").textContent = step.instruction;
+          if (s.stage === 1)
+            $("instruction").textContent +=
+              ` Look for ${s.actors.map((a) => a.name).join(" and ")}. In a populated simulator, use your browser’s Find command to jump to each pending request.`;
+          $("outcome").textContent = "Expected: " + step.outcome;
+          $("error").textContent = s.error;
+          $("error").style.display = s.error ? "block" : "none";
+          $("steps").replaceChildren(
+            ...s.steps.map((x, i) =>
+              element(
+                "li",
+                `${i < s.stage ? "✓" : i + 1 + "."} ${x.title}`,
+                i === s.stage ? "current" : i < s.stage ? "done" : ""
+              )
+            )
+          );
+          $("next").textContent = s.busy
+            ? "Checking live behavior…"
+            : s.stage === 0
+              ? "Start walkthrough"
+              : s.stage === 5
+                ? "Walkthrough complete"
+                : "Verify this step";
+          $("next").disabled =
+            s.busy || requestPending || s.paused || s.stage === 5;
+          $("pause").textContent = s.paused ? "Resume" : "Pause";
+          $("pause").disabled = s.busy || requestPending || !s.runId;
+          $("restart").disabled = s.busy || requestPending || !s.runId;
+          $("cards").replaceChildren(
+            ...s.actors.map((a) => {
+              const n = element("div", "", "card");
+              n.append(
+                element("h3", a.role),
+                element("div", a.status.replaceAll("_", " "), "status"),
+                element("p", a.name),
+                element(
+                  "p",
+                  "Usable capabilities: " +
+                    (a.capabilities.join(", ") || "none")
+                ),
+                element("code", a.did || "Identity loading")
+              );
+              for (const [text, href] of [
+                ["Workspace ↗", a.workspaceUrl],
+                ["Agent ↗", a.actorUrl],
+              ]) {
+                const link = element("a", text);
+                link.href = href;
+                link.target = "_blank";
+                link.rel = "noopener";
+                n.append(link);
+              }
+              return n;
+            })
+          );
+          $("events").replaceChildren(
+            ...s.events
+              .slice()
+              .reverse()
+              .map((e) => {
+                const n = element("div", "", "event");
+                n.append(
+                  element(
+                    "small",
+                    new Date(e.at).toLocaleTimeString() + " · " + e.type
+                  ),
+                  element("div", e.detail)
+                );
+                for (const o of e.observations || [])
+                  n.append(
+                    element(
+                      "div",
+                      `${o.actor} · ${o.action} → ${o.allowed ? "ALLOWED / executed" : "DENIED / not executed"}${o.reason ? " · " + o.reason : ""}${o.certificateId ? " · certificate " + o.certificateId : ""}`,
+                      "result"
+                    )
+                  );
+                return n;
+              })
+          );
+        } catch (e) {
+          $("error").textContent =
+            "Connection to the presenter was lost. Keep pnpm demo running and reload this page.";
+          $("error").style.display = "block";
+        }
+      }
+      async function action(url) {
+        requestPending = true;
+        await render();
+        try {
+          const r = await fetch(url, {
+            method: "POST",
+            headers: { "X-Demo-Token": token },
+          });
+          if (!r.ok) {
+            const body = await r.json();
+            $("error").textContent = body.error;
+            $("error").style.display = "block";
+          }
+        } catch (e) {
+          $("error").textContent = e.message;
+          $("error").style.display = "block";
+        } finally {
+          requestPending = false;
+          await render();
+        }
+      }
+      $("next").onclick = () => action("/next");
+      $("pause").onclick = () => action("/pause");
+      $("restart").onclick = () => {
+        if (
+          confirm(
+            "Start a fresh run with new identities? The current actors, grants and audit history will remain in the isolated simulator."
+          )
+        )
+          action("/restart");
+      };
+      render();
+      setInterval(render, 1500);
+    </script>
+  </body>
+</html>

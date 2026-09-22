@@ -1,7 +1,7 @@
 {
   "name": "@vaultysclaw/simulator",
   "version": "0.0.1",
-  "description": "Fleet simulator — drives thousands of real-VaultysId Actors against the control plane and exercises the full lifecycle",
+  "description": "Fleet simulator \u2014 drives thousands of real-VaultysId Actors against the control plane and exercises the full lifecycle",
   "type": "module",
   "private": true,
   "scripts": {
@@ -9,7 +9,8 @@
     "start": "node --conditions=tsx --import tsx src/index.ts",
     "build": "tsc --noEmit",
     "type-check": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "guided": "node --conditions=tsx --import tsx src/guided/main.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.8.0",

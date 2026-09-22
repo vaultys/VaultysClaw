@@ -10,14 +10,14 @@
     "controlplane:docker:down": "docker compose -f docker/docker-compose.controlplane.yml down",
     "controlplane:docker:logs": "docker compose -f docker/docker-compose.controlplane.yml logs -f",
     "controlplane:migrate": "sh -c 'export DATABASE_URL=${DATABASE_URL:-postgresql://vaultys:${PG_PASSWORD:-vaultys_dev_secret}@localhost:${PG_PORT:-5433}/vaultysclaw}; exec pnpm --filter @vaultysclaw/controlplane exec prisma migrate deploy'",
-    "controlplane:dev": "pnpm controlplane:docker:up && sh -c 'export DATABASE_URL=${DATABASE_URL:-postgresql://vaultys:${PG_PASSWORD:-vaultys_dev_secret}@localhost:${PG_PORT:-5433}/vaultysclaw}; pnpm controlplane:migrate && exec pnpm --filter @vaultysclaw/controlplane dev'",
+    "controlplane:dev": "pnpm exec turbo run build --filter=@vaultysclaw/policy --filter=@vaultysclaw/shared --filter=@vaultysclaw/trust && pnpm controlplane:docker:up && sh -c 'export DATABASE_URL=${DATABASE_URL:-postgresql://vaultys:${PG_PASSWORD:-vaultys_dev_secret}@localhost:${PG_PORT:-5433}/vaultysclaw}; pnpm controlplane:migrate && exec pnpm --filter @vaultysclaw/controlplane dev'",
     "controlplane:webhook:prisma": "pnpm --filter @vaultysclaw/webhook-dispatcher prisma:sync",
     "controlplane:webhook:dev": "pnpm controlplane:webhook:prisma && sh -c 'set -a; [ -f packages/controlplane/.env ] && . ./packages/controlplane/.env; set +a; BULLMQ_PREFIX=${BULLMQ_PREFIX:-vaultysclaw-controlplane} exec pnpm --filter @vaultysclaw/webhook-dispatcher dev'",
     "webhook:dev": "pnpm --filter @vaultysclaw/webhook-dispatcher dev",
     "webhook:start": "pnpm --filter @vaultysclaw/webhook-dispatcher start",
     "webhook:build": "pnpm --filter @vaultysclaw/webhook-dispatcher build",
     "sensor:start": "cd vaultysclaw-sensor && VCS_COLLECTOR_URL=http://localhost:8083 VCS_DEBUG=true go run ./cmd/sensor run",
-    "dev": "turbo run dev",
+    "dev": "pnpm controlplane:dev",
     "-- BUILD --": "",
     "build": "turbo run build",
     "-- QUALITY --": "",
@@ -39,7 +39,10 @@
     "simulator:down": "pnpm simulator:docker:down",
     "simulator:nuke": "pnpm simulator:docker:nuke",
     "simulator:demo": "pnpm simulator --actors 2000 --agents 5000 --rate 150 --max-in-flight 300 --duration 180 --auto-approve --status-refresh 45000",
-    "simulator:build": "sh -c 'set -a; . ./docker/simulator.env; set +a; exec pnpm --filter @vaultysclaw/controlplane exec next build'"
+    "simulator:build": "sh -c 'set -a; . ./docker/simulator.env; set +a; exec pnpm --filter @vaultysclaw/controlplane exec next build'",
+    "doctor": "bash quick-start.sh --check",
+    "setup": "bash quick-start.sh",
+    "setup:down": "bash quick-start.sh --down"
   },
   "devDependencies": {
     "@types/node": "^22.20.1",

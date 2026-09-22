@@ -149,8 +149,8 @@ export function parseConfig(argv: string[]): SimConfig {
     process.exit(1);
   }
 
-  const actors = int(values.actors, 2000);
-  const agents = int(values.agents, 5000);
+  const actors = int(values.actors, 200);
+  const agents = int(values.agents, 300);
 
   return {
     actors,

@@ -52,11 +52,10 @@ It generates a VaultysID server-side, writes the human Actor and a standing
 - **the passphrase-encrypted backup file** `lib/identity-backup.ts` restores — the same format the
   console's own "Back up identities" writes.
 
-The snippet exists because the proper restore UI **cannot be reached from the browser it is for**:
-backup/restore lives behind the "advanced identity management" opt-in, whose toggle is on
-`/identity` — a page you must already be signed in to open. From a fresh browser with no key that
-is a closed loop. The snippet sets the opt-in too, so the picker and backup panel are there
-afterwards.
+For a fresh browser, the login page now offers **Use a saved or backed-up VaultysID**, which
+reveals the identity picker and backup restore panel. Prefer restoring the encrypted backup
+there; the console snippet remains an optional development shortcut. Alternatively, on a fresh
+demo database, create the first admin directly through the login page's browser-identity option.
 
 Nothing about the resulting Actor is special: it is an ordinary human holding an ordinary
 certificate, and the browser signs in with the same Challenger exchange as always. What *is*

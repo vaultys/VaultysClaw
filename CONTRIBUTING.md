@@ -1,74 +1,58 @@
 # Contributing to VaultysClaw
 
-Thanks for your interest in contributing! VaultysClaw is a Zero Trust AI agent
-orchestration platform, and we welcome issues, discussions, and pull requests.
+VaultysClaw is an agent identity and trust platform, organized as a pnpm/Turborepo monorepo
+with two Go modules. Please follow the [Code of Conduct](CODE_OF_CONDUCT.md).
 
-By participating, you agree to abide by our [Code of Conduct](./CODE_OF_CONDUCT.md).
+## Development setup
 
-## Getting Started
-
-VaultysClaw is a **pnpm + Turborepo monorepo**.
-
-**Prerequisites:**
-
-- Node.js 22+
-- pnpm 10+ (`corepack enable` will pick up the pinned version)
-- Docker (used by the test suite to spin up an ephemeral Postgres, and by the demo stack)
+- Node.js 22+ and the exact pnpm version in the root `package.json` (`packageManager`).
+- Docker with Compose for PostgreSQL, Redis and Apprise.
+- Go matching each module's `go.mod`, if working on the SDK or sensor.
 
 ```bash
-git clone https://github.com/vaultys/VaultysClaw.git
-cd VaultysClaw
 pnpm install
-pnpm vaultysclaw:dev          # control plane (:3000 / ws :8080) + agent controller
+pnpm dev
 ```
 
-See the [README](./README.md) for the full quick-start and architecture overview,
-and [CLAUDE.md](./CLAUDE.md) for a deep dive into project structure and patterns.
+This starts the development backing services, builds the control plane's workspace dependencies,
+applies migrations and starts the control plane at http://localhost:3001 (WebSocket 8081).
+The backing services use ports 5433, 6381 and 8000. For webhook delivery, run
+`pnpm controlplane:webhook:dev` in another terminal, using the same database as the control plane.
+Stop the app with Ctrl+C and the services with `pnpm controlplane:docker:down`.
 
-## Development Workflow
+For a local evaluation without host Node/pnpm, use `./quick-start.sh` instead; see the [README](README.md).
+`pnpm doctor` checks prerequisites for that Docker-based setup, not the entire development toolchain.
 
-1. **Fork** the repo and create a feature branch off `main`:
-   `git checkout -b feat/my-change`
-2. **Make your change**, following the conventions below.
-3. **Validate locally** before pushing:
-   ```bash
-   pnpm lint
-   pnpm type-check
-   pnpm test
-   ```
-4. **Open a pull request** against `main` with a clear description of what and why.
-   Reference related issues (e.g. `Closes #123`).
+## Verification
 
-CI runs lint, type-check, and the test suite on every PR — please make sure these
-pass. The test suite starts its own Postgres container via Docker, so Docker must
-be running locally.
+```bash
+pnpm type-check
+pnpm test
+python3 -m unittest discover -s scripts/tests -v
+```
+
+Package tests live under each package's `__tests__` directory. The root `__tests__` directory
+contains historical tests against removed packages and is not run by `pnpm test`.
+Do not add new tests there; see the [cleanup inventory](docs/PROJECT_IMPROVEMENTS.md).
+
+For Go changes, run `go vet ./...` and `go test -race -count=1 ./...` from the affected module
+(`sdk-go` or `vaultysclaw-sensor`). Changes to shared `conformance/` fixtures require both
+TypeScript and Go checks. `-count=1` prevents Go's cache from hiding fixture changes outside its module.
+
+CI checks TypeScript types, package tests, both Go modules and Docker builds. The Docker workflow
+also starts the isolated quick-start stack and checks service readiness. Package unit tests do not
+require a running database. Repository-wide lint configuration still needs modernization;
+`pnpm lint` is not currently a CI gate.
 
 ## Conventions
 
-- **TypeScript everywhere.** Match the style of the surrounding code.
-- **New REST APIs** must follow the **ts-rest + `APIException`** pattern documented
-  in [CLAUDE.md](./CLAUDE.md) (contracts split into `*.schemas.ts` / `*.types.ts` /
-  `*.contract.ts`). Contracts are the single source of truth. All API will follow this pattern (need a migration).
-- **Adding a tool / skill / WebSocket message** — see the "Key Patterns" section in
-  [CLAUDE.md](./CLAUDE.md).
-- **Formatting** is handled by Prettier: run `pnpm format` before committing.
-- **Tests** — add or update tests for behaviour changes. Tests live in `__tests__/`
-  at the repo root and use Vitest.
+Read [CLAUDE.md](CLAUDE.md) and the relevant package's guidance before changing behavior.
+Keep `policy` and `trust` free of I/O. Authorize mutating server actions themselves, and use the
+shared event catalog and payload helpers when adding audit events or notifications.
 
-## Commit & PR Guidelines
+Keep changes focused, preserve meaningful behavior coverage, and update documentation alongside
+changes to commands or user flows. Format changed files with Prettier where applicable.
 
-- Keep commits focused and write clear messages (imperative mood: "Add", "Fix", "Refactor").
-- Keep PRs reasonably scoped; large refactors are easier to review when split.
-- Update documentation (README, package READMEs, CLAUDE.md) when you change behaviour.
-
-## Reporting Bugs & Requesting Features
-
-- **Bugs / features**: use the [issue templates](https://github.com/vaultys/VaultysClaw/issues/new/choose).
-- **Security vulnerabilities**: **do not** open a public issue — follow
-  [SECURITY.md](./SECURITY.md).
-- **Questions / ideas**: open a GitHub Discussion.
-
-## License
-
-By contributing, you agree that your contributions will be licensed under the
-project's [MIT License](./LICENSE).
+Report bugs through [GitHub Issues](https://github.com/vaultys/VaultysClaw/issues).
+For vulnerabilities, follow [SECURITY.md](SECURITY.md).
+Contributions are licensed under the project's [MIT License](LICENSE).

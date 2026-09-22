@@ -57,7 +57,7 @@ pnpm lint
 pnpm type-check
 pnpm format
 
-# Testing — every suite is per-package; there is no root __tests__ directory
+# Testing — supported suites are per-package; root __tests__ contains excluded legacy tests
 pnpm test                                            # turbo run test, all packages
 pnpm --filter @vaultysclaw/policy test
 pnpm --filter @vaultysclaw/trust test                # includes the conformance vectors

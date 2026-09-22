@@ -1,0 +1,18 @@
+# Local override only; never used by the deployment workflow.
+# !override / !reset require Docker Compose 2.24.4+.
+# The launcher selects a dedicated project, so these volumes never reuse deployment data.
+services:
+  postgres:
+    ports: !reset []
+  redis:
+    ports: !reset []
+  controlplane:
+    build:
+      args:
+        NEXT_PUBLIC_ALLOW_DEV_LOGIN: "1"
+    ports: !override
+      - "127.0.0.1:3010:3000"
+      - "127.0.0.1:8090:8080"
+    environment:
+      NEXTAUTH_URL: http://localhost:3010
+      APP_URL: http://localhost:3010

@@ -1,6 +1,6 @@
 # Docker
 
-Three compose files live here. Only the first one runs the application; the other two start
+Three base compose files live here, plus a local quick-start override. Only the first base file runs the application; the other two start
 backing services for local work and use different ports so all three can coexist.
 
 | File | What it is | Ports |
@@ -11,6 +11,16 @@ backing services for local work and use different ports so all three can coexist
 
 The last two are driven by the root package scripts (`pnpm controlplane:docker:up`,
 `pnpm simulator:up`) — see the root `CLAUDE.md`. Everything below is about the first one.
+
+## Isolated local quick start
+
+Run `./quick-start.sh` from the repository root. It combines `docker-compose.yml` with
+`docker-compose.quickstart.yml` under the dedicated `vaultysclaw-quickstart` project.
+The override removes database/Redis host ports, binds HTTP/WS to 127.0.0.1:3010/8090,
+and enables browser identity creation at build time. It requires Compose 2.24.4+.
+Generated credentials live in ignored `docker/quickstart.env`; keep that file when reusing volumes.
+`./quick-start.sh --down` keeps data; `--logs` follows service output; `--check` is read-only.
+The deployment workflow does not use this override.
 
 ## The deployed stack
 

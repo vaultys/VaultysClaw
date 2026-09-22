@@ -4,9 +4,15 @@ node_modules
 
 # Build outputs
 dist
+**/dist
 build
+**/build
 .next
+**/.next
 out
+**/out
+**/.turbo
+**/*.tsbuildinfo
 
 # Test artifacts
 coverage
@@ -17,8 +23,15 @@ coverage
 .gitignore
 *.md
 .env
+**/.env
 *.env
+**/*.env
 *.env.local
+**/.env.*
+**/.simdata
+.vaultys
+.devdata
+.pnpm-store
 
 # OS
 .DS_Store
@@ -27,3 +40,4 @@ coverage
 .vscode
 .idea
 *.swp
+.env.compose

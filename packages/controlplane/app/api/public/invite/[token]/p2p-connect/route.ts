@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { VaultysId } from "@vaultys/id";
 import { UserLoginChannel } from "@/lib/user-login-channel";
+import { parseP2PConnectWindowSeconds } from "@/lib/login-window";
+import { SETTINGS_KEYS } from "@/lib/org-settings";
 import { SettingsDAO } from "@/db";
 
 /**
@@ -14,7 +16,13 @@ export async function GET(
 ) {
   const { token } = await params;
   const cert = await UserLoginChannel.createRegistrationCertificate(token);
-  const connectionString = await UserLoginChannel.startP2PSession(cert);
+  const connectWindowSeconds = parseP2PConnectWindowSeconds(
+    await SettingsDAO.get(SETTINGS_KEYS.p2pConnectWindowSeconds)
+  );
+  const connectionString = await UserLoginChannel.startP2PSession(
+    cert,
+    connectWindowSeconds * 1000
+  );
 
   const serverSecret = await SettingsDAO.get("serverSecret");
   const serverDid = serverSecret ? VaultysId.fromSecret(serverSecret, "base64").did : null;
@@ -24,5 +32,6 @@ export async function GET(
     token: cert.connection,
     key: cert.key,
     serverDid,
+    connectWindowSeconds,
   });
 }

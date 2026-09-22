@@ -67,7 +67,10 @@ export interface DeclaredCapability {
 
 export interface RegisterPayload {
   name: string;
-  /** Open-ended — "openclaw" | "mcp" | "sensor" | "device" | future kinds (§4.2, lib/actor-kinds.ts). Not human; humans onboard via login, not this handshake. */
+  /** Open-ended — "openclaw" | "mcp" | "sensor" | "device" | future kinds (§4.2, lib/actor-kinds.ts).
+   *  Not human; humans onboard via login, not this handshake. Enforced, not merely documented:
+   *  `isRegisterableKind` refuses a human-category kind at `handleRegister` and again at approval
+   *  (see its doc comment for what a self-declared human would otherwise be exempt from). */
   kind: string;
   /** The Actor's whole capability manifest, if it has one. See {@link DeclaredCapability}. */
   declaredCapabilities?: DeclaredCapability[];

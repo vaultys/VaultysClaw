@@ -11,6 +11,7 @@ import type { AgentCapability } from "@vaultysclaw/policy";
 import { PendingRegistrationDAO, ActorDAO } from "@/db";
 import { getWSServerInstance } from "./ws-server";
 import { grantableCapabilitiesForKind } from "./capabilities";
+import { isRegisterableKind } from "./actor-kinds";
 import { getKillSwitchState, killSwitchReason, suppressionForActor } from "./kill-switch";
 import { recordEvent } from "./audit";
 import { actorPayload, actorAdminUrl, buildAdminUrl, type PerformedBy } from "./webhook-payloads";
@@ -23,6 +24,17 @@ export async function approvePendingRegistration(
   const registration = await PendingRegistrationDAO.findById(registrationId);
   if (!registration || registration.status !== "pending") {
     throw new Error("Registration not found or already resolved");
+  }
+
+  // Re-checked here, not only at the handshake that wrote this row. `kind` is copied verbatim into
+  // the Actor below, and a human-kind Actor is permanently kill-switch exempt and offered
+  // `admin_console_access` by the allow-list — so the one place that turns a client's assertion
+  // into a real row refuses it too, rather than trusting that the row was written by a control
+  // plane that already had this check. That also covers rows created before it existed.
+  if (!isRegisterableKind(registration.kind)) {
+    throw new Error(
+      `Cannot approve a registration claiming kind '${registration.kind}' — humans onboard via login, not the registration handshake. Deny it instead.`
+    );
   }
 
   // Refuse while a kill switch covers where this Actor would land. Approving

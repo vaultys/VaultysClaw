@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { SettingsDAO } from "@/db";
 import { SETTINGS_KEYS } from "@/lib/org-settings";
+import { validateP2PConnectWindowSeconds } from "@/lib/login-window";
 import { requireAdmin } from "@/lib/require-admin";
 import { invalidateTrustPolicyCache } from "@/lib/trust-policy";
 import { getWSServerInstance } from "@/lib/ws-server";
@@ -53,6 +54,29 @@ export async function updateTrustPolicyAction(formData: FormData): Promise<void>
   // agent may be never. Actors whose workspace overrides both fields will simply
   // receive the same payload again.
   void getWSServerInstance()?.pushActorConfigToAll();
+
+  revalidatePath("/admin/settings");
+}
+
+/**
+ * How long a QR sign-in stays open (`lib/login-window.ts`).
+ *
+ * Its own action rather than a field on the General form: this one is read on the public login
+ * path and bounds a background handshake, so it is worth being able to change without touching
+ * anything the sidebar renders — and worth failing loudly on a bad value instead of quietly
+ * clamping, which is what the validating parser is for.
+ *
+ * Nothing needs invalidating or pushing. The value is read per request by the two `p2p-connect`
+ * routes, so the next person to open the login page gets the new window; sessions already waiting
+ * keep the window they were promised, which is the right way round.
+ */
+export async function updateSignInSettingsAction(formData: FormData): Promise<void> {
+  await requireAdmin();
+
+  const seconds = validateP2PConnectWindowSeconds(
+    (formData.get("p2pConnectWindowSeconds") as string) ?? ""
+  );
+  await SettingsDAO.set(SETTINGS_KEYS.p2pConnectWindowSeconds, String(seconds));
 
   revalidatePath("/admin/settings");
 }

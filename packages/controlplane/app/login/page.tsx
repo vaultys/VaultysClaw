@@ -12,6 +12,7 @@ import {
   type BrowserIdData,
 } from "@/lib/browser-connect";
 import BrowserIdentityPicker from "@/components/BrowserIdentityPicker";
+import ConnectCountdown from "@/components/ConnectCountdown";
 import { isBrowserBootstrapEnabled } from "@/lib/browser-bootstrap";
 import { useAdvancedIdentity } from "@/lib/advanced-identity";
 
@@ -37,6 +38,15 @@ const WALLET_URL = process.env.NEXT_PUBLIC_WALLET_URL || "https://wallet.vaultys
 // process.env.NODE_ENV is inlined at build time by Next.js, including in client bundles —
 // this is never a runtime env lookup, so it's safe to gate UI on it directly.
 const BROWSER_BOOTSTRAP_ENABLED = isBrowserBootstrapEnabled();
+
+/**
+ * How long to poll the browser-key transport, which has no server-side window to inherit.
+ *
+ * The QR transport's bound comes from the server (`connectWindowSeconds`) because a background
+ * PeerJS session is counting down against the same number; this one runs over plain HTTP with
+ * nothing to time out against, so it keeps the three minutes this loop has always used.
+ */
+const BROWSER_POLL_SECONDS = 180;
 
 type Phase = "loading" | "waiting" | "browser-connecting" | "success" | "failure";
 
@@ -85,6 +95,8 @@ interface SsoProviderOption {
 export default function LoginPage() {
   const [phase, setPhase] = useState<Phase>("loading");
   const [qrUrl, setQrUrl] = useState<string>();
+  /** The QR transport's window, as the server reported it — null until a code is on screen. */
+  const [connectWindow, setWindow] = useState<{ seconds: number; deadline: number } | null>(null);
   const [ssoProviders, setSsoProviders] = useState<SsoProviderOption[]>([]);
   // localStorage read in an effect, not during render — see lib/advanced-identity.ts.
   const [hasKey, setHasKey] = useState(false);
@@ -123,8 +135,10 @@ export default function LoginPage() {
     };
   }, []);
 
-  const pollAndSignIn = useCallback(async (token: string, key: string) => {
-    for (let i = 0; i < 180 && !cancelled.current; i++) {
+  const pollAndSignIn = useCallback(async (token: string, key: string, windowSeconds: number) => {
+    // Bounded by the window the server is actually keeping, so the page stops when the handshake
+    // behind it stops — rather than polling on against a session that has already been torn down.
+    for (let i = 0; i < windowSeconds && !cancelled.current; i++) {
       const pollRes = await fetch(`/api/public/user/listen/${token}`);
       const { status, certRound } = await pollRes.json();
       if (cancelled.current) return;
@@ -161,20 +175,24 @@ export default function LoginPage() {
 
   const start = useCallback(async () => {
     setPhase("loading");
+    setWindow(null);
     cancelled.current = false;
 
     const res = await fetch("/api/public/user/p2p-connect");
-    const { connectionString, token, key, serverDid } = await res.json();
+    const { connectionString, token, key, serverDid, connectWindowSeconds } = await res.json();
 
     const didParam = serverDid ? `&did=${encodeURIComponent(serverDid)}` : "";
     setQrUrl(`${WALLET_URL}/#${connectionString}&protocol=p2p&service=auth${didParam}`);
+    // Set from the moment the code is on screen, which is also when the server started counting.
+    setWindow({ seconds: connectWindowSeconds, deadline: Date.now() + connectWindowSeconds * 1000 });
     setPhase("waiting");
 
-    await pollAndSignIn(token, key);
+    await pollAndSignIn(token, key, connectWindowSeconds);
   }, [pollAndSignIn]);
 
   const startBrowserLogin = useCallback(async (identity?: BrowserIdData) => {
     setPhase("browser-connecting");
+    setWindow(null);
     cancelled.current = false;
 
     const res = await fetch("/api/public/user/connect");
@@ -191,7 +209,7 @@ export default function LoginPage() {
     // failed), so a rejection is intentionally swallowed rather than shown
     // directly — same behavior as the QR flow's failure path.
     void connectWithBrowserIdentity(key, identity).catch(() => {});
-    await pollAndSignIn(token, key);
+    await pollAndSignIn(token, key, BROWSER_POLL_SECONDS);
   }, [pollAndSignIn]);
 
   useEffect(() => {
@@ -258,8 +276,11 @@ export default function LoginPage() {
             </span>
             <div>
               <h2 className="text-lg font-semibold text-foreground">Sign in with VaultysID</h2>
+              {/* "scan the QR code below" has to stop being said once there is no code below. */}
               <p className="mt-1 text-sm text-foreground-500">
-                Open your VaultysID app and scan the QR code below
+                {phase === "failure"
+                  ? "That code is no longer valid — start again for a fresh one"
+                  : "Open your VaultysID app and scan the QR code below"}
               </p>
             </div>
           </div>
@@ -278,6 +299,25 @@ export default function LoginPage() {
                 Proving a VaultysID stored in this browser.
               </p>
             </div>
+          ) : phase === "failure" ? (
+            /*
+             * The code is gone once the window closes, not just annotated as dead. The server has
+             * already torn the channel down, so scanning it cannot do anything — leaving it on
+             * screen invites exactly the attempt that will silently fail, and someone who looked
+             * away and back would have no way to tell a live code from a spent one. Same footprint
+             * as the QR so the card doesn't jump, with the retry sitting where the code was.
+             */
+            <div className="mt-6 flex justify-center">
+              <div className="flex h-52 w-52 flex-col items-center justify-center gap-4 rounded-xl border border-dashed border-danger-200 bg-danger-50/40 px-6 text-center">
+                <p className="text-sm text-danger-600">Connection failed or timed out.</p>
+                <button
+                  onClick={start}
+                  className="px-4 py-2 bg-primary-600 hover:bg-primary-500 text-white rounded-lg text-sm font-medium transition-colors"
+                >
+                  Try again
+                </button>
+              </div>
+            </div>
           ) : (
             <div className="mt-6 flex justify-center">
               {qrUrl ? (
@@ -293,23 +333,19 @@ export default function LoginPage() {
           )}
 
           {phase === "waiting" && (
-            <div className="mt-6 flex items-center justify-center gap-2 text-sm text-foreground-500">
-              <div className="w-3 h-3 border-2 border-primary-400 border-t-transparent rounded-full animate-spin" />
-              Waiting for scan…
+            <div className="mt-6 space-y-3">
+              <div className="flex items-center justify-center gap-2 text-sm text-foreground-500">
+                <div className="w-3 h-3 border-2 border-primary-400 border-t-transparent rounded-full animate-spin" />
+                Waiting for scan…
+              </div>
+              {connectWindow && (
+                <ConnectCountdown
+                  deadline={connectWindow.deadline}
+                  totalSeconds={connectWindow.seconds}
+                />
+              )}
             </div>
           )}
-          {phase === "failure" && (
-            <div className="mt-6 space-y-3 text-center">
-              <p className="text-sm text-danger-600">Connection failed or timed out.</p>
-              <button
-                onClick={start}
-                className="px-4 py-2 bg-primary-600 hover:bg-primary-500 text-white rounded-lg text-sm font-medium transition-colors"
-              >
-                Try again
-              </button>
-            </div>
-          )}
-
           {showBrowserOption && (phase === "waiting" || phase === "loading") && (
             <div className="mt-6 space-y-2 text-center">
               <button

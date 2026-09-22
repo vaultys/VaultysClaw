@@ -15,6 +15,9 @@ export const SETTINGS_KEYS = {
    *  part of the contract, so it lives here rather than inline in that file. */
   litellmBaseUrl: "litellm.baseUrl",
   litellmMasterKeyEnc: "litellm.masterKeyEnc",
+  /** How long a QR login stays open waiting for a wallet, in seconds. Parsing, bounds and the
+   *  reason they exist live in `lib/login-window.ts`. */
+  p2pConnectWindowSeconds: "login.p2pConnectWindowSeconds",
   adminOnboardingDismissed: "admin.onboarding.dismissed",
 } as const;
 

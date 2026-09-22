@@ -41,6 +41,7 @@ import {
   CustomCapabilityDAO,
 } from "@/db";
 import { persistChallengerCertificate, selectRedeliverableCertificate } from "./certificates";
+import { isRegisterableKind, MAX_KIND_LENGTH } from "./actor-kinds";
 import { recordEvent } from "./audit";
 import { buildAdminUrl } from "./webhook-payloads";
 import { WsSender, type AgentSender } from "./agent-sender";
@@ -474,6 +475,24 @@ export class ControlPlaneWSServer {
   // ─── Registration + auth handshake ──────────────────────────────────────
 
   private handleRegister(sender: AgentSender, payload: RegisterPayload): void {
+    // `kind` is the client's own assertion about itself, arriving before anything has been proven
+    // — so it is checked here, at the boundary, rather than trusted the whole way to the Actor row
+    // (`lib/registrations.ts` writes it verbatim on approval). `isRegisterableKind` says why the
+    // human category is the one that must be refused.
+    //
+    // Refused rather than quietly coerced to "openclaw": a client asking to be a human is either
+    // broken or probing, and both are worth a log line and a failed connection instead of a
+    // silently renamed Actor an admin would have to notice.
+    const kind = payload.kind ?? "openclaw";
+    if (!isRegisterableKind(kind)) {
+      logger.warn({ kind: kind.slice(0, MAX_KIND_LENGTH), name: payload.name }, "Register refused — invalid kind");
+      this.sendMessage(sender, "auth_failed", {
+        reason: `'${kind.slice(0, MAX_KIND_LENGTH)}' is not a kind an Actor may register as`,
+      } satisfies AuthFailedPayload);
+      sender.close();
+      return;
+    }
+
     const sessionId = randomBytes(16).toString("hex");
     const timer = setTimeout(() => {
       logger.warn({ sessionId }, "Handshake timed out");
@@ -486,7 +505,7 @@ export class ControlPlaneWSServer {
       sender,
       sessionId,
       name: payload.name ?? "unknown",
-      kind: payload.kind ?? "openclaw",
+      kind,
       // Held until the handshake proves a DID — there is nobody to attribute a declaration to
       // before that, and an unauthenticated socket must not be able to write to any Actor row.
       declaredCapabilities: Array.isArray(payload.declaredCapabilities)

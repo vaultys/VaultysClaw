@@ -10,9 +10,13 @@ import {
   type BrowserIdData,
 } from "@/lib/browser-connect";
 import BrowserIdentityPicker from "@/components/BrowserIdentityPicker";
+import ConnectCountdown from "@/components/ConnectCountdown";
 import { useAdvancedIdentity } from "@/lib/advanced-identity";
 
 const WALLET_URL = process.env.NEXT_PUBLIC_WALLET_URL || "https://wallet.vaultys.net";
+
+/** The browser-key transport has no server-side window to inherit — see app/login/page.tsx. */
+const BROWSER_POLL_SECONDS = 180;
 
 type InvalidReason = "not_found" | "expired" | "redeemed";
 type Phase =
@@ -56,11 +60,14 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
   const [invalidReason, setInvalidReason] = useState<InvalidReason>("not_found");
   const [inviteeName, setInviteeName] = useState<string>();
   const [qrUrl, setQrUrl] = useState<string>();
+  /** The wallet transport's window, as the server reported it — null until a code is on screen. */
+  const [connectWindow, setWindow] = useState<{ seconds: number; deadline: number } | null>(null);
   const [advanced] = useAdvancedIdentity();
   const cancelled = useRef(false);
 
-  const pollAndSignIn = useCallback(async (pollToken: string, key: string) => {
-    for (let i = 0; i < 180 && !cancelled.current; i++) {
+  const pollAndSignIn = useCallback(async (pollToken: string, key: string, windowSeconds: number) => {
+    // Bounded by the window the server is keeping, not a fixed count — see app/login/page.tsx.
+    for (let i = 0; i < windowSeconds && !cancelled.current; i++) {
       const pollRes = await fetch(`/api/public/user/listen/${pollToken}`);
       const { status } = await pollRes.json();
       // Re-checked after the await: a transport switch mid-request must not let an
@@ -87,10 +94,17 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
 
   const startWallet = useCallback(async () => {
     setPhase("loading");
+    setWindow(null);
     cancelled.current = false;
 
     const res = await fetch(`/api/public/invite/${token}/p2p-connect`);
-    const { connectionString, token: pollToken, key, serverDid } = await res.json();
+    const {
+      connectionString,
+      token: pollToken,
+      key,
+      serverDid,
+      connectWindowSeconds,
+    } = await res.json();
 
     // `service=auth` here (not "register") matches app/login/page.tsx's own QR deep link exactly —
     // whether this is a fresh registration is actually decided server-side by the AuthCertificate's
@@ -98,9 +112,10 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
     // either value, but only "auth" has ever been exercised against a real wallet app.
     const didParam = serverDid ? `&did=${encodeURIComponent(serverDid)}` : "";
     setQrUrl(`${WALLET_URL}/#${connectionString}&protocol=p2p&service=auth${didParam}`);
+    setWindow({ seconds: connectWindowSeconds, deadline: Date.now() + connectWindowSeconds * 1000 });
     setPhase("waiting");
 
-    await pollAndSignIn(pollToken, key);
+    await pollAndSignIn(pollToken, key, connectWindowSeconds);
   }, [token, pollAndSignIn]);
 
   /** `identity` omitted — the ordinary case — means "whichever key this browser
@@ -111,6 +126,7 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
   const startBrowser = useCallback(
     async (identity?: BrowserIdData) => {
       setPhase("browser-connecting");
+      setWindow(null);
       cancelled.current = false;
 
       let chosen: BrowserIdData;
@@ -128,7 +144,7 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
       // Same fire-and-forget-through-polling shape as /login — a rejection here surfaces via the
       // poll below (the server marks the cert failed) rather than directly.
       void connectWithBrowserIdentity(key, chosen).catch(() => {});
-      await pollAndSignIn(pollToken, key);
+      await pollAndSignIn(pollToken, key, BROWSER_POLL_SECONDS);
     },
     [token, pollAndSignIn]
   );
@@ -200,9 +216,12 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
               <p className="text-sm text-foreground-500 mt-1">
                 {isSsoBinding
                   ? "Your sign-in was verified. We're linking the VaultysID your account is built on — it's the identity every permission you're given is attached to."
-                  : mode === "wallet"
-                    ? "Open your VaultysID app and scan the QR code below to accept"
-                    : "Accepting with a VaultysID held by this browser"}
+                  : mode !== "wallet"
+                    ? "Accepting with a VaultysID held by this browser"
+                    : // Same reason as app/login/page.tsx: there is no code below any more.
+                      phase === "failure"
+                      ? "That code is no longer valid — start again for a fresh one"
+                      : "Open your VaultysID app and scan the QR code below to accept"}
               </p>
             )}
           </div>
@@ -225,12 +244,29 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
               once you&apos;re in — nothing on the server can recover it.
             </p>
           </div>
+        ) : mode === "wallet" && phase === "failure" ? (
+          /*
+           * The code goes away with the window that backed it. The server has already torn the
+           * channel down, so a code left on screen can only produce a scan that silently does
+           * nothing — and nothing about a dead QR looks different from a live one. The panel keeps
+           * the QR's footprint so the card doesn't jump, and puts the retry where the code was.
+           * Only the wallet transport draws this; a browser-key failure never had a code to
+           * replace, and falls through to the plain message below.
+           */
+          <div className="flex justify-center">
+            <div className="flex h-52 w-52 flex-col items-center justify-center gap-4 rounded-xl border border-dashed border-danger-200 bg-danger-50/40 px-6 text-center">
+              <p className="text-sm text-danger-600">Connection failed or timed out.</p>
+              <button
+                onClick={() => void retry()}
+                className="px-4 py-2 bg-primary-600 hover:bg-primary-500 text-white rounded-lg text-sm font-medium transition-colors"
+              >
+                Try again
+              </button>
+            </div>
+          </div>
         ) : (
           mode === "wallet" &&
-          (phase === "loading" ||
-            phase === "waiting" ||
-            phase === "success" ||
-            phase === "failure") && (
+          (phase === "loading" || phase === "waiting" || phase === "success") && (
             <div className="flex justify-center">
               {qrUrl ? (
                 <div className="bg-white p-4 rounded-xl border border-neutral-200 shadow-sm">
@@ -246,12 +282,21 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
         )}
 
         {phase === "waiting" && (
-          <div className="flex items-center justify-center gap-2 text-sm text-foreground-500">
-            <div className="w-3 h-3 border-2 border-primary-400 border-t-transparent rounded-full animate-spin" />
-            Waiting for scan…
+          <div className="space-y-3">
+            <div className="flex items-center justify-center gap-2 text-sm text-foreground-500">
+              <div className="w-3 h-3 border-2 border-primary-400 border-t-transparent rounded-full animate-spin" />
+              Waiting for scan…
+            </div>
+            {connectWindow && (
+              <ConnectCountdown
+                deadline={connectWindow.deadline}
+                totalSeconds={connectWindow.seconds}
+              />
+            )}
           </div>
         )}
-        {phase === "failure" && (
+        {/* The wallet transport renders its own retry in place of the QR above. */}
+        {phase === "failure" && mode !== "wallet" && (
           <div className="space-y-3">
             <p className="text-sm text-danger-600">Connection failed or timed out.</p>
             <button

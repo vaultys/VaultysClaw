@@ -41,6 +41,79 @@ import { DuplicateEmailError } from "@/db/user.dao";
 const logger = pino({ name: "user-login-channel" });
 const Buffer = crypto.Buffer;
 
+/**
+ * How long an `AuthCertificate` row is good for, measured from `startedAt`.
+ *
+ * The row *is* the credential. `key` is what `authOptions`' credentials provider trades for a
+ * session, and for a bootstrap login the `certRound.key` reachable through `listen` is what
+ * co-signs `admin_console_access`. Nothing in the schema bounded either: a completed row that was
+ * never consumed stayed redeemable indefinitely, so a `key` left in a browser's history, a proxy
+ * log or a screenshot was a permanent way in rather than a momentary one.
+ *
+ * Ten minutes is far longer than any live attempt — `app/login/page.tsx` polls for three minutes
+ * and then gives up on its own — and short enough that a leaked key is worthless by the time
+ * anyone finds it. A row that expires mid-handshake just fails; the person retries and gets a new
+ * one, which costs a QR scan.
+ */
+export const AUTH_CERTIFICATE_TTL_MS = 10 * 60 * 1000;
+
+/** Whether this row is past {@link AUTH_CERTIFICATE_TTL_MS}. Every read path that could turn a
+ *  row into a session, or advance a handshake toward one, goes through this. */
+export function isAuthCertificateExpired(
+  cert: Pick<AuthCertificate, "startedAt">,
+  now: number = Date.now()
+): boolean {
+  return now - cert.startedAt.getTime() > AUTH_CERTIFICATE_TTL_MS;
+}
+
+/**
+ * Expired rows are refused on read, so deleting them reclaims storage rather than withdrawing
+ * access — which is why this runs opportunistically off the back of a login attempt instead of on
+ * a timer. No process lifecycle to manage, nothing to leak if this module is loaded in a Next.js
+ * route rather than the custom server, and two instances sweeping at once is a no-op rather than a
+ * race. The throttle keeps a burst of logins from issuing one `deleteMany` each; if nobody ever
+ * logs in again the leftovers are inert.
+ */
+const SWEEP_INTERVAL_MS = 5 * 60 * 1000;
+let lastSweepAt = 0;
+
+function sweepExpiredCertificates(): void {
+  const now = Date.now();
+  if (now - lastSweepAt < SWEEP_INTERVAL_MS) return;
+  lastSweepAt = now;
+  void AuthCertificateDAO.deleteStartedBefore(new Date(now - AUTH_CERTIFICATE_TTL_MS))
+    .then((count) => {
+      if (count > 0) logger.info({ count }, "Swept expired login certificates");
+    })
+    .catch((err) => logger.warn({ err }, "Sweeping expired login certificates failed"));
+}
+
+/** The rejection a raced-out `withDeadline` produces. Distinguishable from a real transport
+ *  failure, which must stay loud. */
+const TIMEOUT = "p2p-timeout";
+
+/**
+ * Race `promise` against `ms`, clearing the timer either way.
+ *
+ * The clearing is not tidiness: without it a 120-second connect window leaves a pending timer per
+ * abandoned QR code, which is a smaller version of the leak this whole bound exists to fix. The
+ * `unref` keeps one from holding the process open at shutdown.
+ */
+function withDeadline<T>(promise: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(TIMEOUT)), ms);
+    timer.unref?.();
+  });
+  return Promise.race([promise, timeout]).finally(() => {
+    if (timer) clearTimeout(timer);
+  }) as Promise<T>;
+}
+
+function isTimeout(err: unknown): boolean {
+  return err instanceof Error && err.message === TIMEOUT;
+}
+
 function verifyProtocol(challenger: Challenger): boolean {
   const { protocol, service } = challenger.getContext();
   return protocol === "p2p" && (service === "register" || service === "auth");
@@ -235,6 +308,7 @@ export class UserLoginChannel {
   static async createRegistrationCertificate(
     invitationToken?: string
   ): Promise<AuthCertificate> {
+    sweepExpiredCertificates();
     const key = crypto.randomBytes(32).toString("hex");
     return AuthCertificateDAO.create({
       id: crypto.randomBytes(16).toString("hex"),
@@ -254,6 +328,7 @@ export class UserLoginChannel {
   }
 
   static async createConnectionCertificate(): Promise<AuthCertificate> {
+    sweepExpiredCertificates();
     const key = crypto.randomBytes(32).toString("hex");
     return AuthCertificateDAO.create({
       id: crypto.randomBytes(16).toString("hex"),
@@ -312,9 +387,21 @@ export class UserLoginChannel {
    * certificate. Returns the PeerJS connection string embedded in the QR code.
    *
    * The API route returns immediately; the session runs in the background on
-   * the Node.js event loop until the wallet connects or the channel closes.
+   * the Node.js event loop until the wallet connects, the channel closes, or
+   * `connectWindowMs` elapses with nobody having connected at all.
+   *
+   * That last bound is the reason this takes a parameter. PeerJS never signals
+   * "nobody ever dialled in", so an unbounded first `receive()` meant every
+   * abandoned QR code left this loop and its channel alive for the life of the
+   * process. The caller passes the org's configured window
+   * (`lib/login-window.ts`) rather than this reading it, because the route also
+   * hands the same number to the browser to count down — one read, one value,
+   * no chance of the page promising a window the server isn't keeping.
    */
-  static async startP2PSession(cert: AuthCertificate): Promise<string> {
+  static async startP2PSession(
+    cert: AuthCertificate,
+    connectWindowMs: number
+  ): Promise<string> {
     const { PeerjsChannel } = await import("@vaultys/channel-peerjs");
 
     const channel = new PeerjsChannel(cert.key, "initiator", "0.peerjs.com");
@@ -322,8 +409,22 @@ export class UserLoginChannel {
 
     void (async () => {
       const mutableCert: MutableCert = { ...cert };
+      const deadline = Date.now() + connectWindowMs;
+      const remainingMs = () => Math.max(0, deadline - Date.now());
       try {
-        await channel.start(); // blocks until the wallet connects via the PeerJS relay
+        // `channel.start()` — not the first `receive()` — is what waits for a wallet to dial in,
+        // and it is the await that never returned when none did. PeerJS has no "nobody connected"
+        // signal, so the window is the only thing that ends it.
+        try {
+          await withDeadline(channel.start(), connectWindowMs);
+        } catch (startErr) {
+          if (!isTimeout(startErr)) throw startErr;
+          // Nobody scanned the code. Ordinary and expected — info, not warn, or a busy login page
+          // fills the log with one warning per abandoned tab.
+          logger.info({ id: cert.id, connectWindowMs }, "P2P login window closed with no wallet");
+          await AuthCertificateDAO.update(cert.id, { status: -2 });
+          return;
+        }
         const vid = await ServerIdentityDAO.getServerVaultysId();
         const challenger = new Challenger(vid);
 
@@ -334,24 +435,19 @@ export class UserLoginChannel {
         // state as completion instead of a failure.
         for (let round = 0; round < 4; round++) {
           let walletCert: Uint8Array;
+          // A wallet is connected by now, so these bound how long it may go quiet, not whether
+          // anyone turned up. Round 0 keeps whatever is left of the connect window (never less
+          // than a normal round) because the wallet is typically showing its owner an approval
+          // prompt at this point, and a human reading a phone screen is slower than a protocol
+          // round. Later rounds are machine-to-machine, and the 5s is also what detects the
+          // wallets that close the channel after a single round (see above).
+          const roundTimeoutMs = round === 0 ? Math.max(5_000, remainingMs()) : 5_000;
           try {
-            walletCert = await (round === 0
-              ? channel.receive()
-              : Promise.race([
-                  channel.receive(),
-                  new Promise<never>((_, reject) =>
-                    setTimeout(
-                      () => reject(new Error("p2p-round-timeout")),
-                      5_000
-                    )
-                  ),
-                ]));
+            walletCert = await withDeadline(channel.receive(), roundTimeoutMs);
           } catch (receiveErr) {
-            const isTimeout =
-              receiveErr instanceof Error &&
-              receiveErr.message === "p2p-round-timeout";
+            const timedOut = isTimeout(receiveErr);
             if (
-              isTimeout &&
+              timedOut &&
               challenger.state === 1 &&
               verifyProtocol(challenger)
             ) {
@@ -384,6 +480,11 @@ export class UserLoginChannel {
               } else {
                 await AuthCertificateDAO.update(cert.id, { status: -2 });
               }
+            } else if (timedOut && round === 0) {
+              // A wallet connected and then said nothing at all. Unlike "nobody scanned", this is
+              // worth a warning — something dialled in and abandoned the handshake.
+              logger.warn({ id: cert.id }, "P2P peer connected but never opened the handshake");
+              await AuthCertificateDAO.update(cert.id, { status: -2 });
             } else {
               logger.warn({ err: receiveErr, round }, "P2P receive failed");
               await AuthCertificateDAO.update(cert.id, { status: -2 });
@@ -449,6 +550,13 @@ export class UserLoginChannel {
 
     const cert = await AuthCertificateDAO.findByRegistration(token);
     if (!cert) return new Uint8Array([0]);
+    if (isAuthCertificateExpired(cert)) {
+      // Marked failed rather than just refused, so the polling client is told immediately instead
+      // of waiting out its own timeout on a row that can never complete.
+      logger.warn({ id: cert.id }, "Challenger round on an expired login certificate");
+      await AuthCertificateDAO.update(cert.id, { status: -2 });
+      return new Uint8Array([0]);
+    }
 
     const existingMeta = JSON.parse(
       cert.metadata ?? "{}"
@@ -616,21 +724,34 @@ export class UserLoginChannel {
     return CryptoChannel.encrypt(certificate, uintkey);
   }
 
+  /** The lookup `authOptions`' credentials provider makes before trading a key for a session —
+   *  so this is the one that decides whether a stale key still logs somebody in. */
   static async connecting(key: string): Promise<AuthCertificate | null> {
     if (!key) return null;
-    return AuthCertificateDAO.findByKey(key);
+    const cert = await AuthCertificateDAO.findByKey(key);
+    if (!cert || isAuthCertificateExpired(cert)) return null;
+    return cert;
   }
 
+  /** An expired row reads as absent, which the route reports as status -1. The client has given
+   *  up long before that — it polls for three minutes against a ten-minute TTL — and this way a
+   *  stale `connection` token stops handing back the `certRound` key that co-signs the bootstrap
+   *  admin grant. */
   static async listen(token: string): Promise<AuthCertificate | null> {
     if (!token) return null;
-    return AuthCertificateDAO.findByConnection(token);
+    const cert = await AuthCertificateDAO.findByConnection(token);
+    if (!cert || isAuthCertificateExpired(cert)) return null;
+    return cert;
   }
 
   static async consumeCertificate(key: string): Promise<boolean> {
     const cert = await AuthCertificateDAO.findByKey(key);
     if (!cert || !cert.connection || cert.status !== 2) return false;
+    // Expired rows are deleted either way: the row is spent whether or not it was redeemable, and
+    // leaving it behind would only wait for the sweep.
+    const expired = isAuthCertificateExpired(cert);
     await AuthCertificateDAO.delete(cert.id);
-    return true;
+    return !expired;
   }
 
   static async hasAnyHuman(): Promise<boolean> {

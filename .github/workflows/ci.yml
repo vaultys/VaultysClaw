@@ -50,8 +50,55 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # The default Vitest setup (__tests__/global-setup.ts) spins up its own
-      # ephemeral Postgres container via Docker, which is preinstalled on the
-      # ubuntu-latest runner. Docker E2E / LiteLLM suites are excluded by config.
       - name: Run tests
         run: pnpm test
+
+  # The Go half of the TS↔Go contract. Without this job the `conformance/`
+  # fixtures are only ever checked from one side, which defeats their entire
+  # purpose: `permission-vectors.json` is run by both `packages/trust` and
+  # `sdk-go/authz`, and `capability-names.json` by both `packages/policy` and
+  # `sdk-go/capability`. A change that breaks only the Go reading of a fixture
+  # would have gone green here.
+  #
+  # Two independent modules, no `go.work` — `vaultysclaw-sensor` reaches the SDK
+  # through a `replace` directive pointing at `../sdk-go`, so a plain checkout is
+  # all either one needs. The matrix keeps them parallel and, more usefully, names
+  # which module failed in the job title.
+  go:
+    name: Go (${{ matrix.module }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        module: [sdk-go, vaultysclaw-sensor]
+    defaults:
+      run:
+        working-directory: ${{ matrix.module }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # `go-version-file` rather than a hardcoded version: the module's own go.mod
+      # is the source of truth, so bumping it doesn't silently leave CI behind.
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: ${{ matrix.module }}/go.mod
+          cache-dependency-path: ${{ matrix.module }}/go.sum
+
+      - name: Vet
+        run: go vet ./...
+
+      # `-count=1` is load-bearing, not a habit: it disables the test cache, and
+      # without it this job silently fails to do its one job. Go's cache tracks
+      # files a test opens *inside the module*, and every `conformance/` fixture
+      # is two directories above it — so editing `capability-names.json` leaves a
+      # cached "ok" in place. Verified: mutate one case and `go test ./capability/`
+      # still reports `(cached)`; with `-count=1` it fails as it should. The
+      # `setup-go` cache is restored across runs, so that stale result would carry
+      # over to a later one.
+      #
+      # `-race` because the code most worth protecting here is concurrent — the
+      # sensor's `vconn` reconnect loop and `supervise`, the SDK's client run loop.
+      # The whole matrix is a few seconds either way.
+      - name: Test
+        run: go test -race -count=1 ./...

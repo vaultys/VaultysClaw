@@ -2,8 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth-config";
 import { CapabilityCertificateDAO, ActorDAO } from "@/db";
 import { issueAdminGrant } from "@/lib/certificates";
 import { recordEvent } from "@/lib/audit";
@@ -16,13 +14,14 @@ import type { AgentCapability, CertScope } from "@vaultysclaw/policy";
 import { parseResourceLimits } from "@/lib/certificate-form";
 
 export async function revokeCertificateAction(formData: FormData): Promise<void> {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.did) throw new Error("Not authenticated");
+  // Revocation is a one-way ledger write — there is no `unrevoke` — so this was
+  // the most damaging action in the console reachable by a merely-authenticated
+  // session. Gated like its `issueCertificateAction` twin below.
+  const performedBy = await requireAdmin();
 
   const certId = formData.get("certId") as string;
   const reason = (formData.get("reason") as string) || "No reason given";
-  const cert = await CapabilityCertificateDAO.revoke(certId, session.user.did, reason);
-  const performedBy = { did: session.user.did, name: session.user.name ?? "Unnamed" };
+  const cert = await CapabilityCertificateDAO.revoke(certId, performedBy.did, reason);
   await recordEvent({
     eventType: "certificate.revoked",
     payload: { ...certificatePayload(cert), performedBy, adminUrl: buildAdminUrl(`/admin/certificates/${cert.id}`) },

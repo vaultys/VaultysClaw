@@ -3,8 +3,6 @@
 import { randomBytes } from "crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth-config";
 import { WebhookDAO, NotificationChannelDAO, ModelDAO, SettingsDAO } from "@/db";
 import { generateWebhookSecret } from "@/lib/webhook-secret";
 import { pushAppriseConfig, deleteAppriseConfig, extractServiceTypes } from "@/lib/apprise";
@@ -29,8 +27,7 @@ import { SETTINGS_KEYS } from "@/lib/org-settings";
  * without ever putting it in a URL or a redirect.
  */
 export async function createWebhookAction(formData: FormData): Promise<{ id: string; secret: string }> {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.did) throw new Error("Not authenticated");
+  const performedBy = await requireAdmin();
 
   const name = (formData.get("name") as string)?.trim();
   const description = (formData.get("description") as string)?.trim();
@@ -48,7 +45,7 @@ export async function createWebhookAction(formData: FormData): Promise<{ id: str
     url,
     secret,
     events,
-    createdBy: session.user.did,
+    createdBy: performedBy.did,
   });
 
   revalidatePath("/admin/integrations");
@@ -56,8 +53,7 @@ export async function createWebhookAction(formData: FormData): Promise<{ id: str
 }
 
 export async function updateWebhookAction(formData: FormData): Promise<void> {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.did) throw new Error("Not authenticated");
+  await requireAdmin();
 
   const id = formData.get("id") as string;
   const name = (formData.get("name") as string)?.trim();
@@ -72,8 +68,7 @@ export async function updateWebhookAction(formData: FormData): Promise<void> {
 }
 
 export async function toggleWebhookActiveAction(formData: FormData): Promise<void> {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.did) throw new Error("Not authenticated");
+  await requireAdmin();
 
   const id = formData.get("id") as string;
   const isActive = formData.get("isActive") === "true";
@@ -82,8 +77,7 @@ export async function toggleWebhookActiveAction(formData: FormData): Promise<voi
 }
 
 export async function deleteWebhookAction(formData: FormData): Promise<void> {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.did) throw new Error("Not authenticated");
+  await requireAdmin();
 
   const id = formData.get("id") as string;
   await WebhookDAO.delete(id);
@@ -93,8 +87,7 @@ export async function deleteWebhookAction(formData: FormData): Promise<void> {
 /** Same "return data directly" pattern as createWebhookAction — the new secret is shown once,
  *  client-side, never round-tripped through a URL. */
 export async function regenerateWebhookSecretAction(id: string): Promise<string> {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.did) throw new Error("Not authenticated");
+  await requireAdmin();
 
   const secret = generateWebhookSecret();
   await WebhookDAO.regenerateSecret(id, secret);
@@ -110,8 +103,7 @@ function generateAppriseKey(): string {
 }
 
 export async function createChannelAction(formData: FormData): Promise<void> {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.did) throw new Error("Not authenticated");
+  const performedBy = await requireAdmin();
 
   const name = (formData.get("name") as string)?.trim();
   const description = (formData.get("description") as string)?.trim();
@@ -132,7 +124,7 @@ export async function createChannelAction(formData: FormData): Promise<void> {
     serviceUrls: encrypted,
     serviceTypes: extractServiceTypes(serviceUrls),
     events,
-    createdBy: session.user.did,
+    createdBy: performedBy.did,
   });
 
   revalidatePath("/admin/integrations");
@@ -140,8 +132,7 @@ export async function createChannelAction(formData: FormData): Promise<void> {
 }
 
 export async function updateChannelAction(formData: FormData): Promise<void> {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.did) throw new Error("Not authenticated");
+  await requireAdmin();
 
   const id = formData.get("id") as string;
   const name = (formData.get("name") as string)?.trim();
@@ -173,8 +164,7 @@ export async function updateChannelAction(formData: FormData): Promise<void> {
 }
 
 export async function toggleChannelActiveAction(formData: FormData): Promise<void> {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.did) throw new Error("Not authenticated");
+  await requireAdmin();
 
   const id = formData.get("id") as string;
   const isActive = formData.get("isActive") === "true";
@@ -183,8 +173,7 @@ export async function toggleChannelActiveAction(formData: FormData): Promise<voi
 }
 
 export async function deleteChannelAction(formData: FormData): Promise<void> {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.did) throw new Error("Not authenticated");
+  await requireAdmin();
 
   const id = formData.get("id") as string;
   const channel = await NotificationChannelDAO.findById(id);

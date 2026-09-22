@@ -1,8 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth-config";
 import {
   approvePendingRegistration,
   denyPendingRegistration,
@@ -111,16 +109,15 @@ export async function createInvitationAction(
 export async function approveRegistrationAction(
   formData: FormData
 ): Promise<void> {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.did) throw new Error("Not authenticated");
+  // Approving decides both *that* an unknown DID becomes an Actor and *which*
+  // capabilities it holds — including `admin_console_access`. Reachable by any
+  // authenticated session without this gate.
+  const performedBy = await requireAdmin();
 
   const registrationId = formData.get("registrationId") as string;
   const capabilities = formData.getAll("capabilities") as AgentCapability[];
 
-  await approvePendingRegistration(registrationId, capabilities, {
-    did: session.user.did,
-    name: session.user.name ?? "Unnamed",
-  });
+  await approvePendingRegistration(registrationId, capabilities, performedBy);
   revalidatePath("/admin/actors");
   revalidatePath("/admin");
 }
@@ -128,14 +125,10 @@ export async function approveRegistrationAction(
 export async function denyRegistrationAction(
   formData: FormData
 ): Promise<void> {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.did) throw new Error("Not authenticated");
+  const performedBy = await requireAdmin();
 
   const registrationId = formData.get("registrationId") as string;
-  await denyPendingRegistration(registrationId, {
-    did: session.user.did,
-    name: session.user.name ?? "Unnamed",
-  });
+  await denyPendingRegistration(registrationId, performedBy);
   revalidatePath("/admin/actors");
   revalidatePath("/admin");
 }
@@ -144,8 +137,7 @@ export async function denyRegistrationAction(
  *  (`User` is a 1:1 profile extension, see `packages/controlplane/CLAUDE.md`'s Actor/User note),
  *  and `ownerDid` ("belongs to / acts for") for any non-human kind. */
 export async function updateActorAction(formData: FormData): Promise<void> {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.did) throw new Error("Not authenticated");
+  const performedBy = await requireAdmin();
 
   const did = formData.get("did") as string;
   const name = (formData.get("name") as string)?.trim();
@@ -177,10 +169,6 @@ export async function updateActorAction(formData: FormData): Promise<void> {
     // a real name here.
     await UserDAO.markProfileCompleted(did);
   }
-  const performedBy = {
-    did: session.user.did,
-    name: session.user.name ?? "Unnamed",
-  };
   await recordEvent({
     eventType: "actor.updated",
     payload: {
@@ -214,6 +202,10 @@ async function saveActorLocation(
 export async function resolveCityLocationAction(
   city: string
 ): Promise<{ lat: number; lon: number; label: string } | null> {
+  // Gated like every other action here despite being read-only: it is reachable
+  // by anyone who can reach the endpoint, and it makes an outbound request to a
+  // third party (Nominatim) with caller-supplied text.
+  await requireAdmin();
   return geocodeCity(city);
 }
 
@@ -223,8 +215,7 @@ export async function setActorLocationAction(
   did: string,
   location: { lat: number; lon: number; label: string } | null
 ): Promise<void> {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.did) throw new Error("Not authenticated");
+  await requireAdmin();
   await saveActorLocation(did, location);
 }
 
@@ -233,8 +224,7 @@ export async function setActorLocationAction(
 export async function setActorLocationFormAction(
   formData: FormData
 ): Promise<void> {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.did) throw new Error("Not authenticated");
+  await requireAdmin();
 
   const did = formData.get("did") as string;
   const mode = formData.get("mode") as string;
@@ -270,8 +260,7 @@ export async function setActorLocationFormAction(
 /** A directed, freely-labeled edge to another Actor ("reports to", "belongs to", ...) —
  *  lib/capabilities.ts-style generic allow-anything, not a fixed relation type. */
 export async function addActorLinkAction(formData: FormData): Promise<void> {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.did) throw new Error("Not authenticated");
+  await requireAdmin();
 
   const fromDid = formData.get("fromDid") as string;
   const toDid = formData.get("toDid") as string;
@@ -286,8 +275,7 @@ export async function addActorLinkAction(formData: FormData): Promise<void> {
 }
 
 export async function deleteActorLinkAction(formData: FormData): Promise<void> {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.did) throw new Error("Not authenticated");
+  await requireAdmin();
 
   const id = formData.get("id") as string;
   const returnToDid = formData.get("returnToDid") as string;
@@ -385,12 +373,9 @@ export interface ProxyActionResult {
 export async function updateProxySettingsAction(
   formData: FormData
 ): Promise<ProxyActionResult> {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.did) throw new Error("Not authenticated");
-  const performedBy = {
-    did: session.user.did,
-    name: session.user.name ?? "Unnamed",
-  };
+  // Outside the try, like the harness twins: an authorization failure is not a
+  // validation error to render inline, it must reach the caller as a throw.
+  const performedBy = await requireAdmin();
 
   const did = formData.get("did") as string;
 
@@ -431,12 +416,7 @@ export async function updateProxySettingsAction(
 export async function addProxyRuleAction(
   formData: FormData
 ): Promise<ProxyActionResult> {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.did) throw new Error("Not authenticated");
-  const performedBy = {
-    did: session.user.did,
-    name: session.user.name ?? "Unnamed",
-  };
+  const performedBy = await requireAdmin();
 
   const did = formData.get("did") as string;
 
@@ -479,12 +459,7 @@ export async function addProxyRuleAction(
 }
 
 export async function deleteProxyRuleAction(formData: FormData): Promise<void> {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.did) throw new Error("Not authenticated");
-  const performedBy = {
-    did: session.user.did,
-    name: session.user.name ?? "Unnamed",
-  };
+  const performedBy = await requireAdmin();
 
   const did = formData.get("did") as string;
   const ruleId = formData.get("ruleId") as string;
@@ -508,13 +483,12 @@ function splitList(raw: string | null): string[] {
 
 // ── The `harness` kind's panel actions (docs/HARNESS_SUPERVISOR.md) ──
 //
-// Structurally the proxy's twin above, with one deliberate difference: these
-// start with `await requireAdmin()` rather than the weaker `session?.user?.did`
-// presence test the older actions in this file still use. A Server Action is a
-// POST to its own generated endpoint and does not re-run `app/admin/layout.tsx`,
-// so the console's `admin_console_access` gate does not protect it — the repo's
-// own design rule, which the proxy actions predate and are still being
-// retrofitted to.
+// Structurally the proxy's twin above, and now identical in its gating too:
+// every action in this file starts with `await requireAdmin()`. A Server Action
+// is a POST to its own generated endpoint and does not re-run
+// `app/admin/layout.tsx`, so the console's `admin_console_access` gate does not
+// protect it — the repo's own design rule, which the proxy actions predated and
+// have since been retrofitted to.
 
 async function loadHarnessConfig(did: string): Promise<HarnessKindConfig> {
   const actor = await ActorDAO.findByDid(did);

@@ -1389,6 +1389,9 @@ repeatable tests (see deferred).
   under, so a merely-authenticated session (a `portal_access`-only human, say) can invoke an admin
   action directly. Start every mutating admin action with `await requireAdmin()`
   (`lib/require-admin.ts`), which checks the ledger and returns the `performedBy` shape
-  `recordEvent` wants, so the check and the audit attribution come from one call. The Model Registry
-  actions do this; the older webhook/channel/workspace/certificate actions still only test for
-  `session.user.did` and are being retrofitted.
+  `recordEvent` wants, so the check and the audit attribution come from one call. **The retrofit is
+  complete**: every exported action under `app/admin/**` now starts with it, and none of those files
+  imports `getServerSession` any more — a `getServerSession` import appearing in an `app/admin`
+  actions file is the signal that this rule has been broken again. The one deliberate exception is
+  `app/welcome/actions.ts`, which is not an admin surface: both of its actions act only on the
+  caller's **own** DID, so a session-presence test is the correct gate there.

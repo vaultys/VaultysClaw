@@ -3,8 +3,6 @@
 import { randomUUID } from "crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth-config";
 import { WorkspaceDAO, ActorDAO, CapabilityCertificateDAO } from "@/db";
 import { requireAdmin } from "@/lib/require-admin";
 import { getWSServerInstance } from "@/lib/ws-server";
@@ -23,8 +21,7 @@ function slugify(name: string): string {
 }
 
 export async function createWorkspaceAction(formData: FormData): Promise<void> {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.did) throw new Error("Not authenticated");
+  const performedBy = await requireAdmin();
 
   const name = (formData.get("name") as string)?.trim();
   const description = (formData.get("description") as string)?.trim();
@@ -39,7 +36,6 @@ export async function createWorkspaceAction(formData: FormData): Promise<void> {
   const slug = existing.some((w) => w.slug === base) ? `${base}-${id.slice(0, 6)}` : base;
 
   const workspace = await WorkspaceDAO.create({ id, name, slug, description: description || undefined, color });
-  const performedBy = { did: session.user.did, name: session.user.name ?? "Unnamed" };
   await recordEvent({
     eventType: "workspace.created",
     payload: { ...workspacePayload(workspace), performedBy, adminUrl: buildAdminUrl(`/admin/workspaces/${workspace.id}`) },
@@ -52,8 +48,7 @@ export async function createWorkspaceAction(formData: FormData): Promise<void> {
 }
 
 export async function updateWorkspaceAction(formData: FormData): Promise<void> {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.did) throw new Error("Not authenticated");
+  const performedBy = await requireAdmin();
 
   const id = formData.get("id") as string;
   const name = (formData.get("name") as string)?.trim();
@@ -63,7 +58,6 @@ export async function updateWorkspaceAction(formData: FormData): Promise<void> {
 
   const before = await WorkspaceDAO.findById(id);
   const workspace = await WorkspaceDAO.update(id, { name, description: description || null, color });
-  const performedBy = { did: session.user.did, name: session.user.name ?? "Unnamed" };
   await recordEvent({
     eventType: "workspace.updated",
     payload: {
@@ -162,8 +156,7 @@ export async function updateWorkspaceTrustPolicyAction(formData: FormData): Prom
  * wipe it every time an actor is (re)assigned to a workspace from here.
  */
 export async function assignActorWorkspaceAction(formData: FormData): Promise<void> {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.did) throw new Error("Not authenticated");
+  await requireAdmin();
 
   const did = formData.get("did") as string;
   const workspaceId = (formData.get("workspaceId") as string) || null;

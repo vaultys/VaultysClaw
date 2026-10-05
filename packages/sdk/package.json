@@ -24,7 +24,8 @@
     "type-check": "tsc --noEmit",
     "example": "tsx example/minimal.ts",
     "lint": "eslint src --ext .ts",
-    "test": "vitest run"
+    "test": "vitest run",
+    "example:agent": "tsx example/coding-agent/agent.ts"
   },
   "dependencies": {
     "@vaultys/id": "3.0.0-beta6",
@@ -33,6 +34,7 @@
     "ws": "^8.18.0"
   },
   "devDependencies": {
+    "@anthropic-ai/sdk": "^0.131.0",
     "@types/node": "^22.0.0",
     "@types/ws": "^8.5.13",
     "tsx": "^4.19.2",

@@ -98,6 +98,11 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
     cancelled.current = false;
 
     const res = await fetch(`/api/public/invite/${token}/p2p-connect`);
+    // 404 once the invitation stops being valid (expired/redeemed while the page sat open).
+    if (!res.ok) {
+      setPhase("failure");
+      return;
+    }
     const {
       connectionString,
       token: pollToken,
@@ -139,6 +144,10 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
       if (cancelled.current) return;
 
       const res = await fetch(`/api/public/invite/${token}/connect`);
+      if (!res.ok) {
+        setPhase("failure");
+        return;
+      }
       const { token: pollToken, key } = await res.json();
 
       // Same fire-and-forget-through-polling shape as /login — a rejection here surfaces via the

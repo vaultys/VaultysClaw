@@ -428,58 +428,35 @@ export class UserLoginChannel {
         const vid = await ServerIdentityDAO.getServerVaultysId();
         const challenger = new Challenger(vid);
 
-        // Round-based exchange. Some wallet versions close the channel after a
-        // single round (identity already proven at challenger.state === 1);
-        // PeerJS doesn't signal that closure, so channel.receive() would hang
-        // forever — race it against a short timeout and treat that specific
-        // state as completion instead of a failure.
+        // Round-based exchange. PeerJS doesn't signal a peer closing the channel, so
+        // channel.receive() would hang forever — race it against a timeout. A timeout
+        // is always a failure: only a COMPLETE handshake (the wallet's own signature)
+        // proves the peer holds the key it claims. See the catch block below.
         for (let round = 0; round < 4; round++) {
           let walletCert: Uint8Array;
           // A wallet is connected by now, so these bound how long it may go quiet, not whether
           // anyone turned up. Round 0 keeps whatever is left of the connect window (never less
           // than a normal round) because the wallet is typically showing its owner an approval
           // prompt at this point, and a human reading a phone screen is slower than a protocol
-          // round. Later rounds are machine-to-machine, and the 5s is also what detects the
-          // wallets that close the channel after a single round (see above).
+          // round. Later rounds are machine-to-machine.
           const roundTimeoutMs = round === 0 ? Math.max(5_000, remainingMs()) : 5_000;
           try {
             walletCert = await withDeadline(channel.receive(), roundTimeoutMs);
           } catch (receiveErr) {
+            // A handshake that stalls short of COMPLETE never authenticates anybody — including
+            // one parked at state 1 (STEP1). At STEP1 only *this* side has signed: the peer's INIT
+            // message is just an unsigned `pk1` + nonce, so `hisKey` is whatever public key the
+            // peer chose to claim. Treating that as proof let anyone who knew a human's public key
+            // open a QR session, send an INIT naming that key, go silent, and be logged in as them.
+            // The wallet's own signature (`sign1`, which moves the exchange to COMPLETE) is the
+            // only proof of key possession in this protocol — no signature, no session.
             const timedOut = isTimeout(receiveErr);
-            if (
-              timedOut &&
-              challenger.state === 1 &&
-              verifyProtocol(challenger)
-            ) {
-              const contactDid = challenger.getContactDid();
-              const hisKeyRaw = (challenger as unknown as { hisKey: Buffer })
-                .hisKey;
-              if (contactDid && hisKeyRaw) {
-                const contact = VaultysId.fromId(hisKeyRaw);
-                const isNewRegistration = mutableCert.register === 1;
-                const initialMeta = JSON.parse(
-                  mutableCert.metadata ?? "{}"
-                ) as Record<string, unknown>;
-                const invitationToken =
-                  typeof initialMeta.invitationToken === "string"
-                    ? initialMeta.invitationToken
-                    : undefined;
-                const ok = await (isNewRegistration
-                  ? registerHuman(contact, invitationToken)
-                  : loginHuman(contact));
-                // Idempotent and a no-op once any admin exists (isBootstrapAdminNeeded) — which is
-                // guaranteed here anyway, since creating an invite in the first place requires
-                // already being an authenticated admin.
-                if (ok && isNewRegistration)
-                  await ensureBootstrapAdmin(contactDid);
-                mutableCert.metadata = JSON.stringify({ did: contactDid });
-                await AuthCertificateDAO.update(cert.id, {
-                  status: ok ? 2 : -2,
-                  metadata: mutableCert.metadata,
-                });
-              } else {
-                await AuthCertificateDAO.update(cert.id, { status: -2 });
-              }
+            if (timedOut && round > 0) {
+              logger.warn(
+                { id: cert.id, round, state: challenger.state },
+                "P2P handshake abandoned before completion"
+              );
+              await AuthCertificateDAO.update(cert.id, { status: -2 });
             } else if (timedOut && round === 0) {
               // A wallet connected and then said nothing at all. Unlike "nobody scanned", this is
               // worth a warning — something dialled in and abandoned the handshake.

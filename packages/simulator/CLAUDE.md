@@ -133,6 +133,20 @@ Five things are load-bearing:
   would never get an owner. A pass over everything also covers a fleet approved before this existed,
   which is the same problem `locations.ts` solved less completely by re-applying on update.
 
+### Relationships inside each estate
+
+Ownership alone draws one star per person. `links.ts` plans the `ActorLink` edges that give each
+star structure, and `assignLinks` (in `db.ts`) writes them right after ownership, wherever
+ownership runs:
+
+- every `openclaw`/`mcp` agent **runs on** one host (`sensor` or `device`), preferring its owner's;
+- every `openclaw` agent **uses tool** one `mcp` server, preferring its owner's;
+- every host has **egress via** one `proxy`, when the fleet has any.
+
+Link ids are deterministic (`sim-link-<hash>`), so a rerun creates nothing, and a simulator link the
+plan no longer contains (because an owner changed) is removed. Links an operator adds in the console
+have UUID ids and are never touched. They cascade away with their Actors on `reset`.
+
 ### Why the people have names and the fleet has prefixes
 
 Every other database operation here is scoped by name prefix (`openclaw-`, `sensor-`, …) so a

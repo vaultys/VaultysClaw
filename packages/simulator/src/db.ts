@@ -16,6 +16,7 @@ import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { jitterAround, locationForDid } from "./locations.js";
 import { ownerIndexForDid } from "./ownership.js";
+import { planLinks, SIM_LINK_ID_PREFIX } from "./links.js";
 import { PERSONAS, type SimKind } from "./personas.js";
 import { HUMAN_CAPABILITIES, SIM_EMAIL_DOMAIN, type SimHuman } from "./people.js";
 import { issueStandingGrant, serverIdentity } from "./grants.js";
@@ -314,6 +315,46 @@ export async function assignOwnership(
   result.owners = tallyByOwner.size;
   result.busiest = Math.max(0, ...tallyByOwner.values());
   return result;
+}
+
+export interface LinksResult {
+  /** Links this pass created. */
+  created: number;
+  /** Simulator-made links that no longer match the plan (an owner changed) and were removed. */
+  removed: number;
+  /** Links in the plan, whether new or already present. */
+  planned: number;
+}
+
+/**
+ * Write the `ActorLink` relationships `links.ts` plans for the simulated fleet.
+ *
+ * Runs after `assignOwnership`, because the plan prefers hosts and tools the same person owns. Like
+ * ownership it is recomputable: link ids are deterministic, so a rerun creates nothing, and a
+ * simulator link the plan no longer contains is removed. Links an operator added in the console
+ * have UUID ids and are never touched.
+ */
+export async function assignLinks(
+  databaseUrl: string | undefined,
+  namePrefixes: string[]
+): Promise<LinksResult> {
+  const db = prisma(databaseUrl);
+  const actors = await db.actor.findMany({
+    where: { OR: namePrefixes.map((prefix) => ({ name: { startsWith: prefix } })) },
+    select: { did: true, kind: true, ownerDid: true },
+  });
+  const plan = planLinks(actors);
+  const plannedIds = plan.map((l) => l.id);
+
+  const removed = await db.actorLink.deleteMany({
+    where: { id: { startsWith: SIM_LINK_ID_PREFIX, notIn: plannedIds } },
+  });
+  let created = 0;
+  for (const batch of chunk(plan, 500)) {
+    const res = await db.actorLink.createMany({ data: batch, skipDuplicates: true });
+    created += res.count;
+  }
+  return { created, removed: removed.count, planned: plan.length };
 }
 
 /** Run `fn` over `items` with at most `limit` in flight — the pool has 60 connections, and 7,000

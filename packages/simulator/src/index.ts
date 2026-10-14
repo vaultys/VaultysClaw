@@ -15,6 +15,7 @@ import { Metrics } from "./metrics.js";
 import { AGENT_MIX, ESTATE_MIX, expandMix, type SimKind } from "./personas.js";
 import {
   approveSimulatedRegistrations,
+  assignLinks,
   assignOwnership,
   readStats,
   resetSimulated,
@@ -123,6 +124,7 @@ async function populate(cfg: SimConfig): Promise<SimHuman[]> {
     progress("  writing people   ", done, total)
   );
   const owned = await assignOwnership(cfg.databaseUrl, NAME_PREFIXES, roster);
+  const linked = await assignLinks(cfg.databaseUrl, NAME_PREFIXES);
 
   process.stdout.write(
     `\r  people          ${roster.length} (${created} new, ${granted} granted portal_access)` +
@@ -130,7 +132,9 @@ async function populate(cfg: SimConfig): Promise<SimHuman[]> {
       "\n" +
       `  ownership       ${owned.assigned} assigned, ${owned.unchanged} already correct, ` +
       `${owned.ownerless} ownerless by kind\n` +
-      `                  ${owned.owners} owner(s), busiest holds ${owned.busiest}\n`
+      `                  ${owned.owners} owner(s), busiest holds ${owned.busiest}\n` +
+      `  relationships   ${linked.created} created, ${linked.removed} removed, ` +
+      `${linked.planned} planned\n`
   );
   return roster;
 }
@@ -365,6 +369,11 @@ async function run(cfg: SimConfig): Promise<void> {
         `  ownership: ${owned.assigned} newly assigned across ${owned.owners} owner(s)\n`
       );
     }
+    // After ownership, because the plan keeps an agent's host and tools inside its owner's estate.
+    const linked = await assignLinks(cfg.databaseUrl, NAME_PREFIXES);
+    process.stdout.write(
+      `  relationships: ${linked.created} created, ${linked.removed} removed, ${linked.planned} planned\n`
+    );
   }
 
   if (cfg.durationSeconds > 0) {

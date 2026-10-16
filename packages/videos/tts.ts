@@ -40,8 +40,7 @@ const DEFAULT_EDGE_VOICES: Localized = {
 // the samples in .generated-videos/voice-samples/.
 const ELEVENLABS_MODEL = "eleven_multilingual_v2"; // eleven_v3 refuses previous_text/next_text
 const DEFAULT_ELEVENLABS_VOICES: Localized = {
-  // Manon - Serious & spontaneous French voice: m5U7XCsc8v988k2RJAqN, once the plan is paid (402 until then)
-  fr: "EXAVITQu4vr4xnSDxMaL", // Sarah - Mature, Reassuring, Confident
+  fr: "m5U7XCsc8v988k2RJAqN", // Manon - Serious & spontaneous, a native French voice of the library
   en: "EXAVITQu4vr4xnSDxMaL",
 };
 // A product demo: a little livelier than the defaults (stability 0.5, style 0).

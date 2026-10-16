@@ -13,6 +13,7 @@ pnpm generate:videos console-tour                # one video
 VIDEO_TTS=none pnpm generate:videos              # subtitles only, no voice credits: for pacing
 VIDEO_KEEP_FLEET=1 pnpm generate:videos          # leave the fleet connected after the run
 pnpm video:down                # stop the database ( video:nuke also deletes it, the fleet's identities and the admin )
+pnpm generate:marketing        # the animated marketing video (see below): no stack needed, only the footage already recorded
 ```
 
 ## The stack: `docker/video.env`
@@ -82,7 +83,8 @@ simulator demo. `docker/video.env` is the single source of truth (`stack.ts` par
 
 ## Voice, intro, music
 
-- `tts.ts` is unchanged from VaultysHub: ElevenLabs (`ELEVENLABS_API_KEY` in
+- `tts.ts` is the same as VaultysHub's, except that the default French voice is **Manon**
+  (`m5U7XCsc8v988k2RJAqN`, a native voice from the library: it needs a paid plan). Providers: ElevenLabs (`ELEVENLABS_API_KEY` in
   `packages/videos/.env`, git-ignored; free plan: 10,000 characters per month, about 900 per
   language for the tour), `edge` (403 since October 2026), or `none`. The cache lives in
   `.generated-videos/.tts-cache/`: only lines that changed are regenerated.
@@ -100,3 +102,53 @@ simulator demo. `docker/video.env` is the single source of truth (`stack.ts` par
 - **`console-tour/`**: the console in about 1 min 10 s (≈ 1 min 37 s with intro and outro).
   Overview and its counters, an approval (two capabilities checked on a pending registration), the
   map, the graph centred on its busiest owner, the certificate ledger, the audit log.
+
+## The marketing video (`marketing/`): animated, narrated, with console footage
+
+Around 3 minutes, **entirely animated in Remotion**, in the style of the investor deck (deep violet,
+lavender, teal for what is protected, red for the attacker, the condensed **Anton** typeface for
+headlines, **Montserrat** for body text, both loaded with `@remotion/google-fonts`). It is not a
+console recording: the console only appears inside browser windows (`BrowserWindow`), as clips cut
+out of a single recording.
+
+```bash
+pnpm generate:videos marketing-screens            # 1. the console footage (stack running): screens/marketing-screens.en.mp4 + marks
+pnpm generate:marketing                           # 2. → .generated-videos/marketing.fr.mp4 / .en.mp4 + .srt
+pnpm --filter @vaultysclaw/videos generate:marketing en
+VIDEO_TTS=none pnpm --filter @vaultysclaw/videos generate:marketing --check   # → marketing-check.jpg, 4 frames per line, no credits
+pnpm --filter @vaultysclaw/videos studio:marketing                            # preview (estimated durations)
+```
+
+- **The engine** (`explainer/`) is VaultysHub's: `timeline()` lays the lines end to end on the
+  length of the voice clips, and each scene times its animations on its own lines
+  (`at("line", fraction)`). The pictures therefore follow the voice in both languages, with no
+  manual timing. `explainer/render.ts`: synthesis, a silent Remotion render, then the shared
+  `render.ts` (intro, outro, mix, `.srt`). `kit.tsx` was restyled after the deck (palette,
+  backdrop, chapter labels in spaced capitals, `Bot`, `Shield`, `Headline` word by word,
+  `BrowserWindow`…).
+- **The narration** (`marketing.narration.json`) follows vaultys.com/fr/product/vaultysclaw and
+  the deck, **with none of the deck's financial figures** (it is meant for investors). Fourteen
+  scenes (`Marketing.tsx` `SCENES`): the hook, the three questions and Shadow AI, the central
+  directory as a single target, the agent-as-employee model, identity, rights and certificate,
+  control plane plus peer to peer, no single target, the kill switch, visibility and audit,
+  post-quantum, frugal and sovereign, the 12 domains of the Zero Trust framework, the closing. The
+  on-screen text is in `texts.ts`; the scenes are in `problem.tsx`, `solution.tsx` and
+  `product.tsx`.
+- **What we may say, checked against the code**: the agent's identity is generated on the agent
+  (the simulator, like the SDK, creates its VaultysId locally); the certificate is a signed
+  artefact that `packages/policy` verifies with no network; the kill switch suspends without
+  touching the ledger and is reversible with no reissuance (`lib/kill-switch.ts`); the PQC option
+  exists (`software-pqc`, `dilithium_ed25519`). The figures ("20 to 80 agents per employee by
+  2031", "7 of the 12 domains", frugality) come from the deck. **Do not promise** an instant
+  revocation: a client learns about it on its next `cert_status_request`.
+- **The footage** (`marketing-screens/`, `screensOnly`, English only because the console is):
+  one recording with a mark per shot (`approve`, `certificates`, `graph-owner`, `killswitch-armed`,
+  `audit-table`…), set once its screen has loaded. The kill switch is armed and then disarmed
+  on screen (always disarmed in a `finally`: an armed switch left in the database suspends the
+  whole fleet), and the scene's robots go dark and come back **in sync with the clip**, through
+  those marks.
+  - The fleet's auto-approval leaves nothing pending after a restart: `setup/` therefore adds
+    six "newcomers" (fresh identities, never approved) on every run, so the approval scene always
+    has someone to approve.
+- **The French voice is Manon** (`voice.elevenlabs.fr` in the narration, and the default); the
+  English voice stays Sarah. A narration of about 2,600 characters per language.

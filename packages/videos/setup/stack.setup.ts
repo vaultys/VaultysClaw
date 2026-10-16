@@ -1,7 +1,7 @@
 import { Browser, expect, test } from "@playwright/test";
 import fs from "fs";
 import path from "path";
-import { simulator, spawnSimulator } from "../stack";
+import { OUTPUT, simulator, spawnSimulator } from "../stack";
 import { AUTH, BACKUP, FLEET_LOG, FLEET_PID, IDENTITY } from "./auth";
 
 /**
@@ -16,6 +16,7 @@ test.describe.configure({ mode: "serial" });
 const ESTATE = 400;
 const AGENTS = 1000;
 const ADMIN_NAME = "Camille Laurent";
+const NEWCOMERS = 6;
 
 const alive = (pid: number) => {
   try {
@@ -55,6 +56,18 @@ test("the simulated fleet is up", async () => {
       return p.certified;
     }, { timeout: 4 * 60 * 1000, intervals: [2000] })
     .toBeGreaterThanOrEqual(0.75 * (ESTATE + AGENTS));
+
+  // A few newcomers, never auto-approved, so an approval scene always has an agent waiting: the
+  // fleet's own stragglers are approved by its next restart. Fresh identities every run (a pending
+  // registration a video approved must not come back), and no people of their own.
+  const newcomers = path.join(OUTPUT, ".newcomers");
+  fs.rmSync(newcomers, { recursive: true, force: true });
+  spawnSimulator(["run", "--actors", "0", "--agents", String(NEWCOMERS), "--humans", "0", "--duration", "40"], path.join(OUTPUT, "newcomers.log"), newcomers);
+  await expect
+    .poll(() => (fs.existsSync(path.join(OUTPUT, "newcomers.log")) ? fs.readFileSync(path.join(OUTPUT, "newcomers.log"), "utf8") : "").match(/pending (\d+)/g)?.pop() ?? "", {
+      timeout: 60_000,
+    })
+    .toBe(`pending ${NEWCOMERS}`);
 });
 
 /** Mints a fresh admin (`pnpm simulator admin`) and keeps its browser-held VaultysID. */

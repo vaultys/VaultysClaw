@@ -45,10 +45,10 @@ export function simulator(args: string[]) {
 }
 
 /** The same, left running in the background: the fleet stays connected while the video is filmed. */
-export function spawnSimulator(args: string[], log: string) {
+export function spawnSimulator(args: string[], log: string, dataDir = SIM_DATA) {
   fs.mkdirSync(path.dirname(log), { recursive: true });
   const out = fs.openSync(log, "w");
-  const child = spawn("pnpm", ["--silent", "--filter", "@vaultysclaw/simulator", "start", ...args, "--data-dir", SIM_DATA], {
+  const child = spawn("pnpm", ["--silent", "--filter", "@vaultysclaw/simulator", "start", ...args, "--data-dir", dataDir], {
     cwd: REPO,
     env: stackEnv(),
     stdio: ["ignore", out, out],

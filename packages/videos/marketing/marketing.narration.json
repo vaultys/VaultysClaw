@@ -1,0 +1,132 @@
+{
+  "title": {
+    "fr": "La sécurité Zero Trust pour vos agents IA",
+    "en": "Zero Trust security for your AI agents"
+  },
+  "outro": {
+    "fr": "Traitez chaque agent IA comme un employé",
+    "en": "Treat every AI agent like an employee"
+  },
+  "voice": {
+    "elevenlabs": {
+      "fr": "m5U7XCsc8v988k2RJAqN"
+    }
+  },
+  "pronounce": {
+    "Shadow": {
+      "fr": "Chadô"
+    },
+    "Zero Trust": {
+      "fr": "Zéro Treust"
+    },
+    "hyperscalers": {
+      "fr": "hyper-scaleurs"
+    }
+  },
+  "lines": {
+    "hook1": {
+      "fr": "Vos agents IA exécutent déjà des milliers d'opérations par minute.",
+      "en": "Your AI agents already carry out thousands of operations every minute."
+    },
+    "hook2": {
+      "fr": "Et demain, chaque collaborateur travaillera avec des dizaines d'entre eux.",
+      "en": "And tomorrow, every employee will work alongside dozens of them."
+    },
+    "questions": {
+      "fr": "Mais savez-vous où ils sont, à quoi ils peuvent se connecter, et ce qu'ils ont réellement le droit de faire ?",
+      "en": "But do you know where they are, what they can connect to, and what they are really allowed to do?"
+    },
+    "shadow": {
+      "fr": "Pour la plupart des entreprises, la réponse est non. C'est la Shadow IA.",
+      "en": "For most companies, the answer is no. That is Shadow AI."
+    },
+    "central": {
+      "fr": "Les annuaires centralisés rassemblent toutes les identités au même endroit : une cible idéale.",
+      "en": "Centralized directories keep every identity in one place: the perfect target."
+    },
+    "spread": {
+      "fr": "Un seul point compromis, et l'attaque se propage d'agent en agent, dans tout le système.",
+      "en": "One compromised point, and the attack spreads from agent to agent, across the whole system."
+    },
+    "solution": {
+      "fr": "VaultysClaw change de modèle : chaque agent IA est traité comme un employé, avec une identité et des droits.",
+      "en": "VaultysClaw changes the model: every AI agent is treated like an employee, with an identity and rights."
+    },
+    "control": {
+      "fr": "Vous gardez le contrôle total de votre flotte d'agents, et de vos données.",
+      "en": "You keep full control of your agent fleet, and of your data."
+    },
+    "identity": {
+      "fr": "Chaque agent reçoit sa propre identité cryptographique, son VaultysID. Sa clé secrète naît sur l'agent, et ne le quitte jamais.",
+      "en": "Each agent gets its own cryptographic identity, its VaultysID. Its secret key is born on the agent, and never leaves it."
+    },
+    "nopassword": {
+      "fr": "Pas de mot de passe, pas de base d'identifiants à pirater.",
+      "en": "No password, and no credential database to breach."
+    },
+    "rights": {
+      "fr": "À son arrivée, l'agent n'a aucun droit. Un administrateur choisit ce qu'il peut faire : lire des fichiers, appeler une API, accéder à internet.",
+      "en": "When it arrives, the agent has no rights at all. An administrator chooses what it can do: read files, call an API, reach the internet."
+    },
+    "certificate": {
+      "fr": "VaultysClaw émet alors un certificat signé, avec sa portée et sa date d'expiration, que chacun peut vérifier, même hors ligne.",
+      "en": "VaultysClaw then issues a signed certificate, with its scope and its expiry date, that anyone can verify, even offline."
+    },
+    "plane": {
+      "fr": "Le plan de contrôle distribue les droits, et reçoit en retour des journaux signés.",
+      "en": "The control plane hands out rights, and receives signed logs in return."
+    },
+    "p2p": {
+      "fr": "Entre agents et utilisateurs, tout passe en pair-à-pair, chiffré : vos données ne quittent jamais les pairs.",
+      "en": "Between agents and users, everything flows peer to peer, encrypted: your data never leaves the peers."
+    },
+    "notarget": {
+      "fr": "Sans annuaire central, plus de cible unique : un attaquant devrait compromettre chaque agent, un par un.",
+      "en": "With no central directory, there is no single target: an attacker would have to compromise every agent, one by one."
+    },
+    "contained": {
+      "fr": "Pas de rebond, pas de propagation. La défaillance d'un point n'entraîne jamais l'effondrement du système.",
+      "en": "No pivoting, no spreading. One point failing never brings the whole system down."
+    },
+    "killswitch": {
+      "fr": "En cas de comportement anormal, vous révoquez un agent, ou vous suspendez toute une flotte d'un seul geste.",
+      "en": "If something behaves abnormally, you revoke an agent, or suspend an entire fleet in a single move."
+    },
+    "restore": {
+      "fr": "Et quand tout est rentré dans l'ordre, vous rétablissez les accès, sans rien réémettre.",
+      "en": "And once everything is back in order, you restore access, without reissuing anything."
+    },
+    "visibility": {
+      "fr": "Vous voyez enfin toute votre flotte : à qui appartient chaque agent, où il tourne, et quels outils il utilise.",
+      "en": "You finally see your whole fleet: who owns each agent, where it runs, and which tools it uses."
+    },
+    "audit": {
+      "fr": "Chaque décision est signée, et inscrite dans un journal d'audit infalsifiable.",
+      "en": "Every decision is signed, and written to a tamper-proof audit log."
+    },
+    "harvest": {
+      "fr": "La devise des attaquants : récolter aujourd'hui, déchiffrer demain, avec un ordinateur quantique.",
+      "en": "The attackers' motto: harvest now, decrypt later, with a quantum computer."
+    },
+    "pqc": {
+      "fr": "VaultysClaw repose sur une cryptographie hybride post-quantique, intégrée dès le départ. Vos secrets restent protégés, aujourd'hui comme demain.",
+      "en": "VaultysClaw relies on hybrid post-quantum cryptography, built in from day one. Your secrets stay protected, today and tomorrow."
+    },
+    "frugal": {
+      "fr": "Décentralisé, il consomme bien moins de bande passante, de calcul et d'énergie qu'un système centralisé.",
+      "en": "Being decentralized, it uses far less bandwidth, compute and energy than a centralized system."
+    },
+    "sovereign": {
+      "fr": "Open source, souverain et européen, il vous laisse libre : aucune dépendance aux hyperscalers, aucun verrouillage.",
+      "en": "Open source, sovereign and European, it leaves you free: no dependence on hyperscalers, no lock-in."
+    },
+    "domains": {
+      "fr": "Il couvre déjà sept des douze domaines de sécurité des agents définis par le cadre Zero Trust d'Anthropic, et vise les douze.",
+      "en": "It already covers seven of the twelve agent-security domains defined by Anthropic's Zero Trust framework, and is aiming for all twelve."
+    },
+    "closing": {
+      "fr": "VaultysClaw. Gardez le contrôle de vos agents IA, et prouvez-le.",
+      "en": "VaultysClaw. Stay in control of your AI agents, and prove it."
+    }
+  }
+}

@@ -1,0 +1,9 @@
+.generated-videos/
+test-results/
+playwright-report/
+# Optional licensed tracks (see CLAUDE.md): never committed.
+music.mp3
+intro/music.mp3
+intro/music.wav
+intro/outro-music.mp3
+intro/outro-music.wav

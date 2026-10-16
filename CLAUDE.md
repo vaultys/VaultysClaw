@@ -20,6 +20,7 @@ Challenger handshake, and receive certificates they can verify offline.
 | `packages/controlplane` | The control plane: Next.js App Router admin console + WebSocket server, Prisma/Postgres, the certificate ledger. | [→](packages/controlplane/CLAUDE.md) |
 | `packages/sdk` | TypeScript client for the control plane's protocol — handshake, capability state, certificate-status refresh, `resolvePermission`. The counterpart of `sdk-go/`. | [→](packages/sdk/CLAUDE.md) |
 | `packages/webhook-dispatcher` | Standalone worker: consumes events from BullMQ, signs them (HMAC) and POSTs to endpoints; also fans out to Apprise notification channels. | [→](packages/webhook-dispatcher/CLAUDE.md) |
+| `packages/videos` | Narrated demo videos of the console: Playwright drives the real control plane on its own stack (`docker/video.env`, 3013 / ws 8093 / pg 5436) with a live simulated fleet, then a Remotion intro/outro + ffmpeg mix. Same pipeline as VaultysHub's. | [→](packages/videos/CLAUDE.md) |
 | `packages/simulator` | Fleet simulator: thousands of real-VaultysId Actors — plus the people who own them — driven at a live control plane, on its own isolated stack. | [→](packages/simulator/CLAUDE.md) |
 
 Outside the pnpm workspace:
@@ -50,6 +51,10 @@ pnpm simulator stats           # what that control plane currently holds
 pnpm simulator people          # (re)mint the human population and reassign agent ownership
 pnpm simulator admin --passphrase "…"   # mint an admin human + export its VaultysID for the browser
 pnpm simulator:down            # stop, keeping the data ( :nuke also deletes the volume )
+
+# Demo videos — their own stack again (docker/video.env), see packages/videos/CLAUDE.md
+pnpm video:up                  # database + migrations + build
+pnpm generate:videos           # → packages/videos/.generated-videos/<name>.<lang>.mp4 + .srt
 
 # Build / quality
 pnpm build                     # all packages via Turborepo

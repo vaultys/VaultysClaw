@@ -1,6 +1,6 @@
 import React from "react";
 import { AbsoluteFill, Easing, interpolate, useCurrentFrame } from "remotion";
-import { AMBER, Bot, BrowserWindow, Chip, CLAMP, Database, DISPLAY, ease, GOLD, Hacker, Headline, INK, LAV, LAV_DIM, LockIcon, Place, Pop, rand, RED, Rise, Shield, TEAL, Travel, usePop, VIOLET } from "../explainer/kit";
+import { AMBER, Bot, BrowserWindow, Chip, CLAMP, Database, DISPLAY, ease, GOLD, Hacker, Headline, INK, MIST, MIST_DIM, LockIcon, Place, Pop, rand, RED, Rise, Shield, TEAL, Travel, usePop, NAVY } from "../explainer/kit";
 import { FPS } from "../intro/Intro";
 import { Wordmark } from "./solution";
 import type { SceneProps } from "./types";
@@ -109,7 +109,7 @@ function ChainIcon() {
   return (
     <svg width={56} height={56} viewBox="0 0 64 64">
       <rect x={6} y={22} width={28} height={20} rx={10} fill="none" stroke={TEAL} strokeWidth={5} />
-      <rect x={30} y={22} width={28} height={20} rx={10} fill="none" stroke={LAV} strokeWidth={5} />
+      <rect x={30} y={22} width={28} height={20} rx={10} fill="none" stroke={MIST} strokeWidth={5} />
     </svg>
   );
 }
@@ -154,15 +154,15 @@ export function QuantumScene({ t, at }: SceneProps) {
           const s = at("harvest", 0) + i * 7;
           return (
             <Travel key={i} from={[160, 520 + (i % 4) * 60 - 60]} to={[1330, 600]} start={s} end={s + 50} arc={60 + (i % 3) * 40}>
-              <div style={{ width: 76, height: 76, borderRadius: 18, background: decrypt > 0.5 ? "#3a1420" : "#20183a", border: `2px solid ${decrypt > 0.5 ? RED : LAV}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <LockIcon size={36} color={decrypt > 0.5 ? RED : LAV} />
+              <div style={{ width: 76, height: 76, borderRadius: 18, background: decrypt > 0.5 ? "#3a1420" : "#132a33", border: `2px solid ${decrypt > 0.5 ? RED : MIST}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <LockIcon size={36} color={decrypt > 0.5 ? RED : MIST} />
               </div>
             </Travel>
           );
         })}
         <Pop x={1420} y={620} from={at("harvest", 0.05)}>
           <Database size={190} tint={decrypt} />
-          <div style={{ textAlign: "center", marginTop: 8, fontSize: 24, fontWeight: 700, color: LAV }}>{t.quantum.stored}</div>
+          <div style={{ textAlign: "center", marginTop: 8, fontSize: 24, fontWeight: 700, color: MIST }}>{t.quantum.stored}</div>
         </Pop>
         <Pop x={1640} y={480} from={at("harvest", 0.1)}>
           <Hacker size={130} />
@@ -182,7 +182,7 @@ export function QuantumScene({ t, at }: SceneProps) {
               <Shield size={420} color={TEAL} fill={0.1} />
             </div>
             <div style={{ position: "absolute", transform: `scale(${0.5 + usePop(second + 16) * 0.5})` }}>
-              <Shield size={280} color={LAV} fill={0.14}>
+              <Shield size={280} color={MIST} fill={0.14}>
                 <LockIcon size={90} color={INK} />
               </Shield>
             </div>
@@ -194,7 +194,7 @@ export function QuantumScene({ t, at }: SceneProps) {
           </Chip>
         </Place>
         <Place x={1330} y={520} style={{ opacity: ease(frame, second + 32, second + 46) }}>
-          <Chip color={LAV} size={26}>
+          <Chip color={MIST} size={26}>
             {t.quantum.classic}
           </Chip>
         </Place>
@@ -270,7 +270,7 @@ export function FrugalScene({ t, at }: SceneProps) {
       <div style={{ position: "absolute", left: 0, right: 0, top: 940, display: "flex", justifyContent: "center", gap: 22 }}>
         {t.frugal.pills.map((p, i) => (
           <div key={p} style={{ opacity: ease(frame, at("sovereign", 0.3) + i * 5, at("sovereign", 0.3) + i * 5 + 12), transform: `translateY(${(1 - ease(frame, at("sovereign", 0.3) + i * 5, at("sovereign", 0.3) + i * 5 + 12)) * 30}px)` }}>
-            <Chip color={i % 2 ? LAV : TEAL} size={26}>
+            <Chip color={i % 2 ? MIST : TEAL} size={26}>
               {p}
             </Chip>
           </div>
@@ -283,8 +283,8 @@ export function FrugalScene({ t, at }: SceneProps) {
 // ── The twelve domains of agent security ──────────────────────────────────
 
 const STATUS: ("on" | "partial" | "next")[] = ["on", "on", "on", "on", "on", "on", "on", "partial", "partial", "partial", "partial", "next"];
-const STATUS_COLOR = { on: "#1f7a5c", partial: "#8a5d12", next: VIOLET };
-const STATUS_EDGE = { on: TEAL, partial: AMBER, next: LAV };
+const STATUS_COLOR = { on: "#1f7a5c", partial: "#8a5d12", next: "#2a5868" };
+const STATUS_EDGE = { on: TEAL, partial: AMBER, next: MIST };
 
 export function DomainsScene({ t, at }: SceneProps) {
   const frame = useCurrentFrame();
@@ -293,12 +293,12 @@ export function DomainsScene({ t, at }: SceneProps) {
     <AbsoluteFill>
       <Place x={110} y={190} style={{ transform: "translate(0, -50%)" }}>
         <Headline text={t.domains.title} from={at("domains", 0)} size={72} width={1300} accent={[]} />
-        <div style={{ marginTop: 10, fontSize: 24, fontWeight: 600, color: LAV_DIM, opacity: ease(frame, at("domains", 0.1), at("domains", 0.2)) }}>{t.domains.source}</div>
+        <div style={{ marginTop: 10, fontSize: 24, fontWeight: 600, color: MIST_DIM, opacity: ease(frame, at("domains", 0.1), at("domains", 0.2)) }}>{t.domains.source}</div>
       </Place>
       <Place x={1690} y={200}>
         <div style={{ display: "flex", alignItems: "baseline", fontFamily: DISPLAY, color: TEAL, opacity: ease(frame, at("domains", 0.18), at("domains", 0.25)) }}>
           <span style={{ fontSize: 170 }}>{count}</span>
-          <span style={{ fontSize: 80, color: LAV_DIM }}>/12</span>
+          <span style={{ fontSize: 80, color: MIST_DIM }}>/12</span>
         </div>
       </Place>
       <div style={{ position: "absolute", left: 160, top: 360, width: 1600, display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 24, perspective: 1600 }}>
@@ -321,7 +321,7 @@ export function DomainsScene({ t, at }: SceneProps) {
                 opacity: flip,
               }}
             >
-              <div style={{ fontFamily: DISPLAY, fontSize: 40, color: lit > 0.5 ? INK : LAV_DIM }}>{String(i + 1).padStart(2, "0")}</div>
+              <div style={{ fontFamily: DISPLAY, fontSize: 40, color: lit > 0.5 ? INK : MIST_DIM }}>{String(i + 1).padStart(2, "0")}</div>
               <div style={{ fontSize: 25, fontWeight: 700, color: INK, lineHeight: 1.2 }}>{name}</div>
             </div>
           );
@@ -354,14 +354,14 @@ export function ClosingScene({ t, at, logo }: SceneProps) {
         );
       })}
       <Place x={960} y={440}>
-        <Wordmark logo={logo} size={170} from={at("closing", 0)} />
+        <Wordmark logo={logo} height={170} from={at("closing", 0)} />
       </Place>
       <Place x={960} y={720}>
         <Headline text={t.closing.title} from={at("closing", 0.3)} size={96} align="center" width={1600} accent={t.closing.accent} />
       </Place>
       <Place x={960} y={880}>
         <Rise from={at("closing", 0.6)}>
-          <Chip color={LAV} size={30} icon={<GitIcon />}>
+          <Chip color={MIST} size={30} icon={<GitIcon />}>
             {t.closing.repo}
           </Chip>
         </Rise>

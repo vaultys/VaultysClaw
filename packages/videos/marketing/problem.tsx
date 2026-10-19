@@ -1,6 +1,6 @@
 import React from "react";
 import { AbsoluteFill, Easing, interpolate, useCurrentFrame } from "remotion";
-import { Bot, CLAMP, Database, DISPLAY, ease, FONT, Hacker, Headline, INK, LAV, LAV_DIM, Link, Person, Place, Pop, rand, RED, Rise, TEAL, Travel } from "../explainer/kit";
+import { Bot, CLAMP, Database, DISPLAY, ease, FONT, Hacker, Headline, INK, MIST, MIST_DIM, Link, Person, Place, Pop, rand, RED, Rise, TEAL, Travel } from "../explainer/kit";
 import type { SceneProps } from "./types";
 
 /** The problem: agents everywhere, nobody knows what they do, and one directory holds the keys. */
@@ -30,10 +30,10 @@ function Swarm({ count, spin, packets }: { count: number; spin: number; packets:
           return (
             <React.Fragment key={`${ring}-${i}`}>
               {packets && (
-                <div style={{ position: "absolute", left: x * q - 4, top: y * q - 4, width: 8, height: 8, borderRadius: 4, background: ring ? LAV : TEAL, opacity: 0.8 * p * Math.sin(Math.PI * q), boxShadow: `0 0 10px ${TEAL}` }} />
+                <div style={{ position: "absolute", left: x * q - 4, top: y * q - 4, width: 8, height: 8, borderRadius: 4, background: ring ? MIST : TEAL, opacity: 0.8 * p * Math.sin(Math.PI * q), boxShadow: `0 0 10px ${TEAL}` }} />
               )}
               <div style={{ position: "absolute", left: x, top: y, transform: `translate(-50%, -50%) scale(${0.5 + 0.5 * p})`, opacity: p }}>
-                <Bot size={ring ? 70 : 80} color={ring ? LAV_DIM : LAV} />
+                <Bot size={ring ? 70 : 80} color={ring ? MIST_DIM : MIST} />
               </div>
             </React.Fragment>
           );
@@ -85,14 +85,14 @@ export function HookScene({ t, at }: SceneProps) {
       <Place x={960} y={285} style={{ opacity: ease(frame, at("hook1", 0.3), at("hook1", 0.45)) * (1 - headOut) }}>
         <div style={{ display: "flex", alignItems: "baseline", gap: 18, fontFamily: FONT }}>
           <span style={{ fontFamily: DISPLAY, fontSize: 64, color: TEAL, fontVariantNumeric: "tabular-nums", letterSpacing: 2 }}>{ops.toLocaleString("fr-FR")}</span>
-          <span style={{ fontSize: 26, fontWeight: 600, color: LAV }}>{t.hook.ops}</span>
+          <span style={{ fontSize: 26, fontWeight: 600, color: MIST }}>{t.hook.ops}</span>
         </div>
       </Place>
       <Place x={960} y={930}>
         <div style={{ display: "flex", alignItems: "baseline", gap: 22, opacity: ease(frame, at("hook2", 0.4), at("hook2", 0.6)) }}>
           <Headline text={t.hook.fleet} from={at("hook2", 0.4)} size={76} align="center" width={1500} accent={t.hook.fleet.split(" ").filter((w) => /\d/.test(w))} />
         </div>
-        <div style={{ textAlign: "center", marginTop: 6, fontSize: 24, fontWeight: 600, color: LAV_DIM, letterSpacing: 4, textTransform: "uppercase", opacity: ease(frame, at("hook2", 0.7), at("hook2", 0.85)) }}>{t.hook.fleetNote}</div>
+        <div style={{ textAlign: "center", marginTop: 6, fontSize: 24, fontWeight: 600, color: MIST_DIM, letterSpacing: 4, textTransform: "uppercase", opacity: ease(frame, at("hook2", 0.7), at("hook2", 0.85)) }}>{t.hook.fleetNote}</div>
       </Place>
     </AbsoluteFill>
   );
@@ -143,7 +143,7 @@ export function QuestionsScene({ t, at }: SceneProps) {
     <AbsoluteFill>
       {/* the agents nobody inventoried, coming out of the dark */}
       <AbsoluteFill style={{ opacity: shadow }}>
-        <AbsoluteFill style={{ background: "radial-gradient(ellipse at 50% 55%, rgba(8,4,12,0.2), rgba(8,4,12,0.9) 75%)" }} />
+        <AbsoluteFill style={{ background: "radial-gradient(ellipse at 50% 55%, rgba(4,10,13,0.2), rgba(4,10,13,0.9) 75%)" }} />
         {Array.from({ length: 34 }, (_, i) => {
           const x = 120 + rand(i * 3) * 1680;
           const y = 160 + rand(i * 5 + 1) * 820;
@@ -193,7 +193,7 @@ function Card({ from, icon, n, text }: { from: number; icon: React.ReactNode; n:
     >
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         {icon}
-        <span style={{ fontFamily: DISPLAY, fontSize: 80, color: "rgba(201,184,236,0.35)" }}>0{n}</span>
+        <span style={{ fontFamily: DISPLAY, fontSize: 80, color: "rgba(185,208,217,0.35)" }}>0{n}</span>
       </div>
       <div style={{ fontFamily: FONT, fontSize: 40, fontWeight: 700, lineHeight: 1.2, color: INK }}>{text}</div>
     </div>
@@ -221,7 +221,7 @@ export function CentralScene({ t, at }: SceneProps) {
       {Array.from({ length: SPOKES }, (_, i) => {
         const reach = hit + 10 + i * 3;
         const red = ease(frame, reach, reach + 10);
-        return <Link key={i} a={[1040, 600]} b={spoke(i)} from={at("central", 0.1) + i} color={red > 0.5 ? RED : "rgba(201,184,236,0.35)"} width={red > 0.5 ? 4 : 2.5} glow={red > 0.5} />;
+        return <Link key={i} a={[1040, 600]} b={spoke(i)} from={at("central", 0.1) + i} color={red > 0.5 ? RED : "rgba(185,208,217,0.35)"} width={red > 0.5 ? 4 : 2.5} glow={red > 0.5} />;
       })}
       {Array.from({ length: SPOKES }, (_, i) => {
         const reach = hit + 22 + i * 3;
@@ -234,7 +234,7 @@ export function CentralScene({ t, at }: SceneProps) {
       })}
       <Pop x={1040} y={600} from={at("central", 0)}>
         <Database size={210} tint={struck} shake={struck * (1 - ease(frame, hit + 30, hit + 60))} />
-        <div style={{ textAlign: "center", marginTop: 10, fontFamily: FONT, fontSize: 26, fontWeight: 700, color: struck ? RED : LAV }}>{t.central.directory}</div>
+        <div style={{ textAlign: "center", marginTop: 10, fontFamily: FONT, fontSize: 26, fontWeight: 700, color: struck ? RED : MIST }}>{t.central.directory}</div>
       </Pop>
       {/* the crosshair on the directory */}
       <Place x={1040} y={590} style={{ opacity: aim * (1 - struck) }}>

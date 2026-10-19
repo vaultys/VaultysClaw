@@ -6,9 +6,9 @@ import type { Lang } from "../tts";
 import { FPS, introFrames, OUTRO_DURATION, OUTRO_SWITCH, SWITCH } from "./Intro";
 import { writeJingle } from "./jingle";
 
-/** Vaultys' shield (copied from VaultysHub), and VaultysClaw's own, the docs site's. */
+/** Vaultys' shield (copied from VaultysHub), and VaultysClaw's wordmark, all white (assets/README). */
 const VAULTYS_LOGO = path.join(__dirname, "assets/vaultys.svg");
-const CLAW_LOGO = path.resolve(__dirname, "../../../docs-site/static/img/logo.svg");
+const CLAW_LOGO = path.join(__dirname, "assets/claw-wordmark-white.png");
 const CACHE = path.resolve(__dirname, "../.generated-videos/.intro-cache");
 const TAGLINE: Partial<Record<Lang, string[]>> = {
   fr: ["Simple", "Sécurisé", "Souverain"],
@@ -58,7 +58,7 @@ async function renderBumper(kind: keyof typeof BUMPERS, text: string, lang: Lang
     title: text,
     cta: CTA,
     vaultysLogo: logo(VAULTYS_LOGO, /#4F386E/gi),
-    clawLogo: logo(CLAW_LOGO),
+    clawLogo: `data:image/png;base64,${fs.readFileSync(CLAW_LOGO).toString("base64")}`,
   };
   const music = customMusic(kind);
   const sources = ["Intro.tsx", "index.tsx", "jingle.ts", "render.ts"].map((f) => fs.readFileSync(path.join(__dirname, f), "utf8"));

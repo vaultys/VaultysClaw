@@ -9,7 +9,7 @@
   },
   "voice": {
     "elevenlabs": {
-      "fr": "m5U7XCsc8v988k2RJAqN"
+      "fr": "5OnMHwgTFgvPVwE8jP6B"
     }
   },
   "pronounce": {
@@ -21,6 +21,9 @@
     },
     "hyperscalers": {
       "fr": "hyper-scaleurs"
+    },
+    "control plane": {
+      "fr": "kontrol plèïne"
     }
   },
   "lines": {
@@ -73,7 +76,7 @@
       "en": "VaultysClaw then issues a signed certificate, with its scope and its expiry date, that anyone can verify, even offline."
     },
     "plane": {
-      "fr": "Le plan de contrôle distribue les droits, et reçoit en retour des journaux signés.",
+      "fr": "Le control plane distribue les droits, et reçoit en retour des journaux signés.",
       "en": "The control plane hands out rights, and receives signed logs in return."
     },
     "p2p": {

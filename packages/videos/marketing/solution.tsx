@@ -1,34 +1,25 @@
 import React from "react";
 import { AbsoluteFill, Easing, Img, interpolate, useCurrentFrame } from "remotion";
-import { Bot, BrowserWindow, Chip, CLAMP, DISPLAY, ease, FONT, GOLD, Hacker, Headline, IdIcon, INDIGO, INK, KeyIcon, LAV, LAV_DIM, Link, LockIcon, Person, Place, Pop, RED, Rise, Shield, TEAL, Travel, usePop, VIOLET } from "../explainer/kit";
+import { Bot, BrowserWindow, Chip, CLAMP, DISPLAY, ease, FONT, GOLD, Hacker, Headline, IdIcon, ORANGE, INK, KeyIcon, MIST, MIST_DIM, Link, LockIcon, Person, Place, Pop, RED, Rise, Shield, TEAL, Travel, usePop, NAVY } from "../explainer/kit";
 import type { SceneProps } from "./types";
 
 /** How VaultysClaw works: an employee's identity and rights, for every agent. */
 
-/** VaultysClaw's mark: its logo on a white tile, and the name in the deck's display face. */
-export function Wordmark({ logo, size = 150, from }: { logo: string; size?: number; from: number }) {
+/**
+ * VaultysClaw's wordmark (intro/assets/claw-wordmark-light.png: the orange shield, "VAULTYS" in
+ * white for the navy backdrop, "CLAW" in orange): the shield pops, then the name is wiped in from
+ * behind it. `height` is the wordmark's; it is ~6 times as wide.
+ */
+export function Wordmark({ logo, height = 150, from }: { logo: string; height?: number; from: number }) {
   const frame = useCurrentFrame();
   const pop = usePop(from, { damping: 13, stiffness: 110 });
-  const name = ease(frame, from + 8, from + 24);
+  // The shield is the first ~15 % of the image's width.
+  const wipe = interpolate(frame, [from + 8, from + 30], [15, 100], { ...CLAMP, easing: Easing.out(Easing.cubic) });
+  const width = (height * 1999) / 336;
+  if (!logo) return <div style={{ fontFamily: DISPLAY, fontSize: height, color: INK }}>VaultysClaw</div>;
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: size * 0.32 }}>
-      <div
-        style={{
-          width: size * 1.35,
-          height: size * 1.35,
-          borderRadius: size * 0.32,
-          background: "white",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          boxShadow: `0 24px 60px rgba(0,0,0,0.45), 0 0 80px ${INDIGO}66`,
-          transform: `scale(${0.5 + pop * 0.5}) rotate(${(1 - pop) * -14}deg)`,
-          opacity: Math.min(1, pop * 1.5),
-        }}
-      >
-        {logo ? <Img src={logo} style={{ width: size }} /> : <Bot size={size} color={INDIGO} />}
-      </div>
-      <div style={{ fontFamily: DISPLAY, fontSize: size * 1.25, color: INK, letterSpacing: 2, opacity: name, transform: `translateX(${(1 - name) * -40}px)`, textShadow: "0 10px 40px rgba(0,0,0,0.4)" }}>VaultysClaw</div>
+    <div style={{ width, height, opacity: Math.min(1, pop * 1.5), transform: `scale(${0.85 + pop * 0.15})`, filter: `drop-shadow(0 18px 40px rgba(0,0,0,0.45)) drop-shadow(0 0 50px ${ORANGE}44)` }}>
+      <Img src={logo} style={{ width, height, clipPath: `inset(0 ${100 - wipe}% 0 0)` }} />
     </div>
   );
 }
@@ -54,11 +45,11 @@ function IdentityCard({ from, avatar, name, role, kind, rights, rightsLabel, acc
         <div>
           <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: 4, color: accent, textTransform: "uppercase" }}>{kind}</div>
           <div style={{ fontSize: 36, fontWeight: 800, color: INK, marginTop: 4 }}>{name}</div>
-          <div style={{ fontSize: 24, fontWeight: 500, color: LAV }}>{role}</div>
+          <div style={{ fontSize: 24, fontWeight: 500, color: MIST }}>{role}</div>
         </div>
       </div>
       <div style={{ marginTop: 26, paddingTop: 22, borderTop: "1px solid rgba(255,255,255,0.12)", display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
-        <span style={{ fontSize: 20, fontWeight: 700, color: LAV_DIM, letterSpacing: 3, textTransform: "uppercase", marginRight: 6 }}>{rightsLabel}</span>
+        <span style={{ fontSize: 20, fontWeight: 700, color: MIST_DIM, letterSpacing: 3, textTransform: "uppercase", marginRight: 6 }}>{rightsLabel}</span>
         {rights.map((r, i) => (
           <span key={r} style={{ opacity: ease(frame, from + 18 + i * 6, from + 30 + i * 6) }}>
             <Chip color={accent} size={20}>
@@ -83,13 +74,13 @@ export function SolutionScene({ t, at, logo }: SceneProps) {
         <Headline text={t.solution.title} from={at("solution", 0.3)} size={88} align="center" width={1600} accent={t.solution.accent} />
       </Place>
       <div style={{ position: "absolute", left: 0, right: 0, top: 540, display: "flex", justifyContent: "center", alignItems: "center", gap: 60, opacity: up }}>
-        <IdentityCard from={at("control", 0.1)} avatar={<Person size={96} color={LAV} />} name={t.solution.employee.name} role={t.solution.employee.role} kind={t.solution.employee.kind} rights={["ERP", "CRM", "Mail"]} rightsLabel={t.solution.rights} accent={LAV} />
+        <IdentityCard from={at("control", 0.1)} avatar={<Person size={96} color={MIST} />} name={t.solution.employee.name} role={t.solution.employee.role} kind={t.solution.employee.kind} rights={["ERP", "CRM", "Mail"]} rightsLabel={t.solution.rights} accent={MIST} />
         <div style={{ fontFamily: DISPLAY, fontSize: 90, color: TEAL, opacity: ease(frame, at("control", 0.3), at("control", 0.4)) }}>=</div>
         <IdentityCard from={at("control", 0.25)} avatar={<Bot size={96} color={TEAL} />} name={t.solution.agent.name} role={t.solution.agent.role} kind={t.solution.agent.kind} rights={["file_read", "api_call"]} rightsLabel={t.solution.rights} accent={TEAL} />
       </div>
       <Place x={960} y={960}>
         <Rise from={at("control", 0.6)}>
-          <div style={{ fontSize: 34, fontWeight: 600, color: LAV, letterSpacing: 1 }}>{t.solution.sub}</div>
+          <div style={{ fontSize: 34, fontWeight: 600, color: MIST, letterSpacing: 1 }}>{t.solution.sub}</div>
         </Rise>
       </Place>
     </AbsoluteFill>
@@ -122,7 +113,7 @@ export function IdentityScene({ t, at }: SceneProps) {
         <Headline text={t.identity.title} from={at("identity", 0.02)} size={76} width={1700} accent={[]} />
       </Place>
       <Pop x={620} y={600} from={at("identity", 0)}>
-        <Bot size={300} color={LAV} glow={key * 0.6} />
+        <Bot size={300} color={MIST} glow={key * 0.6} />
       </Pop>
       {/* the secret key: inside the agent, behind a ring it never crosses */}
       <Place x={620} y={640} style={{ opacity: key, transform: `translate(-50%, -50%) scale(${0.4 + key * 0.6})` }}>
@@ -137,7 +128,7 @@ export function IdentityScene({ t, at }: SceneProps) {
         <Rise from={at("identity", 0.62)}>
           <div style={{ textAlign: "center" }}>
             <div style={{ fontSize: 32, fontWeight: 800, color: GOLD }}>{t.identity.key}</div>
-            <div style={{ fontSize: 24, fontWeight: 600, color: LAV }}>{t.identity.keyNote}</div>
+            <div style={{ fontSize: 24, fontWeight: 600, color: MIST }}>{t.identity.keyNote}</div>
           </div>
         </Rise>
       </Place>
@@ -147,7 +138,7 @@ export function IdentityScene({ t, at }: SceneProps) {
           <div>
             <div style={{ fontSize: 20, fontWeight: 700, color: TEAL, letterSpacing: 4, textTransform: "uppercase" }}>{t.identity.id}</div>
             <div style={{ fontFamily: DISPLAY, fontSize: 56, color: INK, letterSpacing: 1 }}>VaultysID</div>
-            <div style={{ fontFamily: "monospace", fontSize: 20, color: LAV_DIM }}>did:vaultys:3f9a…c21e</div>
+            <div style={{ fontFamily: "monospace", fontSize: 20, color: MIST_DIM }}>did:vaultys:3f9a…c21e</div>
           </div>
         </div>
       </Travel>
@@ -178,24 +169,24 @@ export function RightsScene({ t, at, footage }: SceneProps) {
         <BrowserWindow clip={footage?.file} at={footage ? footage.marks.approve - 0.5 : undefined} hold={footage ? footage.marks.certificates - footage.marks.approve - 1.2 : undefined} from={at("rights", 0.15)} width={960} tilt={9} url="vaultysclaw / admin / actors" />
       </Place>
       <Pop x={1460} y={600} from={cert}>
-        <div style={{ width: 600, height: 560, borderRadius: 28, padding: "34px 40px", background: "linear-gradient(165deg, #fbf9ff, #ece6f8)", boxShadow: "0 50px 100px rgba(0,0,0,0.5)", color: "#211731", position: "relative" }}>
-          <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: 4, color: VIOLET, textTransform: "uppercase" }}>{t.rights.cert}</div>
+        <div style={{ width: 600, height: 560, borderRadius: 28, padding: "34px 40px", background: "linear-gradient(165deg, #fdfbf8, #eef2f4)", boxShadow: "0 50px 100px rgba(0,0,0,0.5)", color: NAVY, position: "relative" }}>
+          <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: 4, color: NAVY, textTransform: "uppercase" }}>{t.rights.cert}</div>
           <div style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 14 }}>
-            <Bot size={56} color={VIOLET} />
+            <Bot size={56} color={NAVY} />
             <div style={{ fontSize: 30, fontWeight: 800 }}>openclaw-00477</div>
           </div>
           <div style={{ height: 210 }} />
           <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", rowGap: 10, columnGap: 22, fontSize: 22, opacity: ease(frame, cert + 20, cert + 34) }}>
-            <span style={{ fontWeight: 700, color: "#7a6c93" }}>{t.rights.scope}</span>
+            <span style={{ fontWeight: 700, color: "#6a8590" }}>{t.rights.scope}</span>
             <span style={{ fontWeight: 700 }}>{t.rights.scopeValue}</span>
-            <span style={{ fontWeight: 700, color: "#7a6c93" }}>{t.rights.expires}</span>
+            <span style={{ fontWeight: 700, color: "#6a8590" }}>{t.rights.expires}</span>
             <span style={{ fontWeight: 700 }}>{t.rights.expiresValue}</span>
           </div>
-          <div style={{ position: "absolute", left: 40, bottom: 30, fontSize: 19, fontWeight: 600, color: "#7a6c93", opacity: ease(frame, seal, seal + 12) }}>{t.rights.signed}</div>
+          <div style={{ position: "absolute", left: 40, bottom: 30, fontSize: 19, fontWeight: 600, color: "#6a8590", opacity: ease(frame, seal, seal + 12) }}>{t.rights.signed}</div>
           {/* the seal */}
           <div style={{ position: "absolute", right: 34, bottom: 30, opacity: Math.min(1, sealP * 2), transform: `scale(${2.2 - sealP * 1.2}) rotate(${-18 + sealP * 6}deg)` }}>
             <svg width={130} height={130} viewBox="-65 -65 130 130">
-              <circle r={60} fill={VIOLET} />
+              <circle r={60} fill={ORANGE} />
               <circle r={50} fill="none" stroke="white" strokeWidth={2} strokeDasharray="4 5" opacity={0.7} />
               <path d="M-22 2 L-6 18 L24 -16" stroke={TEAL} strokeWidth={10} fill="none" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
@@ -263,13 +254,13 @@ export function ArchitectureScene({ t, at }: SceneProps) {
   return (
     <AbsoluteFill>
       <Pop x={PLANE[0]} y={PLANE[1]} from={at("plane", 0)}>
-        <div style={{ width: 720, padding: "30px 40px", borderRadius: 26, textAlign: "center", background: "linear-gradient(160deg, rgba(201,184,236,0.22), rgba(201,184,236,0.08))", border: `2px solid ${LAV}`, boxShadow: `0 30px 80px rgba(0,0,0,0.4), 0 0 60px ${LAV}33` }}>
+        <div style={{ width: 720, padding: "30px 40px", borderRadius: 26, textAlign: "center", background: "linear-gradient(160deg, rgba(185,208,217,0.18), rgba(185,208,217,0.06))", border: `2px solid ${MIST}`, boxShadow: `0 30px 80px rgba(0,0,0,0.4), 0 0 60px ${MIST}33` }}>
           <div style={{ fontFamily: DISPLAY, fontSize: 64, color: INK, letterSpacing: 2, textTransform: "uppercase" }}>{t.architecture.plane}</div>
-          <div style={{ fontSize: 24, fontWeight: 600, color: LAV, marginTop: 6 }}>{t.architecture.planeSub}</div>
+          <div style={{ fontSize: 24, fontWeight: 600, color: MIST, marginTop: 6 }}>{t.architecture.planeSub}</div>
         </div>
       </Pop>
       {NODES.map((n, i) => (
-        <Link key={i} a={[PLANE[0] + (n.x - 960) * 0.35, PLANE[1] + 80]} b={[n.x, NODE_Y - 85]} from={at("plane", 0.1) + i * 4} color="rgba(201,184,236,0.45)" width={2.5} />
+        <Link key={i} a={[PLANE[0] + (n.x - 960) * 0.35, PLANE[1] + 80]} b={[n.x, NODE_Y - 85]} from={at("plane", 0.1) + i * 4} color="rgba(185,208,217,0.45)" width={2.5} />
       ))}
       {/* rights going down, then signed logs coming back up */}
       {NODES.map((n, i) => (
@@ -280,7 +271,7 @@ export function ArchitectureScene({ t, at }: SceneProps) {
             </Chip>
           </Travel>
           <Travel from={[n.x, NODE_Y - 100]} to={[PLANE[0] + (n.x - 960) * 0.35, PLANE[1] + 90]} start={at("plane", 0.62) + i * 5} end={at("plane", 0.62) + i * 5 + 30}>
-            <Chip color={LAV} size={20}>
+            <Chip color={MIST} size={20}>
               {t.architecture.logs} ✓
             </Chip>
           </Travel>
@@ -298,10 +289,10 @@ export function ArchitectureScene({ t, at }: SceneProps) {
       ))}
       {NODES.map((n, i) => {
         const user = n.kind === "user";
-        const c = user ? LAV : TEAL;
+        const c = user ? MIST : TEAL;
         return (
           <Pop key={i} x={n.x} y={NODE_Y} from={at("plane", 0.05) + i * 4}>
-            <div style={{ width: 170, height: 170, borderRadius: 85, background: user ? "#3b2a52" : "#123a30", border: `3px solid ${c}`, boxShadow: `0 0 40px ${c}44`, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2 }}>
+            <div style={{ width: 170, height: 170, borderRadius: 85, background: user ? "#203f4c" : "#123a30", border: `3px solid ${c}`, boxShadow: `0 0 40px ${c}44`, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2 }}>
               {user ? <Person size={64} color={c} /> : <Bot size={64} color={c} />}
               <div style={{ fontSize: 24, fontWeight: 800, color: INK }}>{user ? t.architecture.user : t.architecture.agent}</div>
               <div style={{ fontSize: 15, fontWeight: 700, color: c }}>VaultysID</div>
@@ -313,7 +304,7 @@ export function ArchitectureScene({ t, at }: SceneProps) {
         <Rise from={at("p2p", 0.55)}>
           <div style={{ textAlign: "center" }}>
             <div style={{ fontFamily: DISPLAY, fontSize: 52, color: TEAL, letterSpacing: 3, textTransform: "uppercase" }}>{t.architecture.p2p}</div>
-            <div style={{ fontSize: 28, fontWeight: 600, color: LAV }}>{t.architecture.p2pSub}</div>
+            <div style={{ fontSize: 28, fontWeight: 600, color: MIST }}>{t.architecture.p2pSub}</div>
           </div>
         </Rise>
       </Place>

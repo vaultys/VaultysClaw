@@ -4,7 +4,7 @@ import { AbsoluteFill, Easing, Img, interpolate, Sequence, spring, useCurrentFra
 /**
  * The animated bumpers around every video, in two scenes:
  * - Vaultys: violet, the shield, "Vaultys" and its tagline ("Simple, Sécurisé, Souverain");
- * - VaultysClaw: the console's indigo, its logo and name, and a line of text.
+ * - VaultysClaw: the brand orange, its wordmark in white, and a line of text.
  * The intro goes Vaultys → VaultysClaw (the video's subject); the outro mirrors it,
  * VaultysClaw (the video's closing line) → Vaultys, with a call to action.
  * The second scene of each opens over the first as a circle growing from the centre.
@@ -17,14 +17,14 @@ export type IntroProps = {
   title: string;
   /** Under the tagline at the end of the outro, e.g. "vaultys.com". Not shown by the intro. */
   cta?: string;
-  /** Data URIs of the two logos: Vaultys' recoloured white, VaultysClaw's in its own colours. */
+  /** Data URIs of the two logos, both white for the coloured backgrounds: Vaultys' shield, VaultysClaw's wordmark. */
   vaultysLogo: string;
   clawLogo: string;
 };
 
 export const VAULTYS = "#4f386e";
-/** The console's primary indigo (packages/controlplane/app/theme.css, primary-600). */
-export const CLAW = "#4f46e5";
+/** VaultysClaw's orange, its logo's. */
+export const CLAW = "#d35400";
 export const FPS = 30;
 /** Intro: the VaultysClaw scene opens at SWITCH; the intro's length depends on its title (introFrames). */
 export const SWITCH = 96;
@@ -162,20 +162,21 @@ function TaglineWord({ word, from, last }: { word: string; from: number; last: b
 }
 
 /**
- * The VaultysClaw scene; its animations start at its own frame 0. The logo keeps its own colours
- * (a blue-to-violet shield, which would vanish on the indigo background) on a white tile, the way
- * the console's sidebar shows its mark, with the name beside it.
+ * The VaultysClaw scene; its animations start at its own frame 0. On the brand orange, the
+ * wordmark in white (intro/assets/claw-wordmark-white.png): the shield pops, then the name is wiped
+ * in from behind it.
  */
 export function ClawScene({ text, logo, logoAt = 8, exitAt }: { text: string; logo: string; logoAt?: number; exitAt?: number }) {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const pop = spring({ frame: frame - logoAt, fps, config: { damping: 14, stiffness: 120 } });
   const exit = useExit(exitAt);
-  const name = useRise(logoAt + 8, 16, 0);
+  // The shield is the first ~15 % of the wordmark's width.
+  const wipe = interpolate(frame, [logoAt + 6, logoAt + 28], [15, 100], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: Easing.out(Easing.cubic) });
   // A soft band of light crossing the scene once the logo has landed.
   const sweep = interpolate(frame, [logoAt + 26, logoAt + 54], [-0.4, 1.4], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: Easing.inOut(Easing.quad) });
   return (
-    <AbsoluteFill style={{ background: `linear-gradient(135deg, #6366f1 0%, ${CLAW} 45%, #3b1f9e 100%)` }}>
+    <AbsoluteFill style={{ background: `linear-gradient(135deg, #ec6a12 0%, ${CLAW} 45%, #9c3d00 100%)` }}>
       <Rings />
       <AbsoluteFill
         style={{
@@ -186,37 +187,8 @@ export function ClawScene({ text, logo, logoAt = 8, exitAt }: { text: string; lo
         }}
       />
       <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", transform: `scale(${exit})` }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 48 }}>
-          <div
-            style={{
-              width: 220,
-              height: 220,
-              borderRadius: 52,
-              background: "white",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              transform: `scale(${0.6 + pop * 0.4}) rotate(${(1 - pop) * -10}deg)`,
-              opacity: Math.min(1, pop * 1.5),
-              boxShadow: "0 18px 50px rgba(20,10,80,0.35)",
-            }}
-          >
-            <Img src={logo} style={{ width: 168 }} />
-          </div>
-          <div
-            style={{
-              opacity: name.opacity,
-              transform: `translateX(${(1 - name.opacity) * -40}px)`,
-              fontFamily: FONT,
-              fontWeight: 700,
-              fontSize: 150,
-              color: "white",
-              letterSpacing: 2,
-              textShadow: "0 6px 24px rgba(20,10,80,0.3)",
-            }}
-          >
-            VaultysClaw
-          </div>
+        <div style={{ opacity: Math.min(1, pop * 1.5), transform: `scale(${0.8 + pop * 0.2})`, filter: "drop-shadow(0 14px 34px rgba(60,20,0,0.35))" }}>
+          <Img src={logo} style={{ width: 1240, clipPath: `inset(0 ${100 - wipe}% 0 0)` }} />
         </div>
         <div
           style={{
@@ -229,7 +201,7 @@ export function ClawScene({ text, logo, logoAt = 8, exitAt }: { text: string; lo
             lineHeight: 1.25,
             color: "white",
             textWrap: "balance",
-            textShadow: "0 4px 18px rgba(20,10,80,0.3)",
+            textShadow: "0 4px 18px rgba(60,20,0,0.3)",
           }}
         >
           {text.split(" ").map((word, i) => (

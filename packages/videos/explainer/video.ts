@@ -18,9 +18,9 @@ export type ExplainerVideo = {
 
 export const SCREENS = path.join(OUTPUT, "screens");
 
-/** An SVG as a data URI. */
-export function svgUri(file: string) {
-  return `data:image/svg+xml;base64,${fs.readFileSync(file).toString("base64")}`;
+/** A PNG as a data URI. */
+export function pngUri(file: string) {
+  return `data:image/png;base64,${fs.readFileSync(file).toString("base64")}`;
 }
 
 /** The marks (`demo.mark`) of a screen recording: seconds into it. */

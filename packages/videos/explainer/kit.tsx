@@ -7,7 +7,8 @@ import { FPS } from "../intro/Intro";
 /**
  * The kit of the narrated, animated explainers (no live recording; console footage comes from
  * `.generated-videos/screens/`). Ported from VaultysHub's `e2e/videos/explainer/kit.tsx`, restyled
- * after the VaultysClaw deck: deep violet, lavender, teal for what is safe, red for the attacker.
+ * in VaultysClaw's colours: deep navy, the logo's orange as the accent, teal for what is safe, red
+ * for the attacker.
  *
  * Each video lists its scenes, each bound to lines of its .narration.json; `timeline()` lays the
  * lines end to end on the voice clips' lengths, and `ExplainerFrame` plays the scenes over a shared
@@ -19,15 +20,17 @@ export const { fontFamily: DISPLAY } = loadAnton("normal", { weights: ["400"], s
 const montserrat = loadMontserrat("normal", { weights: ["400", "500", "600", "700", "800"], subsets: ["latin", "latin-ext"] });
 export const FONT = montserrat.fontFamily;
 
-// ── Palette (the deck's) ──────────────────────────────────────────────────
-export const VIOLET = "#4f386e";
-export const LAV = "#c9b8ec";
-export const LAV_DIM = "#8f7bb3";
+// ── Palette (VaultysClaw's brand: its logo's orange and navy) ───────────────
+export const NAVY = "#16323d";
+export const ORANGE = "#d35400";
+/** The brand orange, lifted for text and strokes on the navy backdrop. */
+export const ORANGE_LIGHT = "#f07a2a";
+export const MIST = "#b9d0d9";
+export const MIST_DIM = "#7f9ba6";
 export const TEAL = "#2ee6b6";
 export const RED = "#ff4d6d";
 export const AMBER = "#f2a93b";
 export const GOLD = "#f5c451";
-export const INDIGO = "#6366f1";
 export const INK = "#f1ecfa";
 
 export type SceneList = readonly { readonly id: string; readonly lines: readonly string[] }[];
@@ -191,7 +194,7 @@ export function Link({
 }
 
 /** A rounded label: a capability, a property, a packet. */
-export function Chip({ children, color = LAV, solid = false, size = 28, icon }: { children: React.ReactNode; color?: string; solid?: boolean; size?: number; icon?: React.ReactNode }) {
+export function Chip({ children, color = MIST, solid = false, size = 28, icon }: { children: React.ReactNode; color?: string; solid?: boolean; size?: number; icon?: React.ReactNode }) {
   return (
     <div
       style={{
@@ -204,7 +207,7 @@ export function Chip({ children, color = LAV, solid = false, size = 28, icon }: 
         fontFamily: FONT,
         fontWeight: 700,
         fontSize: size,
-        color: solid ? "#140d1c" : "white",
+        color: solid ? "#0b161b" : "white",
         background: solid ? color : `${color}22`,
         border: `2px solid ${color}`,
         boxShadow: `0 10px 30px rgba(0,0,0,0.35), 0 0 24px ${color}44`,
@@ -226,7 +229,7 @@ export function Headline({
   size = 92,
   color = INK,
   accent = [],
-  accentColor = TEAL,
+  accentColor = ORANGE_LIGHT,
   align = "left",
   width = 1300,
   display = true,
@@ -275,15 +278,15 @@ export function Headline({
 // ── Pictograms ─────────────────────────────────────────────────────────────
 
 /** An AI agent: a small robot head in a rounded tile. `state` tints it: 0 neutral, ok, danger or off. */
-export function Bot({ size = 90, color = LAV, state = "neutral", glow = 0 }: { size?: number; color?: string; state?: "neutral" | "ok" | "danger" | "off" | "shadow"; glow?: number }) {
-  const c = state === "ok" ? TEAL : state === "danger" ? RED : state === "off" ? "#6b6380" : state === "shadow" ? "#3a3048" : color;
-  const eye = state === "shadow" ? RED : state === "off" ? "#4a4458" : "#140d1c";
+export function Bot({ size = 90, color = MIST, state = "neutral", glow = 0 }: { size?: number; color?: string; state?: "neutral" | "ok" | "danger" | "off" | "shadow"; glow?: number }) {
+  const c = state === "ok" ? TEAL : state === "danger" ? RED : state === "off" ? "#5a6c74" : state === "shadow" ? "#2c3a40" : color;
+  const eye = state === "shadow" ? RED : state === "off" ? "#3f4d54" : "#0b161b";
   return (
     <svg width={size} height={size} viewBox="0 0 64 64" style={{ overflow: "visible", filter: glow ? `drop-shadow(0 0 ${14 * glow}px ${c})` : undefined }}>
       <line x1={32} y1={6} x2={32} y2={14} stroke={c} strokeWidth={3} strokeLinecap="round" />
       <circle cx={32} cy={5} r={3.5} fill={c} />
-      <rect x={10} y={14} width={44} height={38} rx={12} fill={state === "shadow" ? "#1d1626" : `${c}`} />
-      <rect x={16} y={22} width={32} height={18} rx={8} fill={state === "shadow" ? "#0b0710" : "rgba(20,13,28,0.85)"} />
+      <rect x={10} y={14} width={44} height={38} rx={12} fill={state === "shadow" ? "#15232a" : `${c}`} />
+      <rect x={16} y={22} width={32} height={18} rx={8} fill={state === "shadow" ? "#060d10" : "rgba(8,19,24,0.85)"} />
       <circle cx={25} cy={31} r={3.6} fill={state === "shadow" ? RED : c} opacity={state === "off" ? 0.4 : 1} />
       <circle cx={39} cy={31} r={3.6} fill={state === "shadow" ? RED : c} opacity={state === "off" ? 0.4 : 1} />
       <rect x={24} y={45} width={16} height={3} rx={1.5} fill={eye} opacity={0.6} />
@@ -293,7 +296,7 @@ export function Bot({ size = 90, color = LAV, state = "neutral", glow = 0 }: { s
   );
 }
 
-export function Person({ size = 90, color = LAV }: { size?: number; color?: string }) {
+export function Person({ size = 90, color = MIST }: { size?: number; color?: string }) {
   return (
     <svg width={size} height={size} viewBox="0 0 64 64">
       <circle cx={32} cy={32} r={31} fill="rgba(255,255,255,0.06)" stroke={color} strokeWidth={2} />
@@ -308,14 +311,14 @@ export function Hacker({ size = 150 }: { size?: number }) {
   const glow = 0.6 + 0.4 * Math.sin(frame / 6);
   return (
     <svg width={size} height={size} viewBox="0 0 64 64" style={{ filter: `drop-shadow(0 0 ${14 * glow}px ${RED})` }}>
-      <path d="M32 4 C18 4 10 15 10 28 L10 60 L54 60 L54 28 C54 15 46 4 32 4 Z" fill="#1b1424" stroke={RED} strokeWidth={2} />
+      <path d="M32 4 C18 4 10 15 10 28 L10 60 L54 60 L54 28 C54 15 46 4 32 4 Z" fill="#101c22" stroke={RED} strokeWidth={2} />
       <path d="M20 30 C20 21 25 15 32 15 C39 15 44 21 44 30 L44 40 C44 46 39 50 32 50 C25 50 20 46 20 40 Z" fill="#07050a" />
       <rect x={22} y={29} width={20} height={5} rx={2.5} fill={RED} opacity={glow} />
     </svg>
   );
 }
 
-export function Database({ size = 220, color = LAV, tint = 0, shake = 0 }: { size?: number; color?: string; tint?: number; shake?: number }) {
+export function Database({ size = 220, color = MIST, tint = 0, shake = 0 }: { size?: number; color?: string; tint?: number; shake?: number }) {
   const frame = useCurrentFrame();
   const stroke = tint ? mix(color, RED, tint) : color;
   const dx = shake ? Math.sin(frame * 2.3) * 6 * shake : 0;
@@ -354,7 +357,7 @@ export function LockIcon({ size = 40, color = TEAL }: { size?: number; color?: s
     <svg width={size} height={size} viewBox="0 0 64 64" style={{ overflow: "visible" }}>
       <path d="M20 28 V20 C20 13 25 8 32 8 C39 8 44 13 44 20 V28" fill="none" stroke={color} strokeWidth={6} strokeLinecap="round" />
       <rect x={12} y={28} width={40} height={30} rx={7} fill={color} />
-      <circle cx={32} cy={42} r={4.5} fill="#140d1c" />
+      <circle cx={32} cy={42} r={4.5} fill="#0b161b" />
     </svg>
   );
 }
@@ -417,7 +420,7 @@ export function BrowserWindow({
           borderRadius: 18,
           overflow: "hidden",
           background: "#f6f5fb",
-          boxShadow: `0 60px 120px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.18), 0 0 90px ${INDIGO}40`,
+          boxShadow: `0 60px 120px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.18), 0 0 90px ${ORANGE}33`,
           opacity: Math.min(1, p * 1.5),
           transform: `translateY(${(1 - p) * 80 + float}px) rotateY(${tilt * (0.6 + 0.4 * p)}deg) rotateX(${(1 - p) * 10 + 2}deg) scale(${0.9 + 0.1 * p})`,
         }}
@@ -448,14 +451,14 @@ export function BrowserWindow({
 
 // ── Frame ──────────────────────────────────────────────────────────────────
 
-/** The deck's deep violet, two slow glows, drifting particles and a faint grid. */
+/** Deep navy, two slow glows (navy, the brand orange), drifting particles and a faint grid. */
 export function Backdrop({ danger = 0, calm = 0 }: { danger?: number; calm?: number }) {
   const frame = useCurrentFrame();
   const a = frame / 140;
   return (
-    <AbsoluteFill style={{ background: "linear-gradient(140deg, #1c1228 0%, #261a38 50%, #120c1b 100%)", overflow: "hidden" }}>
-      <div style={{ position: "absolute", width: 1400, height: 1400, borderRadius: "50%", left: 100 + Math.sin(a) * 180, top: -620 + Math.cos(a * 0.8) * 140, background: `radial-gradient(circle, ${VIOLET} 0%, transparent 64%)`, filter: "blur(40px)", opacity: 0.95 }} />
-      <div style={{ position: "absolute", width: 1200, height: 1200, borderRadius: "50%", left: 950 + Math.cos(a * 0.9) * 200, top: 320 + Math.sin(a * 1.1) * 130, background: `radial-gradient(circle, ${INDIGO}44 0%, transparent 65%)`, filter: "blur(50px)" }} />
+    <AbsoluteFill style={{ background: "linear-gradient(140deg, #0c1b22 0%, #13303b 50%, #08131a 100%)", overflow: "hidden" }}>
+      <div style={{ position: "absolute", width: 1400, height: 1400, borderRadius: "50%", left: 100 + Math.sin(a) * 180, top: -620 + Math.cos(a * 0.8) * 140, background: "radial-gradient(circle, #2a5868 0%, transparent 64%)", filter: "blur(40px)", opacity: 0.9 }} />
+      <div style={{ position: "absolute", width: 1200, height: 1200, borderRadius: "50%", left: 950 + Math.cos(a * 0.9) * 200, top: 320 + Math.sin(a * 1.1) * 130, background: `radial-gradient(circle, ${ORANGE}33 0%, transparent 65%)`, filter: "blur(50px)" }} />
       <AbsoluteFill style={{ background: `radial-gradient(ellipse at 50% 50%, ${TEAL}22, transparent 70%)`, opacity: calm }} />
       <AbsoluteFill style={{ background: `radial-gradient(ellipse at 50% 50%, ${RED}38, transparent 70%)`, opacity: danger }} />
       <AbsoluteFill
@@ -469,13 +472,13 @@ export function Backdrop({ danger = 0, calm = 0 }: { danger?: number; calm?: num
       {Array.from({ length: 40 }, (_, i) => {
         const x = rand(i) * 1920;
         const y = (rand(i + 99) * 1180 - frame * (0.15 + rand(i + 7) * 0.35)) % 1180;
-        return <div key={i} style={{ position: "absolute", left: x, top: y < 0 ? y + 1180 : y, width: 3, height: 3, borderRadius: 2, background: LAV, opacity: 0.12 + rand(i + 3) * 0.25 }} />;
+        return <div key={i} style={{ position: "absolute", left: x, top: y < 0 ? y + 1180 : y, width: 3, height: 3, borderRadius: 2, background: MIST, opacity: 0.12 + rand(i + 3) * 0.25 }} />;
       })}
     </AbsoluteFill>
   );
 }
 
-/** The chapter's name at the top left (the deck's spaced capitals), the progress row at the top right. */
+/** The chapter's name at the top left (spaced capitals), the progress row at the top right. */
 function Chrome({ label, index, count, length }: { label: string; index: number; count: number; length: number }) {
   const frame = useCurrentFrame();
   const t = ease(frame, 2, 20);
@@ -484,12 +487,12 @@ function Chrome({ label, index, count, length }: { label: string; index: number;
   return (
     <>
       <div style={{ position: "absolute", left: 110, top: 78, display: "flex", alignItems: "center", gap: 20, opacity: t * (1 - leave), fontFamily: FONT }}>
-        <span style={{ fontSize: 22, fontWeight: 700, color: LAV, letterSpacing: 7, textTransform: "uppercase" }}>{label}</span>
-        <span style={{ height: 2, width: 160 * t, background: `linear-gradient(90deg, ${LAV}, transparent)` }} />
+        <span style={{ fontSize: 22, fontWeight: 700, color: MIST, letterSpacing: 7, textTransform: "uppercase" }}>{label}</span>
+        <span style={{ height: 2, width: 160 * t, background: `linear-gradient(90deg, ${MIST}, transparent)` }} />
       </div>
       <div style={{ position: "absolute", right: 110, top: 86, display: "flex", gap: 10, opacity: t * (1 - leave) }}>
         {Array.from({ length: count }, (_, i) => (
-          <span key={i} style={{ width: i === index ? 30 : 10, height: 10, borderRadius: 5, background: i === index ? TEAL : i < index ? "rgba(255,255,255,0.5)" : "rgba(255,255,255,0.16)" }} />
+          <span key={i} style={{ width: i === index ? 30 : 10, height: 10, borderRadius: 5, background: i === index ? ORANGE_LIGHT : i < index ? "rgba(255,255,255,0.5)" : "rgba(255,255,255,0.16)" }} />
         ))}
       </div>
       <div style={{ position: "absolute", left: 110, bottom: 60, fontFamily: FONT, fontSize: 16, fontWeight: 700, letterSpacing: 6, color: "rgba(255,255,255,0.35)", opacity: t * (1 - leave) }}>VAULTYSCLAW</div>
@@ -520,7 +523,7 @@ export function ExplainerFrame({
   const f = (seconds: number) => Math.round(seconds * FPS);
   const m = mood?.(frame, tl, f) ?? {};
   return (
-    <AbsoluteFill style={{ backgroundColor: "#1c1228" }}>
+    <AbsoluteFill style={{ backgroundColor: "#0c1b22" }}>
       <Backdrop danger={m.danger} calm={m.calm} />
       {tl.scenes.map((s, i) => {
         const from = f(s.start);

@@ -150,5 +150,6 @@ pnpm --filter @vaultysclaw/videos studio:marketing                            # 
   - The fleet's auto-approval leaves nothing pending after a restart: `setup/` therefore adds
     six "newcomers" (fresh identities, never approved) on every run, so the approval scene always
     has someone to approve.
+- **"Control plane" is never translated** in French (neither on screen nor in the narration), and is said the English way: `pronounce` in the narration (« kontrol plèïne »).
 - **The French voice is Manon** (`voice.elevenlabs.fr` in the narration, and the default); the
   English voice stays Sarah. A narration of about 2,600 characters per language.

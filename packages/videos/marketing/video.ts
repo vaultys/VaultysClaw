@@ -1,5 +1,5 @@
 import path from "path";
-import { ExplainerVideo, marksOf, svgUri } from "../explainer/video";
+import { ExplainerVideo, marksOf, pngUri } from "../explainer/video";
 import { SCENES } from "./Marketing";
 import { TEXTS } from "./texts";
 import type { MarketingProps } from "./types";
@@ -16,7 +16,7 @@ const video: ExplainerVideo = {
   props: (lang, durations): MarketingProps => ({
     texts: TEXTS[lang as keyof typeof TEXTS],
     durations,
-    clawLogo: svgUri(path.resolve(__dirname, "../../../docs-site/static/img/logo.svg")),
+    clawLogo: pngUri(path.resolve(__dirname, "../intro/assets/claw-wordmark-light.png")),
     footage: { file: `${FOOTAGE}.mp4`, marks: marksOf("marketing-screens", "en") },
   }),
 };

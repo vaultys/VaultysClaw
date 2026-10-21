@@ -4,6 +4,7 @@
  *   tsx explainer/render.ts <name>             # fr and en
  *   tsx explainer/render.ts <name> en
  *   tsx explainer/render.ts <name> --check     # → .generated-videos/<name>-check.jpg: 4 frames per line, no render
+ *   tsx explainer/render.ts <name> fr --voice  # → .generated-videos/<name>-voice.fr.mp3: the narration alone, to listen to first
  *
  * <name> is a folder of packages/videos with <name>.narration.json, index.tsx (the Remotion entry, one
  * "Explainer" composition) and video.ts (its scenes, and the props for a language). No screen
@@ -37,6 +38,7 @@ async function main() {
   const video: ExplainerVideo = (await import(path.join(dir, "video"))).default;
   const narration: Narration = JSON.parse(fs.readFileSync(path.join(dir, `${name}.narration.json`), "utf8"));
   const check = args.includes("--check");
+  const voiceOnly = args.includes("--voice");
   const asked = args.filter((a) => !a.startsWith("--")) as Lang[];
   const langs: Lang[] = asked.length ? asked : check ? ["fr"] : ["fr", "en"];
   const work = path.join(OUT, `.${name}`);
@@ -51,6 +53,21 @@ async function main() {
 
   for (const lang of langs) {
     const clips = await synthesize(narration, lang, path.join(OUT, ".tts-cache"));
+
+    if (voiceOnly) {
+      // A voice proof: every line in turn, a second apart, to listen to before the picture is rendered.
+      const out = path.join(OUT, `${name}-voice.${lang}.mp3`);
+      const voiced = clips.filter((c) => c.file);
+      execFileSync("ffmpeg", ["-y", ...voiced.flatMap((c) => ["-i", c.file!]), "-filter_complex", `${voiced.map((_, i) => `[${i}:a]aformat=sample_rates=44100:channel_layouts=mono,apad=pad_dur=1[a${i}]`).join(";")};${voiced.map((_, i) => `[a${i}]`).join("")}concat=n=${voiced.length}:v=0:a=1`, "-b:a", "160k", out], { stdio: "pipe" });
+      let t = 0;
+      for (const [i, c] of voiced.entries()) {
+        const m = Math.floor(t / 60);
+        console.log(`  ${String(i + 1).padStart(2)}  ${m}:${(t - m * 60).toFixed(0).padStart(2, "0")}  ${c.id.padEnd(12)} ${c.text}`);
+        t += c.duration + 1;
+      }
+      console.log(`→ ${path.relative(process.cwd(), out)}`);
+      continue;
+    }
     const durations = Object.fromEntries(clips.map((c) => [c.id, c.duration]));
     const tl = timeline(video.scenes, durations);
     const props = video.props(lang, durations);

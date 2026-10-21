@@ -10,7 +10,12 @@
   "voice": {
     "elevenlabs": {
       "fr": "5OnMHwgTFgvPVwE8jP6B"
-    }
+    },
+    "settings": {
+      "stability": 0.6,
+      "style": 0.15
+    },
+    "context": "previous"
   },
   "pronounce": {
     "Shadow": {

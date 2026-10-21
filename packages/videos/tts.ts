@@ -2,6 +2,7 @@ import { execFileSync } from "child_process";
 import crypto from "crypto";
 import fs from "fs";
 import path from "path";
+import { TRIM_VERSION, writeTrimmed } from "./prosody";
 
 export type Lang = "fr" | "en" | "de" | "es" | "zh";
 export type Localized = Partial<Record<Lang, string>>;
@@ -15,7 +16,21 @@ export type Narration = {
   /** Shown on the outro card, under the logo. */
   outro?: Localized;
   /** Provider and voice ids per language, and ElevenLabs settings; each one overrides the defaults below. */
-  voice?: { provider?: Partial<Record<Lang, Provider>>; edge?: Localized; elevenlabs?: Localized; settings?: VoiceSettings };
+  voice?: {
+    provider?: Partial<Record<Lang, Provider>>;
+    edge?: Localized;
+    elevenlabs?: Localized;
+    settings?: VoiceSettings;
+    /**
+     * Which neighbouring lines go with each ElevenLabs request: "both" (the default) or "previous".
+     * With the next line in view the voice tends to end a statement on the rising, "it goes on"
+     * intonation of a clause, then breathe in for a sentence that never comes; "previous" keeps
+     * the tone running on from the line before and ends every line as a full stop.
+     */
+    context?: "both" | "previous";
+    /** A different draw for one line, by its id (`{ "hook2": 2 }`): only that clip is regenerated. */
+    seeds?: Record<string, number>;
+  };
   /** Spoken form of a word, per language, merged over PRONOUNCE. The subtitles keep the written word. */
   pronounce?: Record<string, Localized>;
   lines: Record<string, Localized>;
@@ -112,8 +127,9 @@ function spoken(text: string, lang: Lang, pronounce: Record<string, Localized>) 
  *
  * With ElevenLabs, each line is sent with the lines around it (previous_text /
  * next_text), so the intonation runs on from one line to the next instead of
- * restarting every time. Clips are cached by everything that shapes them: editing
- * a line regenerates it and its two neighbours, nothing else.
+ * restarting every time (`voice.context: "previous"` drops the next one). The video plays each
+ * ElevenLabs clip with the breath after its last word cut (prosody.ts). Clips are cached by
+ * everything that shapes them: editing a line regenerates it and its two neighbours, nothing else.
  */
 export async function synthesize(narration: Narration, lang: Lang, cacheDir: string): Promise<Clip[]> {
   const p = provider(narration, lang);
@@ -144,7 +160,8 @@ export async function synthesize(narration: Narration, lang: Lang, cacheDir: str
             language_code: lang,
             voice_settings: { ...DEFAULT_VOICE_SETTINGS, ...narration.voice?.settings },
             previous_text: lines[i - 1]?.said,
-            next_text: lines[i + 1]?.said,
+            next_text: narration.voice?.context === "previous" ? undefined : lines[i + 1]?.said,
+            seed: narration.voice?.seeds?.[id],
           }
         : { text: said };
     const hash = crypto
@@ -157,7 +174,14 @@ export async function synthesize(narration: Narration, lang: Lang, cacheDir: str
       if (p === "elevenlabs") await elevenlabs(voice, request, file);
       else edge(said, voice, file);
     }
-    clips.push({ id, text, file, duration: duration(file) });
+    // ElevenLabs often breathes in after the last word, as if the sentence went on: the video plays
+    // a copy with that breath cut (prosody.ts), cached beside the clip, which stays as delivered.
+    let played = file;
+    if (p === "elevenlabs") {
+      played = file.replace(/\.mp3$/, `.trim${TRIM_VERSION}.mp3`);
+      if (!fs.existsSync(played)) writeTrimmed(file, played);
+    }
+    clips.push({ id, text, file: played, duration: duration(played) });
   }
   return clips;
 }

@@ -19,6 +19,7 @@ import {
   Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { BrandMark } from "@/components/ui/BrandLogo";
 
 interface NavItem {
   href: string;
@@ -165,9 +166,7 @@ export default function Sidebar({ orgName }: { orgName: string }) {
   return (
     <aside className="flex flex-col w-[200px] shrink-0 h-full bg-background border-r border-neutral-200/60">
       <div className="flex items-center gap-2 h-14 px-4 border-b border-neutral-200/60">
-        <span className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center shrink-0 shadow-lg shadow-primary-600/20 text-white text-sm font-bold">
-          V
-        </span>
+        <BrandMark className="h-8" />
         <span className="font-semibold text-foreground text-sm tracking-tight truncate">
           {orgName}
         </span>

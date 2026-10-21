@@ -1,0 +1,27 @@
+{
+  "name": "@vaultysclaw/videos",
+  "version": "0.0.1",
+  "description": "Narrated product-demo videos of the control plane, recorded with Playwright against the isolated demo-video stack. See CLAUDE.md.",
+  "private": true,
+  "scripts": {
+    "generate": "playwright test",
+    "type-check": "tsc --noEmit",
+    "studio": "remotion studio intro/index.tsx",
+    "generate:marketing": "tsx explainer/render.ts marketing",
+    "studio:marketing": "remotion studio marketing/index.tsx --public-dir .generated-videos/screens"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "@remotion/bundler": "4.0.533",
+    "@remotion/cli": "4.0.533",
+    "@remotion/google-fonts": "4.0.533",
+    "@remotion/renderer": "4.0.533",
+    "@types/node": "^22.19.19",
+    "@types/react": "^19.2.14",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
+    "remotion": "4.0.533",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  }
+}

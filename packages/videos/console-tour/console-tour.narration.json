@@ -1,0 +1,40 @@
+{
+  "title": {
+    "fr": "La console VaultysClaw en une minute",
+    "en": "The VaultysClaw console in one minute"
+  },
+  "outro": {
+    "fr": "Une identité vérifiable pour chaque agent",
+    "en": "A verifiable identity for every agent"
+  },
+  "lines": {
+    "overview": {
+      "fr": "Voici VaultysClaw, la console qui donne une identité vérifiable à chaque acteur de votre organisation : agents IA, appareils, capteurs et humains.",
+      "en": "This is VaultysClaw, the console that gives every actor in your organization a verifiable identity: AI agents, devices, sensors and people."
+    },
+    "glance": {
+      "fr": "D'un coup d'œil, vous voyez combien d'acteurs sont enregistrés, ce qui attend votre accord, et les autorisations en vigueur.",
+      "en": "At a glance, you see how many actors are registered, what is waiting for your approval, and which permissions are in force."
+    },
+    "approve": {
+      "fr": "Un nouvel acteur se présente avec son VaultysID, et ne reçoit rien tant qu'un administrateur n'a pas choisi ce qu'il a le droit de faire.",
+      "en": "A new actor shows up with its VaultysID, and gets nothing until an administrator decides what it is allowed to do."
+    },
+    "map": {
+      "fr": "La carte situe vos capteurs sur le terrain, du siège jusqu'aux sites d'outre-mer.",
+      "en": "The map places your sensors in the field, from headquarters to overseas sites."
+    },
+    "graph": {
+      "fr": "Le graphe répond à la question essentielle : à qui appartient cet agent, sur quelle machine tourne-t-il, et quels outils utilise-t-il ?",
+      "en": "The graph answers the question that matters: whose agent is this, which machine does it run on, and which tools does it use?"
+    },
+    "certificates": {
+      "fr": "Chaque autorisation est un certificat signé, vérifiable même hors ligne, avec sa portée et sa date d'expiration. Vous pouvez la révoquer à tout moment.",
+      "en": "Every permission is a signed certificate, verifiable even offline, with its scope and its expiry date. You can revoke it at any time."
+    },
+    "audit": {
+      "fr": "Et le journal d'audit garde la trace de chaque décision, dans un registre où rien ne s'efface.",
+      "en": "And the audit log keeps track of every decision, in a ledger where nothing is ever erased."
+    }
+  }
+}

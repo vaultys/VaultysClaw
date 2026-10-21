@@ -32,6 +32,8 @@ coverage
 # the NEXTAUTH_SECRET is a throwaway that must never be reused. Without this exception a fresh
 # clone has no simulator.env and every simulator script fails on an unset DATABASE_URL.
 !docker/simulator.env
+# The demo-video stack's coordinates (packages/videos), committed for the same reason.
+!docker/video.env
 *.env.local
 *.env.*.local
 

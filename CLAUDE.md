@@ -49,6 +49,7 @@ pnpm simulator:demo            # 2,000 estate + 5,000 agent Actors against it, o
 pnpm simulator stats           # what that control plane currently holds
 pnpm simulator people          # (re)mint the human population and reassign agent ownership
 pnpm simulator admin --passphrase "…"   # mint an admin human + export its VaultysID for the browser
+pnpm demo:ecw                  # ECW demonstrator: drone fleet + drone console at localhost:3012
 pnpm simulator:down            # stop, keeping the data ( :nuke also deletes the volume )
 
 # Build / quality

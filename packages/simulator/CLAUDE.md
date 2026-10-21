@@ -286,3 +286,22 @@ provision new demo workspaces and placement/ownership metadata. Approval and eme
 remain authenticated console operations. File effects are gated by the actual SDK decision.
 Restart creates fresh identities and retains historical ledger data; never use the fleet reset
 helper as an implicit shortcut here. Test the operation boundaries in `guided-checks.test.ts`.
+
+## ECW demonstrator
+
+`pnpm demo:ecw` runs `src/ecw/main.ts` at localhost:3012 against the isolated simulator — a fleet
+view (`/`) and a drone console (`/drone`). See [ECW_DEMO.md](ECW_DEMO.md) for the talk track and the
+security model it states. Unlike the guided presenter it approves its own `ecw-` registrations and
+offers a stand shortcut for revocation (a ledger write + audit entry); console revocation is
+observed the same way.
+
+- **Peers decide, the presenter never does.** `mesh.ts` is the whole fleet protocol: a message is
+  signed with the sender's own key and carries its latest control-plane-signed staple
+  (`ActorRuntime.getStatusStaple`), and the recipient verifies it against the control plane key
+  from *its own* handshake (`controlPlaneIdentity`). `ecw-mesh.test.ts` pins every refusal.
+- **The compromised drone replays its last active staple**, which is why isolation lands at most
+  one staple TTL (6 s, the workspace setting) after revocation and not instantly. Shortening the
+  TTL shortens that window; showing it is the point of the countdown on the drone page.
+- **Two kinds of compromise are modelled, deliberately different.** The radio attacker cannot sign
+  as the C2, so orders die at the first check. The compromised drone holds its own key, so the fleet
+  believes it within its rights until revocation — the demo shows that instead of hiding it.

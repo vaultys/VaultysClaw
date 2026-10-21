@@ -133,7 +133,7 @@ function placeSensor(did: string): { locationLat: number; locationLon: number; l
 }
 
 /** The per-kind built-in allow-list, mirroring `controlplane/lib/capabilities.ts`. */
-function allowedForKind(kind: string): string[] {
+export function allowedForKind(kind: string): string[] {
   if (kind === "sensor") return ["process_read"];
   return [
     "file_read",

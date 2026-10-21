@@ -183,6 +183,8 @@ export class ActorRuntime extends EventEmitter {
   private certId: string | null = null;
   private certificate: string | null = null;
   private readonly certificates = new Map<string, HeldCertificate>();
+  /** The raw signed `cert_status_response` last verified for each held certificate — see `getStatusStaple`. */
+  private readonly staples = new Map<string, string>();
   private actorConfig: ActorConfigPayload | null = null;
 
   private status: ActorStatus = "idle";
@@ -420,6 +422,27 @@ export class ActorRuntime extends EventEmitter {
   /** The certificate status last verified with the control plane, and when. */
   getCertStatus(): { status: CertificateStatus | null; checkedAt: number | null; fresh: boolean } {
     return { status: this.lastStatus, checkedAt: this.lastCheckedAt, fresh: this.isStatusFresh() };
+  }
+
+  /**
+   * The control-plane-signed `cert_status_response` token last verified for the current
+   * certificate — the staple an Actor attaches when it talks to a peer, so the peer can check
+   * "still granted, as of `checkedAt`" offline against the control plane's key. Null until a
+   * status refresh has succeeded. Whatever it says is reported verbatim: a revoked staple is
+   * still returned, and deciding what to accept is the verifier's job.
+   */
+  getStatusStaple(): string | null {
+    const current = this.currentCertificate();
+    return current ? (this.staples.get(current.certId) ?? null) : null;
+  }
+
+  /**
+   * The control plane's identity, as established by the completed auth handshake — the trust
+   * anchor for verifying another Actor's staple with `verifyCertStatusResponseCert`. Null before
+   * the first handshake completes.
+   */
+  controlPlaneIdentity(): VaultysId | null {
+    return this.serverVid();
   }
 
   /** Send a kind-specific message over the authenticated connection. */
@@ -917,6 +940,8 @@ export class ActorRuntime extends EventEmitter {
       this.emit("error", new Error("Discarded an unverifiable cert_status_response"));
       return;
     }
+
+    if (this.certificates.has(body.certId)) this.staples.set(body.certId, payload.certToken);
 
     const pending = this.pendingStatusChecks.entries().next();
     if (!pending.done) {

@@ -42,6 +42,12 @@ async variants that refresh first; use those for anything consequential.
 There is deliberately **no** "nothing granted means allow everything" fallback anywhere in this
 package. An unbound operation, an ungranted capability, and an unreachable control plane all deny.
 
+**Stapling to a peer**: `getStatusStaple()` returns the raw signed `cert_status_response` last
+verified for the current certificate, and `controlPlaneIdentity()` the control plane key from the
+handshake. An Actor attaches the first to what it sends; a peer checks it with
+`verifyCertStatusResponseCert` against its own `controlPlaneIdentity()` and a TTL — no shared secret
+and no round trip (see `packages/simulator/src/ecw/mesh.ts`).
+
 ## Kill switches
 
 A `kill_switch` message means the control plane armed an emergency suspension covering this Actor

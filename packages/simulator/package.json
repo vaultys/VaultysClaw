@@ -10,7 +10,8 @@
     "build": "tsc --noEmit",
     "type-check": "tsc --noEmit",
     "test": "vitest run",
-    "guided": "node --conditions=tsx --import tsx src/guided/main.ts"
+    "guided": "node --conditions=tsx --import tsx src/guided/main.ts",
+    "ecw": "node --conditions=tsx --import tsx src/ecw/main.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.8.0",

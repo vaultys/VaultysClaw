@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>SENTINELLE · Flotte</title>
+    <style>
+      :root {
+        --bg: #070d14;
+        --panel: #0d1722;
+        --panel-2: #122030;
+        --line: #1d3044;
+        --text: #dce8f2;
+        --muted: #7f97ab;
+        --ok: #34d399;
+        --deny: #f43f5e;
+        --warn: #fbbf24;
+        --accent: #38bdf8;
+        --ai: #a78bfa;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
+        color: var(--text);
+        background: var(--bg);
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--bg); }
+      a { color: var(--accent); text-decoration: none; }
+      header {
+        display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px;
+        padding: 14px 24px; border-bottom: 1px solid var(--line); background: #08121c;
+      }
+      .brand { display: flex; align-items: baseline; gap: 12px; }
+      .brand strong { font-size: 18px; letter-spacing: 0.5px; }
+      .brand span { color: var(--muted); font-size: 13px; }
+      nav { display: flex; gap: 6px; }
+      nav a { padding: 8px 14px; border-radius: 8px; color: var(--muted); font-size: 14px; border: 1px solid transparent; }
+      nav a.active { color: var(--text); background: var(--panel-2); border-color: var(--line); }
+      .tag { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--warn); border: 1px solid #5c4813; padding: 4px 8px; border-radius: 6px; }
+      main { padding: 18px 24px 32px; display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 18px; }
+      .kpis { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+      .kpi { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+      .kpi b { display: block; font-size: 28px; font-variant-numeric: tabular-nums; margin-top: 4px; }
+      .kpi small { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 1px; }
+      .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+      .panel h2 { margin: 0 0 12px; font-size: 13px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted); font-weight: 600; }
+      svg { width: 100%; height: auto; display: block; }
+      .side { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+      .model ol { margin: 0; padding-left: 18px; }
+      .model li { margin-bottom: 9px; line-height: 1.45; font-size: 13.5px; }
+      .model li b { color: var(--text); }
+      .model p { font-size: 12.5px; color: var(--muted); line-height: 1.5; margin: 10px 0 0; border-top: 1px solid var(--line); padding-top: 10px; }
+      .feed { max-height: 360px; overflow: auto; font-size: 12.5px; }
+      .feed div { padding: 6px 0; border-bottom: 1px solid #142334; display: grid; grid-template-columns: 58px 1fr; gap: 8px; }
+      .feed time { color: var(--muted); font-variant-numeric: tabular-nums; }
+      .feed .deny b { color: var(--deny); }
+      .feed .ok b { color: var(--ok); }
+      .feed .alert b { color: var(--warn); }
+      .feed .info b { color: var(--accent); }
+      table { width: 100%; border-collapse: collapse; font-size: 13px; }
+      th { text-align: left; color: var(--muted); font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; padding: 6px 8px; }
+      td { padding: 7px 8px; border-top: 1px solid #142334; }
+      td.num { font-variant-numeric: tabular-nums; text-align: right; }
+      .pill { display: inline-block; padding: 2px 9px; border-radius: 99px; font-size: 12px; border: 1px solid; }
+      .pill.good { color: var(--ok); border-color: #1e5a46; }
+      .pill.bad { color: var(--deny); border-color: #6b1f30; background: #2a0f17; }
+      .pill.wait { color: var(--warn); border-color: #5c4813; }
+      .wide { grid-column: 1 / -1; }
+      .banner { grid-column: 1 / -1; padding: 12px 16px; border-radius: 10px; background: #2a0f17; border: 1px solid #6b1f30; color: #fecdd3; display: none; }
+      .legend { display: flex; gap: 18px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-top: 10px; }
+      .legend i { display: inline-block; width: 18px; height: 3px; vertical-align: middle; margin-right: 6px; border-radius: 2px; }
+      @media (max-width: 1100px) { .brand span, .tag { display: none; } }
+      @media (max-width: 1100px) { main { grid-template-columns: 1fr; } .kpis { grid-template-columns: repeat(2, 1fr); } }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="brand"><strong>VAULTYSCLAW · OPÉRATION SENTINELLE</strong><span>Identité et confiance d'une flotte autonome</span></div>
+      <nav>
+        <a href="/" class="active">Flotte</a>
+        <a href="/drone">Console drone RAPACE-07</a>
+        <a id="console" href="#" target="_blank" rel="noopener">Plan de contrôle ↗</a>
+      </nav>
+      <span class="tag">Démonstrateur · données fictives</span>
+    </header>
+    <main>
+      <div class="banner" id="banner"></div>
+      <section class="kpis">
+        <div class="kpi"><small>Acteurs certifiés</small><b id="k-cert">–</b></div>
+        <div class="kpi"><small>Messages acceptés par les pairs</small><b id="k-ok" style="color: var(--ok)">–</b></div>
+        <div class="kpi"><small>Messages refusés par les pairs</small><b id="k-deny" style="color: var(--deny)">–</b></div>
+        <div class="kpi"><small>RAPACE-07</small><b id="k-spot">–</b></div>
+      </section>
+      <section class="panel">
+        <h2>Théâtre d'opération — chaque lien est un message signé, vérifié hors ligne par son destinataire</h2>
+        <svg id="map" viewBox="0 0 1240 640" role="img" aria-label="Carte tactique de la flotte"></svg>
+        <div class="legend">
+          <span><i style="background: var(--ok)"></i>message accepté</span>
+          <span><i style="background: var(--deny)"></i>message refusé</span>
+          <span>▲ drone · ■ robot terrestre · ⬢ poste C2 · ● agent IA</span>
+        </div>
+      </section>
+      <aside class="side">
+        <section class="panel model">
+          <h2>Modèle de sécurité</h2>
+          <ol>
+            <li><b>Une identité par acteur.</b> Chaque drone, robot ou agent IA a sa propre clé (VaultysID). Aucun secret de flotte partagé : en compromettre un ne compromet pas les autres.</li>
+            <li><b>Moindre privilège.</b> Chaque acteur ne peut faire que ce que son certificat accorde. Un drone compromis donne à l'attaquant <i>ces</i> droits, pas plus.</li>
+            <li><b>Vérification par les pairs.</b> Chaque message porte une preuve de statut signée par le plan de contrôle (TTL <span class="ttl">6</span> s). Impossible à forger sans la clé du plan de contrôle.</li>
+            <li><b>Révocation.</b> Écriture irréversible dans le registre. Au plus tard un TTL après, plus aucun pair n'accepte le drone : il est coupé de la flotte, qui continue sa mission.</li>
+          </ol>
+          <p>Limite assumée : un tiers <b>peut</b> compromettre un drone via son outil de communication. Il agit alors avec les droits de ce drone jusqu'à la révocation. Le certificat ne neutralise pas physiquement l'appareil ; il garantit que la flotte et le C2 cessent de lui faire confiance.</p>
+        </section>
+        <section class="panel">
+          <h2>Journal de décisions</h2>
+          <div class="feed" id="feed"></div>
+        </section>
+      </aside>
+      <section class="panel wide">
+        <h2>Membres de la flotte</h2>
+        <table>
+          <thead><tr><th>Acteur</th><th>Rôle</th><th>Statut</th><th>Capacités accordées</th><th style="text-align: right">Acceptés</th><th style="text-align: right">Refusés</th><th></th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </section>
+    </main>
+    <script>
+      const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+      const tone = (st) => (st === "certifié" ? "good" : st === "révoqué" || st === "isolé" ? "bad" : "wait");
+      const time = (iso) => new Date(iso).toLocaleTimeString("fr-FR");
+      const AI_X = 1135;
+      function aiPos(members) {
+        const ai = members.filter((m) => !m.position);
+        const pos = {};
+        ai.forEach((m, i) => (pos[m.key] = { x: AI_X, y: 200 + i * 170 }));
+        return pos;
+      }
+      function shape(m, p) {
+        const bad = m.status === "révoqué" || m.status === "isolé";
+        const ok = m.status === "certifié";
+        const color = bad ? "var(--deny)" : !ok ? "var(--warn)" : m.kind === "openclaw" ? "var(--ai)" : m.kind === "device" ? "var(--accent)" : "var(--text)";
+        const r = m.spotlight ? 14 : 10;
+        let g = "";
+        if (m.spotlight) g += `<circle r="24" fill="none" stroke="${bad ? "var(--deny)" : "var(--warn)"}" stroke-width="1.5" stroke-dasharray="4 4"><animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="8s" repeatCount="indefinite"/></circle>`;
+        if (m.kind === "drone") g += `<polygon points="0,${-r} ${r * 0.9},${r * 0.75} 0,${r * 0.35} ${-r * 0.9},${r * 0.75}" fill="${color}"/>`;
+        else if (m.kind === "ugv") g += `<rect x="${-r * 0.8}" y="${-r * 0.8}" width="${r * 1.6}" height="${r * 1.6}" rx="2" fill="${color}"/>`;
+        else if (m.kind === "device") g += `<polygon points="${[0, 1, 2, 3, 4, 5].map((i) => `${16 * Math.cos((Math.PI / 3) * i + Math.PI / 6)},${16 * Math.sin((Math.PI / 3) * i + Math.PI / 6)}`).join(" ")}" fill="none" stroke="${color}" stroke-width="3"/>`;
+        else g += `<circle r="${r + 4}" fill="#1b1533" stroke="${color}" stroke-width="2.5"/>`;
+        if (bad) g += `<line x1="-18" y1="-18" x2="18" y2="18" stroke="var(--deny)" stroke-width="3"/><line x1="18" y1="-18" x2="-18" y2="18" stroke="var(--deny)" stroke-width="3"/>`;
+        const label = `<text y="${m.kind === "openclaw" ? 38 : 30}" text-anchor="middle" font-size="${m.spotlight ? 14 : 12}" fill="${bad ? "#fda4af" : "#b7c9d8"}" font-weight="${m.spotlight ? 700 : 500}">${esc(m.label)}${bad ? " · " + m.status.toUpperCase() : ""}</text>`;
+        return `<g style="transition: transform 0.6s linear" transform="translate(${p.x.toFixed(1)},${p.y.toFixed(1)})">${g}${label}</g>`;
+      }
+      function drawMap(s) {
+        const ai = aiPos(s.members);
+        const where = Object.fromEntries(s.members.map((m) => [m.key, m.position ?? ai[m.key]]));
+        let svg = `<defs><pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" fill="none" stroke="#11212f" stroke-width="1"/></pattern></defs>`;
+        svg += `<rect width="1040" height="640" fill="url(#grid)" rx="10"/>`;
+        svg += `<rect x="40" y="60" width="950" height="540" fill="none" stroke="#1e4d6b" stroke-width="1.5" stroke-dasharray="10 6" rx="18"/>`;
+        svg += `<text x="56" y="84" font-size="12" fill="#3f7699" letter-spacing="2">ZONE AUTORISÉE (GÉORÉPERAGE)</text>`;
+        svg += `<circle cx="500" cy="560" r="46" fill="#0b2233" stroke="#1e4d6b"/><text x="500" y="625" text-anchor="middle" font-size="11" fill="#3f7699" letter-spacing="2">BASE</text>`;
+        svg += `<rect x="1060" y="20" width="170" height="600" rx="12" fill="#0f0d1f" stroke="#2c2350"/><text x="1145" y="48" text-anchor="middle" font-size="11" fill="#8b7ad6" letter-spacing="1.5">AGENTS IA</text><text x="1145" y="64" text-anchor="middle" font-size="10" fill="#5f5596">processus, hors carte</text>`;
+        for (const l of s.links) {
+          const a = where[l.from], b = where[l.to];
+          if (!a || !b) continue;
+          const age = (s.now - l.at) / 2500;
+          svg += `<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" stroke="${l.ok ? "var(--ok)" : "var(--deny)"}" stroke-width="${l.ok ? 1.6 : 2.6}" stroke-opacity="${Math.max(0.08, 0.85 - age)}" ${l.ok ? "" : 'stroke-dasharray="6 4"'}/>`;
+        }
+        for (const m of s.members) if (where[m.key]) svg += shape(m, where[m.key]);
+        document.getElementById("map").innerHTML = svg;
+      }
+      async function tick() {
+        try {
+          const res = await fetch("/state");
+          const s = await res.json();
+          const banner = document.getElementById("banner");
+          if (!res.ok || s.fatal) {
+            banner.style.display = "block";
+            banner.textContent = s.fatal || s.error || "Démarrage…";
+            return;
+          }
+          banner.style.display = "none";
+          document.getElementById("console").href = s.consoleUrl + "/admin/actors";
+          document.querySelectorAll(".ttl").forEach((e) => (e.textContent = s.ttlSeconds));
+          document.getElementById("k-cert").textContent = `${s.counters.certified} / ${s.counters.total}`;
+          document.getElementById("k-ok").textContent = s.counters.accepted.toLocaleString("fr-FR");
+          document.getElementById("k-deny").textContent = s.counters.rejected.toLocaleString("fr-FR");
+          const sp = s.spotlight;
+          const spEl = document.getElementById("k-spot");
+          spEl.textContent = sp.status.toUpperCase() + (sp.mode === "compromised" && !sp.isolatedAt ? " · COMPROMIS" : "");
+          spEl.style.color = sp.status === "certifié" && sp.mode !== "compromised" ? "var(--ok)" : sp.status === "certifié" ? "var(--warn)" : "var(--deny)";
+          drawMap(s);
+          document.getElementById("feed").innerHTML = s.feed
+            .slice()
+            .reverse()
+            .map((e) => `<div class="${e.level}"><time>${time(e.at)}</time><span><b>${esc(e.source)}</b> — ${esc(e.text)}</span></div>`)
+            .join("");
+          document.getElementById("rows").innerHTML = s.members
+            .map(
+              (m) => `<tr><td><b>${esc(m.label)}</b></td><td style="color: var(--muted)">${esc(m.role)}</td>
+              <td><span class="pill ${tone(m.status)}">${esc(m.status)}</span></td>
+              <td style="color: var(--muted); font-size: 12px">${m.capabilities.map(esc).join(" · ") || "—"}</td>
+              <td class="num">${m.accepted}</td><td class="num" style="color: ${m.rejected ? "var(--deny)" : "inherit"}">${m.rejected}</td>
+              <td>${m.spotlight ? '<a href="/drone">Piloter →</a>' : `<a href="${esc(m.actorUrl)}" target="_blank" rel="noopener">Console ↗</a>`}</td></tr>`
+            )
+            .join("");
+        } catch {
+          /* the presenter restarts; keep polling */
+        }
+      }
+      tick();
+      setInterval(tick, 700);
+    </script>
+  </body>
+</html>

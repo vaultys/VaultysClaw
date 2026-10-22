@@ -103,6 +103,32 @@ simulator demo. `docker/video.env` is the single source of truth (`stack.ts` par
   Overview and its counters, an approval (two capabilities checked on a pending registration), the
   map, the graph centred on its busiest owner, the certificate ledger, the audit log.
 
+- **`ecw-demo/`**: the ECW demonstrator (`packages/simulator/ECW_DEMO.md`), about 2 min 30 s with
+  intro and outro: the 3D fleet, an order allowed and one refused by the drone's certificate from the
+  C2, a flight-only field pilot refused a picture, the radio attacker rejected (and attacking the
+  whole fleet on the map), the compromised drone believed within its rights and refused beyond
+  them, the revocation and its isolation countdown. See below: it is not filmed like the others.
+
+## The ECW demonstrator video (`ecw-demo/`): its own config, not the video stack
+
+```bash
+pnpm simulator:up                                 # the simulator's stack (the demonstrator refuses any other)
+pnpm generate:video:ecw                           # → .generated-videos/ecw-demo.fr.mp4 / .en.mp4 + .srt
+VIDEO_TTS=none pnpm generate:video:ecw -g lang:fr # pacing, no voice credits
+```
+
+- **`playwright.ecw.config.ts`**, not `playwright.config.ts`: the demonstrator only runs against the
+  simulator's stack (`assertDemoTarget`), so there is no setup fleet, no filmed admin
+  (`defineVideo(…, { signedIn: false })`), and its `webServer` is `pnpm demo:ecw` on 3012 (reused
+  if already running).
+- **The 3D view needs the GPU.** Headless Chromium's software WebGL (SwiftShader) draws the fleet
+  at ~11 fps, which films as a slideshow; the config passes `--use-angle=metal` and gets 60 on a
+  Mac. On another OS, swap the ANGLE backend.
+- **The run mutates the demonstrator** (take-off, attacker mode, a real revocation), so the spec
+  puts RAPACE-07 back to certified, on the ground, in operator mode — before filming and in a
+  `finally` after. The revoked generation stays in the simulator's ledger, as on the stand.
+- The demonstrator's UI is French in every language; only the voice and subtitles change.
+
 ## The marketing video (`marketing/`): animated, narrated, with console footage
 
 Around 3 minutes, **entirely animated in Remotion**, in the style of the investor deck (deep violet,

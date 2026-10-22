@@ -17,7 +17,8 @@ pnpm simulator:up      # terminal 1 : base + plan de contrôle isolés (3003 / w
 pnpm demo:ecw          # terminal 2 : le démonstrateur (localhost:3012)
 ```
 
-- **http://localhost:3012** — la vue flotte (à projeter sur le grand écran).
+- **http://localhost:3012** — la vue flotte. Pour le grand écran : **http://localhost:3012/?cinema**,
+  la scène 3D en plein cadre sous une ligne de compteurs (mémorisé pour l'onglet).
 - **http://localhost:3012/drone** — la console de RAPACE-07 (à piloter).
 - **http://localhost:3003** — le plan de contrôle. Créez-y un administrateur au premier lancement
   (`/login`) si vous voulez montrer la console ; le démonstrateur fonctionne sans.
@@ -100,3 +101,9 @@ propriétaire du terminal pilote), l'espace de travail « Opération SENTINELLE 
 (preuves TTL 6 s, échec fermé), l'approbation des enregistrements `ecw-…`, et — pour le bouton de
 révocation du stand — la révocation du certificat de RAPACE-07 plus son entrée d'audit. Les
 identités vivent sous `packages/simulator/.simdata/ecw/` (ignoré par Git).
+
+## Le film
+
+`pnpm generate:video:ecw` filme ce déroulé (≈ 2 min 30 avec intro et outro, en français et en
+anglais) avec la pile du simulateur en marche : voir `packages/videos/CLAUDE.md`. Le tournage
+remet RAPACE-07 dans un état propre avant et après.

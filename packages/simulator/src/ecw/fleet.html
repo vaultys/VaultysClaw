@@ -84,6 +84,14 @@
       .banner { grid-column: 1 / -1; padding: 12px 16px; border-radius: 10px; background: #2a0f17; border: 1px solid #6b1f30; color: #fecdd3; display: none; }
       .legend { display: flex; gap: 18px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-top: 10px; }
       .legend i { display: inline-block; width: 18px; height: 3px; vertical-align: middle; margin-right: 6px; border-radius: 2px; }
+      /* Cinema mode (/?cinema, remembered for the tab): the theatre fills the screen under a compact
+         row of counters — for the stand's big screen, and for the filmed demo. */
+      body.cinema main { grid-template-columns: 1fr; padding: 10px 16px 12px; gap: 10px; }
+      body.cinema .side, body.cinema .wide, body.cinema .legend, body.cinema .panel > h2, body.cinema .brand span, body.cinema .hint { display: none; }
+      body.cinema .kpi { padding: 8px 14px; }
+      body.cinema .kpi b { font-size: 22px; margin-top: 2px; }
+      body.cinema .panel { padding: 0; border: 0; background: none; }
+      body.cinema .scene { aspect-ratio: auto; height: calc(100vh - 150px); min-height: 360px; }
       @media (max-width: 1100px) { .brand span, .tag { display: none; } }
       @media (max-width: 1100px) { main { grid-template-columns: 1fr; } .kpis { grid-template-columns: repeat(2, 1fr); } }
     </style>
@@ -155,6 +163,13 @@
     </script>
     <script type="module" src="/fleet3d.js"></script>
     <script>
+      try {
+        if (new URLSearchParams(location.search).has("cinema")) sessionStorage.setItem("ecw.cinema", "1");
+        if (sessionStorage.getItem("ecw.cinema") === "1") document.body.classList.add("cinema");
+      } catch {
+        /* storage unavailable: cinema only for this load */
+        if (location.search.includes("cinema")) document.body.classList.add("cinema");
+      }
       const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
       const tone = (st) => (st === "certifié" ? "good" : st === "révoqué" || st === "isolé" ? "bad" : "wait");
       const time = (iso) => new Date(iso).toLocaleTimeString("fr-FR");

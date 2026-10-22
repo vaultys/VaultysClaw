@@ -1,0 +1,72 @@
+{
+  "title": {
+    "fr": "Une flotte autonome de confiance",
+    "en": "An autonomous fleet you can trust"
+  },
+  "outro": {
+    "fr": "Chaque ordre vérifié. Chaque drone révocable.",
+    "en": "Every order verified. Every drone revocable."
+  },
+  "pronounce": {
+    "ECW": {
+      "fr": "eucédoublevé"
+    },
+    "control plane": {
+      "fr": "kontrol plèïne"
+    },
+    "RAPACE-07": {
+      "fr": "Rapace zéro sept",
+      "en": "Rapace oh seven"
+    },
+    "RAPACE-03": {
+      "fr": "Rapace zéro trois",
+      "en": "Rapace oh three"
+    },
+    "C2": {
+      "fr": "C deux",
+      "en": "C two"
+    }
+  },
+  "lines": {
+    "fleet": {
+      "fr": "Opération Sentinelle, une flotte fictive : des drones, des robots, un poste de commandement, un pilote et des agents IA. Chacun a sa propre identité, et un certificat qui fixe ses droits.",
+      "en": "Operation Sentinel, a fictional fleet: drones, robots, a command post, a pilot and AI agents. Each one has its own identity, and a certificate that sets its rights."
+    },
+    "messages": {
+      "fr": "Chaque trait est un message signé. Son destinataire le vérifie lui-même, sans réseau, grâce à une preuve signée par le control plane.",
+      "en": "Every line is a signed message. Its recipient checks it on its own, with no network, using a proof signed by the control plane."
+    },
+    "c2": {
+      "fr": "Depuis le poste de commandement, on fait décoller RAPACE-07. L'ordre est signé par le C2, et le drone a le droit de voler.",
+      "en": "From the command post, RAPACE-07 takes off. The order is signed by the C2, and the drone is allowed to fly."
+    },
+    "payload": {
+      "fr": "Larguer une charge ? L'ordre est authentique, mais le certificat du drone ne l'autorise pas. Refusé.",
+      "en": "Release a payload? The order is genuine, but the drone's certificate does not allow it. Refused."
+    },
+    "pilot": {
+      "fr": "Ce pilote, sur le terrain, ne peut ordonner que le vol. Une prise de vue ? Refusée avant même d'atteindre le drone.",
+      "en": "This field pilot may only give flight orders. Take a picture? Refused before it even reaches the drone."
+    },
+    "radio": {
+      "fr": "Un tiers écoute la radio et se fait passer pour le C2. Sans la clé du C2, ses ordres sont rejetés, même rejoués.",
+      "en": "A third party listens to the radio and poses as the C2. Without the C2's key, its orders are rejected, even when replayed."
+    },
+    "radioFleet": {
+      "fr": "Il s'en prend à toute la flotte. Chaque drone rejette ses ordres, seul, sans rien demander à personne.",
+      "en": "It goes after the whole fleet. Every drone rejects its orders on its own, without asking anyone."
+    },
+    "compromised": {
+      "fr": "Pire : il prend le contrôle de RAPACE-07 et de sa clé. Ses fausses positions sont crues, dans la limite des droits du drone. Mais s'attribuer plus de droits est impossible.",
+      "en": "Worse: it takes over RAPACE-07 and its key. Its fake positions are believed, within the drone's rights. But granting itself more rights is impossible."
+    },
+    "revoke": {
+      "fr": "L'opérateur révoque le certificat. Le drone n'a pas à coopérer : sa dernière preuve expire en quelques secondes.",
+      "en": "The operator revokes the certificate. The drone does not have to cooperate: its last proof expires within seconds."
+    },
+    "isolated": {
+      "fr": "RAPACE-07 est isolé. Plus aucun membre de la flotte ne l'écoute, et la mission continue.",
+      "en": "RAPACE-07 is cut off. No member of the fleet listens to it anymore, and the mission goes on."
+    }
+  }
+}

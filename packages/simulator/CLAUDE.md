@@ -302,6 +302,11 @@ observed the same way.
 - **The compromised drone replays its last active staple**, which is why isolation lands at most
   one staple TTL (6 s, the workspace setting) after revocation and not instantly. Shortening the
   TTL shortens that window; showing it is the point of the countdown on the drone page.
+- **The fleet view is three.js (`fleet3d.js`), served from `node_modules` by the presenter**
+  (`/vendor/three/…`, limited to `build/` and `examples/jsm/`): the page's CSP allows no CDN, and a
+  stand cannot count on the venue's network. It only listens to the `fleet-state` event the page
+  already polls for; it never decides anything. The first state only primes the seen-link set, so
+  opening the page does not replay a volley of messages that happened before it loaded.
 - **Two kinds of compromise are modelled, deliberately different.** The radio attacker cannot sign
   as the C2, so orders die at the first check. The compromised drone holds its own key, so the fleet
   believes it within its rights until revocation — the demo shows that instead of hiding it.

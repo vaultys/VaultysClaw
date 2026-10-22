@@ -17,6 +17,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { VaultysId } from "@vaultys/id";
 import { ActorRuntime, loadOrCreateIdentity } from "@vaultysclaw/sdk";
 import { prisma, disconnect, allowedForKind } from "../db.js";
@@ -47,7 +48,31 @@ const MAX_MESSAGE_AGE_MS = 4_000;
 const pages = {
   fleet: await fs.readFile(new URL("./fleet.html", import.meta.url), "utf8"),
   drone: await fs.readFile(new URL("./drone.html", import.meta.url), "utf8"),
+  fleet3d: await fs.readFile(new URL("./fleet3d.js", import.meta.url), "utf8"),
 };
+
+/** three.js, served from node_modules: the page's CSP allows no CDN, and a stand cannot count on
+ *  the venue's network. Only `build/` and `examples/jsm/` are reachable. */
+const threeRoot = path.resolve(path.dirname(fileURLToPath(import.meta.resolve("three"))), "..");
+const VENDOR_DIRS = ["build", "examples/jsm"].map((d) => path.join(threeRoot, d) + path.sep);
+
+async function serveVendor(url: string, res: ServerResponse): Promise<boolean> {
+  if (!url.startsWith("/vendor/three/")) return false;
+  const file = path.resolve(threeRoot, decodeURIComponent(url.slice("/vendor/three/".length).split("?")[0]));
+  if (!file.endsWith(".js") || !VENDOR_DIRS.some((d) => file.startsWith(d))) {
+    json(res, 404, { error: "Not found" });
+    return true;
+  }
+  try {
+    const body = await fs.readFile(file);
+    res.setHeader("Cache-Control", "public, max-age=3600");
+    res.writeHead(200, { "Content-Type": "text/javascript; charset=utf-8" });
+    res.end(body);
+  } catch {
+    json(res, 404, { error: "Not found" });
+  }
+  return true;
+}
 
 type Flight = "ground" | "airborne" | "patrol";
 type Mode = "operator" | "radio" | "compromised";
@@ -117,6 +142,11 @@ const members = new Map<string, Member>();
 let spotlightGen = 1;
 let mode: Mode = "operator";
 let attacker: VaultysId | null = null;
+/** The third party on the radio link — not a fleet member, so it has no certificate and no place
+ *  in `members`. Drawn just outside the geofence on the fleet map. */
+const ATTACKER_KEY = "tiers-radio";
+const ATTACKER_POS = { x: 1000, y: 34 };
+const attack = { attempts: 0, accepted: 0 };
 let capturedCommand: string | null = null;
 let lastTrace: Trace | null = null;
 const lastResults: Record<string, { allowed: boolean; at: string; mode: Mode }> = {};
@@ -405,6 +435,64 @@ async function meshTick() {
   }
 }
 
+// ─── The third party on the radio ──────────────────────────────────────────────
+
+/** How any member receives an order: from the C2's key, carrying a `fleet:command` proof, fresh,
+ *  never seen before, and addressed to *it*. */
+function receiveOrder(to: Member, order: string): Verdict {
+  return verifyFleetMessage(to.runtime.controlPlaneIdentity()!, order, {
+    requirement: "fleet:command",
+    stapleTtlMs: TTL_MS,
+    maxMessageAgeMs: MAX_MESSAGE_AGE_MS,
+    seen: to.seen,
+    audience: to.runtime.getDid() ?? undefined,
+  });
+}
+
+/** An order the third party puts on the air. The recipient decides with exactly the checks it
+ *  applies to a real order — nothing here marks it as hostile. */
+function injectOrder(to: Member, order: string, what: string): Verdict | null {
+  if (!to.runtime.controlPlaneIdentity()) return null;
+  const verdict = receiveOrder(to, order);
+  attack.attempts++;
+  if (verdict.accepted) attack.accepted++;
+  links.push({ from: ATTACKER_KEY, to: to.spec.key, ok: verdict.accepted, type: "command", at: Date.now() });
+  logThrottled(
+    `attack:${to.spec.key}:${verdict.check}`,
+    verdict.accepted ? "alert" : "deny",
+    to.spec.label,
+    `${verdict.accepted ? "EXÉCUTE" : "Rejette"} un ${what} venu du tiers radio — ${verdict.reason}`
+  );
+  return verdict;
+}
+
+/**
+ * In radio mode the third party keeps trying, against drones it can reach: an order it forges
+ * while claiming to be the C2 (with the C2's genuine staple, sniffed off the air), and a replay of
+ * the last real C2 order it recorded, retargeted at another drone.
+ */
+async function attackerTick() {
+  if (mode !== "radio") return;
+  attacker ??= (await VaultysId.generateMachine()).toVersion(1);
+  const targets = [...members.values()].filter((m) => m.spec.kind === "drone" && certified(m));
+  for (let i = 0; i < 2 && targets.length; i++) {
+    const to = targets.splice(Math.floor(Math.random() * targets.length), 1)[0];
+    if (i === 1 && capturedCommand) {
+      injectOrder(to, capturedCommand, "ordre C2 capturé et rejoué");
+      continue;
+    }
+    const order = await signFleetMessage(attacker, {
+      id: randomUUID(),
+      messageType: "command",
+      payload: { action: "payload", target: to.runtime.getDid() },
+      sentAt: Date.now(),
+      staple: c2().runtime.getStatusStaple(),
+      from: c2().vid.did,
+    });
+    injectOrder(to, order, "ordre forgé « Larguer la charge »");
+  }
+}
+
 // ─── The drone console ─────────────────────────────────────────────────────────
 
 function applyEffect(action: DroneAction) {
@@ -470,12 +558,10 @@ async function runAction(actionId: string, forge = false): Promise<Trace> {
       from: from.vid.did,
     });
     if (mode === "operator") capturedCommand = order;
-    const verdict = verifyFleetMessage(sp.runtime.controlPlaneIdentity()!, order, {
-      requirement: "fleet:command",
-      stapleTtlMs: TTL_MS,
-      maxMessageAgeMs: MAX_MESSAGE_AGE_MS,
-      seen: sp.seen,
-    });
+    const verdict =
+      mode === "radio"
+        ? injectOrder(sp, order, "ordre forgé")!
+        : receiveOrder(sp, order);
     steps.push({
       layer: mode === "radio" ? "Ordre reçu par radio (émetteur se disant C2)" : "Ordre du C2 (signature + preuve)",
       ok: verdict.accepted,
@@ -532,12 +618,7 @@ async function runAction(actionId: string, forge = false): Promise<Trace> {
 async function replayCapturedOrder(): Promise<Trace> {
   const sp = spotlight();
   if (!capturedCommand) throw new Error("Aucun ordre capturé : envoyez d'abord un ordre en mode opérateur.");
-  const verdict = verifyFleetMessage(sp.runtime.controlPlaneIdentity()!, capturedCommand, {
-    requirement: "fleet:command",
-    stapleTtlMs: TTL_MS,
-    maxMessageAgeMs: MAX_MESSAGE_AGE_MS,
-    seen: sp.seen,
-  });
+  const verdict = injectOrder(sp, capturedCommand, "ordre C2 capturé puis rejoué")!;
   const steps = [{ layer: "Ordre C2 authentique, capturé puis rejoué", ok: verdict.accepted, detail: verdict.reason }];
   lastTrace = {
     at: new Date().toISOString(),
@@ -653,6 +734,14 @@ function state() {
       actorUrl: actorUrl(m.runtime.getDid()),
     })),
     links,
+    attacker: {
+      key: ATTACKER_KEY,
+      position: ATTACKER_POS,
+      // What the third party is doing right now, in the presenter's chosen scenario.
+      activity: mode === "radio" ? "inject" : mode === "compromised" && !isolatedAt ? "control" : mode === "compromised" ? "cut" : "listen",
+      attempts: attack.attempts,
+      accepted: attack.accepted,
+    },
     feed: feed.slice(-80),
     spotlight: {
       key: sp.spec.key,
@@ -708,6 +797,11 @@ const server = createServer(async (req, res) => {
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     return res.end((req.url === "/" ? pages.fleet : pages.drone).replace("__TOKEN__", token));
   }
+  if (req.method === "GET" && req.url === "/fleet3d.js") {
+    res.setHeader("Content-Type", "text/javascript; charset=utf-8");
+    return res.end(pages.fleet3d);
+  }
+  if (req.method === "GET" && (await serveVendor(req.url ?? "", res))) return;
   if (req.method === "GET" && req.url === "/state") {
     if (!members.size) return json(res, 503, { error: fatal || "Démarrage…" });
     return json(res, 200, state());
@@ -806,6 +900,7 @@ async function main() {
   timers.push(
     every(1_500, approvePending),
     every(1_500, meshTick),
+    every(2_500, attackerTick),
     every(1_000, pollSpotlightCert),
     every(MAX_MESSAGE_AGE_MS, () => {
       for (const m of members.values()) m.seen.rotate();

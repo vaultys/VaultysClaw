@@ -95,6 +95,25 @@ describe("fleet mesh verification", () => {
   });
 });
 
+describe("orders are bound to their recipient", () => {
+  it("refuses a genuine order replayed to a drone it was not addressed to", async () => {
+    const [cp, c2, target, other] = [await vid(), await vid(), await vid(), await vid()];
+    const order = await signFleetMessage(c2, {
+      id: crypto.randomUUID(),
+      messageType: "command",
+      payload: { action: "patrol", target: target.did },
+      sentAt: Date.now(),
+      staple: await staple(cp, c2.did, "active", ["fleet:command"]),
+    });
+    const command = { ...opts, requirement: "fleet:command" };
+    expect(verifyFleetMessage(cp, order, { ...command, audience: other.did })).toMatchObject({
+      accepted: false,
+      check: "audience",
+    });
+    expect(verifyFleetMessage(cp, order, { ...command, audience: target.did }).accepted).toBe(true);
+  });
+});
+
 describe("ECW scenario data", () => {
   it("uses only valid capability names", () => {
     for (const entry of REGISTRY) expect(() => assertValidCapabilityName(entry.name)).not.toThrow();

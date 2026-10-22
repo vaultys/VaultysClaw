@@ -36,13 +36,30 @@
       nav a.active { color: var(--text); background: var(--panel-2); border-color: var(--line); }
       .tag { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--warn); border: 1px solid #5c4813; padding: 4px 8px; border-radius: 6px; }
       main { padding: 18px 24px 32px; display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 18px; }
-      .kpis { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+      .kpis { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+      .kpi.threat { border-color: #6b1f30; background: #1d0c12; }
       .kpi { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
       .kpi b { display: block; font-size: 28px; font-variant-numeric: tabular-nums; margin-top: 4px; }
       .kpi small { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 1px; }
       .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
       .panel h2 { margin: 0 0 12px; font-size: 13px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted); font-weight: 600; }
-      svg { width: 100%; height: auto; display: block; }
+      .scene { position: relative; width: 100%; aspect-ratio: 1240 / 640; min-height: 420px; border-radius: 10px; overflow: hidden; background: #070d14; }
+      .scene canvas { display: block; outline: none; cursor: grab; }
+      .scene canvas:active { cursor: grabbing; }
+      .scene-labels { position: absolute; inset: 0; pointer-events: none; }
+      .scene-fallback { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); }
+      .lbl { font-size: 11px; font-weight: 600; color: #c7d8e6; letter-spacing: 0.4px; white-space: nowrap; padding: 2px 7px; border-radius: 5px; background: rgba(7, 13, 20, 0.62); border: 1px solid rgba(56, 189, 248, 0.18); text-shadow: 0 0 6px #000; }
+      .lbl.spot { font-size: 13.5px; font-weight: 800; color: #fde68a; border-color: rgba(251, 191, 36, 0.55); }
+      .lbl.hijacked { color: #fdba74; border-color: rgba(251, 146, 60, 0.7); }
+      .lbl.bad { color: #fecdd3; border-color: rgba(244, 63, 94, 0.75); background: rgba(42, 15, 23, 0.85); }
+      .lbl.zone { background: none; border: 0; color: #4b8db5; font-size: 11px; letter-spacing: 2.4px; }
+      .lbl.zone.ai { color: #a99be8; text-align: center; }
+      .lbl span { display: block; font-size: 10px; font-weight: 500; letter-spacing: 0.6px; opacity: 0.8; }
+      .lbl.threat { color: #fecdd3; font-weight: 800; letter-spacing: 1.4px; text-align: center; border-color: rgba(244, 63, 94, 0.8); background: rgba(42, 15, 23, 0.85); }
+      .view { position: absolute; top: 12px; right: 12px; display: flex; gap: 6px; z-index: 2; }
+      .view button { font: inherit; font-size: 12px; color: var(--muted); background: rgba(13, 23, 34, 0.85); border: 1px solid var(--line); border-radius: 7px; padding: 6px 10px; cursor: pointer; }
+      .view button.on { color: var(--text); border-color: var(--accent); }
+      .hint { position: absolute; left: 14px; bottom: 10px; font-size: 11px; color: #4d6a82; z-index: 2; pointer-events: none; }
       .side { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
       .model ol { margin: 0; padding-left: 18px; }
       .model li { margin-bottom: 9px; line-height: 1.45; font-size: 13.5px; }
@@ -88,14 +105,24 @@
         <div class="kpi"><small>Messages acceptés par les pairs</small><b id="k-ok" style="color: var(--ok)">–</b></div>
         <div class="kpi"><small>Messages refusés par les pairs</small><b id="k-deny" style="color: var(--deny)">–</b></div>
         <div class="kpi"><small>RAPACE-07</small><b id="k-spot">–</b></div>
+        <div class="kpi threat"><small>Tiers radio · ordres injectés</small><b id="k-attack" style="color: var(--deny)">–</b></div>
       </section>
       <section class="panel">
         <h2>Théâtre d'opération — chaque lien est un message signé, vérifié hors ligne par son destinataire</h2>
-        <svg id="map" viewBox="0 0 1240 640" role="img" aria-label="Carte tactique de la flotte"></svg>
+        <div class="scene" id="scene" role="img" aria-label="Théâtre d'opération en 3D : la flotte, ses messages et le tiers sur le lien radio">
+          <div class="view">
+            <button id="view-orbit" type="button">⟳ Orbite</button>
+            <button id="view-follow" type="button">◎ Suivre RAPACE-07</button>
+            <button id="view-reset" type="button">⌂ Vue d'ensemble</button>
+          </div>
+          <div class="hint">Glisser pour pivoter · molette pour zoomer · clic droit pour déplacer</div>
+        </div>
         <div class="legend">
           <span><i style="background: var(--ok)"></i>message accepté</span>
           <span><i style="background: var(--deny)"></i>message refusé</span>
-          <span>▲ drone · ■ robot terrestre · ⬢ poste C2 · ● agent IA</span>
+          <span><i style="background: var(--deny); height: 2px"></i>ordre du tiers radio</span>
+          <span><i style="background: var(--shield, #67e8f9)"></i>bouclier : ordre rejeté par le destinataire</span>
+          <span>drone · robot terrestre · poste C2 (radar) · agent IA · antenne rouge = tiers sur le lien radio</span>
         </div>
       </section>
       <aside class="side">
@@ -122,50 +149,20 @@
         </table>
       </section>
     </main>
+    <script type="importmap">
+      { "imports": { "three": "/vendor/three/build/three.module.js", "three/addons/": "/vendor/three/examples/jsm/" } }
+    </script>
+    <script type="module" src="/fleet3d.js"></script>
     <script>
       const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
       const tone = (st) => (st === "certifié" ? "good" : st === "révoqué" || st === "isolé" ? "bad" : "wait");
       const time = (iso) => new Date(iso).toLocaleTimeString("fr-FR");
-      const AI_X = 1135;
-      function aiPos(members) {
-        const ai = members.filter((m) => !m.position);
-        const pos = {};
-        ai.forEach((m, i) => (pos[m.key] = { x: AI_X, y: 200 + i * 170 }));
-        return pos;
-      }
-      function shape(m, p) {
-        const bad = m.status === "révoqué" || m.status === "isolé";
-        const ok = m.status === "certifié";
-        const color = bad ? "var(--deny)" : !ok ? "var(--warn)" : m.kind === "openclaw" ? "var(--ai)" : m.kind === "device" ? "var(--accent)" : "var(--text)";
-        const r = m.spotlight ? 14 : 10;
-        let g = "";
-        if (m.spotlight) g += `<circle r="24" fill="none" stroke="${bad ? "var(--deny)" : "var(--warn)"}" stroke-width="1.5" stroke-dasharray="4 4"><animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="8s" repeatCount="indefinite"/></circle>`;
-        if (m.kind === "drone") g += `<polygon points="0,${-r} ${r * 0.9},${r * 0.75} 0,${r * 0.35} ${-r * 0.9},${r * 0.75}" fill="${color}"/>`;
-        else if (m.kind === "ugv") g += `<rect x="${-r * 0.8}" y="${-r * 0.8}" width="${r * 1.6}" height="${r * 1.6}" rx="2" fill="${color}"/>`;
-        else if (m.kind === "device") g += `<polygon points="${[0, 1, 2, 3, 4, 5].map((i) => `${16 * Math.cos((Math.PI / 3) * i + Math.PI / 6)},${16 * Math.sin((Math.PI / 3) * i + Math.PI / 6)}`).join(" ")}" fill="none" stroke="${color}" stroke-width="3"/>`;
-        else g += `<circle r="${r + 4}" fill="#1b1533" stroke="${color}" stroke-width="2.5"/>`;
-        if (bad) g += `<line x1="-18" y1="-18" x2="18" y2="18" stroke="var(--deny)" stroke-width="3"/><line x1="18" y1="-18" x2="-18" y2="18" stroke="var(--deny)" stroke-width="3"/>`;
-        const label = `<text y="${m.kind === "openclaw" ? 38 : 30}" text-anchor="middle" font-size="${m.spotlight ? 14 : 12}" fill="${bad ? "#fda4af" : "#b7c9d8"}" font-weight="${m.spotlight ? 700 : 500}">${esc(m.label)}${bad ? " · " + m.status.toUpperCase() : ""}</text>`;
-        return `<g style="transition: transform 0.6s linear" transform="translate(${p.x.toFixed(1)},${p.y.toFixed(1)})">${g}${label}</g>`;
-      }
-      function drawMap(s) {
-        const ai = aiPos(s.members);
-        const where = Object.fromEntries(s.members.map((m) => [m.key, m.position ?? ai[m.key]]));
-        let svg = `<defs><pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" fill="none" stroke="#11212f" stroke-width="1"/></pattern></defs>`;
-        svg += `<rect width="1040" height="640" fill="url(#grid)" rx="10"/>`;
-        svg += `<rect x="40" y="60" width="950" height="540" fill="none" stroke="#1e4d6b" stroke-width="1.5" stroke-dasharray="10 6" rx="18"/>`;
-        svg += `<text x="56" y="84" font-size="12" fill="#3f7699" letter-spacing="2">ZONE AUTORISÉE (GÉORÉPERAGE)</text>`;
-        svg += `<circle cx="500" cy="560" r="46" fill="#0b2233" stroke="#1e4d6b"/><text x="500" y="625" text-anchor="middle" font-size="11" fill="#3f7699" letter-spacing="2">BASE</text>`;
-        svg += `<rect x="1060" y="20" width="170" height="600" rx="12" fill="#0f0d1f" stroke="#2c2350"/><text x="1145" y="48" text-anchor="middle" font-size="11" fill="#8b7ad6" letter-spacing="1.5">AGENTS IA</text><text x="1145" y="64" text-anchor="middle" font-size="10" fill="#5f5596">processus, hors carte</text>`;
-        for (const l of s.links) {
-          const a = where[l.from], b = where[l.to];
-          if (!a || !b) continue;
-          const age = (s.now - l.at) / 2500;
-          svg += `<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" stroke="${l.ok ? "var(--ok)" : "var(--deny)"}" stroke-width="${l.ok ? 1.6 : 2.6}" stroke-opacity="${Math.max(0.08, 0.85 - age)}" ${l.ok ? "" : 'stroke-dasharray="6 4"'}/>`;
-        }
-        for (const m of s.members) if (where[m.key]) svg += shape(m, where[m.key]);
-        document.getElementById("map").innerHTML = svg;
-      }
+      const ACTIVITY = {
+        listen: "écoute le lien radio",
+        inject: "injecte des ordres",
+        control: "contrôle RAPACE-07",
+        cut: "coupé de la flotte",
+      };
       async function tick() {
         try {
           const res = await fetch("/state");
@@ -186,7 +183,11 @@
           const spEl = document.getElementById("k-spot");
           spEl.textContent = sp.status.toUpperCase() + (sp.mode === "compromised" && !sp.isolatedAt ? " · COMPROMIS" : "");
           spEl.style.color = sp.status === "certifié" && sp.mode !== "compromised" ? "var(--ok)" : sp.status === "certifié" ? "var(--warn)" : "var(--deny)";
-          drawMap(s);
+          const a = s.attacker;
+          document.getElementById("k-attack").textContent = a.attempts
+            ? `${(a.attempts - a.accepted).toLocaleString("fr-FR")} / ${a.attempts.toLocaleString("fr-FR")} rejetés`
+            : ACTIVITY[a.activity];
+          window.dispatchEvent(new CustomEvent("fleet-state", { detail: s }));
           document.getElementById("feed").innerHTML = s.feed
             .slice()
             .reverse()

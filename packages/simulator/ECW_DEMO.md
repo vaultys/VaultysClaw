@@ -22,6 +22,13 @@ pnpm demo:ecw          # terminal 2 : le démonstrateur (localhost:3012)
 - **http://localhost:3003** — le plan de contrôle. Créez-y un administrateur au premier lancement
   (`/login`) si vous voulez montrer la console ; le démonstrateur fonctionne sans.
 
+La vue flotte est une scène 3D (three.js, servi en local par le démonstrateur : aucun accès réseau
+requis sur le stand). Boutons en haut à droite : **⟳ Orbite** (rotation lente automatique),
+**◎ Suivre RAPACE-07** (la caméra suit le drone), **⌂ Vue d'ensemble**. Chaque message est un
+paquet lumineux en arc : vert s'il est accepté, rouge et stoppé net par un ✕ s'il est refusé. Quand
+un drone rejette un ordre du tiers radio, un bouclier cyan s'allume autour de lui. Un drone isolé
+est enfermé dans une bulle de quarantaine rouge.
+
 La flotte se connecte et s'enregistre, le démonstrateur approuve ses enregistrements avec le
 profil de chacun (comme `simulator approve`), et chaque membre récupère son certificat par un vrai
 échange Challenger. Comptez une dizaine de secondes avant que tout soit « certifié ».
@@ -38,6 +45,10 @@ profil de chacun (comme `simulator approve`), et chaque membre récupère son ce
 3. **Le lien radio.** Mode *Tiers sur le lien radio* : n'importe quel bouton → l'ordre est
    rejeté (« usurpation d'identité ») avant d'atteindre le drone, alors même que l'attaquant a
    intercepté la preuve authentique du C2. `Rejouer un ordre C2 capturé` → rejeté (rejeu).
+   Sur la vue flotte, le tiers apparaît comme une antenne rouge hors du géorepérage : tant que ce
+   mode est actif, il attaque aussi d'autres drones toutes les 2,5 s (ordres forgés, et rejeu d'un
+   vrai ordre C2 détourné vers un autre destinataire). Chaque tentative est un trait rouge barré
+   d'un ✕, et le compteur « Tiers radio » montre que toutes sont rejetées.
 4. **La compromission.** Mode *Drone compromis* : le tiers a pris le module de communication et
    la clé. `Partager sa position` et `Image → Analyste IA` sont **acceptés** par la flotte (de
    fausses données entrent dans le système — c'est le risque assumé) ; `Ordonner à RAPACE-03` est

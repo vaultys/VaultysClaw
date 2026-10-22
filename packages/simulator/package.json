@@ -20,6 +20,7 @@
     "@vaultysclaw/policy": "workspace:*",
     "@vaultysclaw/sdk": "workspace:*",
     "pg": "^8.21.0",
+    "three": "^0.186.0",
     "@vaultysclaw/controlplane": "workspace:*"
   },
   "devDependencies": {

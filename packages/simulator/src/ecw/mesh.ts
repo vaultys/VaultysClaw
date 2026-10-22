@@ -36,6 +36,7 @@ export type CheckName =
   | "identity"
   | "freshness"
   | "replay"
+  | "audience"
   | "proof"
   | "proof-signature"
   | "proof-subject"
@@ -79,6 +80,10 @@ export interface VerifyOptions {
   /** How old a message may be before it counts as a replay. */
   maxMessageAgeMs: number;
   now?: number;
+  /** The recipient's own DID, for messages that name one (`payload.target`, as orders do). Without
+   *  it, a genuine order captured on its way to one drone is a valid order for every other drone
+   *  until it ages out. */
+  audience?: string;
   /** Message ids this recipient has already accepted — an exact replay inside the window. */
   seen?: { has(id: string): boolean; add(id: string): unknown };
 }
@@ -117,6 +122,9 @@ export function verifyFleetMessage(
     return deny("freshness", "Message rejoué ou hors délai", extra);
   }
   if (opts.seen?.has(body.id)) return deny("replay", "Message déjà reçu (rejeu)", extra);
+  if (opts.audience && body.payload?.target !== opts.audience) {
+    return deny("audience", "Ordre destiné à un autre acteur (rejeu détourné)", extra);
+  }
   if (!body.staple) return deny("proof", "Aucune preuve d'autorisation jointe", extra);
 
   const proof: CertStatusResponseBody | null = verifyCertStatusResponseCert(controlPlane, body.staple);

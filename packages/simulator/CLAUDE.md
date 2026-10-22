@@ -307,6 +307,12 @@ observed the same way.
   stand cannot count on the venue's network. It only listens to the `fleet-state` event the page
   already polls for; it never decides anything. The first state only primes the seen-link set, so
   opening the page does not replay a volley of messages that happened before it loaded.
+- **Motion is replayed ~0.9 s in the past** (`INTERP_DELAY`): each engine keeps its last server
+  positions and is drawn on a Catmull-Rom curve through them, with a speed limit so a jump
+  (take-off, return to base) becomes a flight. Chasing each poll as it arrived made every drone
+  jerk at the poll rate. The page polls every 400 ms so the buffer always brackets the drawn time.
+- **The terrain is a pure function** (`terrainHeight`, seeded value noise): ground engines, markers,
+  the geofence curtain and the attacker's mast all sample it, so nothing floats or sinks.
 - **Two kinds of compromise are modelled, deliberately different.** The radio attacker cannot sign
   as the C2, so orders die at the first check. The compromised drone holds its own key, so the fleet
   believes it within its rights until revocation — the demo shows that instead of hiding it.

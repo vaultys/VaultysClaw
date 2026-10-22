@@ -111,6 +111,7 @@
         <h2>Théâtre d'opération — chaque lien est un message signé, vérifié hors ligne par son destinataire</h2>
         <div class="scene" id="scene" role="img" aria-label="Théâtre d'opération en 3D : la flotte, ses messages et le tiers sur le lien radio">
           <div class="view">
+            <button id="view-focus" type="button" title="Masquer toutes les communications qui ne concernent pas RAPACE-07">✦ Seulement RAPACE-07</button>
             <button id="view-orbit" type="button">⟳ Orbite</button>
             <button id="view-follow" type="button">◎ Suivre RAPACE-07</button>
             <button id="view-reset" type="button">⌂ Vue d'ensemble</button>
@@ -207,7 +208,8 @@
         }
       }
       tick();
-      setInterval(tick, 700);
+      // Often enough for the 3D view to interpolate smoothly (it draws ~0.9 s in the past).
+      setInterval(tick, 400);
     </script>
   </body>
 </html>

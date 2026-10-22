@@ -23,9 +23,12 @@ pnpm demo:ecw          # terminal 2 : le démonstrateur (localhost:3012)
   (`/login`) si vous voulez montrer la console ; le démonstrateur fonctionne sans.
 
 La vue flotte est une scène 3D (three.js, servi en local par le démonstrateur : aucun accès réseau
-requis sur le stand). Boutons en haut à droite : **⟳ Orbite** (rotation lente automatique),
+requis sur le stand) posée sur un terrain généré (collines, forêts, lac, montagnes enneigées — le
+même à chaque chargement), avec le quadrillage tactique et le balayage radar du C2 peints au sol. Boutons en haut à droite : **✦ Seulement RAPACE-07** (masque toutes les
+communications qui ne concernent pas RAPACE-07, y compris les attaques visant d'autres drones),
+**⟳ Orbite** (rotation lente automatique),
 **◎ Suivre RAPACE-07** (la caméra suit le drone), **⌂ Vue d'ensemble**. Chaque message est un
-paquet lumineux en arc : vert s'il est accepté, rouge et stoppé net par un ✕ s'il est refusé. Quand
+paquet lumineux en arc : vert s'il arrive (sans effet à la réception), rouge et stoppé net par un ✕ s'il est refusé. Quand
 un drone rejette un ordre du tiers radio, un bouclier cyan s'allume autour de lui. Un drone isolé
 est enfermé dans une bulle de quarantaine rouge.
 

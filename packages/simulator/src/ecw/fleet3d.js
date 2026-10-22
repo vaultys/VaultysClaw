@@ -119,15 +119,167 @@ const additive = (color, opacity, extra = {}) =>
 
 // ─── The theatre ───────────────────────────────────────────────────────────────
 
+// Deterministic terrain: every viewer, and every reload, sees the same valley.
+function hash2(x, y) {
+  let h = Math.imul(x, 374761393) + Math.imul(y, 668265263);
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967295;
+}
+function vnoise(x, y) {
+  const xi = Math.floor(x);
+  const yi = Math.floor(y);
+  const xf = x - xi;
+  const yf = y - yi;
+  const u = xf * xf * (3 - 2 * xf);
+  const v = yf * yf * (3 - 2 * yf);
+  const a = hash2(xi, yi);
+  const b = hash2(xi + 1, yi);
+  const c = hash2(xi, yi + 1);
+  const d = hash2(xi + 1, yi + 1);
+  return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+}
+function fbm(x, y, octaves = 5) {
+  let sum = 0;
+  let amp = 0.5;
+  let f = 1;
+  for (let i = 0; i < octaves; i++) {
+    sum += amp * vnoise(x * f, y * f);
+    f *= 2.03;
+    amp *= 0.5;
+  }
+  return sum / (1 - Math.pow(0.5, octaves));
+}
+const smoothstep = (a, b, x) => {
+  const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
+  return t * t * (3 - 2 * t);
+};
+const BASE_XZ = GROUND(500, 560);
+const WATER_LEVEL = -12;
+
+/** Ground height at world (X, Z): rolling hills inside the zone, a ridge of mountains around it,
+ *  a lake to the west, and a levelled pad under the base so the C2 sits flat. */
+function terrainHeight(X, Z) {
+  const hills = (fbm(X * 0.0045 + 11, Z * 0.0045 - 7) - 0.5) * 56;
+  const ridge = 1 - Math.abs(fbm(X * 0.0021 + 3, Z * 0.0021 + 5) * 2 - 1);
+  const outside = smoothstep(430, 860, Math.hypot(X / 1.3, Z - 10));
+  let h = hills * (0.55 + outside * 0.9) + outside * Math.pow(ridge, 2.4) * 300;
+  h -= smoothstep(280, 70, Math.hypot(X + 780, Z + 40)) * 60;
+  return h + (2 - h) * smoothstep(150, 70, Math.hypot(X - BASE_XZ.x, Z - BASE_XZ.z));
+}
+
+const radarUniforms = { time: { value: 0 } };
 {
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(4000, 3000), new THREE.MeshStandardMaterial({ color: 0x08121c, roughness: 1 }));
-  floor.rotation.x = -Math.PI / 2;
-  floor.position.y = -0.5;
-  scene.add(floor);
-  const grid = new THREE.GridHelper(2400, 60, 0x153049, 0x0e2132);
-  grid.material.transparent = true;
-  grid.material.opacity = 0.75;
-  scene.add(grid);
+  const W = 2600;
+  const D = 1900;
+  const geo = new THREE.PlaneGeometry(W, D, 260, 190);
+  geo.rotateX(-Math.PI / 2);
+  const pos = geo.attributes.position;
+  for (let i = 0; i < pos.count; i++) pos.setY(i, terrainHeight(pos.getX(i), pos.getZ(i)));
+  geo.computeVertexNormals();
+  const nrm = geo.attributes.normal;
+  const colors = new Float32Array(pos.count * 3);
+  const col = new THREE.Color();
+  const PAL = {
+    shore: new THREE.Color(0x5b5643),
+    meadow: new THREE.Color(0x40552f),
+    grass: new THREE.Color(0x33472a),
+    forest: new THREE.Color(0x24361f),
+    rock: new THREE.Color(0x5d5a54),
+    high: new THREE.Color(0x7c7871),
+    snow: new THREE.Color(0xaab4bf),
+  };
+  for (let i = 0; i < pos.count; i++) {
+    const X = pos.getX(i);
+    const Z = pos.getZ(i);
+    const h = pos.getY(i);
+    const slope = 1 - nrm.getY(i);
+    const detail = fbm(X * 0.03, Z * 0.03, 3);
+    col.copy(PAL.meadow).lerp(PAL.grass, smoothstep(0.35, 0.65, detail));
+    col.lerp(PAL.forest, smoothstep(0.5, 0.62, fbm(X * 0.006 + 40, Z * 0.006, 3)) * 0.85);
+    col.lerp(PAL.shore, smoothstep(WATER_LEVEL + 6, WATER_LEVEL, h));
+    col.lerp(PAL.rock, smoothstep(0.12, 0.3, slope) * 0.9);
+    col.lerp(PAL.high, smoothstep(90, 170, h) * 0.8);
+    col.lerp(PAL.snow, smoothstep(185, 230, h + detail * 30) * (1 - smoothstep(0.3, 0.5, slope)));
+    col.multiplyScalar(0.85 + detail * 0.3);
+    colors.set([col.r, col.g, col.b], i * 3);
+  }
+  geo.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+
+  const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, metalness: 0 });
+  // The tactical layer is painted onto the ground itself — a faint grid and the C2's radar sweep —
+  // so it follows the relief instead of floating over it.
+  mat.onBeforeCompile = (sh) => {
+    sh.uniforms.uTime = radarUniforms.time;
+    sh.uniforms.uC2 = { value: new THREE.Vector2(BASE_XZ.x, BASE_XZ.z) };
+    sh.vertexShader = sh.vertexShader
+      .replace("#include <common>", "#include <common>\nvarying vec3 vWorld;")
+      .replace("#include <begin_vertex>", "#include <begin_vertex>\nvWorld = (modelMatrix * vec4(transformed, 1.0)).xyz;");
+    sh.fragmentShader = sh.fragmentShader
+      .replace("#include <common>", "#include <common>\nvarying vec3 vWorld;\nuniform float uTime;\nuniform vec2 uC2;")
+      .replace(
+        "#include <emissivemap_fragment>",
+        `#include <emissivemap_fragment>
+        vec2 gc = vWorld.xz / 40.0;
+        vec2 gl = abs(fract(gc - 0.5) - 0.5) / fwidth(gc);
+        float grid = 1.0 - min(min(gl.x, gl.y), 1.0);
+        totalEmissiveRadiance += vec3(0.12, 0.42, 0.6) * grid * 0.07;
+        vec2 rp = vWorld.xz - uC2;
+        float r = length(rp) / 400.0;
+        if (r < 1.0) {
+          float sweep = mod(atan(rp.y, rp.x) - uTime * 0.9, 6.28318);
+          totalEmissiveRadiance += vec3(0.22, 0.74, 0.97) * exp(-sweep * 3.0) * 0.3 * (1.0 - r);
+          float rings = smoothstep(0.014, 0.0, abs(fract(r * 4.0) - 0.5) - 0.486);
+          totalEmissiveRadiance += vec3(0.22, 0.74, 0.97) * rings * 0.12 * (1.0 - r);
+        }`
+      );
+  };
+  scene.add(new THREE.Mesh(geo, mat));
+
+  const water = new THREE.Mesh(
+    new THREE.PlaneGeometry(W, D),
+    new THREE.MeshStandardMaterial({ color: 0x0c2a3b, roughness: 0.12, metalness: 0.65, transparent: true, opacity: 0.88 })
+  );
+  water.rotation.x = -Math.PI / 2;
+  water.position.y = WATER_LEVEL;
+  scene.add(water);
+
+  // Forests: instanced conifers where the forest mask, slope and altitude allow, kept off the
+  // base pad and thinned inside the zone so the fleet stays readable.
+  let seed = 1337;
+  const rand = () => {
+    seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  const N = 2600;
+  const trees = new THREE.InstancedMesh(
+    new THREE.ConeGeometry(1, 1, 7).translate(0, 0.5, 0),
+    new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9, flatShading: true }),
+    N
+  );
+  const m4 = new THREE.Matrix4();
+  const tint = new THREE.Color();
+  let placed = 0;
+  for (let tries = 0; placed < N && tries < N * 30; tries++) {
+    const X = (rand() - 0.5) * W * 0.92;
+    const Z = (rand() - 0.5) * D * 0.92;
+    const h = terrainHeight(X, Z);
+    if (h < WATER_LEVEL + 3 || h > 150) continue;
+    const slope = Math.abs(terrainHeight(X + 6, Z) - h) + Math.abs(terrainHeight(X, Z + 6) - h);
+    if (slope > 7) continue;
+    if (Math.hypot(X - BASE_XZ.x, Z - BASE_XZ.z) < 170) continue;
+    const inZone = X > -490 && X < 480 && Z > -270 && Z < 290;
+    if (fbm(X * 0.006 + 40, Z * 0.006, 3) < (inZone ? 0.62 : 0.5)) continue;
+    const s = 3.5 + rand() * 3;
+    const tall = 11 + rand() * 12;
+    m4.makeScale(s, tall, s).setPosition(X, h - 0.5, Z);
+    trees.setMatrixAt(placed, m4);
+    trees.setColorAt(placed, tint.setHSL(0.3 + rand() * 0.06, 0.35, 0.14 + rand() * 0.08));
+    placed++;
+  }
+  trees.count = placed;
+  scene.add(trees);
 }
 
 // Ambient "data dust" drifting above the field.
@@ -136,34 +288,41 @@ const dust = (() => {
   const pos = new Float32Array(n * 3);
   for (let i = 0; i < n; i++) {
     pos[i * 3] = (Math.random() - 0.5) * 1800;
-    pos[i * 3 + 1] = 20 + Math.random() * 360;
+    pos[i * 3 + 1] = 60 + Math.random() * 320;
     pos[i * 3 + 2] = (Math.random() - 0.5) * 1300;
   }
   const geo = new THREE.BufferGeometry();
   geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
   const pts = new THREE.Points(
     geo,
-    new THREE.PointsMaterial({ color: 0x3fa9d6, size: 2.2, map: GLOW, transparent: true, opacity: 0.45, depthWrite: false, blending: THREE.AdditiveBlending })
+    new THREE.PointsMaterial({ color: 0x3fa9d6, size: 2.2, map: GLOW, transparent: true, opacity: 0.35, depthWrite: false, blending: THREE.AdditiveBlending })
   );
   scene.add(pts);
   return pts;
 })();
 
-/** The geofence: a glowing curtain along the authorised zone's rounded rectangle. */
+/** The geofence: a glowing curtain along the authorised zone's rounded rectangle, standing on
+ *  the relief (the path is subdivided so it follows hills instead of cutting through them). */
 const fenceUniforms = { time: { value: 0 }, color: { value: new THREE.Color(C.fleet) } };
 {
   const [x0, z0, x1, z1, r] = [-480, -260, 470, 280, 22];
-  const path = [];
+  const corners = [];
   const corner = (cx, cz, a0) => {
     for (let i = 0; i <= 8; i++) {
       const a = a0 + (i / 8) * (Math.PI / 2);
-      path.push(new THREE.Vector2(cx + Math.cos(a) * r, cz + Math.sin(a) * r));
+      corners.push(new THREE.Vector2(cx + Math.cos(a) * r, cz + Math.sin(a) * r));
     }
   };
   corner(x1 - r, z0 + r, -Math.PI / 2);
   corner(x1 - r, z1 - r, 0);
   corner(x0 + r, z1 - r, Math.PI / 2);
   corner(x0 + r, z0 + r, Math.PI);
+  corners.push(corners[0].clone());
+  const path = [];
+  for (let i = 0; i < corners.length - 1; i++) {
+    const steps = Math.max(1, Math.ceil(corners[i].distanceTo(corners[i + 1]) / 10));
+    for (let k = 0; k < steps; k++) path.push(corners[i].clone().lerp(corners[i + 1], k / steps));
+  }
   path.push(path[0].clone());
   const H = 46;
   const pos = [];
@@ -172,11 +331,13 @@ const fenceUniforms = { time: { value: 0 }, color: { value: new THREE.Color(C.fl
   for (let i = 0; i < path.length - 1; i++) {
     const a = path[i];
     const b = path[i + 1];
+    const ha = terrainHeight(a.x, a.y);
+    const hb = terrainHeight(b.x, b.y);
     const len = a.distanceTo(b);
     const u0 = along / 40;
     const u1 = (along + len) / 40;
     along += len;
-    pos.push(a.x, 0, a.y, b.x, 0, b.y, b.x, H, b.y, a.x, 0, a.y, b.x, H, b.y, a.x, H, a.y);
+    pos.push(a.x, ha, a.y, b.x, hb, b.y, b.x, hb + H, b.y, a.x, ha, a.y, b.x, hb + H, b.y, a.x, ha + H, a.y);
     uv.push(u0, 0, u1, 0, u1, 1, u0, 0, u1, 1, u0, 1);
   }
   const geo = new THREE.BufferGeometry();
@@ -202,7 +363,7 @@ const fenceUniforms = { time: { value: 0 }, color: { value: new THREE.Color(C.fl
   );
   scene.add(curtain);
   const edge = new THREE.Line(
-    new THREE.BufferGeometry().setFromPoints(path.map((p) => new THREE.Vector3(p.x, 0.6, p.y))),
+    new THREE.BufferGeometry().setFromPoints(path.map((p) => new THREE.Vector3(p.x, terrainHeight(p.x, p.y) + 0.8, p.y))),
     new THREE.LineBasicMaterial({ color: C.fleet, transparent: true, opacity: 0.45 })
   );
   scene.add(edge);
@@ -210,45 +371,24 @@ const fenceUniforms = { time: { value: 0 }, color: { value: new THREE.Color(C.fl
   tag.className = "lbl zone";
   tag.textContent = "ZONE AUTORISÉE · GÉORÉPERAGE";
   const o = new CSS2DObject(tag);
-  o.position.set(x0 + 150, 52, z0);
+  o.position.set(x0 + 150, terrainHeight(x0 + 150, z0) + 54, z0);
   scene.add(o);
 }
 
-/** The C2's radar sweep over the theatre. */
-const radarUniforms = { time: { value: 0 } };
+/** The base pad under the C2. */
 {
-  const radar = new THREE.Mesh(
-    new THREE.CircleGeometry(380, 96),
-    new THREE.ShaderMaterial({
-      uniforms: radarUniforms,
-      transparent: true,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending,
-      vertexShader: "varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }",
-      fragmentShader: `uniform float time; varying vec2 vUv;
-        void main(){
-          vec2 p = vUv - 0.5; float r = length(p) * 2.0;
-          float a = atan(p.y, p.x);
-          float sweep = mod(a - time * 0.9, 6.28318);
-          float trail = exp(-sweep * 3.0) * 0.16 * (1.0 - r);
-          float rings = (smoothstep(0.012, 0.0, abs(fract(r * 4.0) - 0.5) - 0.488)) * 0.035;
-          gl_FragColor = vec4(0.22, 0.74, 0.97, (trail + rings) * step(r, 1.0));
-        }`,
-    })
-  );
-  radar.rotation.x = -Math.PI / 2;
-  radar.position.copy(GROUND(500, 560)).setY(0.4);
-  scene.add(radar);
   const base = new THREE.Mesh(new THREE.RingGeometry(40, 46, 64), additive(C.fleet, 0.35, { side: THREE.DoubleSide }));
   base.rotation.x = -Math.PI / 2;
-  base.position.copy(GROUND(500, 560)).setY(0.5);
+  base.position.copy(BASE_XZ).setY(2.6);
   scene.add(base);
 }
 
-/** Where the AI agents live: processes, not places — a floating platform off the map. */
+/** Where the AI agents live: processes, not places — a floating platform off the map, high above
+ *  the ridge. */
+const AI_ALT = 190;
 {
   const deck = new THREE.Mesh(new THREE.BoxGeometry(150, 2, 520), additive(C.ai, 0.06));
-  deck.position.set(AI_X - 520, 96, -40);
+  deck.position.set(AI_X - 520, AI_ALT - 24, -40);
   scene.add(deck);
   const rim = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(150, 2, 520)), new THREE.LineBasicMaterial({ color: C.ai, transparent: true, opacity: 0.6 }));
   rim.position.copy(deck.position);
@@ -257,7 +397,7 @@ const radarUniforms = { time: { value: 0 } };
   tag.className = "lbl zone ai";
   tag.innerHTML = "AGENTS IA<br><span>processus, hors carte</span>";
   const o = new CSS2DObject(tag);
-  o.position.set(AI_X - 520, 130, -300);
+  o.position.set(AI_X - 520, AI_ALT + 10, -300);
   scene.add(o);
 }
 
@@ -392,10 +532,13 @@ function entityFor(m) {
     tether,
     div,
     pos: new THREE.Vector3(),
-    target: new THREE.Vector3(),
+    /** Recent server positions ({t, x, z}), replayed a little in the past — see `sampleAt`. */
+    samples: [],
+    lift: 0,
+    liftNow: 0,
     heading: 0,
     phase: (hash(m.key) % 100) / 16,
-    lift: 40 + (hash(m.key) % 5) * 5,
+    cruise: 40 + (hash(m.key) % 5) * 5,
     color: new THREE.Color(C.fleet),
     placed: false,
     status: "",
@@ -420,7 +563,8 @@ for (const o of Object.values(spot)) {
 }
 
 const ATTACKER = { activity: "listen", pos: GROUND(1000, 34), key: "tiers-radio" };
-const attackerTop = ATTACKER.pos.clone().setY(86);
+ATTACKER.pos.y = terrainHeight(ATTACKER.pos.x, ATTACKER.pos.z);
+const attackerTop = ATTACKER.pos.clone().add(new THREE.Vector3(0, 86, 0));
 {
   const g = new THREE.Group();
   g.position.copy(ATTACKER.pos);
@@ -467,6 +611,9 @@ for (const s of hijack.sparks) {
 // ─── Packets and effects ───────────────────────────────────────────────────────
 
 const packets = [];
+/** "Seulement RAPACE-07": draw only the traffic the spotlight drone sends or receives. */
+let focus = false;
+const involvesSpotlight = (link) => link.from === spotlightKey || link.to === spotlightKey;
 const effects = [];
 const seenLinks = new Set();
 let primed = false;
@@ -478,8 +625,8 @@ function anchor(key, out) {
   return out.copy(e.model.group.position).add(new THREE.Vector3(0, e.kind === "device" ? 50 : e.kind === "ugv" ? 10 : 3, 0));
 }
 
-function curvePoint(a, b, t, out) {
-  const lift = Math.min(160, a.distanceTo(b) * 0.28 + 18);
+function curvePoint(a, b, t, out, minLift = 18) {
+  const lift = Math.max(minLift, Math.min(160, a.distanceTo(b) * 0.28 + 18));
   const mid = a.clone().lerp(b, 0.5).setY(Math.max(a.y, b.y) + lift);
   const u = 1 - t;
   return out.set(
@@ -491,17 +638,20 @@ function curvePoint(a, b, t, out) {
 
 function spawnPacket(link, delay) {
   const hostile = link.from === ATTACKER.key;
+  // Orders (from the C2 or the third party) are the story of the demo: drawn as a whole, higher
+  // arc that lingers, where peer chatter is a short comet.
+  const order = link.type === "command";
   const color = hostile ? C.deny : link.ok ? C.ok : C.deny;
-  const head = glowSprite(color, hostile ? 20 : 14);
+  const head = glowSprite(color, order ? 22 : 14);
   head.visible = false;
   scene.add(head);
   const trail = new THREE.Line(
-    new THREE.BufferGeometry().setFromPoints(new Array(14).fill(0).map(() => new THREE.Vector3())),
-    new THREE.LineBasicMaterial({ color, transparent: true, opacity: hostile ? 0.95 : 0.7, blending: THREE.AdditiveBlending, depthWrite: false })
+    new THREE.BufferGeometry().setFromPoints(new Array(order ? 40 : 14).fill(0).map(() => new THREE.Vector3())),
+    new THREE.LineBasicMaterial({ color, transparent: true, opacity: order ? 0.95 : 0.7, blending: THREE.AdditiveBlending, depthWrite: false })
   );
   trail.visible = false;
   scene.add(trail);
-  packets.push({ link, hostile, head, trail, t: -delay, dur: hostile ? 1.15 : 0.85, stop: link.ok ? 1 : 0.86 });
+  packets.push({ link, hostile, order, head, trail, t: -delay, dur: order ? 1.4 : 0.85, stop: link.ok ? 1 : order ? 0.8 : 0.86 });
 }
 
 const A = new THREE.Vector3();
@@ -519,22 +669,27 @@ function updatePackets(dt) {
     }
     const prog = Math.min(p.stop, p.t / p.dur);
     p.head.visible = p.trail.visible = true;
-    curvePoint(A, B, prog, p.head.position);
+    const lift = p.order ? 70 : 18;
+    curvePoint(A, B, prog, p.head.position, lift);
     const attr = p.trail.geometry.attributes.position;
-    const from = Math.max(0, prog - 0.32);
+    const from = p.order ? 0 : Math.max(0, prog - 0.32);
     for (let k = 0; k < attr.count; k++) {
-      curvePoint(A, B, from + ((prog - from) * k) / (attr.count - 1), P);
+      curvePoint(A, B, from + ((prog - from) * k) / (attr.count - 1), P, lift);
       attr.setXYZ(k, P.x, P.y, P.z);
     }
     attr.needsUpdate = true;
     if (p.t / p.dur >= p.stop) {
       const at = p.head.position.clone();
-      if (p.link.ok) flash(B.clone(), C.ok, 14);
-      else {
+      if (!p.link.ok) {
         burst(at);
         if (p.hostile) shield(B.clone());
       }
-      dispose(p.head, p.trail);
+      if (p.order) {
+        // Leave the order's path on screen a moment, so the audience sees where it came from.
+        const opacity = p.trail.material.opacity;
+        effect(p.trail, 1.6, (o, k) => (o.material.opacity = opacity * (1 - k * k)));
+        dispose(p.head);
+      } else dispose(p.head, p.trail);
       packets.splice(i, 1);
     }
   }
@@ -551,16 +706,6 @@ function dispose(...objs) {
 function effect(obj, dur, step) {
   scene.add(obj);
   effects.push({ obj, t: 0, dur, step });
-}
-/** An accepted delivery: a short green ripple at the recipient. */
-function flash(at, color, size) {
-  const ring = new THREE.Mesh(new THREE.RingGeometry(0.7, 1, 32), additive(color, 0.9, { side: THREE.DoubleSide }));
-  ring.position.copy(at);
-  ring.lookAt(camera.position);
-  effect(ring, 0.5, (o, k) => {
-    o.scale.setScalar(size * (0.4 + k));
-    o.material.opacity = 0.9 * (1 - k);
-  });
 }
 /** A refusal: the packet dies short of its target with a red ✕. */
 function burst(at) {
@@ -619,18 +764,51 @@ const ACTIVITY = { listen: "écoute le lien radio", inject: "injecte des ordres"
 const BAD = new Set(["révoqué", "isolé"]);
 let spotlightKey = null;
 
+/**
+ * Motion. The page polls the presenter a few times a second; drawing each answer as it arrives
+ * makes everything jump. Instead every engine keeps its last few server positions and is drawn
+ * `INTERP_DELAY` in the past, on a Catmull-Rom curve through them — so it always has a sample on
+ * each side of the moment it is drawing. A speed limit turns a jump (take-off, return to base)
+ * into a flight, and altitude eases towards its target.
+ */
+const INTERP_DELAY = 900;
+const MAX_SPEED = 90;
+let serverOffset = null;
+
+function catmull(p0, p1, p2, p3, t) {
+  const t2 = t * t;
+  const t3 = t2 * t;
+  return 0.5 * (2 * p1 + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 + (-p0 + 3 * p1 - 3 * p2 + p3) * t3);
+}
+function sampleAt(e, at) {
+  const S = e.samples;
+  if (S.length === 1 || at <= S[0].t) return S[0];
+  for (let i = 0; i < S.length - 1; i++) {
+    if (at > S[i + 1].t) continue;
+    const k = (at - S[i].t) / Math.max(1, S[i + 1].t - S[i].t);
+    const a = S[Math.max(0, i - 1)];
+    const d = S[Math.min(S.length - 1, i + 2)];
+    return { x: catmull(a.x, S[i].x, S[i + 1].x, d.x, k), z: catmull(a.z, S[i].z, S[i + 1].z, d.z, k) };
+  }
+  return S[S.length - 1];
+}
+
 window.addEventListener("fleet-state", (ev) => {
   const s = ev.detail;
+  const offset = s.now - Date.now();
+  serverOffset = serverOffset === null ? offset : serverOffset * 0.9 + offset * 0.1;
   let ai = 0;
   for (const m of s.members) {
     const e = entityFor(m);
     const p = m.position ?? { x: AI_X, y: 200 + ai++ * 170 };
     e.flight = m.flight;
-    const alt =
-      m.kind === "openclaw" ? 120 : m.kind === "drone" ? (m.flight === "patrol" ? e.lift : m.flight === "airborne" ? 30 : 2) : 0;
-    e.target.copy(GROUND(p.x, p.y)).setY(alt);
+    e.lift = m.kind === "drone" ? (m.flight === "patrol" ? e.cruise : m.flight === "airborne" ? 30 : 2) : 0;
+    const g = GROUND(p.x, p.y);
+    e.samples.push({ t: s.now, x: g.x, z: g.z });
+    if (e.samples.length > 10) e.samples.shift();
     if (!e.placed) {
-      e.pos.copy(e.target);
+      e.pos.set(g.x, 0, g.z);
+      e.liftNow = e.lift;
       e.placed = true;
     }
     e.status = m.status;
@@ -668,7 +846,10 @@ window.addEventListener("fleet-state", (ev) => {
     return;
   }
   const first = Math.min(...batch.map((l) => l.at));
-  for (const l of batch) spawnPacket(l, Math.min(0.9, (l.at - first) / 1000));
+  for (const l of batch) {
+    if (focus && !involvesSpotlight(l)) continue;
+    spawnPacket(l, Math.min(0.9, (l.at - first) / 1000));
+  }
 });
 
 // ─── Frame loop ────────────────────────────────────────────────────────────────
@@ -694,8 +875,17 @@ function frame() {
     if (intro >= 1) controls.enabled = true;
   }
 
+  const renderAt = Date.now() + (serverOffset ?? 0) - INTERP_DELAY;
   for (const e of entities.values()) {
-    e.pos.lerp(e.target, 1 - Math.exp(-dt * 3));
+    if (!e.samples.length) continue;
+    const want = sampleAt(e, renderAt);
+    const step = tmp.set(want.x - e.pos.x, 0, want.z - e.pos.z);
+    if (step.length() > MAX_SPEED * dt) step.setLength(MAX_SPEED * dt);
+    e.pos.add(step);
+    e.liftNow += (e.lift - e.liftNow) * (1 - Math.exp(-dt * 1.4));
+    const ground = terrainHeight(e.pos.x, e.pos.z);
+    e.ground = ground;
+    e.pos.y = e.kind === "openclaw" ? AI_ALT : ground + e.liftNow;
     const g = e.model.group;
     const prev = tmp.copy(g.position);
     g.position.copy(e.pos);
@@ -732,11 +922,11 @@ function frame() {
     if (e.model.core) e.model.core.scale.setScalar(1 + 0.12 * Math.sin(t * 3 + e.phase));
 
     e.marker.visible = e.kind !== "openclaw";
-    e.marker.position.set(g.position.x, 0.6, g.position.z);
+    e.marker.position.set(g.position.x, e.ground + 0.8, g.position.z);
     e.marker.material.color.copy(e.color);
     e.marker.scale.setScalar(e.spotlight ? 1.6 : 1);
     const tp = e.tether.geometry.attributes.position;
-    tp.setXYZ(0, g.position.x, 0.6, g.position.z);
+    tp.setXYZ(0, g.position.x, e.ground + 0.8, g.position.z);
     tp.setXYZ(1, g.position.x, g.position.y, g.position.z);
     tp.needsUpdate = true;
     e.tether.visible = airborne;
@@ -754,7 +944,7 @@ function frame() {
     spot.column.position.set(at.x, 260, at.z);
     spot.column.material.color.setHex(col);
     spot.column.material.opacity = 0.08 + 0.04 * Math.sin(t * 3);
-    spot.ring.position.set(at.x, 0.8, at.z);
+    spot.ring.position.set(at.x, sp.ground + 1, at.z);
     spot.ring.rotation.z = t * 0.8;
     spot.ring.material.color.setHex(col);
     spot.bubble.visible = spot.bubbleFill.visible = bad;
@@ -822,6 +1012,18 @@ requestAnimationFrame(frame);
 const orbitBtn = document.getElementById("view-orbit");
 const followBtn = document.getElementById("view-follow");
 const resetBtn = document.getElementById("view-reset");
+const focusBtn = document.getElementById("view-focus");
+focusBtn.onclick = () => {
+  focus = !focus;
+  focusBtn.classList.toggle("on", focus);
+  // Clear what is already in the air too, or the toggle seems to lag by a packet's flight time.
+  if (focus)
+    for (let i = packets.length - 1; i >= 0; i--) {
+      if (involvesSpotlight(packets[i].link)) continue;
+      dispose(packets[i].head, packets[i].trail);
+      packets.splice(i, 1);
+    }
+};
 controls.autoRotate = !reducedMotion;
 orbitBtn.classList.toggle("on", controls.autoRotate);
 orbitBtn.onclick = () => {

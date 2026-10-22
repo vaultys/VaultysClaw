@@ -502,15 +502,21 @@ function applyEffect(action: DroneAction) {
   else if (action.id === "land") sp.flight = "ground";
 }
 
-async function deliverFleetAction(action: DroneAction, staple: string | null, steps: TraceStep[]): Promise<boolean> {
-  const sp = spotlight();
+/** Who a fleet action from the console drone is addressed to, and as which message type. */
+function fleetRecipients(action: DroneAction): { targets: Member[]; type: string } {
   const targets =
     action.id === "order"
       ? [members.get("rapace-03")!]
       : action.id === "intel"
         ? [members.get("ia-analyste")!]
-        : [c2(), ...nearest(sp, Date.now(), 2)];
+        : [c2(), ...nearest(spotlight(), Date.now(), 2)];
   const type = action.id === "order" ? "command" : action.id === "intel" ? "intel" : "telemetry";
+  return { targets, type };
+}
+
+async function deliverFleetAction(action: DroneAction, staple: string | null, steps: TraceStep[]): Promise<boolean> {
+  const sp = spotlight();
+  const { targets, type } = fleetRecipients(action);
   const verdicts: Array<[Member, Verdict | null]> = [];
   for (const to of targets) verdicts.push([to, await transmit(sp, to, type, { action: action.id }, { staple })]);
   const ok = verdicts.filter(([, v]) => v?.accepted).length;
@@ -567,7 +573,10 @@ async function runAction(actionId: string, forge = false): Promise<Trace> {
       ok: verdict.accepted,
       detail: verdict.accepted ? "Signé par le C2, qui détient « fleet:command »" : verdict.reason,
     });
-    if (!verdict.accepted) return finish(false, "Ordre rejeté avant toute exécution");
+    if (!verdict.accepted) {
+      if (mode === "operator") orderLink(false);
+      return finish(false, "Ordre rejeté avant toute exécution");
+    }
   }
 
   const bypass = mode === "compromised" && action.scope === "fleet";
@@ -588,6 +597,17 @@ async function runAction(actionId: string, forge = false): Promise<Trace> {
           ? "Certificat révoqué : plus aucune action n'est accordée"
           : `« ${action.capability} » n'est accordé par aucun certificat actif`,
     });
+    // The C2's order is drawn once its fate is known: green when the drone carries it out, red and
+    // stopped short when the drone's own certificate refuses it — the order was genuine, the
+    // action was not granted.
+    // A local action is drawn as the C2's order to the drone; a fleet action as what the drone
+    // sends to its recipients — and when its own certificate forbids it, as a message that never
+    // leaves: stopped short, with a ✕, on the path it would have taken.
+    if (mode === "operator" && action.scope === "local") orderLink(decision.allowed);
+    if (!decision.allowed && action.scope === "fleet") {
+      const { targets, type } = fleetRecipients(action);
+      for (const to of targets) links.push({ from: SPOTLIGHT_KEY, to: to.spec.key, ok: false, type, at: Date.now() });
+    }
     if (!decision.allowed) return finish(false, "Refusé par le certificat du drone");
   }
 
@@ -613,6 +633,12 @@ async function runAction(actionId: string, forge = false): Promise<Trace> {
   }
   applyEffect(action);
   return finish(true, action.effect);
+}
+
+/** Put a C2 → console-drone order on the map. Not counted as peer traffic: the KPIs count what
+ *  peers accepted or refused of each other's messages. */
+function orderLink(ok: boolean) {
+  links.push({ from: c2().spec.key, to: SPOTLIGHT_KEY, ok, type: "command", at: Date.now() });
 }
 
 async function replayCapturedOrder(): Promise<Trace> {

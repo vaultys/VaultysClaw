@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { VaultysId } from "@vaultys/id";
 import { signCertStatusResponseCert } from "@vaultysclaw/policy";
 import { forgeStaple, signFleetMessage, verifyFleetMessage } from "../src/ecw/mesh.js";
-import { DRONE_ACTIONS, FLEET, REGISTRY, SPOTLIGHT_KEY } from "../src/ecw/scenario.js";
+import { DRONE_ACTIONS, FLEET, REGISTRY, SPOTLIGHT_KEY, orderRequirements } from "../src/ecw/scenario.js";
 import { assertValidCapabilityName } from "@vaultysclaw/policy";
 
 const vid = async () => (await VaultysId.generateMachine()).toVersion(1);
@@ -92,6 +92,25 @@ describe("fleet mesh verification", () => {
     const seen = new Set<string>();
     expect(verifyFleetMessage(cp, token, { ...opts, seen }).accepted).toBe(true);
     expect(verifyFleetMessage(cp, token, { ...opts, seen })).toMatchObject({ accepted: false, check: "replay" });
+  });
+});
+
+describe("a narrower command right", () => {
+  it("lets a flight-only sender order a flight action but not anything else", async () => {
+    const [cp, pilot, drone] = [await vid(), await vid(), await vid()];
+    const proof = await staple(cp, pilot.did, "active", ["fleet:command.flight"]);
+    const order = (action: string) =>
+      signFleetMessage(pilot, {
+        id: crypto.randomUUID(),
+        messageType: "command",
+        payload: { action, target: drone.did },
+        sentAt: Date.now(),
+        staple: proof,
+      });
+    const verify = async (action: string) =>
+      verifyFleetMessage(cp, await order(action), { ...opts, requirement: orderRequirements(action), audience: drone.did });
+    expect((await verify("land")).accepted).toBe(true);
+    expect(await verify("payload")).toMatchObject({ accepted: false, check: "capability" });
   });
 });
 

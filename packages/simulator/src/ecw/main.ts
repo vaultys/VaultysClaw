@@ -20,11 +20,13 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { VaultysId } from "@vaultys/id";
 import { ActorRuntime, loadOrCreateIdentity } from "@vaultysclaw/sdk";
-import { prisma, disconnect, allowedForKind } from "../db.js";
+import { prisma, disconnect, allowedForKind, upsertPeople } from "../db.js";
 import { assertDemoTarget } from "../guided/checks.js";
 import {
   DRONE_ACTIONS,
   FLEET,
+  PILOT,
+  orderRequirements,
   NAME_PREFIX,
   REGISTRY,
   SPOTLIGHT_KEY,
@@ -34,6 +36,7 @@ import {
   type DroneAction,
   type MemberSpec,
 } from "./scenario.js";
+import { decodeCertUnsafe } from "@vaultysclaw/policy";
 import { forgeStaple, peekStaple, signFleetMessage, verifyFleetMessage, type Verdict } from "./mesh.js";
 
 const PORT = 3012;
@@ -75,7 +78,10 @@ async function serveVendor(url: string, res: ServerResponse): Promise<boolean> {
 }
 
 type Flight = "ground" | "airborne" | "patrol";
-type Mode = "operator" | "radio" | "compromised";
+/** Who is giving RAPACE-07 its orders: the C2, the field pilot, or the third party (over the
+ *  radio, or from inside the drone it has taken over). */
+type Mode = "operator" | "pilot" | "radio" | "compromised";
+const MODES: Mode[] = ["operator", "pilot", "radio", "compromised"];
 
 /** Message ids a recipient has accepted recently. Two generations, so a rotation never opens a
  *  window in which an exact replay inside the freshness bound is accepted again. */
@@ -136,6 +142,9 @@ interface Link {
   ok: boolean;
   type: string;
   at: number;
+  /** Refused by the *sender's* own certificate: the message never left. Every other refusal
+   *  happens at the recipient, after the message has arrived. */
+  blocked?: boolean;
 }
 
 const members = new Map<string, Member>();
@@ -155,6 +164,7 @@ let revokedSeenAt: number | null = null;
 let isolatedAt: number | null = null;
 let workspaceId = "";
 let adminDid: string | null = null;
+let pilotHumanDid: string | null = null;
 let ready = false;
 let fatal = "";
 let shuttingDown = false;
@@ -179,6 +189,7 @@ function logThrottled(key: string, level: FeedEvent["level"], source: string, te
 
 const spotlight = () => members.get(SPOTLIGHT_KEY)!;
 const c2 = () => members.get("c2")!;
+const pilotTerminal = () => members.get("pilote")!;
 
 // ─── Fleet bring-up ────────────────────────────────────────────────────────────
 
@@ -260,6 +271,15 @@ async function ensureFixtures() {
     update: { certFailMode: "closed", certStapleTtlSeconds: STAPLE_TTL_SECONDS },
   });
   workspaceId = workspace.id;
+
+  // The field pilot is a person, so a `kind: "human"` Actor written straight into the ledger like
+  // the simulator's population (humans onboard through login, never the WS handshake). What talks
+  // on the radio is the terminal they carry, which belongs to them.
+  const pilot = await loadOrCreateIdentity(path.join(dataRoot, PILOT.key, "identity"));
+  await upsertPeople(process.env.DATABASE_URL, [
+    { index: 0, did: pilot.did, name: PILOT.name, email: PILOT.email, publicKey: Buffer.from(pilot.id).toString("base64") },
+  ]);
+  pilotHumanDid = pilot.did;
 }
 
 /** Approve this demo's pending registrations with each member's profile — the presenter standing
@@ -286,11 +306,11 @@ async function approvePending() {
         kind: m.spec.kind,
         publicKey: reg.publicKey ?? undefined,
         workspaceId,
-        ownerDid: adminDid,
+        ownerDid: m.spec.key === "pilote" ? pilotHumanDid : adminDid,
         lastSeen: new Date(),
         kindConfig: {},
       },
-      update: { name: m.name, kind: m.spec.kind, workspaceId, ownerDid: adminDid },
+      update: { name: m.name, kind: m.spec.kind, workspaceId, ownerDid: m.spec.key === "pilote" ? pilotHumanDid : adminDid },
     });
     await db.pendingRegistration.update({
       where: { id: reg.id },
@@ -437,11 +457,14 @@ async function meshTick() {
 
 // ─── The third party on the radio ──────────────────────────────────────────────
 
-/** How any member receives an order: from the C2's key, carrying a `fleet:command` proof, fresh,
- *  never seen before, and addressed to *it*. */
+/** How any member receives an order: signed by its sender, carrying a proof that the sender holds
+ *  the right *this* order needs (`orderRequirements` — any order for `fleet:command`, flight orders
+ *  only for `fleet:command.flight`), fresh, never seen before, and addressed to *it*. The action is
+ *  read from the order itself; the signature check is what makes that safe to trust. */
 function receiveOrder(to: Member, order: string): Verdict {
+  const asked = (decodeCertUnsafe(order) as { payload?: { action?: string } } | null)?.payload?.action;
   return verifyFleetMessage(to.runtime.controlPlaneIdentity()!, order, {
-    requirement: "fleet:command",
+    requirement: orderRequirements(asked),
     stapleTtlMs: TTL_MS,
     maxMessageAgeMs: MAX_MESSAGE_AGE_MS,
     seen: to.seen,
@@ -551,9 +574,10 @@ async function runAction(actionId: string, forge = false): Promise<Trace> {
       detail: "Aucun ordre du C2 : le module de communication compromis agit directement, avec la clé du drone",
     });
   } else {
-    // The C2 signs the order with its own key and staple; the radio carries it. In radio mode the
-    // attacker forges it instead — having sniffed the C2's (genuine) staple off the air.
-    const from = c2();
+    // The C2 (or the pilot's terminal) signs the order with its own key and staple; the radio
+    // carries it. In radio mode the attacker forges it instead — having sniffed the C2's (genuine)
+    // staple off the air.
+    const from = mode === "pilot" ? pilotTerminal() : c2();
     if (mode === "radio") attacker ??= (await VaultysId.generateMachine()).toVersion(1);
     const order = await signFleetMessage(mode === "radio" ? attacker! : from.vid, {
       id: randomUUID(),
@@ -563,18 +587,30 @@ async function runAction(actionId: string, forge = false): Promise<Trace> {
       staple: from.runtime.getStatusStaple(),
       from: from.vid.did,
     });
-    if (mode === "operator") capturedCommand = order;
+    if (mode === "operator" || mode === "pilot") capturedCommand = order;
     const verdict =
       mode === "radio"
         ? injectOrder(sp, order, "ordre forgé")!
         : receiveOrder(sp, order);
     steps.push({
-      layer: mode === "radio" ? "Ordre reçu par radio (émetteur se disant C2)" : "Ordre du C2 (signature + preuve)",
+      layer:
+        mode === "radio"
+          ? "Ordre reçu par radio (émetteur se disant C2)"
+          : mode === "pilot"
+            ? "Ordre du pilote (terminal : signature + preuve)"
+            : "Ordre du C2 (signature + preuve)",
       ok: verdict.accepted,
-      detail: verdict.accepted ? "Signé par le C2, qui détient « fleet:command »" : verdict.reason,
+      detail: verdict.accepted
+        ? `Signé par ${from.spec.label}, qui détient ${orderRequirements(action.id)
+            .filter((r) => from.runtime.capabilitiesSnapshot().includes(r))
+            .map((r) => `« ${r} »`)
+            .join(" et ")}`
+        : mode === "pilot" && verdict.check === "capability"
+          ? "Le pilote ne peut ordonner que le vol (« fleet:command.flight ») : cet ordre exige « fleet:command »"
+          : verdict.reason,
     });
     if (!verdict.accepted) {
-      if (mode === "operator") orderLink(false);
+      if (mode === "operator" || mode === "pilot") orderLink(from, false);
       return finish(false, "Ordre rejeté avant toute exécution");
     }
   }
@@ -603,10 +639,10 @@ async function runAction(actionId: string, forge = false): Promise<Trace> {
     // A local action is drawn as the C2's order to the drone; a fleet action as what the drone
     // sends to its recipients — and when its own certificate forbids it, as a message that never
     // leaves: stopped short, with a ✕, on the path it would have taken.
-    if (mode === "operator" && action.scope === "local") orderLink(decision.allowed);
+    if ((mode === "operator" || mode === "pilot") && action.scope === "local") orderLink(mode === "pilot" ? pilotTerminal() : c2(), decision.allowed);
     if (!decision.allowed && action.scope === "fleet") {
       const { targets, type } = fleetRecipients(action);
-      for (const to of targets) links.push({ from: SPOTLIGHT_KEY, to: to.spec.key, ok: false, type, at: Date.now() });
+      for (const to of targets) links.push({ from: SPOTLIGHT_KEY, to: to.spec.key, ok: false, type, at: Date.now(), blocked: true });
     }
     if (!decision.allowed) return finish(false, "Refusé par le certificat du drone");
   }
@@ -637,8 +673,8 @@ async function runAction(actionId: string, forge = false): Promise<Trace> {
 
 /** Put a C2 → console-drone order on the map. Not counted as peer traffic: the KPIs count what
  *  peers accepted or refused of each other's messages. */
-function orderLink(ok: boolean) {
-  links.push({ from: c2().spec.key, to: SPOTLIGHT_KEY, ok, type: "command", at: Date.now() });
+function orderLink(from: Member, ok: boolean) {
+  links.push({ from: from.spec.key, to: SPOTLIGHT_KEY, ok, type: "command", at: Date.now() });
 }
 
 async function replayCapturedOrder(): Promise<Trace> {
@@ -710,7 +746,7 @@ async function resetSpotlight() {
 // ─── State for the pages ───────────────────────────────────────────────────────
 
 function modeLabel() {
-  return mode === "operator" ? "Opérateur C2" : mode === "radio" ? "Attaquant radio" : "Drone compromis";
+  return mode === "operator" ? "Opérateur C2" : mode === "pilot" ? "Pilote humain" : mode === "radio" ? "Attaquant radio" : "Drone compromis";
 }
 
 function memberStatus(m: Member): string {
@@ -769,6 +805,18 @@ function state() {
       accepted: attack.accepted,
     },
     feed: feed.slice(-80),
+    // The two legitimate senders of orders, for the drone page's C2 and Humain tabs.
+    senders: {
+      c2: { label: c2().spec.label, status: memberStatus(c2()), capabilities: c2().runtime.capabilitiesSnapshot(), actorUrl: actorUrl(c2().runtime.getDid()) },
+      pilot: {
+        label: pilotTerminal().spec.label,
+        human: PILOT.name,
+        humanUrl: pilotHumanDid ? actorUrl(pilotHumanDid) : null,
+        status: memberStatus(pilotTerminal()),
+        capabilities: pilotTerminal().runtime.capabilitiesSnapshot(),
+        actorUrl: actorUrl(pilotTerminal().runtime.getDid()),
+      },
+    },
     spotlight: {
       key: sp.spec.key,
       label: sp.spec.label,
@@ -787,7 +835,14 @@ function state() {
       revokedAt: revokedSeenAt,
       isolatedAt,
       capturedCommand: Boolean(capturedCommand),
-      actions: DRONE_ACTIONS.map((a) => ({ ...a, granted: sp.spec.capabilities.includes(a.capability), last: lastResults[a.id] ?? null })),
+      actions: DRONE_ACTIONS.map((a) => ({
+        ...a,
+        granted: sp.spec.capabilities.includes(a.capability),
+        // Whether each sender may *order* it — the first of the two decisions an order goes through.
+        c2Can: orderRequirements(a.id).some((r) => c2().spec.capabilities.includes(r)),
+        pilotCan: orderRequirements(a.id).some((r) => pilotTerminal().spec.capabilities.includes(r)),
+        last: lastResults[a.id] ?? null,
+      })),
       trace: lastTrace,
     },
   };
@@ -819,9 +874,11 @@ const server = createServer(async (req, res) => {
     "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'"
   );
   if (!hosts.includes(req.headers.host ?? "")) return json(res, 403, { error: "Invalid host" });
-  if (req.method === "GET" && (req.url === "/" || req.url === "/drone")) {
+  // Pages are matched on their path alone, so a query string (`/?debug`) still serves them.
+  const page = (req.url ?? "").split("?")[0];
+  if (req.method === "GET" && (page === "/" || page === "/drone")) {
     res.setHeader("Content-Type", "text/html; charset=utf-8");
-    return res.end((req.url === "/" ? pages.fleet : pages.drone).replace("__TOKEN__", token));
+    return res.end((page === "/" ? pages.fleet : pages.drone).replace("__TOKEN__", token));
   }
   if (req.method === "GET" && req.url === "/fleet3d.js") {
     res.setHeader("Content-Type", "text/javascript; charset=utf-8");
@@ -849,7 +906,7 @@ const server = createServer(async (req, res) => {
     }
     if (req.url === "/replay") return json(res, 200, { trace: await replayCapturedOrder() });
     if (req.url === "/mode") {
-      if (!["operator", "radio", "compromised"].includes(String(body.mode))) throw new Error("Mode inconnu");
+      if (!MODES.includes(body.mode as Mode)) throw new Error("Mode inconnu");
       mode = body.mode as Mode;
       log(mode === "operator" ? "info" : "alert", "Démonstrateur", `Mode : ${modeLabel()}`);
       if (mode === "compromised") {

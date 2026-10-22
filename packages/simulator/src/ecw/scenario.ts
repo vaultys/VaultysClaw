@@ -30,6 +30,7 @@ export const REGISTRY: RegistryEntry[] = [
   { name: "fleet:telemetry.share", label: "Partager sa position", description: "Diffusion de la télémétrie à la flotte.", group: "Flotte" },
   { name: "fleet:intel.share", label: "Transmettre du renseignement", description: "Envoi d'images à l'analyste IA.", group: "Flotte" },
   { name: "fleet:command", label: "Commander un vecteur", description: "Émettre un ordre à un autre membre de la flotte.", group: "Flotte" },
+  { name: "fleet:command.flight", label: "Commander le vol", description: "Ordonner décollage, patrouille et retour base — et rien d'autre.", group: "Flotte" },
 ];
 
 export type MemberKind = "drone" | "ugv" | "openclaw" | "device";
@@ -80,6 +81,16 @@ export const FLEET: MemberSpec[] = [
     role: "Poste de commandement (station sol)",
     capabilities: ["fleet:command", "fleet:telemetry.share"],
     home: { x: 500, y: 560 },
+  },
+  {
+    // The field pilot's handheld: a device that belongs to a human Actor (`PILOT`), the way
+    // VaultysClaw models any device a person carries. It signs the pilot's orders with its own key.
+    key: "pilote",
+    label: "Terminal pilote",
+    kind: "device",
+    role: "Terminal du pilote de terrain",
+    capabilities: ["fleet:command.flight", "fleet:telemetry.share"],
+    home: { x: 600, y: 595 },
   },
   recon(1, 220, 170, 120, 70, 40),
   recon(2, 470, 140, 110, 60, 36),
@@ -132,6 +143,23 @@ export const FLEET: MemberSpec[] = [
     capabilities: ["knowledge_search", "fleet:telemetry.share"],
   },
 ];
+
+/** The human the pilot terminal belongs to — a real `kind: "human"` Actor in the ledger. Humans
+ *  onboard through login, never the WS handshake, so the person does not connect: the terminal does. */
+export const PILOT = {
+  key: "pilote-humain",
+  name: "Sgt Lemaire (pilote, fictif)",
+  email: "pilote.lemaire@sim.invalid",
+};
+
+/** Orders a holder of `fleet:command.flight` may give. */
+export const FLIGHT_ACTIONS = new Set(["takeoff", "patrol", "land"]);
+
+/** What the *sender* of an order must hold for the drone to obey it: the full command right, or —
+ *  for a flight order only — the narrower flight right. */
+export function orderRequirements(actionId: string | undefined): string[] {
+  return actionId && FLIGHT_ACTIONS.has(actionId) ? ["fleet:command", "fleet:command.flight"] : ["fleet:command"];
+}
 
 export type ActionScope = "local" | "fleet";
 

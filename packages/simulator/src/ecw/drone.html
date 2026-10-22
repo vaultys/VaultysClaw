@@ -16,6 +16,7 @@
         --deny: #f43f5e;
         --warn: #fbbf24;
         --accent: #38bdf8;
+        --human: #a3e635;
         font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
         color: var(--text);
         background: var(--bg);
@@ -31,46 +32,74 @@
       nav a { padding: 8px 14px; border-radius: 8px; color: var(--muted); font-size: 14px; border: 1px solid transparent; }
       nav a.active { color: var(--text); background: var(--panel-2); border-color: var(--line); }
       .tag { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--warn); border: 1px solid #5c4813; padding: 4px 8px; border-radius: 6px; }
-      main { padding: 18px 24px 32px; display: grid; grid-template-columns: 320px minmax(0, 1fr) 380px; gap: 18px; align-items: start; }
-      .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
-      .panel h2 { margin: 0 0 12px; font-size: 13px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted); font-weight: 600; }
-      .col { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
-      .id h1 { margin: 0; font-size: 30px; letter-spacing: 1px; }
-      .id .role { color: var(--muted); font-size: 13px; margin: 2px 0 14px; }
-      dl { display: grid; grid-template-columns: 96px 1fr; gap: 8px 10px; margin: 0; font-size: 13px; }
-      dt { color: var(--muted); }
-      dd { margin: 0; word-break: break-all; }
-      .status { font-size: 15px; font-weight: 700; letter-spacing: 1px; padding: 8px 12px; border-radius: 8px; text-align: center; margin-bottom: 14px; }
+
+      /* The drone, always in view whatever the tab. */
+      .dronebar { display: grid; grid-template-columns: auto auto 1fr auto; gap: 22px; align-items: center; padding: 14px 24px; border-bottom: 1px solid var(--line); background: #0a141e; }
+      .dronebar h1 { margin: 0; font-size: 24px; letter-spacing: 1px; }
+      .dronebar small { color: var(--muted); font-size: 12px; display: block; }
+      .status { font-size: 13px; font-weight: 800; letter-spacing: 1px; padding: 7px 12px; border-radius: 8px; text-align: center; white-space: nowrap; }
       .status.good { background: #0c2a20; color: var(--ok); border: 1px solid #1e5a46; }
       .status.bad { background: #2a0f17; color: var(--deny); border: 1px solid #6b1f30; }
       .status.wait { background: #2a220c; color: var(--warn); border: 1px solid #5c4813; }
-      .bar { height: 6px; background: #1a2a3a; border-radius: 4px; overflow: hidden; margin-top: 6px; }
+      .facts { display: flex; gap: 26px; font-size: 13px; flex-wrap: wrap; }
+      .facts b { display: block; color: var(--muted); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 3px; }
+      .bar { height: 5px; background: #1a2a3a; border-radius: 4px; overflow: hidden; margin-top: 5px; width: 160px; }
       .bar i { display: block; height: 100%; background: var(--ok); transition: width 0.5s linear; }
-      .caps { display: flex; flex-wrap: wrap; gap: 6px; }
-      .caps span { font-size: 11.5px; padding: 3px 8px; border-radius: 6px; background: #0c2a20; color: var(--ok); border: 1px solid #1e5a46; }
-      .caps span.lost { background: #2a0f17; color: var(--deny); border-color: #6b1f30; text-decoration: line-through; }
-      .modes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-      .mode { text-align: left; background: var(--panel-2); border: 2px solid var(--line); color: var(--text); border-radius: 10px; padding: 12px; cursor: pointer; font: inherit; }
-      .mode b { display: block; font-size: 14.5px; margin-bottom: 4px; }
-      .mode small { color: var(--muted); font-size: 12px; line-height: 1.4; display: block; }
-      .mode.on { border-color: var(--accent); background: #0c2233; }
-      .mode.attack.on { border-color: var(--deny); background: #2a0f17; }
-      .actions { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
-      .act { position: relative; text-align: left; background: var(--panel-2); border: 1px solid var(--line); color: var(--text); border-radius: 10px; padding: 12px 12px 10px; cursor: pointer; font: inherit; min-height: 84px; transition: transform 0.08s; }
+      .trust { font-size: 13px; font-weight: 700; }
+
+      .tabs { display: flex; gap: 4px; padding: 0 24px; border-bottom: 1px solid var(--line); background: #08121c; overflow-x: auto; }
+      .tab { position: relative; font: inherit; background: none; border: 0; border-bottom: 3px solid transparent; color: var(--muted); padding: 13px 18px 11px; cursor: pointer; text-align: left; white-space: nowrap; }
+      .tab b { display: block; font-size: 15px; color: inherit; }
+      .tab small { font-size: 11.5px; }
+      .tab:hover { color: var(--text); }
+      .tab.on { color: var(--text); border-bottom-color: var(--accent); }
+      .tab.human.on { border-bottom-color: var(--human); }
+      .tab.attack.on { border-bottom-color: var(--deny); }
+      .tab.drone.on { border-bottom-color: var(--warn); }
+      /* Which context RAPACE-07 is currently taking orders from. */
+      .tab { padding-right: 30px; }
+      .tab.live::after { content: ""; position: absolute; top: 17px; right: 12px; width: 8px; height: 8px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+      .tab.attack.live::after { background: var(--deny); box-shadow: 0 0 8px var(--deny); }
+
+      main { padding: 18px 24px 32px; display: grid; grid-template-columns: minmax(0, 1fr) 390px; gap: 18px; align-items: start; }
+      .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+      .panel h2 { margin: 0 0 12px; font-size: 13px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted); font-weight: 600; }
+      .col { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+      .view { display: none; flex-direction: column; gap: 18px; }
+      .view.on { display: flex; }
+
+      .who { display: grid; grid-template-columns: 54px 1fr; gap: 14px; align-items: start; }
+      .who .avatar { width: 54px; height: 54px; border-radius: 12px; display: grid; place-items: center; font-size: 26px; background: var(--panel-2); border: 1px solid var(--line); }
+      .who h3 { margin: 0 0 3px; font-size: 18px; }
+      .who p { margin: 0; color: var(--muted); font-size: 13.5px; line-height: 1.5; }
+      .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+      .chips span { font-size: 11.5px; padding: 3px 8px; border-radius: 6px; background: #0c2a20; color: var(--ok); border: 1px solid #1e5a46; }
+      .chips span.lost { background: #2a0f17; color: var(--deny); border-color: #6b1f30; text-decoration: line-through; }
+
+      .group { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin: 14px 0 8px; }
+      .group:first-child { margin-top: 0; }
+      .actions { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+      .act { position: relative; text-align: left; background: var(--panel-2); border: 1px solid var(--line); color: var(--text); border-radius: 10px; padding: 12px 12px 10px; cursor: pointer; font: inherit; min-height: 92px; transition: transform 0.08s; }
       .act:hover { border-color: #3a5a78; }
       .act:active { transform: scale(0.98); }
-      .act b { font-size: 14.5px; display: block; margin-bottom: 6px; }
+      .act b { font-size: 14.5px; display: block; margin-bottom: 5px; padding-right: 64px; }
       .act code { font-size: 11px; color: var(--muted); }
       .act .res { position: absolute; top: 10px; right: 10px; font-size: 11px; font-weight: 700; letter-spacing: 0.5px; }
       .act.ok { border-color: #1e5a46; box-shadow: inset 0 0 0 1px #1e5a46; }
       .act.deny { border-color: #6b1f30; box-shadow: inset 0 0 0 1px #6b1f30; }
       .act.ok .res { color: var(--ok); }
       .act.deny .res { color: var(--deny); }
-      .act .grant { display: inline-block; margin-top: 6px; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.8px; }
-      .act .grant.y { color: var(--ok); }
-      .act .grant.n { color: #a16a77; }
+      .rights { display: flex; flex-direction: column; gap: 2px; margin-top: 7px; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.7px; }
+      .rights .y { color: var(--ok); }
+      .rights .n { color: #b5707e; }
       .act.evil { border-style: dashed; border-color: #6b1f30; background: #1d0c12; }
-      .group { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin: 14px 0 8px; }
+
+      .switch { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+      .switch button { text-align: left; background: var(--panel-2); border: 2px solid var(--line); color: var(--text); border-radius: 10px; padding: 12px; cursor: pointer; font: inherit; }
+      .switch b { display: block; font-size: 14.5px; margin-bottom: 4px; }
+      .switch small { color: var(--muted); font-size: 12px; line-height: 1.4; display: block; }
+      .switch button.on { border-color: var(--deny); background: #2a0f17; }
+
       .verdict { font-size: 26px; font-weight: 800; letter-spacing: 1px; margin: 2px 0 4px; }
       .verdict.ok { color: var(--ok); }
       .verdict.deny { color: var(--deny); }
@@ -78,22 +107,27 @@
       .steps li { display: grid; grid-template-columns: 26px 1fr; gap: 8px; padding: 9px 0; border-top: 1px solid #142334; font-size: 13px; }
       .steps li span:first-child { font-size: 16px; text-align: center; }
       .steps li b { display: block; font-size: 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.6px; }
+
       .revoke { width: 100%; padding: 16px; font: inherit; font-size: 16px; font-weight: 800; letter-spacing: 1px; border-radius: 10px; border: 0; background: var(--deny); color: white; cursor: pointer; }
       .revoke:disabled { background: #3a1820; color: #a16a77; cursor: default; }
       .secondary { width: 100%; padding: 10px; font: inherit; border-radius: 8px; border: 1px solid var(--line); background: var(--panel-2); color: var(--text); cursor: pointer; margin-top: 10px; }
       .timeline { margin-top: 14px; font-size: 13px; }
       .timeline div { padding: 7px 0; border-top: 1px solid #142334; display: flex; justify-content: space-between; gap: 10px; }
       .timeline div span:last-child { font-variant-numeric: tabular-nums; font-weight: 700; }
+
+      dl { display: grid; grid-template-columns: 110px 1fr; gap: 9px 12px; margin: 0; font-size: 13px; }
+      dt { color: var(--muted); }
+      dd { margin: 0; word-break: break-all; }
       .peers { display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
       .peers div { display: flex; justify-content: space-between; padding: 6px 10px; border-radius: 6px; background: var(--panel-2); }
-      .feed { max-height: 300px; overflow: auto; font-size: 12.5px; }
+      .feed { max-height: 280px; overflow: auto; font-size: 12.5px; }
       .feed div { padding: 6px 0; border-bottom: 1px solid #142334; }
       .feed time { color: var(--muted); margin-right: 6px; }
       .feed .deny b { color: var(--deny); } .feed .ok b { color: var(--ok); } .feed .alert b { color: var(--warn); } .feed .info b { color: var(--accent); }
       .note { font-size: 12.5px; color: var(--muted); line-height: 1.5; margin: 10px 0 0; }
       .error { display: none; margin-bottom: 12px; padding: 10px 12px; border-radius: 8px; background: #2a0f17; border: 1px solid #6b1f30; color: #fecdd3; font-size: 13px; }
       @media (max-width: 1100px) { .brand span, .tag { display: none; } }
-      @media (max-width: 1250px) { main { grid-template-columns: 1fr; } }
+      @media (max-width: 1250px) { main { grid-template-columns: 1fr; } .dronebar { grid-template-columns: 1fr 1fr; } }
     </style>
   </head>
   <body>
@@ -106,71 +140,109 @@
       </nav>
       <span class="tag">Démonstrateur · données fictives</span>
     </header>
+
+    <section class="dronebar">
+      <div><h1 id="name">RAPACE-07</h1><small id="gen">Drone de reconnaissance</small></div>
+      <div class="status wait" id="status">…</div>
+      <div class="facts">
+        <div><b>Vol</b><span id="flight">–</span></div>
+        <div><b>Certificat</b><span id="cert">–</span></div>
+        <div><b>Preuve de statut</b><span id="staple">–</span><div class="bar"><i id="stapleBar" style="width: 0"></i></div></div>
+      </div>
+      <div class="trust" id="trust">–</div>
+    </section>
+
+    <nav class="tabs" role="tablist">
+      <button class="tab" data-tab="c2" role="tab"><b>C2</b><small>Poste de commandement</small></button>
+      <button class="tab human" data-tab="human" role="tab"><b>Humain</b><small>Pilote de terrain</small></button>
+      <button class="tab attack" data-tab="attack" role="tab"><b>Tiers attaquant</b><small>Lien radio · prise de contrôle</small></button>
+      <button class="tab drone" data-tab="drone" role="tab"><b>Drone</b><small>RAPACE-07 vu de l'intérieur</small></button>
+    </nav>
+
     <main>
       <div class="col">
-        <section class="panel id">
-          <div class="status wait" id="status">…</div>
-          <h1 id="name">RAPACE-07</h1>
-          <div class="role">Drone de reconnaissance · identité <span id="gen"></span></div>
-          <dl>
-            <dt>Vol</dt><dd id="flight">–</dd>
-            <dt>DID</dt><dd id="did" style="font-size: 11.5px; color: var(--muted)">–</dd>
-            <dt>Certificat</dt><dd id="cert">–</dd>
-            <dt>Preuve</dt><dd><span id="staple">–</span><div class="bar"><i id="stapleBar" style="width: 0"></i></div></dd>
-          </dl>
+        <div class="error" id="error"></div>
+
+        <!-- C2 -->
+        <section class="view" data-view="c2">
+          <div class="panel who">
+            <div class="avatar">⬢</div>
+            <div>
+              <h3 id="c2-name">C2 SENTINELLE</h3>
+              <p>Station sol de l'opération. Chaque ordre est signé avec <b>la clé du C2</b> et porte sa preuve de statut : le drone vérifie d'abord <i>qui</i> ordonne, puis si <i>lui</i> a le droit de le faire.</p>
+              <div class="chips" id="c2-caps"></div>
+            </div>
+          </div>
+          <div class="panel"><h2>Ordres à RAPACE-07</h2><div id="c2-actions"></div></div>
         </section>
-        <section class="panel">
-          <h2>Droits accordés par le certificat</h2>
-          <div class="caps" id="caps"></div>
-          <p class="note">Profil « reconnaissance » : voler, patrouiller, capter, partager. Pas de largage, pas de sortie de zone, pas d'Internet, pas de commandement.</p>
+
+        <!-- Humain -->
+        <section class="view" data-view="human">
+          <div class="panel who">
+            <div class="avatar">🧍</div>
+            <div>
+              <h3 id="pilot-name">Pilote</h3>
+              <p>Un <b>humain</b> du registre VaultysClaw, propriétaire du <a id="pilot-terminal" target="_blank" rel="noopener">Terminal pilote ↗</a> qu'il porte. Le terminal signe avec <b>sa propre clé</b> ; son certificat n'accorde que <code>fleet:command.flight</code> : décoller, patrouiller, rentrer. Rien d'autre, même quand le drone en aurait le droit.</p>
+              <div class="chips" id="pilot-caps"></div>
+            </div>
+          </div>
+          <div class="panel"><h2>Ordres du pilote à RAPACE-07</h2><div id="human-actions"></div></div>
         </section>
-        <section class="panel">
-          <h2>La flotte fait-elle confiance à RAPACE-07 ?</h2>
-          <div class="peers" id="peers"><div><span>En attente de trafic…</span></div></div>
+
+        <!-- Tiers attaquant -->
+        <section class="view" data-view="attack">
+          <div class="panel">
+            <h2>Ce que contrôle le tiers</h2>
+            <div class="switch">
+              <button data-mode="radio"><b>Le lien radio</b><small>Il écoute la radio et injecte des ordres en se faisant passer pour le C2. Il n'a la clé de personne.</small></button>
+              <button data-mode="compromised"><b>Le drone lui-même</b><small>Il a compromis le module de communication de RAPACE-07 — et sa clé. Il parle à la flotte en son nom.</small></button>
+            </div>
+            <p class="note" id="attack-note"></p>
+          </div>
+          <div class="panel"><h2>Actions de l'attaquant</h2><div id="attack-actions"></div></div>
+        </section>
+
+        <!-- Drone -->
+        <section class="view" data-view="drone">
+          <div class="panel">
+            <h2>Identité</h2>
+            <dl>
+              <dt>Acteur</dt><dd><a id="drone-actor" target="_blank" rel="noopener">RAPACE-07 dans le plan de contrôle ↗</a></dd>
+              <dt>DID</dt><dd id="did" style="font-size: 11.5px; color: var(--muted)">–</dd>
+              <dt>Certificat</dt><dd id="cert-full">–</dd>
+              <dt>Preuve</dt><dd id="staple-full">–</dd>
+            </dl>
+          </div>
+          <div class="panel">
+            <h2>Droits accordés par son certificat</h2>
+            <div class="chips" id="caps" style="margin-top: 0"></div>
+            <p class="note">Profil « reconnaissance » : voler, patrouiller, capter, partager. Pas de largage, pas de sortie de zone, pas d'Internet, pas de commandement d'autres drones.</p>
+          </div>
+          <div class="panel">
+            <h2>Ce que la flotte pense de lui, maintenant</h2>
+            <div class="peers" id="peers"><div><span>En attente de trafic…</span></div></div>
+          </div>
+          <div class="panel">
+            <h2>Modèle de sécurité</h2>
+            <p class="note" style="margin: 0"><b style="color: var(--text)">Deux décisions pour chaque ordre.</b> L'émetteur doit avoir le droit de l'ordonner (C2 : tout ; pilote : le vol seulement), et le drone doit avoir le droit de l'exécuter. Les deux se vérifient par signature, hors ligne.</p>
+            <p class="note"><b style="color: var(--text)">Ce qui est garanti.</b> Un ordre non signé par un émetteur autorisé est rejeté. Un drone ne fait que ce que son certificat accorde. Une preuve ne se forge pas sans la clé du plan de contrôle. Une révocation coupe le drone de toute la flotte en moins d'un TTL.</p>
+            <p class="note"><b style="color: var(--text)">Ce qui ne l'est pas.</b> Un tiers peut compromettre un drone via son outil de communication : jusqu'à la révocation, il agit avec <i>les droits de ce drone</i> — d'où le moindre privilège. Hypothèse : le contrôleur de vol reste un composant de confiance distinct du module de communication.</p>
+          </div>
         </section>
       </div>
 
       <div class="col">
         <section class="panel">
-          <h2>Qui donne les ordres ?</h2>
-          <div class="modes">
-            <button class="mode" data-mode="operator"><b>Opérateur légitime</b><small>Le C2 signe chaque ordre avec sa clé et joint sa preuve « fleet:command ».</small></button>
-            <button class="mode attack" data-mode="radio"><b>Tiers sur le lien radio</b><small>Un attaquant écoute la radio et injecte des ordres en se faisant passer pour le C2.</small></button>
-            <button class="mode attack" data-mode="compromised"><b>Drone compromis</b><small>Le tiers a pris le module de communication du drone — et sa clé.</small></button>
-          </div>
-          <p class="note" id="modeNote"></p>
-        </section>
-        <section class="panel">
-          <div class="error" id="error"></div>
-          <h2>Actions</h2>
-          <div class="group">À bord — décidées par le certificat du drone</div>
-          <div class="actions" id="local"></div>
-          <div class="group">Vers la flotte — décidées aussi par chaque pair destinataire</div>
-          <div class="actions" id="fleet"></div>
-          <div id="extraWrap" style="display: none">
-            <div class="group">Attaques</div>
-            <div class="actions" id="extra"></div>
-          </div>
-        </section>
-        <section class="panel" id="tracePanel">
           <h2>Décision</h2>
           <div id="trace" style="color: var(--muted); font-size: 14px">Appuyez sur une action : chaque étape de la décision s'affiche ici.</div>
         </section>
-      </div>
-
-      <div class="col">
         <section class="panel">
           <h2>Réponse à incident</h2>
           <button class="revoke" id="revoke">RÉVOQUER LE CERTIFICAT</button>
           <a id="consoleRevoke" href="#" target="_blank" rel="noopener" style="display: block; text-align: center; margin-top: 8px; font-size: 13px">…ou révoquer depuis le plan de contrôle ↗</a>
           <div class="timeline" id="timeline"></div>
           <button class="secondary" id="reset">Réinitialiser : nouveau RAPACE-07 (identité neuve)</button>
-          <p class="note">La révocation est une écriture irréversible dans le registre. Le drone n'a pas besoin de coopérer : chaque pair refuse ses messages dès que sa dernière preuve « active » dépasse le TTL de <span class="ttl">6</span> s.</p>
-        </section>
-        <section class="panel">
-          <h2>Modèle de sécurité</h2>
-          <p class="note" style="margin: 0"><b style="color: var(--text)">Ce qui est garanti.</b> Un ordre non signé par un émetteur autorisé est rejeté. Un drone ne fait que ce que son certificat accorde. Une preuve ne se forge pas sans la clé du plan de contrôle. Une révocation coupe le drone de toute la flotte en moins d'un TTL.</p>
-          <p class="note"><b style="color: var(--text)">Ce qui ne l'est pas.</b> Un tiers peut compromettre un drone via son outil de communication : jusqu'à la révocation, il agit avec <i>les droits de ce drone</i> — d'où le moindre privilège. Hypothèse : le contrôleur de vol reste un composant de confiance distinct du module de communication.</p>
+          <p class="note">Écriture irréversible dans le registre. Le drone n'a pas à coopérer : chaque pair refuse ses messages dès que sa dernière preuve « active » dépasse le TTL de <span class="ttl">6</span> s.</p>
         </section>
         <section class="panel">
           <h2>Journal</h2>
@@ -178,17 +250,22 @@
         </section>
       </div>
     </main>
+
     <script>
       const TOKEN = "__TOKEN__";
       const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
       const secs = (ms) => (ms / 1000).toFixed(1).replace(".", ",") + " s";
       const FLIGHT = { ground: "Au sol (base)", airborne: "En vol stationnaire", patrol: "En patrouille" };
-      const NOTES = {
-        operator: "Mode nominal : l'ordre est vérifié (émetteur), puis l'action est vérifiée (certificat du drone), puis — vers la flotte — chaque pair vérifie la preuve du drone.",
-        radio: "Le lien radio n'est pas de confiance : l'attaquant voit passer les ordres et la preuve du C2, mais il ne peut pas signer avec la clé du C2.",
-        compromised: "Le tiers parle à la flotte avec la clé du drone et rejoue sa dernière preuve valide. Tant qu'elle n'est pas révoquée, la flotte le croit dans la limite des droits du drone.",
+      const MODE_OF_TAB = { c2: "operator", human: "pilot" };
+      const TAB_OF_MODE = { operator: "c2", pilot: "human", radio: "attack", compromised: "attack" };
+      const ATTACK_NOTES = {
+        radio: "Le lien radio n'est pas de confiance : l'attaquant voit passer les ordres et la preuve du C2, mais il ne peut pas signer avec la clé du C2. Tant que ce mode est actif, il attaque aussi les autres drones à portée (vue flotte).",
+        compromised: "Il parle à la flotte avec la clé du drone et rejoue sa dernière preuve valide. Tant que le certificat n'est pas révoqué, la flotte le croit — dans la limite des droits du drone.",
       };
-      let state = null;
+      const MODE_LABEL = { operator: "C2", pilot: "pilote", radio: "attaquant radio", compromised: "drone compromis" };
+      let tab = null;
+      let busy = false;
+
       // Only touch the DOM when the markup changed: re-rendering a button every poll can swallow a
       // click that lands between mousedown and mouseup.
       const set = (id, html) => {
@@ -198,7 +275,6 @@
           el.dataset.html = html;
         }
       };
-      let busy = false;
 
       async function post(path, body = {}) {
         if (busy) return;
@@ -218,40 +294,101 @@
         }
       }
 
-      function actionButton(a, mode, extra = {}) {
+      /** One button. `who` says which of the two decisions apply in this context, so its tags tell
+       *  the audience in advance which check will refuse it. */
+      function button(a, mode, who, extra = {}) {
         const last = a.last && a.last.mode === mode ? a.last : null;
         const cls = last ? (last.allowed ? "ok" : "deny") : "";
+        const rights = [];
+        if (who === "c2") rights.push([a.c2Can, a.c2Can ? "le C2 peut l'ordonner" : "le C2 ne peut pas l'ordonner"]);
+        if (who === "pilot") rights.push([a.pilotCan, a.pilotCan ? "le pilote peut l'ordonner" : "hors des droits du pilote"]);
+        if (who === "forged") rights.push([false, "ordre forgé : aucune clé légitime"]);
+        rights.push([a.granted, a.granted ? "le drone a le droit" : "le drone n'a pas le droit"]);
         return `<button class="act ${cls} ${extra.evil ? "evil" : ""}" data-id="${esc(a.id)}" ${extra.forge ? 'data-forge="1"' : ""} ${extra.replay ? 'data-replay="1"' : ""}>
           <span class="res">${last ? (last.allowed ? "EXÉCUTÉ" : "REFUSÉ") : ""}</span>
-          <b>${esc(extra.label || a.label)}</b><code>${esc(extra.code || a.capability)}</code><br/>
-          ${extra.evil ? "" : `<span class="grant ${a.granted ? "y" : "n"}">${a.granted ? "✓ accordé au profil" : "✕ non accordé"}</span>`}
+          <b>${esc(extra.label || a.label)}</b><code>${esc(extra.code || a.capability)}</code>
+          ${extra.evil ? "" : `<div class="rights">${rights.map(([y, t]) => `<span class="${y ? "y" : "n"}">${y ? "✓" : "✕"} ${esc(t)}</span>`).join("")}</div>`}
         </button>`;
+      }
+      function grid(actions, mode, who) {
+        const local = actions.filter((a) => a.scope === "local");
+        const fleet = actions.filter((a) => a.scope === "fleet");
+        return `<div class="group">À bord du drone</div><div class="actions">${local.map((a) => button(a, mode, who)).join("")}</div>
+          <div class="group">Vers la flotte — chaque destinataire vérifie aussi</div><div class="actions">${fleet.map((a) => button(a, mode, who)).join("")}</div>`;
+      }
+
+      function showTab(name) {
+        tab = name;
+        document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("on", t.dataset.tab === name));
+        document.querySelectorAll(".view").forEach((v) => v.classList.toggle("on", v.dataset.view === name));
       }
 
       function render(s) {
         const sp = s.spotlight;
+        if (!tab) showTab(TAB_OF_MODE[sp.mode] ?? "c2");
         document.getElementById("console").href = s.consoleUrl + "/admin/actors";
         document.querySelectorAll(".ttl").forEach((e) => (e.textContent = s.ttlSeconds));
-        const st = document.getElementById("status");
+
+        // The drone bar.
         const compromised = sp.mode === "compromised" && !sp.isolatedAt && sp.status === "certifié";
+        const st = document.getElementById("status");
         st.textContent = compromised ? "CERTIFIÉ · COMPROMIS" : sp.status.toUpperCase();
         st.className = "status " + (sp.status === "certifié" && !compromised ? "good" : sp.status === "certifié" || ["en attente", "connexion", "connecté"].includes(sp.status) ? "wait" : "bad");
-        document.getElementById("gen").textContent = "génération " + sp.gen;
+        document.getElementById("gen").textContent = `Drone de reconnaissance · identité génération ${sp.gen}`;
         document.getElementById("flight").textContent = FLIGHT[sp.flight];
-        document.getElementById("did").textContent = sp.did || "–";
-        set("cert", sp.certificate
-          ? `<a href="${esc(sp.certificateUrl)}" target="_blank" rel="noopener">${esc(sp.certificate.id.slice(0, 13))}… ↗</a> · ${esc(sp.certificate.status)}`
-          : "en cours d'émission…");
+        const certLink = sp.certificate
+          ? `<a href="${esc(sp.certificateUrl)}" target="_blank" rel="noopener">${esc(sp.certificate.id.slice(0, 8))}… ↗</a> · ${esc(sp.certificate.status)}`
+          : "en cours d'émission…";
+        set("cert", certLink);
         if (sp.staple) {
           const left = Math.max(0, s.ttlSeconds * 1000 - sp.staple.ageMs);
-          document.getElementById("staple").textContent = `${sp.staple.status === "active" ? "active" : "RÉVOQUÉ"} · signée il y a ${secs(sp.staple.ageMs)}`;
+          document.getElementById("staple").textContent = `${sp.staple.status === "active" ? "active" : "RÉVOQUÉE"} · il y a ${secs(sp.staple.ageMs)}`;
           const bar = document.getElementById("stapleBar");
           bar.style.width = (100 * left) / (s.ttlSeconds * 1000) + "%";
           bar.style.background = sp.staple.status === "active" ? "var(--ok)" : "var(--deny)";
         }
-        const held = new Set(sp.capabilities);
-        set("caps", sp.profile.map((c) => `<span class="${held.has(c) ? "" : "lost"}">${esc(c)}</span>`).join(""));
+        const recent = s.links.filter((l) => l.from === sp.key && l.type !== "command");
+        const trust = document.getElementById("trust");
+        if (sp.isolatedAt) {
+          trust.textContent = "⛔ Isolé de la flotte";
+          trust.style.color = "var(--deny)";
+        } else if (recent.length) {
+          const ok = recent.filter((l) => l.ok).length;
+          trust.textContent = ok === recent.length ? "✓ La flotte lui fait confiance" : `⚠ ${recent.length - ok} pair(s) le refusent`;
+          trust.style.color = ok === recent.length ? "var(--ok)" : "var(--deny)";
+        }
 
+        // Tabs.
+        document.querySelectorAll(".tab").forEach((t) => {
+          const live = TAB_OF_MODE[sp.mode] === t.dataset.tab;
+          t.classList.toggle("live", live);
+          t.title = live ? "RAPACE-07 reçoit actuellement ses ordres de ce contexte" : "";
+        });
+        const capChips = (held, profile) => profile.map((c) => `<span class="${held.includes(c) ? "" : "lost"}">${esc(c)}</span>`).join("");
+        document.getElementById("c2-name").textContent = s.senders.c2.label;
+        set("c2-caps", capChips(s.senders.c2.capabilities, s.senders.c2.capabilities.length ? s.senders.c2.capabilities : ["fleet:command"]));
+        document.getElementById("pilot-name").textContent = s.senders.pilot.human;
+        document.getElementById("pilot-terminal").href = s.senders.pilot.actorUrl;
+        set("pilot-caps", capChips(s.senders.pilot.capabilities, s.senders.pilot.capabilities.length ? s.senders.pilot.capabilities : ["fleet:command.flight"]));
+
+        set("c2-actions", grid(sp.actions, "operator", "c2"));
+        set("human-actions", grid(sp.actions, "pilot", "pilot"));
+        const attackMode = sp.mode === "compromised" ? "compromised" : "radio";
+        document.querySelectorAll(".switch button").forEach((b) => b.classList.toggle("on", b.dataset.mode === attackMode && TAB_OF_MODE[sp.mode] === "attack"));
+        document.getElementById("attack-note").textContent = ATTACK_NOTES[attackMode];
+        const order = sp.actions.find((a) => a.id === "order");
+        const extra =
+          attackMode === "radio"
+            ? button({ ...order, id: "replay", last: null }, attackMode, "none", { evil: true, replay: true, label: "Rejouer un ordre capturé", code: sp.capturedCommand ? "ordre authentique enregistré" : "aucun ordre capturé" })
+            : button({ ...order, last: null }, attackMode, "none", { evil: true, forge: true, label: "Forger une preuve, puis ordonner à RAPACE-03", code: "preuve auto-signée « toutes capacités »" });
+        set("attack-actions", grid(sp.actions, attackMode, attackMode === "radio" ? "forged" : "drone") + `<div class="group">Attaques</div><div class="actions">${extra}</div>`);
+
+        // Drone.
+        document.getElementById("drone-actor").href = sp.actorUrl;
+        document.getElementById("did").textContent = sp.did || "–";
+        set("cert-full", certLink);
+        document.getElementById("staple-full").textContent = sp.staple ? `${sp.staple.status} · signée il y a ${secs(sp.staple.ageMs)} (TTL ${s.ttlSeconds} s)` : "–";
+        set("caps", capChips(sp.capabilities, sp.profile));
         const peers = {};
         for (const l of s.links) if (l.from === sp.key) peers[l.to] = l;
         const names = Object.fromEntries(s.members.map((m) => [m.key, m.label]));
@@ -259,28 +396,16 @@
         if (rows.length) set("peers", rows.join(""));
         else if (sp.isolatedAt || sp.status === "révoqué") set("peers", `<div><span>Silence radio côté RAPACE-07</span><span style="color: var(--deny)">aucun pair joint</span></div>`);
 
-        document.querySelectorAll(".mode").forEach((b) => b.classList.toggle("on", b.dataset.mode === sp.mode));
-        document.getElementById("modeNote").textContent = NOTES[sp.mode];
-        const locals = sp.actions.filter((a) => a.scope === "local");
-        const fleets = sp.actions.filter((a) => a.scope === "fleet");
-        set("local", locals.map((a) => actionButton(a, sp.mode)).join(""));
-        set("fleet", fleets.map((a) => actionButton(a, sp.mode)).join(""));
-        const order = sp.actions.find((a) => a.id === "order");
-        let extra = "";
-        if (sp.mode === "radio") extra = actionButton({ ...order, id: "replay", last: null }, sp.mode, { evil: true, replay: true, label: "Rejouer un ordre C2 capturé", code: sp.capturedCommand ? "ordre authentique enregistré" : "aucun ordre capturé" });
-        if (sp.mode === "compromised") extra = actionButton({ ...order, last: null }, sp.mode, { evil: true, forge: true, label: "Forger une preuve, puis ordonner à RAPACE-03", code: "preuve auto-signée « toutes capacités »" });
-        document.getElementById("extraWrap").style.display = extra ? "block" : "none";
-        set("extra", extra);
-
+        // Decision, incident response, log.
         const t = sp.trace;
-        if (t) {
-          set("trace", `
-            <div style="color: var(--muted); font-size: 13px">${esc(t.label)} · ${t.mode === "operator" ? "opérateur" : t.mode === "radio" ? "attaquant radio" : "drone compromis"} · ${new Date(t.at).toLocaleTimeString("fr-FR")}</div>
+        if (t)
+          set(
+            "trace",
+            `<div style="color: var(--muted); font-size: 13px">${esc(t.label)} · ${esc(MODE_LABEL[t.mode])} · ${new Date(t.at).toLocaleTimeString("fr-FR")}</div>
             <div class="verdict ${t.allowed ? "ok" : "deny"}">${t.allowed ? "✓ EXÉCUTÉ" : "⛔ REFUSÉ"}</div>
             <div style="font-size: 14px">${esc(t.summary)}</div>
-            <ul class="steps">${t.steps.map((x) => `<li><span>${x.ok === null ? "•" : x.ok ? "✅" : "⛔"}</span><span><b>${esc(x.layer)}</b>${esc(x.detail)}</span></li>`).join("")}</ul>`);
-        }
-
+            <ul class="steps">${t.steps.map((x) => `<li><span>${x.ok === null ? "•" : x.ok ? "✅" : "⛔"}</span><span><b>${esc(x.layer)}</b>${esc(x.detail)}</span></li>`).join("")}</ul>`
+          );
         const revoked = Boolean(sp.revokedAt);
         const rv = document.getElementById("revoke");
         rv.disabled = revoked || sp.status !== "certifié";
@@ -298,12 +423,15 @@
             : `<div><span>Isolement de la flotte</span><span style="color: var(--warn)">en cours…</span></div>`;
         }
         set("timeline", tl);
-        set("feed", s.feed
-          .filter((e) => e.source === sp.label || ["Opérateur", "Plan de contrôle", "Flotte", "Démonstrateur"].includes(e.source) || e.text.includes(sp.label))
-          .slice(-40)
-          .reverse()
-          .map((e) => `<div class="${e.level}"><time>${new Date(e.at).toLocaleTimeString("fr-FR")}</time><b>${esc(e.source)}</b> — ${esc(e.text)}</div>`)
-          .join(""));
+        set(
+          "feed",
+          s.feed
+            .filter((e) => e.source === sp.label || ["Opérateur", "Plan de contrôle", "Flotte", "Démonstrateur"].includes(e.source) || e.text.includes(sp.label))
+            .slice(-40)
+            .reverse()
+            .map((e) => `<div class="${e.level}"><time>${new Date(e.at).toLocaleTimeString("fr-FR")}</time><b>${esc(e.source)}</b> — ${esc(e.text)}</div>`)
+            .join("")
+        );
       }
 
       async function tick() {
@@ -316,7 +444,6 @@
             err.style.display = "block";
             return;
           }
-          state = s;
           render(s);
         } catch {
           /* keep polling */
@@ -324,8 +451,20 @@
       }
 
       document.addEventListener("click", (e) => {
-        const mode = e.target.closest(".mode");
-        if (mode) return post("/mode", { mode: mode.dataset.mode });
+        const t = e.target.closest(".tab");
+        if (t) {
+          showTab(t.dataset.tab);
+          // A context that gives orders becomes the one RAPACE-07 hears from; the Drone tab only
+          // looks, so it leaves the current scenario running.
+          if (MODE_OF_TAB[t.dataset.tab]) return post("/mode", { mode: MODE_OF_TAB[t.dataset.tab] });
+          if (t.dataset.tab === "attack") {
+            const on = document.querySelector(".switch button.on");
+            return post("/mode", { mode: on ? on.dataset.mode : "radio" });
+          }
+          return;
+        }
+        const m = e.target.closest(".switch button");
+        if (m) return post("/mode", { mode: m.dataset.mode });
         const act = e.target.closest(".act");
         if (act) return act.dataset.replay ? post("/replay") : post("/action", { id: act.dataset.id, forge: Boolean(act.dataset.forge) });
       });

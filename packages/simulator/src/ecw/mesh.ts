@@ -73,8 +73,8 @@ export async function signFleetMessage(
 }
 
 export interface VerifyOptions {
-  /** The capability the sender must hold for this message type. */
-  requirement: string;
+  /** The capability the sender must hold for this message — or a list, any one of which will do. */
+  requirement: string | readonly string[];
   /** Staple TTL: a proof older than this says nothing about now, so it is refused. */
   stapleTtlMs: number;
   /** How old a message may be before it counts as a replay. */
@@ -145,8 +145,10 @@ export function verifyFleetMessage(
   if (proof.status !== "active") {
     return deny("status", `Certificat ${proof.status === "revoked" ? "révoqué" : proof.status}`, { ...extra, stapleAgeMs });
   }
-  if (!(proof.capabilities as string[]).includes(opts.requirement)) {
-    return deny("capability", `Non autorisé : « ${opts.requirement} » absent du certificat`, { ...extra, stapleAgeMs });
+  const accepted = typeof opts.requirement === "string" ? [opts.requirement] : opts.requirement;
+  if (!accepted.some((r) => (proof.capabilities as string[]).includes(r))) {
+    const names = accepted.map((r) => `« ${r} »`).join(" ou ");
+    return deny("capability", `Non autorisé : ${names} absent du certificat`, { ...extra, stapleAgeMs });
   }
   opts.seen?.add(body.id);
   return { accepted: true, check: "capability", reason: "Accepté", ...extra, stapleAgeMs };

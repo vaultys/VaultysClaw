@@ -311,8 +311,20 @@ observed the same way.
   positions and is drawn on a Catmull-Rom curve through them, with a speed limit so a jump
   (take-off, return to base) becomes a flight. Chasing each poll as it arrived made every drone
   jerk at the poll rate. The page polls every 400 ms so the buffer always brackets the drawn time.
+- **`/?debug` exposes the scene** (`window.__ecw`: `THREE`, `camera`, `controls`, `entities`) so a
+  model can be framed by hand from the console — the only way to look closely at one engine, since
+  the camera controls only orbit the whole theatre or follow RAPACE-07.
 - **The terrain is a pure function** (`terrainHeight`, seeded value noise): ground engines, markers,
   the geofence curtain and the attacker's mast all sample it, so nothing floats or sinks.
+- **An order passes two decisions.** The sender must hold the right to *give* it
+  (`orderRequirements`: `fleet:command` for anything, `fleet:command.flight` for take-off, patrol
+  and landing only), then the drone must hold the right to *do* it. The required right is read from
+  the order's own payload, which is safe because the signature over it is checked first.
+- **The field pilot is a human Actor who does not connect.** Humans onboard through login, never the
+  WS handshake, so the person is written into the ledger like the simulator's population
+  (`upsertPeople`, `@sim.invalid`), and the radio is spoken by the `pilote` terminal — a `device`
+  whose `ownerDid` is that human. Driving a `kind: "human"` over `ActorRuntime` would be simulating a
+  path the control plane refuses.
 - **Two kinds of compromise are modelled, deliberately different.** The radio attacker cannot sign
   as the C2, so orders die at the first check. The compromised drone holds its own key, so the fleet
   believes it within its rights until revocation — the demo shows that instead of hiding it.

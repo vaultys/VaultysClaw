@@ -167,7 +167,6 @@ function terrainHeight(X, Z) {
   return h + (2 - h) * smoothstep(150, 70, Math.hypot(X - BASE_XZ.x, Z - BASE_XZ.z));
 }
 
-const radarUniforms = { time: { value: 0 } };
 {
   const W = 2600;
   const D = 1900;
@@ -206,16 +205,15 @@ const radarUniforms = { time: { value: 0 } };
   geo.setAttribute("color", new THREE.BufferAttribute(colors, 3));
 
   const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, metalness: 0 });
-  // The tactical layer is painted onto the ground itself — a faint grid and the C2's radar sweep —
+  // The tactical layer is painted onto the ground itself — a faint grid and the C2's range rings —
   // so it follows the relief instead of floating over it.
   mat.onBeforeCompile = (sh) => {
-    sh.uniforms.uTime = radarUniforms.time;
     sh.uniforms.uC2 = { value: new THREE.Vector2(BASE_XZ.x, BASE_XZ.z) };
     sh.vertexShader = sh.vertexShader
       .replace("#include <common>", "#include <common>\nvarying vec3 vWorld;")
       .replace("#include <begin_vertex>", "#include <begin_vertex>\nvWorld = (modelMatrix * vec4(transformed, 1.0)).xyz;");
     sh.fragmentShader = sh.fragmentShader
-      .replace("#include <common>", "#include <common>\nvarying vec3 vWorld;\nuniform float uTime;\nuniform vec2 uC2;")
+      .replace("#include <common>", "#include <common>\nvarying vec3 vWorld;\nuniform vec2 uC2;")
       .replace(
         "#include <emissivemap_fragment>",
         `#include <emissivemap_fragment>
@@ -226,10 +224,8 @@ const radarUniforms = { time: { value: 0 } };
         vec2 rp = vWorld.xz - uC2;
         float r = length(rp) / 400.0;
         if (r < 1.0) {
-          float sweep = mod(atan(rp.y, rp.x) - uTime * 0.9, 6.28318);
-          totalEmissiveRadiance += vec3(0.22, 0.74, 0.97) * exp(-sweep * 3.0) * 0.3 * (1.0 - r);
           float rings = smoothstep(0.014, 0.0, abs(fract(r * 4.0) - 0.5) - 0.486);
-          totalEmissiveRadiance += vec3(0.22, 0.74, 0.97) * rings * 0.12 * (1.0 - r);
+          totalEmissiveRadiance += vec3(0.22, 0.74, 0.97) * rings * 0.08 * (1.0 - r);
         }`
       );
   };
@@ -354,9 +350,9 @@ const fenceUniforms = { time: { value: 0 }, color: { value: new THREE.Color(C.fl
       vertexShader: "varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }",
       fragmentShader: `uniform float time; uniform vec3 color; varying vec2 vUv;
         void main(){
-          float base = pow(1.0 - vUv.y, 2.2) * 0.2;
-          float scan = exp(-pow((vUv.y - fract(time * 0.22)) * 14.0, 2.0)) * 0.35 * (1.0 - vUv.y);
-          float ribs = smoothstep(0.96, 1.0, fract(vUv.x)) * 0.25 * (1.0 - vUv.y);
+          float base = pow(1.0 - vUv.y, 2.2) * 0.07;
+          float scan = exp(-pow((vUv.y - fract(time * 0.22)) * 14.0, 2.0)) * 0.1 * (1.0 - vUv.y);
+          float ribs = smoothstep(0.96, 1.0, fract(vUv.x)) * 0.07 * (1.0 - vUv.y);
           gl_FragColor = vec4(color, base + scan + ribs);
         }`,
     })
@@ -364,7 +360,7 @@ const fenceUniforms = { time: { value: 0 }, color: { value: new THREE.Color(C.fl
   scene.add(curtain);
   const edge = new THREE.Line(
     new THREE.BufferGeometry().setFromPoints(path.map((p) => new THREE.Vector3(p.x, terrainHeight(p.x, p.y) + 0.8, p.y))),
-    new THREE.LineBasicMaterial({ color: C.fleet, transparent: true, opacity: 0.45 })
+    new THREE.LineBasicMaterial({ color: C.fleet, transparent: true, opacity: 0.2 })
   );
   scene.add(edge);
   const tag = document.createElement("div");
@@ -480,6 +476,85 @@ function makeC2() {
   return { group: g, accent, beacon, scale: 1.5 };
 }
 
+/**
+ * The field pilot: a soldier in fatigues holding the terminal, a radio pack and whip antenna on the
+ * back. Built facing +X (the convention every model here uses for its heading), roughly human
+ * proportions at ~17 units tall before scaling. `parts` are the bits the frame loop animates.
+ */
+function makePilot() {
+  const g = new THREE.Group();
+  const accent = new THREE.MeshBasicMaterial({ color: C.fleet });
+  const uniform = new THREE.MeshStandardMaterial({ color: 0x4a5a3c, roughness: 0.85 });
+  const gear = new THREE.MeshStandardMaterial({ color: 0x2f3a28, roughness: 0.8 });
+  const boots = new THREE.MeshStandardMaterial({ color: 0x1b1d1f, roughness: 0.6 });
+  const skin = new THREE.MeshStandardMaterial({ color: 0xc8956d, roughness: 0.7 });
+  const add = (parent, geo, mat, x, y, z) => {
+    const m = new THREE.Mesh(geo, mat);
+    m.position.set(x, y, z);
+    parent.add(m);
+    return m;
+  };
+
+  // Legs, slightly apart, boots forward.
+  for (const z of [-1.1, 1.1]) {
+    add(g, new THREE.CapsuleGeometry(0.75, 3.4, 4, 10), uniform, 0, 2.6, z);
+    add(g, new THREE.CapsuleGeometry(0.72, 2.4, 4, 10), uniform, 0.1, 5.6, z);
+    add(g, new THREE.BoxGeometry(2.1, 0.9, 1.2), boots, 0.45, 0.45, z);
+  }
+  add(g, new THREE.BoxGeometry(1.9, 1.2, 3.2), gear, 0, 7.4, 0); // belt
+
+  // Torso and head, on their own group so the body can breathe and the head can turn.
+  const upper = new THREE.Group();
+  upper.position.y = 7.6;
+  g.add(upper);
+  const chest = add(upper, new THREE.CapsuleGeometry(1.5, 2.6, 4, 12), uniform, 0, 2.4, 0);
+  chest.scale.set(0.85, 1, 1.3);
+  add(upper, new THREE.BoxGeometry(1.8, 2.6, 3.4), gear, 0.35, 2.4, 0); // plate carrier
+  add(upper, new THREE.CylinderGeometry(0.45, 0.5, 0.8, 10), skin, 0, 5.1, 0); // neck
+
+  const head = new THREE.Group();
+  head.position.y = 6.2;
+  upper.add(head);
+  add(head, new THREE.SphereGeometry(1.1, 16, 12), skin, 0.05, 0, 0);
+  const helmet = add(head, new THREE.SphereGeometry(1.35, 18, 10, 0, Math.PI * 2, 0, Math.PI / 1.85), gear, -0.05, 0.15, 0);
+  helmet.scale.set(1.05, 0.95, 1);
+  add(head, new THREE.BoxGeometry(0.25, 0.45, 1.6), accent, 1.12, 0.05, 0); // visor / goggles
+
+  // Radio pack and whip antenna on the back.
+  add(upper, new THREE.BoxGeometry(1.4, 2.8, 2.4), gear, -1.55, 2.5, 0);
+  add(upper, new THREE.CylinderGeometry(0.07, 0.1, 9, 6), boots, -1.9, 8.2, -0.8);
+  const tip = add(upper, new THREE.SphereGeometry(0.35, 10, 8), accent, -1.9, 12.7, -0.8);
+
+  // Arms: both bent forward at the elbow, hands meeting on the terminal at chest height.
+  const arm = (z, side) => {
+    const shoulder = new THREE.Group();
+    shoulder.position.set(0, 3.9, z);
+    upper.add(shoulder);
+    const upperArm = add(shoulder, new THREE.CapsuleGeometry(0.5, 2.1, 4, 8), uniform, 0, -1.4, 0);
+    upperArm.rotation.x = side * 0.12;
+    const elbow = new THREE.Group();
+    elbow.position.set(0, -2.7, 0);
+    elbow.rotation.z = 1.25; // forearm forward, slightly down
+    shoulder.add(elbow);
+    add(elbow, new THREE.CapsuleGeometry(0.45, 1.9, 4, 8), uniform, 0, -1.2, 0);
+    add(elbow, new THREE.SphereGeometry(0.5, 10, 8), skin, 0, -2.5, 0); // hand
+    return shoulder;
+  };
+  arm(-1.75, -1);
+  arm(1.75, 1);
+
+  // The terminal, held in front, screen lit in the status colour.
+  const terminal = new THREE.Group();
+  terminal.position.set(2.55, 0.95, 0);
+  terminal.rotation.z = 1.2; // screen tilted up, readable from above
+  upper.add(terminal);
+  add(terminal, new THREE.BoxGeometry(0.35, 1.9, 2.6), boots, 0, 0, 0);
+  const screen = add(terminal, new THREE.PlaneGeometry(2.2, 1.5), accent, 0.19, 0, 0);
+  screen.rotation.y = Math.PI / 2;
+
+  return { group: g, accent, scale: 1.8, parts: { upper, head, tip } };
+}
+
 function makeAgent() {
   const g = new THREE.Group();
   const accent = new THREE.MeshBasicMaterial({ color: C.ai });
@@ -504,8 +579,25 @@ function entityFor(m) {
   let e = entities.get(m.key);
   if (e) return e;
   const model =
-    m.kind === "drone" ? makeDrone() : m.kind === "ugv" ? makeUgv() : m.kind === "device" ? makeC2() : makeAgent();
+    m.kind === "drone"
+      ? makeDrone()
+      : m.kind === "ugv"
+        ? makeUgv()
+        : m.key === "pilote"
+          ? makePilot()
+          : m.kind === "device"
+            ? makeC2()
+            : makeAgent();
   model.group.scale.setScalar(model.scale);
+  // Every solid material of the model, so "Suivre RAPACE-07" can fade it. Rotor discs and the scan
+  // beam set their own opacity each frame and are faded where they do.
+  const dynamic = new Set([model.beam?.material, ...(model.rotors ?? []).map((r) => r.disc.material)]);
+  const solids = new Set();
+  model.group.traverse((o) => o.material && !dynamic.has(o.material) && solids.add(o.material));
+  for (const mat of solids) {
+    mat.userData.baseOpacity = mat.opacity;
+    mat.transparent = true;
+  }
   scene.add(model.group);
 
   const marker = new THREE.Mesh(new THREE.RingGeometry(5, 6.6, 32), additive(C.fleet, 0.55, { side: THREE.DoubleSide }));
@@ -520,7 +612,7 @@ function entityFor(m) {
   const div = document.createElement("div");
   div.className = "lbl" + (m.spotlight ? " spot" : "");
   const label = new CSS2DObject(div);
-  label.position.y = m.kind === "openclaw" ? 30 : m.kind === "device" ? 48 : 13;
+  label.position.y = m.kind === "openclaw" ? 30 : m.key === "pilote" ? 25 : m.kind === "device" ? 48 : 13;
   model.group.add(label);
 
   e = {
@@ -543,6 +635,9 @@ function entityFor(m) {
     placed: false,
     status: "",
     flight: "ground",
+    solids: [...solids],
+    /** 1 = normal, lower = faded behind the spotlight drone while the camera follows it. */
+    dim: 1,
   };
   entities.set(m.key, e);
   return e;
@@ -596,17 +691,12 @@ const attackerTop = ATTACKER.pos.clone().add(new THREE.Vector3(0, 86, 0));
   scene.add(g);
 }
 
-/** Red emitter particles riding the hijack link from the mast to RAPACE-07. */
+/** The hijack link from the mast to RAPACE-07, pulsing while the third party holds the drone. */
 const hijack = {
   line: new THREE.Line(new THREE.BufferGeometry().setFromPoints(new Array(32).fill(0).map(() => new THREE.Vector3())), new THREE.LineBasicMaterial({ color: C.deny, transparent: true, opacity: 0.55 })),
-  sparks: new Array(7).fill(0).map(() => glowSprite(C.deny, 11)),
 };
 hijack.line.visible = false;
 scene.add(hijack.line);
-for (const s of hijack.sparks) {
-  s.visible = false;
-  scene.add(s);
-}
 
 // ─── Packets and effects ───────────────────────────────────────────────────────
 
@@ -622,7 +712,8 @@ function anchor(key, out) {
   if (key === ATTACKER.key) return out.copy(attackerTop);
   const e = entities.get(key);
   if (!e) return null;
-  return out.copy(e.model.group.position).add(new THREE.Vector3(0, e.kind === "device" ? 50 : e.kind === "ugv" ? 10 : 3, 0));
+  const up = e.key === "pilote" ? 32 : e.kind === "device" ? 50 : e.kind === "ugv" ? 10 : 3;
+  return out.copy(e.model.group.position).add(new THREE.Vector3(0, up, 0));
 }
 
 function curvePoint(a, b, t, out, minLift = 18) {
@@ -642,16 +733,13 @@ function spawnPacket(link, delay) {
   // arc that lingers, where peer chatter is a short comet.
   const order = link.type === "command";
   const color = hostile ? C.deny : link.ok ? C.ok : C.deny;
-  const head = glowSprite(color, order ? 22 : 14);
-  head.visible = false;
-  scene.add(head);
   const trail = new THREE.Line(
     new THREE.BufferGeometry().setFromPoints(new Array(order ? 40 : 14).fill(0).map(() => new THREE.Vector3())),
     new THREE.LineBasicMaterial({ color, transparent: true, opacity: order ? 0.95 : 0.7, blending: THREE.AdditiveBlending, depthWrite: false })
   );
   trail.visible = false;
   scene.add(trail);
-  packets.push({ link, hostile, order, head, trail, t: -delay, dur: order ? 1.4 : 0.85, stop: link.ok ? 1 : order ? 0.8 : 0.86 });
+  packets.push({ link, hostile, order, tip: new THREE.Vector3(), trail, t: -delay, dur: order ? 1.4 : 0.85, stop: link.blocked ? 0.45 : 1 });
 }
 
 const A = new THREE.Vector3();
@@ -663,14 +751,14 @@ function updatePackets(dt) {
     p.t += dt;
     if (p.t < 0) continue;
     if (!anchor(p.link.from, A) || !anchor(p.link.to, B)) {
-      dispose(p.head, p.trail);
+      dispose(p.trail);
       packets.splice(i, 1);
       continue;
     }
     const prog = Math.min(p.stop, p.t / p.dur);
-    p.head.visible = p.trail.visible = true;
+    p.trail.visible = true;
     const lift = p.order ? 70 : 18;
-    curvePoint(A, B, prog, p.head.position, lift);
+    curvePoint(A, B, prog, p.tip, lift);
     const attr = p.trail.geometry.attributes.position;
     const from = p.order ? 0 : Math.max(0, prog - 0.32);
     for (let k = 0; k < attr.count; k++) {
@@ -679,7 +767,9 @@ function updatePackets(dt) {
     }
     attr.needsUpdate = true;
     if (p.t / p.dur >= p.stop) {
-      const at = p.head.position.clone();
+      // A refusal at the recipient is drawn on the recipient; only a message its sender's own
+      // certificate held back dies on the way, where it stopped.
+      const at = p.link.blocked ? p.tip.clone() : B.clone().add(new THREE.Vector3(0, 10, 0));
       if (!p.link.ok) {
         burst(at);
         if (p.hostile) shield(B.clone());
@@ -688,8 +778,7 @@ function updatePackets(dt) {
         // Leave the order's path on screen a moment, so the audience sees where it came from.
         const opacity = p.trail.material.opacity;
         effect(p.trail, 1.6, (o, k) => (o.material.opacity = opacity * (1 - k * k)));
-        dispose(p.head);
-      } else dispose(p.head, p.trail);
+      } else dispose(p.trail);
       packets.splice(i, 1);
     }
   }
@@ -864,7 +953,6 @@ function frame() {
   const dt = Math.min(0.05, clock.getDelta());
   const t = clock.elapsedTime;
   fenceUniforms.time.value = t;
-  radarUniforms.time.value = t;
   dust.rotation.y = t * 0.01;
 
   if (intro < 1) {
@@ -908,15 +996,38 @@ function frame() {
     }
     // Colour: a compromised drone flickers like a bad signal.
     const flicker = e.hijacked ? (Math.sin(t * 23) > 0.3 ? 1 : 0.35) : 1;
-    e.model.accent.color.copy(e.color).multiplyScalar(flicker);
+    e.dim += ((follow && !e.spotlight ? 0.22 : 1) - e.dim) * (1 - Math.exp(-dt * 4));
+    for (const mat of e.solids) mat.opacity = mat.userData.baseOpacity * e.dim;
+    e.div.style.opacity = String(Math.max(0.3, e.dim));
+    e.model.accent.color.copy(e.color).multiplyScalar(flicker * (0.35 + 0.65 * e.dim));
     if (e.model.rotors) {
       for (const r of e.model.rotors) {
         r.blade.rotation.y += dt * (airborne ? 40 : 3);
         r.disc.material.color.copy(e.color);
-        r.disc.material.opacity = airborne ? 0.2 : 0.04;
+        r.disc.material.opacity = (airborne ? 0.2 : 0.04) * e.dim;
       }
       e.model.beam.visible = airborne && !BAD.has(e.status);
+      e.model.beam.material.opacity = 0.05 * e.dim;
       e.model.beam.material.color.copy(e.color);
+    }
+    if (e.model.parts) {
+      // The pilot breathes, keeps an eye on RAPACE-07, and the antenna tip blinks while it talks.
+      const { upper, head, tip } = e.model.parts;
+      upper.scale.y = 1 + 0.012 * Math.sin(t * 1.6 + e.phase);
+      const watched = spotlightKey && spotlightKey !== e.key ? entities.get(spotlightKey) : null;
+      if (watched) {
+        const dx = watched.model.group.position.x - g.position.x;
+        const dz = watched.model.group.position.z - g.position.z;
+        const want = Math.atan2(-dz, dx);
+        let d = want - e.heading;
+        d = Math.atan2(Math.sin(d), Math.cos(d));
+        e.heading += d * Math.min(1, dt * 1.5);
+        g.rotation.y = e.heading;
+        // Head tilts up towards a drone in the air.
+        const rise = watched.model.group.position.y - g.position.y;
+        head.rotation.z = THREE.MathUtils.clamp(Math.atan2(rise, Math.hypot(dx, dz)), 0, 0.6) * 0.8;
+      }
+      tip.scale.setScalar(Math.sin(t * 6 + e.phase) > 0.6 ? 1.6 : 1);
     }
     if (e.model.beacon) e.model.beacon.scale.setScalar(1 + 0.35 * Math.sin(t * 4));
     if (e.model.core) e.model.core.scale.setScalar(1 + 0.12 * Math.sin(t * 3 + e.phase));
@@ -924,6 +1035,7 @@ function frame() {
     e.marker.visible = e.kind !== "openclaw";
     e.marker.position.set(g.position.x, e.ground + 0.8, g.position.z);
     e.marker.material.color.copy(e.color);
+    e.marker.material.opacity = 0.55 * e.dim;
     e.marker.scale.setScalar(e.spotlight ? 1.6 : 1);
     const tp = e.tether.geometry.attributes.position;
     tp.setXYZ(0, g.position.x, e.ground + 0.8, g.position.z);
@@ -931,6 +1043,7 @@ function frame() {
     tp.needsUpdate = true;
     e.tether.visible = airborne;
     e.tether.material.color.copy(e.color);
+    e.tether.material.opacity = 0.25 * e.dim;
   }
 
   // The spotlight: a column of light, a turning hexagon underneath, and a quarantine bubble once
@@ -971,7 +1084,6 @@ function frame() {
   }
   const riding = ATTACKER.activity === "control" && sp;
   hijack.line.visible = Boolean(riding);
-  for (const s of hijack.sparks) s.visible = Boolean(riding);
   if (riding) {
     anchor(spotlightKey, B);
     const attr = hijack.line.geometry.attributes.position;
@@ -980,7 +1092,7 @@ function frame() {
       attr.setXYZ(k, P.x, P.y, P.z);
     }
     attr.needsUpdate = true;
-    hijack.sparks.forEach((s, i) => curvePoint(attackerTop, B, (t * 0.6 + i / hijack.sparks.length) % 1, s.position));
+    hijack.line.material.opacity = 0.45 + 0.35 * Math.sin(t * 5);
   }
 
   updatePackets(dt);
@@ -1003,6 +1115,9 @@ function resize() {
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
 }
+// `/?debug` exposes the scene to the browser console, to frame the camera on a model by hand.
+if (new URLSearchParams(location.search).has("debug")) window.__ecw = { THREE, camera, controls, entities };
+
 new ResizeObserver(resize).observe(host);
 resize();
 requestAnimationFrame(frame);
@@ -1020,16 +1135,39 @@ focusBtn.onclick = () => {
   if (focus)
     for (let i = packets.length - 1; i >= 0; i--) {
       if (involvesSpotlight(packets[i].link)) continue;
-      dispose(packets[i].head, packets[i].trail);
+      dispose(packets[i].trail);
       packets.splice(i, 1);
     }
 };
-controls.autoRotate = !reducedMotion;
-orbitBtn.classList.toggle("on", controls.autoRotate);
-orbitBtn.onclick = () => {
-  controls.autoRotate = !controls.autoRotate;
-  orbitBtn.classList.toggle("on", controls.autoRotate);
-};
+/** Auto-rotation. Paused by the button, by the space bar, or by grabbing the camera — a presenter
+ *  who has framed something does not want it drifting away — and remembered across reloads. */
+function setRotation(on) {
+  controls.autoRotate = on;
+  orbitBtn.classList.toggle("on", on);
+  orbitBtn.textContent = on ? "⏸ Pause rotation" : "▶ Reprendre rotation";
+  orbitBtn.title = on ? "Arrêter la rotation automatique (Espace)" : "Relancer la rotation automatique (Espace)";
+  try {
+    localStorage.setItem("ecw.rotate", on ? "1" : "0");
+  } catch {
+    /* storage unavailable: the choice just isn't remembered */
+  }
+}
+let savedRotation = null;
+try {
+  savedRotation = localStorage.getItem("ecw.rotate");
+} catch {
+  /* storage unavailable */
+}
+setRotation(savedRotation === null ? !reducedMotion : savedRotation === "1");
+orbitBtn.onclick = () => setRotation(!controls.autoRotate);
+controls.addEventListener("start", () => {
+  if (controls.autoRotate && controls.enabled) setRotation(false);
+});
+window.addEventListener("keydown", (ev) => {
+  if (ev.code !== "Space" || ev.target.closest?.("input, textarea, button, select")) return;
+  ev.preventDefault();
+  setRotation(!controls.autoRotate);
+});
 followBtn.onclick = () => {
   follow = !follow;
   followBtn.classList.toggle("on", follow);

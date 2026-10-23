@@ -40,7 +40,7 @@ export default function NewWorkspacePage() {
           <input
             type="color"
             name="color"
-            defaultValue="#6366f1"
+            defaultValue="#D35400"
             className="h-9 w-16 border border-neutral-200 rounded-lg bg-background p-0.5"
           />
         </div>

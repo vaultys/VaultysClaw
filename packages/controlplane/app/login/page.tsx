@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { BrandLogo } from "@/components/ui/BrandLogo";
 import { QRCodeSVG } from "qrcode.react";
 import { signIn } from "next-auth/react";
 import { ShieldCheck, Fingerprint, ScrollText, KeyRound } from "lucide-react";
@@ -231,12 +232,9 @@ export default function LoginPage() {
 
       <Link
         href="/"
-        className="relative z-10 flex items-center gap-2.5 p-6 text-sm font-semibold text-foreground"
+        className="relative z-10 flex w-fit items-center p-6"
       >
-        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary-600 text-white">
-          <ShieldCheck className="h-4 w-4" />
-        </span>
-        VaultysClaw
+        <BrandLogo className="h-7" />
       </Link>
 
       <div className="relative z-10 mx-auto grid max-w-5xl items-center gap-16 px-6 pb-16 pt-4 lg:grid-cols-2 lg:pt-16">

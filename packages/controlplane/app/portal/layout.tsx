@@ -4,6 +4,7 @@ import Link from "next/link";
 import { authOptions } from "@/lib/auth-config";
 import { hasCapability } from "@/lib/access-control";
 import SignOutButton from "@/components/SignOutButton";
+import { BrandLogo } from "@/components/ui/BrandLogo";
 
 /**
  * The Access Portal (docs/PAGE_DESIGN.md §2) — a separate, much smaller app
@@ -45,7 +46,9 @@ export default async function PortalLayout({
     <div className="min-h-screen bg-background text-foreground">
       <header className="border-b border-neutral-200/60 px-6 py-3 flex items-center justify-between">
         <div className="flex items-center gap-6">
-          <span className="font-semibold text-sm">VaultysClaw</span>
+          <Link href="/" className="flex items-center">
+            <BrandLogo className="h-5" />
+          </Link>
           <nav className="flex gap-4 text-sm text-foreground-500">
             <Link href="/portal" className="hover:text-foreground transition-colors">
               My Certificates

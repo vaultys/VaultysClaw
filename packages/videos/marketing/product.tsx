@@ -1,6 +1,6 @@
 import React from "react";
 import { AbsoluteFill, Easing, interpolate, useCurrentFrame } from "remotion";
-import { AMBER, Bot, BrowserWindow, Chip, CLAMP, Database, DISPLAY, ease, GOLD, Hacker, Headline, INK, MIST, MIST_DIM, LockIcon, Place, Pop, rand, RED, Rise, Shield, TEAL, Travel, usePop, NAVY } from "../explainer/kit";
+import { AMBER, Bot, BrowserWindow, Chip, CLAMP, Database, DISPLAY, ease, GOLD, Hacker, Headline, INK, MIST, MIST_DIM, LockIcon, ORANGE_LIGHT, Place, Pop, rand, RED, Rise, Shield, TEAL, Travel, usePop } from "../explainer/kit";
 import { FPS } from "../intro/Intro";
 import { Wordmark } from "./solution";
 import type { SceneProps } from "./types";
@@ -280,63 +280,119 @@ export function FrugalScene({ t, at }: SceneProps) {
   );
 }
 
-// ── The twelve domains of agent security ──────────────────────────────────
+// ── The twelve domains, the six about access, and where VaultysClaw stands on them ──
 
-const STATUS: ("on" | "partial" | "next")[] = ["on", "on", "on", "on", "on", "on", "on", "partial", "partial", "partial", "partial", "next"];
-const STATUS_COLOR = { on: "#1f7a5c", partial: "#8a5d12", next: "#2a5868" };
-const STATUS_EDGE = { on: TEAL, partial: AMBER, next: MIST };
+/**
+ * The domains (0-based, in the framework's order) that are about access — VaultysClaw's scope —
+ * and their status, from the deck: covered, or in progress (credential protection).
+ */
+const ACCESS: Record<number, "covered" | "progress"> = { 0: "covered", 1: "covered", 2: "covered", 3: "covered", 4: "covered", 8: "progress" };
+const ACCESS_ORDER = [0, 1, 2, 3, 4, 8];
+
+/**
+ * A tile's box in the 4×3 grid of the twelve. The six keep their order as they gather: the first
+ * row stays put, and 05 and 09 slide into the middle of the second row through slots the others
+ * have left — 09 along its own row first, then up — so no tile ever crosses another.
+ */
+const TILE = { w: 380, h: 150 };
+const gridSlot = (i: number) => ({ x: 160 + (i % 4) * (TILE.w + 26), y: 380 + Math.floor(i / 4) * (TILE.h + 24) });
+const GATHERED_SLOT: Record<number, number> = { 0: 0, 1: 1, 2: 2, 3: 3, 4: 5, 8: 6 };
+function gatheredAt(i: number, p: number) {
+  const g = gridSlot(i);
+  const f = gridSlot(GATHERED_SLOT[i] ?? i);
+  const across = Math.min(1, p * 2);
+  const up = Math.max(0, p * 2 - 1);
+  return { x: g.x + (f.x - g.x) * (f.y === g.y ? p : across), y: g.y + (f.y - g.y) * (f.y === g.y ? 0 : up) };
+}
 
 export function DomainsScene({ t, at }: SceneProps) {
   const frame = useCurrentFrame();
-  const count = Math.round(interpolate(frame, [at("domains", 0.2), at("domains", 0.45)], [0, 7], CLAMP));
+  // 1. the twelve appear; 2. the six about access light up and gather; 3. each gets its status.
+  const select = ease(frame, at("domains", 0.55), at("domains", 0.75), Easing.inOut(Easing.cubic));
+  const gather = ease(frame, at("domains", 0.85), at("domains", 1) + 12, Easing.inOut(Easing.cubic));
+  const statusAt = (k: number) => at("coverage", [0.04, 0.12, 0.2, 0.28, 0.4, 0.62][k]);
+  const covered = ACCESS_ORDER.filter((i, k) => ACCESS[i] === "covered" && frame >= statusAt(k)).length;
+  const swap = ease(frame, at("domains", 0.6), at("domains", 0.75));
   return (
     <AbsoluteFill>
       <Place x={110} y={190} style={{ transform: "translate(0, -50%)" }}>
-        <Headline text={t.domains.title} from={at("domains", 0)} size={72} width={1300} accent={[]} />
-        <div style={{ marginTop: 10, fontSize: 24, fontWeight: 600, color: MIST_DIM, opacity: ease(frame, at("domains", 0.1), at("domains", 0.2)) }}>{t.domains.source}</div>
+        <div style={{ position: "relative", height: 76, width: 1500 }}>
+          <div style={{ position: "absolute", inset: 0, opacity: 1 - swap }}>
+            <Headline text={t.domains.title} from={at("domains", 0)} size={64} width={1500} accent={["12"]} />
+          </div>
+          <div style={{ position: "absolute", inset: 0, opacity: swap }}>
+            <Headline text={t.domains.focus} from={at("domains", 0.6)} size={64} width={1500} accent={t.domains.focus.split(" ").slice(-1)} />
+          </div>
+        </div>
+        <div style={{ marginTop: 10, fontSize: 22, fontWeight: 600, color: MIST_DIM, opacity: ease(frame, at("domains", 0.1), at("domains", 0.2)) }}>{t.domains.source}</div>
       </Place>
-      <Place x={1690} y={200}>
-        <div style={{ display: "flex", alignItems: "baseline", fontFamily: DISPLAY, color: TEAL, opacity: ease(frame, at("domains", 0.18), at("domains", 0.25)) }}>
-          <span style={{ fontSize: 170 }}>{count}</span>
-          <span style={{ fontSize: 80, color: MIST_DIM }}>/12</span>
+      {/* the score, counting the covered ones as they are stamped */}
+      <Place x={1680} y={200}>
+        <div style={{ textAlign: "right", opacity: ease(frame, statusAt(0) - 6, statusAt(0) + 6) }}>
+          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "flex-end", fontFamily: DISPLAY, color: TEAL }}>
+            <span style={{ fontSize: 150 }}>{covered}</span>
+            <span style={{ fontSize: 76, color: MIST_DIM }}>/6</span>
+          </div>
+          <div style={{ marginTop: -14, fontSize: 24, fontWeight: 700, color: MIST, letterSpacing: 3, textTransform: "uppercase" }}>{t.domains.score}</div>
         </div>
       </Place>
-      <div style={{ position: "absolute", left: 160, top: 360, width: 1600, display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 24, perspective: 1600 }}>
-        {t.domains.names.map((name, i) => {
-          const s = STATUS[i];
-          const from = at("domains", 0.08) + i * 4;
-          const flip = ease(frame, from, from + 18, Easing.out(Easing.back(1.4)));
-          const lit = s === "on" ? ease(frame, at("domains", 0.2) + i * 3, at("domains", 0.2) + i * 3 + 8) : s === "partial" ? ease(frame, at("domains", 0.55), at("domains", 0.65)) : ease(frame, at("domains", 0.8), at("domains", 0.9));
-          return (
-            <div
-              key={name}
-              style={{
-                height: 150,
-                borderRadius: 18,
-                padding: "20px 24px",
-                background: lit > 0.5 ? STATUS_COLOR[s] : "rgba(255,255,255,0.06)",
-                border: `2px solid ${lit > 0.5 ? STATUS_EDGE[s] : "rgba(255,255,255,0.12)"}`,
-                boxShadow: lit > 0.5 && s === "on" ? `0 0 40px ${TEAL}33` : "none",
-                transform: `rotateX(${(1 - flip) * 90}deg)`,
-                opacity: flip,
-              }}
-            >
-              <div style={{ fontFamily: DISPLAY, fontSize: 40, color: lit > 0.5 ? INK : MIST_DIM }}>{String(i + 1).padStart(2, "0")}</div>
-              <div style={{ fontSize: 25, fontWeight: 700, color: INK, lineHeight: 1.2 }}>{name}</div>
+      {t.domains.names.map((name, i) => {
+        const access = ACCESS[i];
+        const k = ACCESS_ORDER.indexOf(i);
+        const from = at("domains", 0.08) + i * 3;
+        const flip = ease(frame, from, from + 18, Easing.out(Easing.back(1.4)));
+        const { x, y } = access ? gatheredAt(i, gather) : gridSlot(i);
+        const w = TILE.w;
+        const h = TILE.h;
+        // The others step back, then leave.
+        const dim = access ? 0 : select;
+        const gone = access ? 0 : gather;
+        const status = access && frame >= statusAt(k) ? access : null;
+        const stamp = access ? ease(frame, statusAt(k), statusAt(k) + 10, Easing.out(Easing.back(2))) : 0;
+        const edge = status === "covered" ? TEAL : status === "progress" ? AMBER : access ? mixAccent(select) : "rgba(255,255,255,0.12)";
+        return (
+          <div
+            key={name}
+            style={{
+              position: "absolute",
+              left: x,
+              top: y,
+              width: w,
+              height: h,
+              borderRadius: 18,
+              padding: "20px 24px",
+              background: status === "covered" ? "rgba(46,230,182,0.14)" : status === "progress" ? "rgba(242,169,59,0.14)" : access ? `rgba(240,122,42,${0.06 + 0.1 * select})` : "rgba(255,255,255,0.06)",
+              border: `2px solid ${edge}`,
+              boxShadow: access ? `0 0 ${40 * select}px ${status === "covered" ? TEAL : status === "progress" ? AMBER : ORANGE_LIGHT}44` : "none",
+              transform: `perspective(1600px) rotateX(${(1 - flip) * 90}deg) scale(${1 - dim * 0.06})`,
+              opacity: flip * (1 - dim * 0.7) * (1 - gone),
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontFamily: DISPLAY, fontSize: 40, color: access ? INK : MIST_DIM }}>{String(i + 1).padStart(2, "0")}</span>
+              {status && (
+                <span style={{ transform: `scale(${stamp})`, opacity: Math.min(1, stamp) }}>
+                  <Chip color={status === "covered" ? TEAL : AMBER} size={20} solid>
+                    {status === "covered" ? `✓ ${t.domains.covered}` : `◐ ${t.domains.progress}`}
+                  </Chip>
+                </span>
+              )}
             </div>
-          );
-        })}
-      </div>
-      <div style={{ position: "absolute", left: 160, top: 900, display: "flex", gap: 40, fontSize: 24, fontWeight: 700, opacity: ease(frame, at("domains", 0.6), at("domains", 0.75)) }}>
-        {(["on", "partial", "next"] as const).map((s, i) => (
-          <span key={s} style={{ color: STATUS_EDGE[s] }}>
-            ■ {[7, 4, 1][i]} {t.domains.legend[i]}
-          </span>
-        ))}
-      </div>
+            <div style={{ fontSize: 25, fontWeight: 700, color: INK, lineHeight: 1.2, marginTop: 4 }}>{name}</div>
+            {status === "progress" && (
+              <div style={{ marginTop: 14, height: 8, borderRadius: 4, background: "rgba(255,255,255,0.1)", overflow: "hidden" }}>
+                <div style={{ width: `${60 * ease(frame, statusAt(k) + 6, statusAt(k) + 30)}%`, height: "100%", background: AMBER }} />
+              </div>
+            )}
+          </div>
+        );
+      })}
     </AbsoluteFill>
   );
 }
+
+/** The selected tiles' border, from neutral to the brand orange as they are picked out. */
+const mixAccent = (t: number) => (t < 0.5 ? "rgba(255,255,255,0.12)" : ORANGE_LIGHT);
 
 // ── Closing ───────────────────────────────────────────────────────────────
 

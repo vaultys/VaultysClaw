@@ -13,7 +13,7 @@ import type { MarketingProps, SceneProps } from "./types";
  * the deck, without the deck's financials: the problem (agents everywhere, Shadow AI, one directory
  * holding every identity), the model (an agent is an employee: an identity, rights), how it works
  * (identity, certificate, control plane + peer to peer), and what that buys (no single target, the
- * kill switch, visibility and a signed log, post-quantum, frugal and sovereign, the framework).
+ * kill switch, visibility and a signed log, post-quantum, frugal and sovereign, the access domains).
  */
 
 export const SCENES = [
@@ -29,7 +29,7 @@ export const SCENES = [
   { id: "visibility", lines: ["visibility", "audit"] },
   { id: "quantum", lines: ["harvest", "pqc"] },
   { id: "frugal", lines: ["frugal", "sovereign"] },
-  { id: "domains", lines: ["domains"] },
+  { id: "domains", lines: ["domains", "coverage"] },
   { id: "closing", lines: ["closing"] },
 ] as const;
 

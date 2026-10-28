@@ -131,7 +131,7 @@ pnpm --filter @vaultysclaw/videos studio:marketing                            # 
   scenes (`Marketing.tsx` `SCENES`): the hook, the three questions and Shadow AI, the central
   directory as a single target, the agent-as-employee model, identity, rights and certificate,
   control plane plus peer to peer, no single target, the kill switch, visibility and audit,
-  post-quantum, frugal and sovereign, the 12 domains of the Zero Trust framework, the closing. The
+  post-quantum, frugal and sovereign, the access domains, the closing. The
   on-screen text is in `texts.ts`; the scenes are in `problem.tsx`, `solution.tsx` and
   `product.tsx`.
 - **What we may say, checked against the code**: the agent's identity is generated on the agent
@@ -139,8 +139,15 @@ pnpm --filter @vaultysclaw/videos studio:marketing                            # 
   artefact that `packages/policy` verifies with no network; the kill switch suspends without
   touching the ledger and is reversible with no reissuance (`lib/kill-switch.ts`); the PQC option
   exists (`software-pqc`, `dilithium_ed25519`). The figures ("20 to 80 agents per employee by
-  2031", "7 of the 12 domains", frugality) come from the deck. **Do not promise** an instant
-  revocation: a client learns about it on its next `cert_status_request`.
+  2031", frugality) come from the deck. **Do not promise** an instant revocation: a client learns
+  about it on its next `cert_status_request`.
+- **The domains scene is about VaultysClaw's scope, not a score against a framework.** VaultysClaw
+  focuses on securing access, so the video no longer claims "7 of Anthropic's 12 domains": it shows
+  the twelve domains of AI agent security (Anthropic's framework, credited on screen only), picks
+  out the six about access, and gives VaultysClaw's status on those: identity & authentication,
+  access control, resource scope, observability & audit, tool access covered; credential
+  protection in progress (statuses from the deck). The selection and the statuses are `ACCESS` in
+  `product.tsx`; change them there, and the counter and the narration's `coverage` line with them.
 - **The footage** (`marketing-screens/`, `screensOnly`, English only because the console is):
   one recording with a mark per shot (`approve`, `certificates`, `graph-owner`, `killswitch-armed`,
   `audit-table`…), set once its screen has loaded. The kill switch is armed and then disarmed

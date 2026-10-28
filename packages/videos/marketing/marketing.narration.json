@@ -129,8 +129,12 @@
       "en": "Open source, sovereign and European, it leaves you free: no dependence on hyperscalers, no lock-in."
     },
     "domains": {
-      "fr": "Il couvre déjà sept des douze domaines de sécurité des agents définis par le cadre Zero Trust d'Anthropic, et vise les douze.",
-      "en": "It already covers seven of the twelve agent-security domains defined by Anthropic's Zero Trust framework, and is aiming for all twelve."
+      "fr": "La sécurité des agents IA couvre douze domaines. VaultysClaw se concentre sur ceux qui touchent aux accès.",
+      "en": "AI agent security spans twelve domains. VaultysClaw focuses on the ones that concern access."
+    },
+    "coverage": {
+      "fr": "Identité, droits, périmètre, outils et audit sont déjà couverts. La protection des identifiants est en cours.",
+      "en": "Identity, rights, scope, tools and audit are already covered. Credential protection is under way."
     },
     "closing": {
       "fr": "VaultysClaw. Gardez le contrôle de vos agents IA, et prouvez-le.",

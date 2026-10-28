@@ -325,6 +325,17 @@ observed the same way.
   (`upsertPeople`, `@sim.invalid`), and the radio is spoken by the `pilote` terminal — a `device`
   whose `ownerDid` is that human. Driving a `kind: "human"` over `ActorRuntime` would be simulating a
   path the control plane refuses.
+- **Two console drones, one state each** (`DroneConsole` in `main.ts`): RAPACE-07 (air) and UGV-01
+  (ground) each have their own mode, last decision, captured order, revocation and isolation, and
+  their own renewable identity generation (`generations.json`). Requests act on the drone they name
+  (`key`) or on the selected one (`/select`); the fleet view highlights the selected one. Buttons
+  come from `actionsFor(type)`, so a ground drone never offers "Décoller".
+- **Mission prep enrols for real.** The newcomer (`ENROLL_KEY`, RAPACE-09) registers like any member
+  but `approvePending` skips it until the officer clicks; the certificate then arrives over the
+  normal `cert_challenge` exchange. The person is enrolled through a genuine `Invitation` row
+  (random token, only its sha256 stored) redeemed by the control plane's own `/invite/<token>` page —
+  the demonstrator only watches the row for `redeemedAt`. Both are signed off by a fictional officer
+  human (`OFFICER`), so the ledger names who approved, even with no console admin.
 - **Two kinds of compromise are modelled, deliberately different.** The radio attacker cannot sign
   as the C2, so orders die at the first check. The compromised drone holds its own key, so the fleet
   believes it within its rights until revocation — the demo shows that instead of hiding it.

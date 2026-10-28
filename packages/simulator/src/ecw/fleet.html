@@ -101,7 +101,7 @@
       <div class="brand"><strong>VAULTYSCLAW · OPÉRATION SENTINELLE</strong><span>Identité et confiance d'une flotte autonome</span></div>
       <nav>
         <a href="/" class="active">Flotte</a>
-        <a href="/drone">Console drone RAPACE-07</a>
+        <a href="/drone">Console drone</a>
         <a id="console" href="#" target="_blank" rel="noopener">Plan de contrôle ↗</a>
       </nav>
       <span class="tag">Démonstrateur · données fictives</span>
@@ -112,16 +112,16 @@
         <div class="kpi"><small>Acteurs certifiés</small><b id="k-cert">–</b></div>
         <div class="kpi"><small>Messages acceptés par les pairs</small><b id="k-ok" style="color: var(--ok)">–</b></div>
         <div class="kpi"><small>Messages refusés par les pairs</small><b id="k-deny" style="color: var(--deny)">–</b></div>
-        <div class="kpi"><small>RAPACE-07</small><b id="k-spot">–</b></div>
+        <div class="kpi"><small id="k-spot-label">Drone piloté</small><b id="k-spot">–</b></div>
         <div class="kpi threat"><small>Tiers radio · ordres injectés</small><b id="k-attack" style="color: var(--deny)">–</b></div>
       </section>
       <section class="panel">
         <h2>Théâtre d'opération — chaque lien est un message signé, vérifié hors ligne par son destinataire</h2>
         <div class="scene" id="scene" role="img" aria-label="Théâtre d'opération en 3D : la flotte, ses messages et le tiers sur le lien radio">
           <div class="view">
-            <button id="view-focus" type="button" title="Masquer toutes les communications qui ne concernent pas RAPACE-07">✦ Seulement RAPACE-07</button>
+            <button id="view-focus" type="button" title="Masquer toutes les communications qui ne concernent pas le drone piloté">✦ Seulement <span class="sp-name">RAPACE-07</span></button>
             <button id="view-orbit" type="button">⏸ Pause rotation</button>
-            <button id="view-follow" type="button">◎ Suivre RAPACE-07</button>
+            <button id="view-follow" type="button">◎ Suivre <span class="sp-name">RAPACE-07</span></button>
             <button id="view-reset" type="button">⌂ Vue d'ensemble</button>
           </div>
           <div class="hint">Glisser pour pivoter (met la rotation en pause) · molette pour zoomer · clic droit pour déplacer · Espace : pause / reprise</div>
@@ -176,7 +176,7 @@
       const ACTIVITY = {
         listen: "écoute le lien radio",
         inject: "injecte des ordres",
-        control: "contrôle RAPACE-07",
+        control: "contrôle le drone piloté",
         cut: "coupé de la flotte",
       };
       async function tick() {
@@ -196,6 +196,8 @@
           document.getElementById("k-ok").textContent = s.counters.accepted.toLocaleString("fr-FR");
           document.getElementById("k-deny").textContent = s.counters.rejected.toLocaleString("fr-FR");
           const sp = s.spotlight;
+          document.getElementById("k-spot-label").textContent = sp.label;
+          document.querySelectorAll(".sp-name").forEach((e) => (e.textContent = sp.label));
           const spEl = document.getElementById("k-spot");
           spEl.textContent = sp.status.toUpperCase() + (sp.mode === "compromised" && !sp.isolatedAt ? " · COMPROMIS" : "");
           spEl.style.color = sp.status === "certifié" && sp.mode !== "compromised" ? "var(--ok)" : sp.status === "certifié" ? "var(--warn)" : "var(--deny)";

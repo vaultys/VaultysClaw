@@ -1,9 +1,10 @@
 # Démonstrateur ECW — Opération SENTINELLE
 
-Une flotte autonome fictive (8 drones de reconnaissance, 1 drone logistique, 2 robots terrestres,
-2 agents IA, 1 poste de commandement C2) et la console d'un drone, RAPACE-07, dont chaque bouton
-est accordé ou refusé selon son certificat — puis compromis, puis coupé de la flotte par
-révocation.
+Une flotte autonome fictive (9 drones de reconnaissance dont un à enrôler, 1 drone logistique,
+2 drones terrestres, 2 agents IA, 1 poste de commandement C2, un pilote et son terminal) et la
+console de deux drones — RAPACE-07 (aérien) et UGV-01 (terrestre) — dont chaque bouton est accordé
+ou refusé selon le certificat, puis compromis, puis coupé de la flotte par révocation. Un onglet
+de préparation de mission montre l'enrôlement d'un drone neuf et d'un nouveau pilote.
 
 Rien n'est simulé côté sécurité : chaque membre est un `ActorRuntime` du SDK avec sa propre
 VaultysID, ses certificats sont réellement émis par le plan de contrôle, ses preuves de statut
@@ -39,10 +40,19 @@ profil de chacun (comme `simulator approve`), et chaque membre récupère son ce
 
 ## Le déroulé (≈ 7 minutes)
 
-La console drone est découpée en quatre onglets. Un point vert sur un onglet indique le contexte
-dont RAPACE-07 reçoit actuellement ses ordres ; l'onglet Drone ne fait que regarder et ne change
-pas le scénario en cours. La décision, la réponse à incident et le journal restent à droite.
+La console drone a cinq onglets et un sélecteur de drone (RAPACE-07 aérien, UGV-01 terrestre,
+chacun dessiné et animé : rotors, roues, halo vert ou rouge à chaque décision). Un point sur un
+onglet indique le contexte dont le drone sélectionné reçoit ses ordres ; Préparation et Drone ne
+font que regarder. À droite, toujours : la décision en grand et la réponse à incident. Chaque
+bouton se remplit de vert (« ✓ EXÉCUTÉ ») ou de rouge (« ⛔ REFUSÉ ») et le dernier pressé pulse.
 
+0. **Préparation de mission.** RAPACE-09 est sous tension : son identité est générée à bord, sa
+   demande d'enregistrement est arrivée, il n'a aucun droit. `Approuver avec ce profil` → le
+   certificat est remis par un vrai échange signé, il rejoint la flotte (visible sur la carte).
+   Pour une personne : `Émettre l'invitation` crée une vraie invitation du control plane (usage
+   unique, 24 h) ; ouverte sur une tablette, elle crée le VaultysID dans le navigateur et mène au
+   portail du pilote, son certificat en vigueur. Approbations et invitations sont signées par
+   l'officier de mission fictif (Cne Bernard). `Recommencer avec un drone neuf` remet la scène à zéro.
 1. **La flotte.** Sur la vue flotte : chaque arc vert est un message signé par son émetteur,
    accompagné d'une preuve de statut signée par le plan de contrôle, et vérifié **hors ligne** par
    son destinataire. Pas de secret partagé, pas d'appel au serveur à chaque message.
@@ -50,6 +60,8 @@ pas le scénario en cours. La décision, la réponse à incident et le journal r
    `Désactiver le géorepérage`, `Envoyer vers Internet` → l'ordre du C2 est authentique, mais le
    certificat du drone refuse. LOGI-01, lui, a le droit de larguer : la décision suit le
    certificat, pas l'appareil.
+2 bis. **Drone terrestre.** Sélectionner UGV-01 : `Démarrer`, `Livrer le matériel` → exécutés ;
+   `Sortir de la zone autorisée`, `Envoyer vers Internet`, `Ordonner à RAPACE-03` → refusés.
 3. **Humain.** Le Sgt Lemaire (fictif) est un humain du registre ; son terminal signe avec sa
    propre clé et ne détient que `fleet:command.flight`. `Décoller` / `Retour base` → exécutés.
    `Capturer une image` → refusé **avant** le drone : le pilote n'a pas le droit de l'ordonner,
@@ -95,15 +107,15 @@ pas le scénario en cours. La décision, la réponse à incident et le journal r
 
 ## Ce que le démonstrateur écrit en base
 
-Uniquement dans la base jetable du simulateur (refus explicite sinon) : dix capacités
-personnalisées `drone:*` / `fleet:*`, le pilote humain (un acteur `human` en `@sim.invalid`,
-propriétaire du terminal pilote), l'espace de travail « Opération SENTINELLE (fictive) »
+Uniquement dans la base jetable du simulateur (refus explicite sinon) : quatorze capacités
+personnalisées `drone:*` / `fleet:*`, le pilote et l'officier (des acteurs `human` en
+`@sim.invalid`), les invitations du pilote à enrôler, l'espace de travail « Opération SENTINELLE (fictive) »
 (preuves TTL 6 s, échec fermé), l'approbation des enregistrements `ecw-…`, et — pour le bouton de
 révocation du stand — la révocation du certificat de RAPACE-07 plus son entrée d'audit. Les
 identités vivent sous `packages/simulator/.simdata/ecw/` (ignoré par Git).
 
 ## Le film
 
-`pnpm generate:video:ecw` filme ce déroulé (≈ 2 min 30 avec intro et outro, en français et en
+`pnpm generate:video:ecw` filme ce déroulé (≈ 3 min 30 avec intro et outro, en français et en
 anglais) avec la pile du simulateur en marche : voir `packages/videos/CLAUDE.md`. Le tournage
-remet RAPACE-07 dans un état propre avant et après.
+remet les deux drones et la préparation de mission dans un état propre avant et après.

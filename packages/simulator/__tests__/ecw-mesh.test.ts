@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { VaultysId } from "@vaultys/id";
 import { signCertStatusResponseCert } from "@vaultysclaw/policy";
 import { forgeStaple, signFleetMessage, verifyFleetMessage } from "../src/ecw/mesh.js";
-import { DRONE_ACTIONS, FLEET, REGISTRY, SPOTLIGHT_KEY, orderRequirements } from "../src/ecw/scenario.js";
+import { CONSOLE_DRONES, DRONE_ACTIONS, ENROLL_KEY, FLEET, REGISTRY, actionsFor, orderRequirements } from "../src/ecw/scenario.js";
 import { assertValidCapabilityName } from "@vaultysclaw/policy";
 
 const vid = async () => (await VaultysId.generateMachine()).toVersion(1);
@@ -145,10 +145,19 @@ describe("ECW scenario data", () => {
       for (const c of member.capabilities) expect(registry.has(c) || !c.includes(":")).toBe(true);
   });
 
-  it("leaves the spotlight drone with both granted and refused buttons", () => {
-    const spotlight = FLEET.find((m) => m.key === SPOTLIGHT_KEY)!;
-    const granted = DRONE_ACTIONS.filter((a) => spotlight.capabilities.includes(a.capability));
-    expect(granted.length).toBeGreaterThan(2);
-    expect(granted.length).toBeLessThan(DRONE_ACTIONS.length);
+  it("leaves each console drone with both granted and refused buttons", () => {
+    for (const drone of CONSOLE_DRONES) {
+      const spec = FLEET.find((m) => m.key === drone.key)!;
+      const actions = actionsFor(drone.type);
+      const granted = actions.filter((a) => spec.capabilities.includes(a.capability));
+      expect(granted.length).toBeGreaterThan(2);
+      expect(granted.length).toBeLessThan(actions.length);
+    }
   });
+
+  it("keeps the newcomer waiting for the officer", () => {
+    expect(FLEET.find((m) => m.key === ENROLL_KEY)?.enroll).toBe(true);
+    expect(FLEET.filter((m) => m.enroll)).toHaveLength(1);
+  });
+
 });

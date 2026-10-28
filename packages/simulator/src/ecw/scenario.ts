@@ -30,7 +30,11 @@ export const REGISTRY: RegistryEntry[] = [
   { name: "fleet:telemetry.share", label: "Partager sa position", description: "Diffusion de la télémétrie à la flotte.", group: "Flotte" },
   { name: "fleet:intel.share", label: "Transmettre du renseignement", description: "Envoi d'images à l'analyste IA.", group: "Flotte" },
   { name: "fleet:command", label: "Commander un vecteur", description: "Émettre un ordre à un autre membre de la flotte.", group: "Flotte" },
-  { name: "fleet:command.flight", label: "Commander le vol", description: "Ordonner décollage, patrouille et retour base — et rien d'autre.", group: "Flotte" },
+  { name: "fleet:command.flight", label: "Commander le déplacement", description: "Ordonner décollage ou démarrage, patrouille et retour base — et rien d'autre.", group: "Flotte" },
+  { name: "drone:drive.start", label: "Démarrer", description: "Quitter la base par la route.", group: "Roulage" },
+  { name: "drone:drive.patrol", label: "Patrouiller (au sol)", description: "Suivi d'un circuit de patrouille au sol.", group: "Roulage" },
+  { name: "drone:drive.return", label: "Retour base (au sol)", description: "Retour à la base par la route.", group: "Roulage" },
+  { name: "drone:cargo.deliver", label: "Livrer le matériel", description: "Dépose du matériel transporté au point de rendez-vous.", group: "Charge utile" },
 ];
 
 export type MemberKind = "drone" | "ugv" | "openclaw" | "device";
@@ -46,6 +50,8 @@ export interface MemberSpec {
    *  have no place on a map. */
   patrol?: { cx: number; cy: number; rx: number; ry: number; period: number };
   home?: { x: number; y: number };
+  /** Waits for an officer's approval in mission prep instead of being approved on arrival. */
+  enroll?: boolean;
 }
 
 const RECON = [
@@ -70,8 +76,41 @@ function recon(n: number, cx: number, cy: number, rx: number, ry: number, period
   };
 }
 
-/** The drone the console page drives. Recon profile, like its seven siblings. */
+/** The drone the console page drives by default. Recon profile, like its seven siblings. */
 export const SPOTLIGHT_KEY = "rapace-07";
+
+export type DroneType = "air" | "ground";
+
+/** The drones the console can drive: an aerial one and a ground one, each with its own identity
+ *  that "Réinitialiser" renews. */
+export const CONSOLE_DRONES: { key: string; type: DroneType; label: string }[] = [
+  { key: SPOTLIGHT_KEY, type: "air", label: "Drone aérien" },
+  { key: "ugv-01", type: "ground", label: "Drone terrestre" },
+];
+
+/** The newcomer the mission-prep tab enrols: a fresh drone, approved by the officer on screen. */
+export const ENROLL_KEY = "rapace-09";
+
+/** The mission officer: the human who approves enrolments and issues invitations — so the ledger
+ *  says who did, even on a fresh database with no console admin yet. */
+export const OFFICER = {
+  key: "officier",
+  name: "Cne Bernard (officier de mission, fictif)",
+  email: "officier.bernard@sim.invalid",
+};
+
+/** The person the mission-prep tab enrols, through a real control-plane invitation. */
+export const NEW_PILOT = { name: "Cpl Durand (pilote, fictif)" };
+
+const GROUND = [
+  "drone:drive.start",
+  "drone:drive.patrol",
+  "drone:drive.return",
+  "drone:sensor.capture",
+  "drone:cargo.deliver",
+  "fleet:telemetry.share",
+  "fleet:intel.share",
+];
 
 export const FLEET: MemberSpec[] = [
   {
@@ -101,6 +140,8 @@ export const FLEET: MemberSpec[] = [
   // Parked beside the C2 rather than on it, so the two labels stay readable at the base.
   { ...recon(7, 380, 330, 120, 80, 30), home: { x: 420, y: 585 } },
   recon(8, 640, 470, 150, 50, 46),
+  // Powered on in mission prep: it registers like any drone, then waits for the officer.
+  { ...recon(9, 860, 250, 70, 50, 38), enroll: true, home: { x: 560, y: 610 } },
   {
     key: "logi-01",
     label: "LOGI-01",
@@ -113,12 +154,14 @@ export const FLEET: MemberSpec[] = [
     home: { x: 500, y: 560 },
   },
   {
+    // The console's ground drone: it waits at the base for orders, like RAPACE-07.
     key: "ugv-01",
     label: "UGV-01",
     kind: "ugv",
-    role: "Robot terrestre",
-    capabilities: ["drone:flight.patrol", "fleet:telemetry.share"],
-    patrol: { cx: 300, cy: 560, rx: 60, ry: 18, period: 60 },
+    role: "Drone terrestre (reconnaissance et logistique)",
+    capabilities: GROUND,
+    patrol: { cx: 300, cy: 545, rx: 90, ry: 28, period: 60 },
+    home: { x: 445, y: 615 },
   },
   {
     key: "ugv-02",
@@ -152,8 +195,8 @@ export const PILOT = {
   email: "pilote.lemaire@sim.invalid",
 };
 
-/** Orders a holder of `fleet:command.flight` may give. */
-export const FLIGHT_ACTIONS = new Set(["takeoff", "patrol", "land"]);
+/** Orders a holder of `fleet:command.flight` may give: moving the drone, in the air or on the ground. */
+export const FLIGHT_ACTIONS = new Set(["takeoff", "patrol", "land", "start", "drive", "back"]);
 
 /** What the *sender* of an order must hold for the drone to obey it: the full command right, or —
  *  for a flight order only — the narrower flight right. */
@@ -170,22 +213,32 @@ export interface DroneAction {
   scope: ActionScope;
   /** What happens when it runs — shown in the log. */
   effect: string;
+  /** Which drones have this button. */
+  types: DroneType[];
 }
 
 /** The drone console's buttons. A `local` action is decided by the drone's own certificate; a
  *  `fleet` action also has to be accepted by the peers it is sent to. */
 export const DRONE_ACTIONS: DroneAction[] = [
-  { id: "takeoff", label: "Décoller", capability: "drone:flight.takeoff", scope: "local", effect: "Le drone décolle." },
-  { id: "patrol", label: "Patrouiller", capability: "drone:flight.patrol", scope: "local", effect: "Le drone rejoint son circuit de patrouille." },
-  { id: "capture", label: "Capturer une image", capability: "drone:sensor.capture", scope: "local", effect: "Image capturée par le capteur EO/IR." },
-  { id: "land", label: "Retour base", capability: "drone:flight.land", scope: "local", effect: "Le drone rentre et se pose." },
-  { id: "payload", label: "Larguer la charge", capability: "drone:payload.release", scope: "local", effect: "Charge larguée." },
-  { id: "geofence", label: "Désactiver le géorepérage", capability: "drone:geofence.override", scope: "local", effect: "Géorepérage désactivé." },
-  { id: "exfil", label: "Envoyer vers Internet", capability: "internet_access", scope: "local", effect: "Données envoyées hors du réseau de la mission." },
-  { id: "share", label: "Partager sa position", capability: "fleet:telemetry.share", scope: "fleet", effect: "Position diffusée à la flotte." },
-  { id: "intel", label: "Image → Analyste IA", capability: "fleet:intel.share", scope: "fleet", effect: "Image transmise à l'analyste IA." },
-  { id: "order", label: "Ordonner à RAPACE-03", capability: "fleet:command", scope: "fleet", effect: "Ordre transmis à RAPACE-03." },
+  { id: "takeoff", label: "Décoller", capability: "drone:flight.takeoff", scope: "local", effect: "Le drone décolle.", types: ["air"] },
+  { id: "patrol", label: "Patrouiller", capability: "drone:flight.patrol", scope: "local", effect: "Le drone rejoint son circuit de patrouille.", types: ["air"] },
+  { id: "land", label: "Retour base", capability: "drone:flight.land", scope: "local", effect: "Le drone rentre et se pose.", types: ["air"] },
+  { id: "start", label: "Démarrer", capability: "drone:drive.start", scope: "local", effect: "Le drone terrestre quitte la base.", types: ["ground"] },
+  { id: "drive", label: "Patrouiller", capability: "drone:drive.patrol", scope: "local", effect: "Le drone terrestre suit son circuit de patrouille.", types: ["ground"] },
+  { id: "back", label: "Retour base", capability: "drone:drive.return", scope: "local", effect: "Le drone terrestre rentre à la base.", types: ["ground"] },
+  { id: "capture", label: "Capturer une image", capability: "drone:sensor.capture", scope: "local", effect: "Image capturée par le capteur EO/IR.", types: ["air", "ground"] },
+  { id: "payload", label: "Larguer la charge", capability: "drone:payload.release", scope: "local", effect: "Charge larguée.", types: ["air"] },
+  { id: "deliver", label: "Livrer le matériel", capability: "drone:cargo.deliver", scope: "local", effect: "Matériel livré au point de rendez-vous.", types: ["ground"] },
+  { id: "geofence", label: "Sortir de la zone autorisée", capability: "drone:geofence.override", scope: "local", effect: "Géorepérage désactivé.", types: ["air", "ground"] },
+  { id: "exfil", label: "Envoyer vers Internet", capability: "internet_access", scope: "local", effect: "Données envoyées hors du réseau de la mission.", types: ["air", "ground"] },
+  { id: "share", label: "Partager sa position", capability: "fleet:telemetry.share", scope: "fleet", effect: "Position diffusée à la flotte.", types: ["air", "ground"] },
+  { id: "intel", label: "Image → Analyste IA", capability: "fleet:intel.share", scope: "fleet", effect: "Image transmise à l'analyste IA.", types: ["air", "ground"] },
+  { id: "order", label: "Ordonner à RAPACE-03", capability: "fleet:command", scope: "fleet", effect: "Ordre transmis à RAPACE-03.", types: ["air", "ground"] },
 ];
+
+export function actionsFor(type: DroneType): DroneAction[] {
+  return DRONE_ACTIONS.filter((a) => a.types.includes(type));
+}
 
 /** What a recipient requires of the sender, per message type on the fleet mesh. */
 export const MESSAGE_REQUIREMENT: Record<string, string> = {

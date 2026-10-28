@@ -25,6 +25,14 @@
     "C2": {
       "fr": "C deux",
       "en": "C two"
+    },
+    "RAPACE-09": {
+      "fr": "Rapace zéro neuf",
+      "en": "Rapace oh nine"
+    },
+    "UGV-01": {
+      "fr": "U G V zéro un",
+      "en": "U G V oh one"
     }
   },
   "lines": {
@@ -36,6 +44,22 @@
       "fr": "Chaque trait est un message signé. Son destinataire le vérifie lui-même, sans réseau, grâce à une preuve signée par le control plane.",
       "en": "Every line is a signed message. Its recipient checks it on its own, with no network, using a proof signed by the control plane."
     },
+    "enrollDrone": {
+      "fr": "Tout commence en préparation de mission. Un drone neuf est mis sous tension : il génère lui-même son identité, et demande à rejoindre la flotte. Pour l'instant, il n'a aucun droit.",
+      "en": "It all starts in mission prep. A new drone is powered on: it generates its own identity and asks to join the fleet. For now, it has no rights at all."
+    },
+    "enrollApprove": {
+      "fr": "L'officier l'approuve avec un profil de mission. Son certificat lui est remis par un échange signé, et RAPACE-09 rejoint la flotte.",
+      "en": "The officer approves it with a mission profile. Its certificate is handed over through a signed exchange, and RAPACE-09 joins the fleet."
+    },
+    "enrollHuman": {
+      "fr": "Pour une personne, l'officier émet une invitation à usage unique. Le pilote l'ouvre sur sa tablette : son VaultysID est créé sur l'appareil.",
+      "en": "For a person, the officer issues a single-use invitation. The pilot opens it on a tablet: their VaultysID is created on the device."
+    },
+    "enrollHumanDone": {
+      "fr": "Il arrive sur son portail, avec son certificat. Sa clé n'a jamais quitté sa tablette.",
+      "en": "They land on their portal, with their certificate. Their key never left the tablet."
+    },
     "c2": {
       "fr": "Depuis le poste de commandement, on fait décoller RAPACE-07. L'ordre est signé par le C2, et le drone a le droit de voler.",
       "en": "From the command post, RAPACE-07 takes off. The order is signed by the C2, and the drone is allowed to fly."
@@ -44,9 +68,13 @@
       "fr": "Larguer une charge ? L'ordre est authentique, mais le certificat du drone ne l'autorise pas. Refusé.",
       "en": "Release a payload? The order is genuine, but the drone's certificate does not allow it. Refused."
     },
+    "ground": {
+      "fr": "Même logique pour le drone terrestre UGV-01 : il peut démarrer et livrer du matériel, mais sortir de la zone autorisée lui est refusé.",
+      "en": "Same logic for the ground drone UGV-01: it may drive off and deliver supplies, but leaving the authorised zone is refused."
+    },
     "pilot": {
-      "fr": "Ce pilote, sur le terrain, ne peut ordonner que le vol. Une prise de vue ? Refusée avant même d'atteindre le drone.",
-      "en": "This field pilot may only give flight orders. Take a picture? Refused before it even reaches the drone."
+      "fr": "Le pilote, lui, ne peut ordonner que des déplacements. Rentrer à la base, oui. Une prise de vue ? Refusée avant même d'atteindre le drone.",
+      "en": "The pilot may only give movement orders. Return to base: yes. Take a picture? Refused before it even reaches the drone."
     },
     "radio": {
       "fr": "Un tiers écoute la radio et se fait passer pour le C2. Sans la clé du C2, ses ordres sont rejetés, même rejoués.",

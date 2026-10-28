@@ -902,7 +902,7 @@ window.addEventListener("fleet-state", (ev) => {
     }
     e.status = m.status;
     e.spotlight = m.spotlight;
-    const hijacked = m.spotlight && s.attacker.activity === "control";
+    const hijacked = m.key === s.attacker.target && s.attacker.activity === "control";
     const color = BAD.has(m.status)
       ? C.deny
       : hijacked
@@ -914,7 +914,8 @@ window.addEventListener("fleet-state", (ev) => {
             : C.fleet;
     e.color.setHex(color);
     e.hijacked = hijacked;
-    const text = m.label + (BAD.has(m.status) ? ` · ${m.status.toUpperCase()}` : hijacked ? " · COMPROMIS" : "");
+    const text =
+      m.label + (BAD.has(m.status) ? ` · ${m.status.toUpperCase()}` : hijacked ? " · COMPROMIS" : m.enrolling ? " · EN ATTENTE D'ENRÔLEMENT" : "");
     if (e.div.textContent !== text) e.div.textContent = text;
     e.div.classList.toggle("bad", BAD.has(m.status));
     e.div.classList.toggle("hijacked", hijacked);
@@ -922,7 +923,10 @@ window.addEventListener("fleet-state", (ev) => {
   }
 
   ATTACKER.activity = s.attacker.activity;
-  const atk = `TIERS · LIEN RADIO<br><span>${ACTIVITY[s.attacker.activity]}</span>`;
+  ATTACKER.target = s.attacker.target;
+  const held = s.attacker.target && s.members.find((m) => m.key === s.attacker.target);
+  const doing = s.attacker.activity === "control" && held ? `contrôle ${held.label}` : ACTIVITY[s.attacker.activity];
+  const atk = `TIERS · LIEN RADIO<br><span>${doing}</span>`;
   if (ATTACKER.div.innerHTML !== atk) ATTACKER.div.innerHTML = atk;
 
   // The first state only marks what is already in flight; replaying it would fire a volley of
@@ -1082,10 +1086,10 @@ function frame() {
     waveClock = 0;
     if (!reducedMotion || hot) wave();
   }
-  const riding = ATTACKER.activity === "control" && sp;
+  const riding = ATTACKER.activity === "control" && ATTACKER.target && entities.get(ATTACKER.target);
   hijack.line.visible = Boolean(riding);
   if (riding) {
-    anchor(spotlightKey, B);
+    anchor(ATTACKER.target, B);
     const attr = hijack.line.geometry.attributes.position;
     for (let k = 0; k < attr.count; k++) {
       curvePoint(attackerTop, B, k / (attr.count - 1), P);

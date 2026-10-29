@@ -8,6 +8,11 @@
   Light  50 = lightest  →  Dark  50 = darkest  (inverted lightness)
   Light 500 = midpoint  →  Dark 500 = same midpoint
   Light 950 = darkest   →  Dark 950 = lightest
+
+  Bastion art direction (design/directions/01-bastion.html): warm stone
+  neutrals, navy ink, orange reserved for action. One deliberate break in
+  the ramp: light `background-100` (cards) is white, lighter than
+  `background-50` (the page), so cards lift off a stone page.
 */
 
 /* ── Light mode ─────────────────────────────────────────────── */
@@ -51,18 +56,18 @@
   --success-900: 6 78 59;
   --success-950: 2 44 34;
 
-  /* warning — Amber */
-  --warning-50: 255 251 235;
-  --warning-100: 254 243 199;
-  --warning-200: 253 230 138;
-  --warning-300: 252 211 77;
-  --warning-400: 251 191 36;
-  --warning-500: 245 158 11;
-  --warning-600: 217 119 6;
-  --warning-700: 180 83 9;
-  --warning-800: 146 64 14;
-  --warning-900: 120 53 15;
-  --warning-950: 69 26 3;
+  /* warning — Bastion ochre (#8F6B00 = 600) — kept well away from the orange primary */
+  --warning-50: 253 249 236;
+  --warning-100: 250 240 204;
+  --warning-200: 244 224 150;
+  --warning-300: 232 200 92;
+  --warning-400: 214 172 40;
+  --warning-500: 184 142 10;
+  --warning-600: 143 107 0;
+  --warning-700: 117 87 0;
+  --warning-800: 92 69 6;
+  --warning-900: 74 56 8;
+  --warning-950: 43 32 4;
 
   /* danger — Red */
   --danger-50: 254 242 242;
@@ -77,44 +82,44 @@
   --danger-900: 127 29 29;
   --danger-950: 69 10 10;
 
-  /* neutral — Zinc */
-  --neutral-50: 250 250 250;
-  --neutral-100: 244 244 245;
-  --neutral-200: 228 228 231;
-  --neutral-300: 212 212 216;
-  --neutral-400: 161 161 170;
-  --neutral-500: 113 113 122;
-  --neutral-600: 82 82 91;
-  --neutral-700: 63 63 70;
-  --neutral-800: 39 39 42;
-  --neutral-900: 24 24 27;
-  --neutral-950: 9 9 11;
+  /* neutral — Bastion stone (borders: 200 = #E3E0D8, 300 = #CFCAC0) */
+  --neutral-50: 247 246 242;
+  --neutral-100: 238 236 230;
+  --neutral-200: 227 224 216;
+  --neutral-300: 207 202 192;
+  --neutral-400: 168 162 150;
+  --neutral-500: 128 122 111;
+  --neutral-600: 98 93 84;
+  --neutral-700: 74 70 63;
+  --neutral-800: 50 47 42;
+  --neutral-900: 33 31 28;
+  --neutral-950: 20 19 17;
 
-  /* background — Slate (surfaces & page bg) */
-  --background-50: 248 250 252;
-  --background-100: 241 245 249;
-  --background-200: 226 232 240;
-  --background-300: 203 213 225;
-  --background-400: 148 163 184;
-  --background-500: 100 116 139;
-  --background-600: 71 85 105;
-  --background-700: 51 65 85;
-  --background-800: 30 41 59;
-  --background-900: 15 23 42;
-  --background-950: 2 6 23;
+  /* background — Bastion surfaces (50 = #F4F3EF page, 100 = white cards, 200 = subtle fill) */
+  --background-50: 244 243 239;
+  --background-100: 255 255 255;
+  --background-200: 237 235 229;
+  --background-300: 220 216 206;
+  --background-400: 139 151 155;
+  --background-500: 86 103 109;
+  --background-600: 58 75 82;
+  --background-700: 36 54 61;
+  --background-800: 22 50 61;
+  --background-900: 13 31 38;
+  --background-950: 7 18 23;
 
-  /* foreground — Gray (text & icons) */
-  --foreground-50: 249 250 251;
-  --foreground-100: 243 244 246;
-  --foreground-200: 229 231 235;
-  --foreground-300: 209 213 219;
-  --foreground-400: 156 163 175;
-  --foreground-500: 107 114 128;
-  --foreground-600: 75 85 99;
-  --foreground-700: 55 65 81;
-  --foreground-800: 31 41 55;
-  --foreground-900: 17 24 39;
-  --foreground-950: 3 7 18;
+  /* foreground — Bastion ink (900 = navy #16323D, 500 = secondary text, 400 = muted) */
+  --foreground-50: 248 249 249;
+  --foreground-100: 240 242 242;
+  --foreground-200: 225 228 228;
+  --foreground-300: 196 202 203;
+  --foreground-400: 139 151 155;
+  --foreground-500: 92 108 114;
+  --foreground-600: 72 89 96;
+  --foreground-700: 52 70 77;
+  --foreground-800: 36 54 61;
+  --foreground-900: 22 50 61;
+  --foreground-950: 11 25 31;
 }
 
 /* ── Dark mode (lightness inverted: 50↔950, 100↔900, ...) ──── */
@@ -158,18 +163,18 @@
   --success-900: 209 250 229;
   --success-950: 236 253 245;
 
-  /* warning */
-  --warning-50: 69 26 3;
-  --warning-100: 120 53 15;
-  --warning-200: 146 64 14;
-  --warning-300: 180 83 9;
-  --warning-400: 217 119 6;
-  --warning-500: 245 158 11;
-  --warning-600: 251 191 36;
-  --warning-700: 252 211 77;
-  --warning-800: 253 230 138;
-  --warning-900: 254 243 199;
-  --warning-950: 255 251 235;
+  /* warning — Bastion ochre */
+  --warning-50: 43 32 4;
+  --warning-100: 74 56 8;
+  --warning-200: 92 69 6;
+  --warning-300: 117 87 0;
+  --warning-400: 160 125 20;
+  --warning-500: 200 162 50;
+  --warning-600: 227 193 85;
+  --warning-700: 236 210 130;
+  --warning-800: 244 228 175;
+  --warning-900: 250 240 210;
+  --warning-950: 253 249 236;
 
   /* danger */
   --danger-50: 69 10 10;
@@ -184,42 +189,42 @@
   --danger-900: 254 226 226;
   --danger-950: 254 242 242;
 
-  /* neutral */
-  --neutral-50: 9 9 11;
-  --neutral-100: 24 24 27;
-  --neutral-200: 39 39 42;
-  --neutral-300: 63 63 70;
-  --neutral-400: 82 82 91;
-  --neutral-500: 113 113 122;
-  --neutral-600: 161 161 170;
-  --neutral-700: 212 212 216;
-  --neutral-800: 228 228 231;
-  --neutral-900: 244 244 245;
-  --neutral-950: 250 250 250;
+  /* neutral — Bastion borders (200 = #1D3540) */
+  --neutral-50: 14 28 35;
+  --neutral-100: 21 41 50;
+  --neutral-200: 29 53 64;
+  --neutral-300: 42 70 83;
+  --neutral-400: 64 92 104;
+  --neutral-500: 98 122 131;
+  --neutral-600: 140 160 167;
+  --neutral-700: 186 200 205;
+  --neutral-800: 214 223 226;
+  --neutral-900: 233 238 240;
+  --neutral-950: 245 247 248;
 
-  /* background */
-  --background-50: 2 6 23;
-  --background-100: 15 23 42;
-  --background-200: 30 41 59;
-  --background-300: 51 65 85;
-  --background-400: 71 85 105;
-  --background-500: 100 116 139;
-  --background-600: 148 163 184;
-  --background-700: 203 213 225;
-  --background-800: 226 232 240;
-  --background-900: 241 245 249;
-  --background-950: 248 250 252;
+  /* background — Bastion surfaces (50 = #0B171C page, 100 = #10212A cards) */
+  --background-50: 11 23 28;
+  --background-100: 16 33 42;
+  --background-200: 23 44 54;
+  --background-300: 29 53 64;
+  --background-400: 42 70 83;
+  --background-500: 75 99 109;
+  --background-600: 108 132 140;
+  --background-700: 154 174 181;
+  --background-800: 211 222 225;
+  --background-900: 232 238 240;
+  --background-950: 244 247 248;
 
-  /* foreground */
-  --foreground-50: 3 7 18;
-  --foreground-100: 17 24 39;
-  --foreground-200: 31 41 55;
-  --foreground-300: 55 65 81;
-  --foreground-400: 75 85 99;
-  --foreground-500: 107 114 128;
-  --foreground-600: 156 163 175;
-  --foreground-700: 209 213 219;
-  --foreground-800: 229 231 235;
-  --foreground-900: 243 244 246;
-  --foreground-950: 249 250 251;
+  /* foreground — Bastion ink (900 = #EEF3F4) */
+  --foreground-50: 15 28 34;
+  --foreground-100: 26 42 50;
+  --foreground-200: 42 62 71;
+  --foreground-300: 70 92 101;
+  --foreground-400: 108 132 140;
+  --foreground-500: 140 160 167;
+  --foreground-600: 165 182 188;
+  --foreground-700: 186 200 205;
+  --foreground-800: 211 222 225;
+  --foreground-900: 238 243 244;
+  --foreground-950: 248 250 250;
 }

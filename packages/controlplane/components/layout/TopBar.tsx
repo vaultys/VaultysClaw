@@ -38,7 +38,7 @@ export default function TopBar({ onOpenCommand }: { onOpenCommand: () => void })
   const displayLabel = session?.user?.name || (did ? shortDid(did) : "Account");
 
   return (
-    <header className="flex items-center justify-between h-14 px-4 bg-background border-b border-neutral-200/60 shrink-0">
+    <header className="flex items-center justify-between h-16 px-6 bg-background-100 border-b border-neutral-200 shrink-0">
       <nav className="flex items-center gap-1.5 text-sm min-w-0">
         {breadcrumbs.map((crumb, i) => {
           const isLast = i === breadcrumbs.length - 1;
@@ -71,13 +71,13 @@ export default function TopBar({ onOpenCommand }: { onOpenCommand: () => void })
         <button
           type="button"
           onClick={onOpenCommand}
-          className="hidden min-w-[220px] items-center justify-between gap-3 rounded-lg border border-neutral-200 bg-background-100 px-2.5 py-1.5 text-sm text-foreground-500 transition-colors hover:bg-background-200/60 hover:text-foreground md:flex"
+          className="hidden min-w-[280px] items-center justify-between gap-3 rounded-lg border border-neutral-200 bg-background-50 px-2.5 py-1.5 text-sm text-foreground-500 transition-colors hover:bg-background-200/60 hover:text-foreground md:flex"
         >
           <span className="flex min-w-0 items-center gap-2">
             <Search className="h-3.5 w-3.5 shrink-0" />
             <span className="truncate">Search admin...</span>
           </span>
-          <kbd className="rounded border border-neutral-200 bg-background px-1.5 py-0.5 text-[10px] font-medium text-foreground-400">
+          <kbd className="rounded border border-neutral-200 bg-background-100 px-1.5 py-0.5 font-mono text-[10px] font-medium text-foreground-400">
             ⌘K
           </kbd>
         </button>
@@ -100,7 +100,7 @@ export default function TopBar({ onOpenCommand }: { onOpenCommand: () => void })
               : "text-foreground-700 hover:text-foreground hover:bg-background-200/60"
           )}
         >
-          <span className="w-6 h-6 bg-primary-600 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0">
+          <span className="w-7 h-7 bg-secondary-700 dark:bg-secondary-400 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0">
             <User className="w-3.5 h-3.5" />
           </span>
           <span className="hidden sm:block max-w-[140px] truncate text-xs">{displayLabel}</span>

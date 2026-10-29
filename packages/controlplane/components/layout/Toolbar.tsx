@@ -480,11 +480,12 @@ export default function Toolbar() {
       className="flex flex-col bg-background border-b border-neutral-200/60 shrink-0"
     >
       <div
-        className={`flex items-center gap-4 px-6 pt-3 ${
-          tabActions.length > 0 ? "pb-2" : "pb-3"
+        className={`flex items-end gap-4 px-6 pt-5 ${
+          tabActions.length > 0 ? "pb-3" : "pb-4"
         }`}
       >
         <div ref={titleRef} className="min-w-0 shrink-0 max-w-[40%]">
+          <span aria-hidden className="crenel mb-2.5 w-14" />
           {config.onTitleChange ? (
             <div className="flex min-w-0 items-center gap-1.5">
               <EditableTitle
@@ -496,7 +497,7 @@ export default function Toolbar() {
             </div>
           ) : (
             <div className="flex min-w-0 items-center gap-1.5">
-              <h1 className="truncate text-lg font-semibold text-foreground">
+              <h1 className="truncate text-xl font-semibold tracking-tight text-foreground">
                 {config.title}
               </h1>
               {config.info && <TitleInfo {...config.info} />}

@@ -49,6 +49,7 @@
     "video:down": "docker compose -p vaultysclaw-video -f docker/docker-compose.simulator.yml --env-file docker/video.env down",
     "video:nuke": "docker compose -p vaultysclaw-video -f docker/docker-compose.simulator.yml --env-file docker/video.env down -v && rm -rf packages/videos/.generated-videos/.simdata packages/videos/.generated-videos/.auth",
     "generate:videos": "pnpm --filter @vaultysclaw/videos generate",
+    "generate:video:ecw": "pnpm --filter @vaultysclaw/videos generate:ecw",
     "generate:marketing": "pnpm --filter @vaultysclaw/videos generate:marketing",
     "doctor": "bash quick-start.sh --check",
     "setup": "bash quick-start.sh",

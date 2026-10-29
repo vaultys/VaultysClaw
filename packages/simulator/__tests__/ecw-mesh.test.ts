@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { VaultysId } from "@vaultys/id";
 import { signCertStatusResponseCert } from "@vaultysclaw/policy";
 import { forgeStaple, signFleetMessage, verifyFleetMessage } from "../src/ecw/mesh.js";
-import { DRONE_ACTIONS, FLEET, REGISTRY, SPOTLIGHT_KEY } from "../src/ecw/scenario.js";
+import { CONSOLE_DRONES, DRONE_ACTIONS, ENROLL_KEY, FLEET, REGISTRY, actionsFor, orderRequirements } from "../src/ecw/scenario.js";
 import { assertValidCapabilityName } from "@vaultysclaw/policy";
 
 const vid = async () => (await VaultysId.generateMachine()).toVersion(1);
@@ -95,6 +95,44 @@ describe("fleet mesh verification", () => {
   });
 });
 
+describe("a narrower command right", () => {
+  it("lets a flight-only sender order a flight action but not anything else", async () => {
+    const [cp, pilot, drone] = [await vid(), await vid(), await vid()];
+    const proof = await staple(cp, pilot.did, "active", ["fleet:command.flight"]);
+    const order = (action: string) =>
+      signFleetMessage(pilot, {
+        id: crypto.randomUUID(),
+        messageType: "command",
+        payload: { action, target: drone.did },
+        sentAt: Date.now(),
+        staple: proof,
+      });
+    const verify = async (action: string) =>
+      verifyFleetMessage(cp, await order(action), { ...opts, requirement: orderRequirements(action), audience: drone.did });
+    expect((await verify("land")).accepted).toBe(true);
+    expect(await verify("payload")).toMatchObject({ accepted: false, check: "capability" });
+  });
+});
+
+describe("orders are bound to their recipient", () => {
+  it("refuses a genuine order replayed to a drone it was not addressed to", async () => {
+    const [cp, c2, target, other] = [await vid(), await vid(), await vid(), await vid()];
+    const order = await signFleetMessage(c2, {
+      id: crypto.randomUUID(),
+      messageType: "command",
+      payload: { action: "patrol", target: target.did },
+      sentAt: Date.now(),
+      staple: await staple(cp, c2.did, "active", ["fleet:command"]),
+    });
+    const command = { ...opts, requirement: "fleet:command" };
+    expect(verifyFleetMessage(cp, order, { ...command, audience: other.did })).toMatchObject({
+      accepted: false,
+      check: "audience",
+    });
+    expect(verifyFleetMessage(cp, order, { ...command, audience: target.did }).accepted).toBe(true);
+  });
+});
+
 describe("ECW scenario data", () => {
   it("uses only valid capability names", () => {
     for (const entry of REGISTRY) expect(() => assertValidCapabilityName(entry.name)).not.toThrow();
@@ -107,10 +145,19 @@ describe("ECW scenario data", () => {
       for (const c of member.capabilities) expect(registry.has(c) || !c.includes(":")).toBe(true);
   });
 
-  it("leaves the spotlight drone with both granted and refused buttons", () => {
-    const spotlight = FLEET.find((m) => m.key === SPOTLIGHT_KEY)!;
-    const granted = DRONE_ACTIONS.filter((a) => spotlight.capabilities.includes(a.capability));
-    expect(granted.length).toBeGreaterThan(2);
-    expect(granted.length).toBeLessThan(DRONE_ACTIONS.length);
+  it("leaves each console drone with both granted and refused buttons", () => {
+    for (const drone of CONSOLE_DRONES) {
+      const spec = FLEET.find((m) => m.key === drone.key)!;
+      const actions = actionsFor(drone.type);
+      const granted = actions.filter((a) => spec.capabilities.includes(a.capability));
+      expect(granted.length).toBeGreaterThan(2);
+      expect(granted.length).toBeLessThan(actions.length);
+    }
   });
+
+  it("keeps the newcomer waiting for the officer", () => {
+    expect(FLEET.find((m) => m.key === ENROLL_KEY)?.enroll).toBe(true);
+    expect(FLEET.filter((m) => m.enroll)).toHaveLength(1);
+  });
+
 });

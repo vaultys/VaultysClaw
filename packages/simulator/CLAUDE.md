@@ -302,6 +302,40 @@ observed the same way.
 - **The compromised drone replays its last active staple**, which is why isolation lands at most
   one staple TTL (6 s, the workspace setting) after revocation and not instantly. Shortening the
   TTL shortens that window; showing it is the point of the countdown on the drone page.
+- **The fleet view is three.js (`fleet3d.js`), served from `node_modules` by the presenter**
+  (`/vendor/three/…`, limited to `build/` and `examples/jsm/`): the page's CSP allows no CDN, and a
+  stand cannot count on the venue's network. It only listens to the `fleet-state` event the page
+  already polls for; it never decides anything. The first state only primes the seen-link set, so
+  opening the page does not replay a volley of messages that happened before it loaded.
+- **Motion is replayed ~0.9 s in the past** (`INTERP_DELAY`): each engine keeps its last server
+  positions and is drawn on a Catmull-Rom curve through them, with a speed limit so a jump
+  (take-off, return to base) becomes a flight. Chasing each poll as it arrived made every drone
+  jerk at the poll rate. The page polls every 400 ms so the buffer always brackets the drawn time.
+- **`/?debug` exposes the scene** (`window.__ecw`: `THREE`, `camera`, `controls`, `entities`) so a
+  model can be framed by hand from the console — the only way to look closely at one engine, since
+  the camera controls only orbit the whole theatre or follow RAPACE-07.
+- **The terrain is a pure function** (`terrainHeight`, seeded value noise): ground engines, markers,
+  the geofence curtain and the attacker's mast all sample it, so nothing floats or sinks.
+- **An order passes two decisions.** The sender must hold the right to *give* it
+  (`orderRequirements`: `fleet:command` for anything, `fleet:command.flight` for take-off, patrol
+  and landing only), then the drone must hold the right to *do* it. The required right is read from
+  the order's own payload, which is safe because the signature over it is checked first.
+- **The field pilot is a human Actor who does not connect.** Humans onboard through login, never the
+  WS handshake, so the person is written into the ledger like the simulator's population
+  (`upsertPeople`, `@sim.invalid`), and the radio is spoken by the `pilote` terminal — a `device`
+  whose `ownerDid` is that human. Driving a `kind: "human"` over `ActorRuntime` would be simulating a
+  path the control plane refuses.
+- **Two console drones, one state each** (`DroneConsole` in `main.ts`): RAPACE-07 (air) and UGV-01
+  (ground) each have their own mode, last decision, captured order, revocation and isolation, and
+  their own renewable identity generation (`generations.json`). Requests act on the drone they name
+  (`key`) or on the selected one (`/select`); the fleet view highlights the selected one. Buttons
+  come from `actionsFor(type)`, so a ground drone never offers "Décoller".
+- **Mission prep enrols for real.** The newcomer (`ENROLL_KEY`, RAPACE-09) registers like any member
+  but `approvePending` skips it until the officer clicks; the certificate then arrives over the
+  normal `cert_challenge` exchange. The person is enrolled through a genuine `Invitation` row
+  (random token, only its sha256 stored) redeemed by the control plane's own `/invite/<token>` page —
+  the demonstrator only watches the row for `redeemedAt`. Both are signed off by a fictional officer
+  human (`OFFICER`), so the ledger names who approved, even with no console admin.
 - **Two kinds of compromise are modelled, deliberately different.** The radio attacker cannot sign
   as the C2, so orders die at the first check. The compromised drone holds its own key, so the fleet
   believes it within its rights until revocation — the demo shows that instead of hiding it.

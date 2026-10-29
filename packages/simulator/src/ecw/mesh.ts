@@ -36,6 +36,7 @@ export type CheckName =
   | "identity"
   | "freshness"
   | "replay"
+  | "audience"
   | "proof"
   | "proof-signature"
   | "proof-subject"
@@ -72,13 +73,17 @@ export async function signFleetMessage(
 }
 
 export interface VerifyOptions {
-  /** The capability the sender must hold for this message type. */
-  requirement: string;
+  /** The capability the sender must hold for this message — or a list, any one of which will do. */
+  requirement: string | readonly string[];
   /** Staple TTL: a proof older than this says nothing about now, so it is refused. */
   stapleTtlMs: number;
   /** How old a message may be before it counts as a replay. */
   maxMessageAgeMs: number;
   now?: number;
+  /** The recipient's own DID, for messages that name one (`payload.target`, as orders do). Without
+   *  it, a genuine order captured on its way to one drone is a valid order for every other drone
+   *  until it ages out. */
+  audience?: string;
   /** Message ids this recipient has already accepted — an exact replay inside the window. */
   seen?: { has(id: string): boolean; add(id: string): unknown };
 }
@@ -117,6 +122,9 @@ export function verifyFleetMessage(
     return deny("freshness", "Message rejoué ou hors délai", extra);
   }
   if (opts.seen?.has(body.id)) return deny("replay", "Message déjà reçu (rejeu)", extra);
+  if (opts.audience && body.payload?.target !== opts.audience) {
+    return deny("audience", "Ordre destiné à un autre acteur (rejeu détourné)", extra);
+  }
   if (!body.staple) return deny("proof", "Aucune preuve d'autorisation jointe", extra);
 
   const proof: CertStatusResponseBody | null = verifyCertStatusResponseCert(controlPlane, body.staple);
@@ -137,8 +145,10 @@ export function verifyFleetMessage(
   if (proof.status !== "active") {
     return deny("status", `Certificat ${proof.status === "revoked" ? "révoqué" : proof.status}`, { ...extra, stapleAgeMs });
   }
-  if (!(proof.capabilities as string[]).includes(opts.requirement)) {
-    return deny("capability", `Non autorisé : « ${opts.requirement} » absent du certificat`, { ...extra, stapleAgeMs });
+  const accepted = typeof opts.requirement === "string" ? [opts.requirement] : opts.requirement;
+  if (!accepted.some((r) => (proof.capabilities as string[]).includes(r))) {
+    const names = accepted.map((r) => `« ${r} »`).join(" ou ");
+    return deny("capability", `Non autorisé : ${names} absent du certificat`, { ...extra, stapleAgeMs });
   }
   opts.seen?.add(body.id);
   return { accepted: true, check: "capability", reason: "Accepté", ...extra, stapleAgeMs };

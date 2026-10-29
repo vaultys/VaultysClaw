@@ -18,7 +18,7 @@ const VIEWPORT = { width: 1280, height: 720 };
 const VIDEO = { width: 1920, height: 1080 };
 const LOCALES: Record<Lang, string> = { fr: "fr-FR", en: "en-US", de: "de-DE", es: "es-ES", zh: "zh-CN" };
 
-type VideoOptions = { specFile: string; language: Lang; screensOnly: boolean };
+type VideoOptions = { specFile: string; language: Lang; screensOnly: boolean; signedIn: boolean };
 
 /**
  * The `demo` fixture records its own context (cursor overlay, 1280×720 layout at 1080p, see
@@ -31,14 +31,17 @@ const videoTest = base.extend<VideoOptions & { demo: VideoDirector }>({
   specFile: ["", { option: true }],
   language: ["fr", { option: true }],
   screensOnly: [false, { option: true }],
+  signedIn: [true, { option: true }],
 
-  demo: async ({ browser, playwright, specFile, language, screensOnly }, use, testInfo) => {
+  demo: async ({ browser, playwright, specFile, language, screensOnly, signedIn }, use, testInfo) => {
     const name = `${path.basename(specFile, ".spec.ts")}.${language}`;
     const narration = screensOnly ? undefined : loadNarration(specFile);
     const clips = narration ? await synthesize(narration, language, path.join(OUTPUT, ".tts-cache")) : [];
 
     const baseURL = testInfo.project.use.baseURL;
-    const admin = await playwright.request.newContext({ baseURL, storageState: AUTH });
+    // A video of something other than the console (the ECW demonstrator) films no session.
+    const auth = signedIn ? AUTH : undefined;
+    const admin = await playwright.request.newContext({ baseURL, storageState: auth });
     const contexts: BrowserContext[] = [];
     const newContext = async (storageState?: string) => {
       const context = await browser.newContext({
@@ -54,7 +57,7 @@ const videoTest = base.extend<VideoOptions & { demo: VideoDirector }>({
       contexts.push(context);
       return context;
     };
-    const page = await (await newContext(AUTH)).newPage();
+    const page = await (await newContext(auth)).newPage();
     page.setDefaultTimeout(30_000);
     const screencast = new Screencast(testInfo.outputPath("frames"));
     await screencast.start(page, VIDEO);
@@ -117,15 +120,18 @@ export function defineVideo(
   {
     languages = ["fr", "en"],
     screensOnly = false,
+    signedIn = true,
   }: {
     languages?: Lang[];
     /** No narration nor render: only the screens and their marks (.generated-videos/screens/). */
     screensOnly?: boolean;
+    /** Film as the signed-in admin (setup/). False for a page that is not the console. */
+    signedIn?: boolean;
   } = {},
 ) {
   for (const language of languages) {
     videoTest.describe(`lang:${language}`, () => {
-      videoTest.use({ specFile, language, screensOnly });
+      videoTest.use({ specFile, language, screensOnly, signedIn });
       videoTest(title, ({ demo }) => scenario(demo));
     });
   }

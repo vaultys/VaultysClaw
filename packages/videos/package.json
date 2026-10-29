@@ -5,6 +5,7 @@
   "private": true,
   "scripts": {
     "generate": "playwright test",
+    "generate:ecw": "playwright test -c playwright.ecw.config.ts",
     "type-check": "tsc --noEmit",
     "studio": "remotion studio intro/index.tsx",
     "generate:marketing": "tsx explainer/render.ts marketing",

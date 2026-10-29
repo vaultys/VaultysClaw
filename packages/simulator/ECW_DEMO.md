@@ -1,9 +1,10 @@
 # Démonstrateur ECW — Opération SENTINELLE
 
-Une flotte autonome fictive (8 drones de reconnaissance, 1 drone logistique, 2 robots terrestres,
-2 agents IA, 1 poste de commandement C2) et la console d'un drone, RAPACE-07, dont chaque bouton
-est accordé ou refusé selon son certificat — puis compromis, puis coupé de la flotte par
-révocation.
+Une flotte autonome fictive (9 drones de reconnaissance dont un à enrôler, 1 drone logistique,
+2 drones terrestres, 2 agents IA, 1 poste de commandement C2, un pilote et son terminal) et la
+console de deux drones — RAPACE-07 (aérien) et UGV-01 (terrestre) — dont chaque bouton est accordé
+ou refusé selon le certificat, puis compromis, puis coupé de la flotte par révocation. Un onglet
+de préparation de mission montre l'enrôlement d'un drone neuf et d'un nouveau pilote.
 
 Rien n'est simulé côté sécurité : chaque membre est un `ActorRuntime` du SDK avec sa propre
 VaultysID, ses certificats sont réellement émis par le plan de contrôle, ses preuves de statut
@@ -17,38 +18,72 @@ pnpm simulator:up      # terminal 1 : base + plan de contrôle isolés (3003 / w
 pnpm demo:ecw          # terminal 2 : le démonstrateur (localhost:3012)
 ```
 
-- **http://localhost:3012** — la vue flotte (à projeter sur le grand écran).
+- **http://localhost:3012** — la vue flotte. Pour le grand écran : **http://localhost:3012/?cinema**,
+  la scène 3D en plein cadre sous une ligne de compteurs (mémorisé pour l'onglet).
 - **http://localhost:3012/drone** — la console de RAPACE-07 (à piloter).
 - **http://localhost:3003** — le plan de contrôle. Créez-y un administrateur au premier lancement
   (`/login`) si vous voulez montrer la console ; le démonstrateur fonctionne sans.
+
+La vue flotte est une scène 3D (three.js, servi en local par le démonstrateur : aucun accès réseau
+requis sur le stand) posée sur un terrain généré (collines, forêts, lac, montagnes enneigées — le
+même à chaque chargement), avec le quadrillage tactique et les cercles de portée du C2 peints au sol. Boutons en haut à droite : **✦ Seulement RAPACE-07** (masque toutes les
+communications qui ne concernent pas RAPACE-07, y compris les attaques visant d'autres drones),
+**⏸ Pause rotation** (coupe ou relance la rotation lente automatique ; aussi la touche Espace, et toute prise en main de la caméra la met en pause — le choix est mémorisé),
+**◎ Suivre RAPACE-07** (la caméra suit le drone), **⌂ Vue d'ensemble**. Chaque message est un
+trait en arc : vert s'il est accepté, rouge avec un ✕ sur le destinataire qui le refuse. Seul un message que le certificat de son propre émetteur interdit s'arrête à mi-chemin : il n'est jamais vraiment parti. Quand
+un drone rejette un ordre du tiers radio, un bouclier cyan s'allume autour de lui. Un drone isolé
+est enfermé dans une bulle de quarantaine rouge.
 
 La flotte se connecte et s'enregistre, le démonstrateur approuve ses enregistrements avec le
 profil de chacun (comme `simulator approve`), et chaque membre récupère son certificat par un vrai
 échange Challenger. Comptez une dizaine de secondes avant que tout soit « certifié ».
 
-## Le déroulé (≈ 6 minutes)
+## Le déroulé (≈ 7 minutes)
 
-1. **La flotte.** Sur la vue flotte : chaque trait vert est un message signé par son émetteur,
+La console drone a cinq onglets et un sélecteur de drone (RAPACE-07 aérien, UGV-01 terrestre,
+chacun dessiné et animé : rotors, roues, halo vert ou rouge à chaque décision). Un point sur un
+onglet indique le contexte dont le drone sélectionné reçoit ses ordres ; Préparation et Drone ne
+font que regarder. À droite, toujours : la décision en grand et la réponse à incident. Chaque
+bouton se remplit de vert (« ✓ EXÉCUTÉ ») ou de rouge (« ⛔ REFUSÉ ») et le dernier pressé pulse.
+
+0. **Préparation de mission.** RAPACE-09 est sous tension : son identité est générée à bord, sa
+   demande d'enregistrement est arrivée, il n'a aucun droit. `Approuver avec ce profil` → le
+   certificat est remis par un vrai échange signé, il rejoint la flotte (visible sur la carte).
+   Pour une personne : `Émettre l'invitation` crée une vraie invitation du control plane (usage
+   unique, 24 h) ; ouverte sur une tablette, elle crée le VaultysID dans le navigateur et mène au
+   portail du pilote, son certificat en vigueur. Approbations et invitations sont signées par
+   l'officier de mission fictif (Cne Bernard). `Recommencer avec un drone neuf` remet la scène à zéro.
+1. **La flotte.** Sur la vue flotte : chaque arc vert est un message signé par son émetteur,
    accompagné d'une preuve de statut signée par le plan de contrôle, et vérifié **hors ligne** par
    son destinataire. Pas de secret partagé, pas d'appel au serveur à chaque message.
-2. **Les droits.** Console drone, mode *Opérateur légitime* : `Décoller`, `Patrouiller`,
-   `Capturer une image` → exécutés. `Larguer la charge`, `Désactiver le géorepérage`,
-   `Envoyer vers Internet` → refusés par le certificat. Montrez que LOGI-01, lui, a le droit de
-   larguer : la décision suit le certificat, pas l'appareil.
-3. **Le lien radio.** Mode *Tiers sur le lien radio* : n'importe quel bouton → l'ordre est
-   rejeté (« usurpation d'identité ») avant d'atteindre le drone, alors même que l'attaquant a
-   intercepté la preuve authentique du C2. `Rejouer un ordre C2 capturé` → rejeté (rejeu).
-4. **La compromission.** Mode *Drone compromis* : le tiers a pris le module de communication et
-   la clé. `Partager sa position` et `Image → Analyste IA` sont **acceptés** par la flotte (de
-   fausses données entrent dans le système — c'est le risque assumé) ; `Ordonner à RAPACE-03` est
-   refusé par le pair (pas de `fleet:command`) ; `Forger une preuve` est refusé (pas signée par le
-   plan de contrôle). Le drone compromis inonde aussi l'analyste IA de faux contacts : visible sur
-   la carte.
-5. **La révocation.** `RÉVOQUER LE CERTIFICAT` (ou depuis la console du plan de contrôle). Le
+2. **C2.** `Décoller`, `Patrouiller`, `Capturer une image` → exécutés. `Larguer la charge`,
+   `Désactiver le géorepérage`, `Envoyer vers Internet` → l'ordre du C2 est authentique, mais le
+   certificat du drone refuse. LOGI-01, lui, a le droit de larguer : la décision suit le
+   certificat, pas l'appareil.
+2 bis. **Drone terrestre.** Sélectionner UGV-01 : `Démarrer`, `Livrer le matériel` → exécutés ;
+   `Sortir de la zone autorisée`, `Envoyer vers Internet`, `Ordonner à RAPACE-03` → refusés.
+3. **Humain.** Le Sgt Lemaire (fictif) est un humain du registre ; son terminal signe avec sa
+   propre clé et ne détient que `fleet:command.flight`. `Décoller` / `Retour base` → exécutés.
+   `Capturer une image` → refusé **avant** le drone : le pilote n'a pas le droit de l'ordonner,
+   alors que le drone aurait le droit de le faire. Chaque ordre passe deux décisions : celle de
+   l'émetteur, celle du drone.
+4. **Tiers attaquant — le lien radio.** N'importe quel bouton → l'ordre est rejeté (« usurpation
+   d'identité ») avant d'atteindre le drone, alors même que l'attaquant a intercepté la preuve
+   authentique du C2. `Rejouer un ordre capturé` → rejeté (rejeu).
+   Sur la vue flotte, le tiers apparaît comme une antenne rouge hors du géorepérage : tant que ce
+   mode est actif, il attaque aussi d'autres drones toutes les 2,5 s (ordres forgés, et rejeu d'un
+   vrai ordre C2 détourné vers un autre destinataire). Chaque tentative est un arc rouge qui atteint
+   le drone, où un bouclier et un ✕ marquent le rejet, et le compteur « Tiers radio » montre que toutes sont rejetées.
+5. **Tiers attaquant — le drone lui-même.** Le tiers a pris le module de communication et la clé.
+   `Partager sa position` et `Image → Analyste IA` sont **acceptés** par la flotte (de fausses
+   données entrent dans le système — c'est le risque assumé) ; `Ordonner à RAPACE-03` est refusé
+   par le pair (pas de `fleet:command`) ; `Forger une preuve` est refusé (pas signée par le plan
+   de contrôle).
+6. **La révocation.** `RÉVOQUER LE CERTIFICAT` (ou depuis la console du plan de contrôle). Le
    chronomètre montre la dernière preuve « active » de l'attaquant expirer ; en moins de
    6 secondes, tous les liens de RAPACE-07 passent au rouge : **isolé**. Le reste de la flotte
-   continue. Le contrôleur de vol applique la révocation et rentre à la base.
-6. **Après.** Tous les boutons sont refusés, quel que soit le mode. Le journal d'audit de la
+   continue. L'onglet **Drone** montre ses droits barrés et les pairs qui le refusent.
+7. **Après.** Tous les boutons sont refusés, quel que soit l'onglet. Le journal d'audit de la
    console montre la révocation. `Réinitialiser` crée un nouveau RAPACE-07 (identité neuve) ;
    l'ancien reste révoqué dans le registre.
 
@@ -72,8 +107,15 @@ profil de chacun (comme `simulator approve`), et chaque membre récupère son ce
 
 ## Ce que le démonstrateur écrit en base
 
-Uniquement dans la base jetable du simulateur (refus explicite sinon) : neuf capacités
-personnalisées `drone:*` / `fleet:*`, l'espace de travail « Opération SENTINELLE (fictive) »
+Uniquement dans la base jetable du simulateur (refus explicite sinon) : quatorze capacités
+personnalisées `drone:*` / `fleet:*`, le pilote et l'officier (des acteurs `human` en
+`@sim.invalid`), les invitations du pilote à enrôler, l'espace de travail « Opération SENTINELLE (fictive) »
 (preuves TTL 6 s, échec fermé), l'approbation des enregistrements `ecw-…`, et — pour le bouton de
 révocation du stand — la révocation du certificat de RAPACE-07 plus son entrée d'audit. Les
 identités vivent sous `packages/simulator/.simdata/ecw/` (ignoré par Git).
+
+## Le film
+
+`pnpm generate:video:ecw` filme ce déroulé (≈ 3 min 30 avec intro et outro, en français et en
+anglais) avec la pile du simulateur en marche : voir `packages/videos/CLAUDE.md`. Le tournage
+remet les deux drones et la préparation de mission dans un état propre avant et après.

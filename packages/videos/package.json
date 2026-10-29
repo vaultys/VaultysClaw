@@ -8,7 +8,9 @@
     "type-check": "tsc --noEmit",
     "studio": "remotion studio intro/index.tsx",
     "generate:marketing": "tsx explainer/render.ts marketing",
-    "studio:marketing": "remotion studio marketing/index.tsx --public-dir .generated-videos/screens"
+    "studio:marketing": "remotion studio marketing/index.tsx --public-dir .generated-videos/screens",
+    "generate:thumbnails": "tsx thumbnail/render.ts",
+    "studio:thumbnail": "remotion studio thumbnail/index.tsx"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",

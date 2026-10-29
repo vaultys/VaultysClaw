@@ -160,3 +160,44 @@ pnpm --filter @vaultysclaw/videos studio:marketing                            # 
 - **"Control plane" is never translated** in French (neither on screen nor in the narration), and is said the English way: `pronounce` in the narration (« kontrol plèïne »).
 - **The French voice is Manon** (`voice.elevenlabs.fr` in the narration, and the default); the
   English voice stays Sarah. A narration of about 2,600 characters per language.
+
+## Thumbnails (`thumbnail/`)
+
+One thumbnail per video and per language, built to make people click — ported from VaultysHub's
+`e2e/videos/thumbnail/`, in VaultysClaw's colours. A short title in very large type on the left (in
+the marketing video's display face, **Anton** in capitals), part of it in colour. A frame of the
+video on the right, zoomed in on what matters, inside a tilted window. A sticker across the two.
+The VaultysClaw wordmark at the bottom left.
+
+```bash
+pnpm generate:thumbnails                        # → .generated-videos/<name>.<lang>.thumb.jpg (1280×720, the YouTube format)
+pnpm generate:thumbnails marketing fr           # one video, one language
+pnpm generate:thumbnails --check                # + thumbnails-check.jpg: all of them, FR | EN
+pnpm --filter @vaultysclaw/videos studio:thumbnail   # preview
+```
+
+- **`thumbnail/thumbnails.ts` holds the texts and the framings**: this is the file to edit.
+  - `hook`: 2 to 6 words, a promise or a question.
+  - `highlight`: the part shown in colour, written exactly as in `hook`.
+  - `eyebrow`: the theme, in the orange pill.
+  - `sticker`: the text of the sticker.
+  - `tone`: green = it works, red = refused or danger, gold = warning, orange = the brand.
+  - `accent`: gives the coloured words a different tint from the sticker.
+- **The picture** comes from a screen recording (`screens/<video>.<lang>.mp4`, with neither intro
+  nor labels), or from the final video for the animated ones (`final: true`; `at` then includes the
+  intro).
+  - `at` is in seconds of the French video. The English video is sampled at the same fraction of
+    its length, unless `atEn` is set.
+  - `video` takes the picture from another recording, and `mark` pins it to one of its marks (`at`
+    becomes an offset). A recording made in English only (the console's case) serves both
+    languages.
+  - `focus` and `zoom` frame the part that must stay legible at a tiny size.
+  - The videos must therefore be generated first.
+- **Today**:
+  - `console-tour`: the graph centred on its biggest owner, taken from `marketing-screens` (mark
+    `graph-owner`), the same in both languages.
+  - `marketing`: the sealed certificate, from the final video (`atEn` set: the English narration
+    runs longer, and the same fraction of the video does not land on the same moment).
+- **Always look at the `--check` sheet.** A frame taken one second too early shows a loading
+  screen. Also, a text from the video can duplicate the sticker: the marketing video's "Vérifiable
+  hors ligne" pill sat right beneath a sticker saying the same thing.

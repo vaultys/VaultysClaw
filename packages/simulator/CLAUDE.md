@@ -291,9 +291,12 @@ helper as an implicit shortcut here. Test the operation boundaries in `guided-ch
 
 `pnpm demo:ecw` runs `src/ecw/main.ts` at localhost:3012 against the isolated simulator — a fleet
 view (`/`) and a drone console (`/drone`). See [ECW_DEMO.md](ECW_DEMO.md) for the talk track and the
-security model it states. Unlike the guided presenter it approves its own `ecw-` registrations and
-offers a stand shortcut for revocation (a ledger write + audit entry); console revocation is
-observed the same way.
+security model it states. Unlike the guided presenter it approves its own `ecw-` registrations on
+arrival — except a console drone's **renewed** identity (generation > 1, after "Réinitialiser"),
+which stays pending for an administrator to approve in the console (`awaitsConsole`; the only
+write is its `targetWorkspaceId`, which grants nothing). `/approve` is the stand shortcut for when no
+admin is signed in, and the film's setup uses it. It also offers a stand shortcut for revocation (a
+ledger write + audit entry); console revocation is observed the same way.
 
 - **Peers decide, the presenter never does.** `mesh.ts` is the whole fleet protocol: a message is
   signed with the sender's own key and carries its latest control-plane-signed staple

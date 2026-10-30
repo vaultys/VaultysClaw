@@ -169,6 +169,8 @@ interface DroneConsole {
   cert: { id: string; status: string; revokedAt: number | null; revokedBy: string | null } | null;
   revokedSeenAt: number | null;
   isolatedAt: number | null;
+  /** The stand shortcut was used: approve this pending identity from here instead of the console. */
+  approveHere: boolean;
 }
 
 const freshConsole = (d: (typeof CONSOLE_DRONES)[number]): DroneConsole => ({
@@ -182,6 +184,7 @@ const freshConsole = (d: (typeof CONSOLE_DRONES)[number]): DroneConsole => ({
   cert: null,
   revokedSeenAt: null,
   isolatedAt: null,
+  approveHere: false,
 });
 
 const members = new Map<string, Member>();
@@ -346,11 +349,19 @@ async function ensureFixtures() {
 /** Approve this demo's pending registrations with each member's profile — the presenter standing
  *  in for the admin, exactly as `simulator approve` does. The reconnect is what collects the grant
  *  over a real certificate exchange. The newcomer is approved only once the officer has clicked. */
+/** A console drone on a renewed identity (after "Réinitialiser"), not yet approved by the stand
+ *  shortcut: its approval belongs to an administrator, in the console. */
+const awaitsConsole = (m: Member) => {
+  const c = consoleOf(m);
+  return Boolean(c) && genOf(m.spec.key) > 1 && !c!.approveHere;
+};
+
 async function approvePending() {
   const registry = new Set((await db.customCapability.findMany({ select: { name: true } })).map((r) => r.name));
   for (const m of members.values()) {
     if (m.runtime.getStatus() !== "pending_approval") continue;
     if (m.spec.enroll && !enrolment.droneApprovedAt) continue;
+    const renewed = awaitsConsole(m);
     const did = m.runtime.getDid();
     if (!did || !m.name.startsWith(NAME_PREFIX)) continue;
     const reg = await db.pendingRegistration.findFirst({
@@ -358,6 +369,16 @@ async function approvePending() {
       orderBy: { createdAt: "desc" },
     });
     if (!reg) continue;
+    if (renewed) {
+      // A renewed console drone onboards the normal way: it stays pending until an administrator
+      // approves it in the control plane's console. All the demonstrator writes is where it
+      // should land (`targetWorkspaceId`), which grants nothing — the admin still chooses its rights.
+      if (reg.targetWorkspaceId !== workspaceId) {
+        await db.pendingRegistration.update({ where: { id: reg.id }, data: { targetWorkspaceId: workspaceId } });
+        log("info", m.spec.label, "Nouvelle identité en attente d'approbation dans le control plane");
+      }
+      continue;
+    }
     const builtins = allowedForKind(m.spec.kind);
     const granted = m.spec.capabilities.filter((c) => registry.has(c) || builtins.includes(c));
     const ownerDid = m.spec.key === "pilote" ? pilotHumanDid : officerDid;
@@ -904,6 +925,11 @@ function consoleState(c: DroneConsole, t: number) {
       last: c.lastResults[a.id] ?? null,
     })),
     trace: c.lastTrace,
+    // A renewed identity waiting for an administrator in the console's approval queue.
+    pending:
+      m.runtime.getStatus() === "pending_approval"
+        ? { inConsole: awaitsConsole(m), queueUrl: `${consoleUrl}/admin/actors?tab=pending` }
+        : null,
   };
 }
 
@@ -1087,6 +1113,15 @@ const server = createServer(async (req, res) => {
       case "/reset":
         await resetConsole(target(body));
         return json(res, 200, { ok: true });
+      case "/approve": {
+        // The stand shortcut, for when no administrator is signed into the console.
+        const c = target(body);
+        if (memberOf(c).runtime.getStatus() !== "pending_approval") throw new Error(`${memberOf(c).spec.label} n'attend pas d'approbation.`);
+        c.approveHere = true;
+        log("info", "Officier", `${memberOf(c).spec.label} approuvé depuis le démonstrateur (raccourci du stand)`);
+        await approvePending();
+        return json(res, 200, { ok: true });
+      }
       case "/enroll/approve": {
         const m = members.get(ENROLL_KEY)!;
         if (m.runtime.getStatus() !== "pending_approval") throw new Error(`${m.spec.label} n'attend pas d'approbation.`);

@@ -84,8 +84,14 @@ bouton se remplit de vert (« ✓ EXÉCUTÉ ») ou de rouge (« ⛔ REFUSÉ ») 
    6 secondes, tous les liens de RAPACE-07 passent au rouge : **isolé**. Le reste de la flotte
    continue. L'onglet **Drone** montre ses droits barrés et les pairs qui le refusent.
 7. **Après.** Tous les boutons sont refusés, quel que soit l'onglet. Le journal d'audit de la
-   console montre la révocation. `Réinitialiser` crée un nouveau RAPACE-07 (identité neuve) ;
-   l'ancien reste révoqué dans le registre.
+   console montre la révocation.
+8. **Ré-enrôlement, par le parcours normal.** `Réinitialiser ce drone` crée une identité neuve ;
+   l'ancienne reste révoquée dans le registre. La nouvelle s'enregistre et reste **en attente** :
+   le démonstrateur ne l'approuve pas. Une carte jaune le dit, et tout bouton pressé est refusé
+   (aucun certificat). `Ouvrir la file d'attente ↗` mène à **Actors → Pending** du control plane :
+   la demande y figure avec ses droits demandés pré-cochés, l'administrateur clique `Approve`, et
+   le certificat est remis aussitôt au drone connecté. Il faut un administrateur dans la console
+   (`pnpm simulator admin`, voir `CLAUDE.md`) ; sans lui, `approuver ici (raccourci du stand)`.
 
 ## Le modèle de sécurité, sans ambiguïté
 

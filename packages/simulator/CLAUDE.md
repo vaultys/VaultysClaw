@@ -323,6 +323,13 @@ ledger write + audit entry); console revocation is observed the same way.
   (`orderRequirements`: `fleet:command` for anything, `fleet:command.flight` for take-off, patrol
   and landing only), then the drone must hold the right to *do* it. The required right is read from
   the order's own payload, which is safe because the signature over it is checked first.
+- **`/enrolement` is the CIM onboarding page** (`enrolment.html`, `/cim/*` routes). The card is a
+  real VaultysID (`.simdata/ecw/cim-g<gen>/`, a new generation per start and per "Nouvelle carte");
+  the validator (the `officier` human, Cne Bernard) must hold `VALIDATE_RIGHT`
+  (`mission:enrol.validate`, granted as a standing grant), signs a validation statement checked
+  with `openCert`, then an Invitation `createdBy` the validator is redeemed by the card over
+  `@vaultys/channel-browser` — the same path as the pilot's tablet. Only the card, the reader and
+  the PIN are simulated; nothing writes a certificate by hand.
 - **The field pilot is a human Actor who does not connect.** Humans onboard through login, never the
   WS handshake, so the person is written into the ledger like the simulator's population
   (`upsertPeople`, `@sim.invalid`), and the radio is spoken by the `pilote` terminal — a `device`

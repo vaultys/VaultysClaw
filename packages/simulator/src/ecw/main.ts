@@ -21,15 +21,19 @@ import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypt
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { VaultysId } from "@vaultys/id";
+import { Challenger, VaultysId, crypto as vcrypto } from "@vaultys/id";
+import { BrowserChannel } from "@vaultys/channel-browser";
 import { ActorRuntime, loadOrCreateIdentity } from "@vaultysclaw/sdk";
 import { prisma, disconnect, allowedForKind, upsertPeople } from "../db.js";
+import { issueStandingGrant, serverIdentity } from "../grants.js";
 import { assertDemoTarget } from "../guided/checks.js";
 import {
   CONSOLE_DRONES,
   ENROLL_KEY,
   FLEET,
   NEW_PILOT,
+  CIM_HOLDER,
+  VALIDATE_RIGHT,
   OFFICER,
   PILOT,
   orderRequirements,
@@ -44,7 +48,7 @@ import {
   type DroneType,
   type MemberSpec,
 } from "./scenario.js";
-import { decodeCertUnsafe } from "@vaultysclaw/policy";
+import { decodeCertUnsafe, openCert, signCert } from "@vaultysclaw/policy";
 import { forgeStaple, peekStaple, signFleetMessage, verifyFleetMessage, type Verdict } from "./mesh.js";
 
 const PORT = 3012;
@@ -60,6 +64,7 @@ const pages = {
   fleet: await fs.readFile(new URL("./fleet.html", import.meta.url), "utf8"),
   drone: await fs.readFile(new URL("./drone.html", import.meta.url), "utf8"),
   fleet3d: await fs.readFile(new URL("./fleet3d.js", import.meta.url), "utf8"),
+  enrolment: await fs.readFile(new URL("./enrolment.html", import.meta.url), "utf8"),
 };
 
 /** three.js, served from node_modules: the page's CSP allows no CDN, and a stand cannot count on
@@ -215,6 +220,8 @@ let workspaceId = "";
 let adminDid: string | null = null;
 let pilotHumanDid: string | null = null;
 let officerDid: string | null = null;
+/** Cne Bernard's own VaultysID: the key that signs a validation. */
+let validatorVid: VaultysId | null = null;
 let ready = false;
 let fatal = "";
 let shuttingDown = false;
@@ -344,6 +351,13 @@ async function ensureFixtures() {
   // Approvals, invitations and the stand's revocations are the officer's acts, unless a console
   // admin exists — then they are theirs, as they would be in the console.
   officerDid = adminDid ?? officer.did;
+  validatorVid = officer;
+  // The validator's right is a certificate like any other: issued once, checked live on every
+  // validation, revocable from the console like the rest.
+  const holds = await db.capabilityCertificate.findFirst({
+    where: { agentDid: officer.did, status: "active", capabilities: { array_contains: [VALIDATE_RIGHT] } },
+  });
+  if (!holds) await issueStandingGrant(db, await serverIdentity(db), officer.did, [VALIDATE_RIGHT as never], "system:ecw-demo");
 }
 
 /** Approve this demo's pending registrations with each member's profile — the presenter standing
@@ -871,6 +885,185 @@ async function inviteHuman() {
   log("info", "Officier", `Invitation émise pour ${NEW_PILOT.name} (lien à usage unique, 24 h)`);
 }
 
+// ─── CIM enrolment: a military ID card with a VaultysID in its chip ─────────────
+
+/**
+ * The card is simulated — a VaultysID the presenter keeps "in the chip" — and so is the PIN pad.
+ * Everything after that is real: the card signs the reader's challenge, the validator signs the
+ * validation with their own key, and the control plane enrols the holder over the same Challenger
+ * exchange a browser or wallet uses, through an invitation issued in the validator's name.
+ */
+const cim = {
+  vid: null as VaultysId | null,
+  insertedAt: null as number | null,
+  pinAt: null as number | null,
+  proof: null as null | { nonce: string; ok: boolean },
+  identityChecked: false,
+  phase: "idle" as "idle" | "validating" | "exchanging" | "enrolled" | "failed",
+  validation: null as null | { at: number; digest: string; verified: boolean; validatorDid: string },
+  enrolled: null as null | { did: string; at: number; certificateId: string | null; capabilities: string[] },
+  error: "",
+};
+
+async function insertCard() {
+  if (cim.insertedAt) return;
+  cim.vid = await loadOrCreateIdentity(path.join(dataRoot, `cim-g${genOf("cim")}`, "identity"));
+  cim.insertedAt = Date.now();
+  log("info", "Lecteur CIM", `Carte insérée : ${CIM_HOLDER.name}`);
+}
+
+/** The PIN unlocks the chip; the chip then signs a fresh challenge from the reader, which checks it
+ *  against the card's public key — proof the person holds this card, not a copy of its data. */
+async function unlockCard() {
+  if (!cim.vid || !cim.insertedAt) throw new Error("Insérez d'abord la carte.");
+  // @vaultys/id carries its own Buffer: hand it its own, as packages/policy does.
+  const nonce = vcrypto.Buffer.from(randomBytes(24));
+  const signature = await cim.vid.signChallenge(nonce);
+  const reader = VaultysId.fromId(cim.vid.id as never).toVersion(1);
+  const ok = Boolean(reader.verifyChallenge(nonce, vcrypto.Buffer.from(signature), false));
+  cim.pinAt = Date.now();
+  cim.proof = { nonce: nonce.toString("hex"), ok };
+  log(ok ? "ok" : "deny", "Lecteur CIM", ok ? "Code PIN accepté — la puce a signé le défi du lecteur" : "Signature de la carte invalide");
+}
+
+/** Has the validator the right to validate? Asked of the ledger, not assumed. */
+async function validatorRight(): Promise<{ held: boolean; certificateId: string | null }> {
+  if (!validatorVid) return { held: false, certificateId: null };
+  const cert = await db.capabilityCertificate.findFirst({
+    where: { agentDid: validatorVid.did, status: "active", capabilities: { array_contains: [VALIDATE_RIGHT] } },
+  });
+  return { held: Boolean(cert), certificateId: cert?.id ?? null };
+}
+
+async function validateCard(identityChecked: boolean) {
+  if (!cim.vid || !cim.proof?.ok) throw new Error("La carte doit d'abord prouver qu'elle est présente (code PIN).");
+  if (!identityChecked) throw new Error("Le valideur doit d'abord contrôler l'identité en face à face.");
+  if (!(await validatorRight()).held) throw new Error(`Le valideur ne détient pas « ${VALIDATE_RIGHT} » : validation refusée.`);
+  if (cim.phase === "validating" || cim.phase === "exchanging" || cim.phase === "enrolled") return;
+  cim.identityChecked = true;
+  cim.phase = "validating";
+  cim.error = "";
+  void runEnrolment().catch((e) => {
+    cim.phase = "failed";
+    cim.error = e instanceof Error ? e.message : String(e);
+    log("deny", "Enrôlement CIM", cim.error);
+  });
+}
+
+async function runEnrolment() {
+  const card = cim.vid!;
+  const validator = validatorVid!;
+  // 1. The validator signs what they validated, with their own key.
+  const statement = {
+    type: "enrolment_validation",
+    subjectDid: card.did,
+    holder: { name: CIM_HOLDER.name, grade: CIM_HOLDER.grade, unit: CIM_HOLDER.unit, matricule: CIM_HOLDER.matricule },
+    profile: CIM_HOLDER.profile,
+    identityCheckedInPerson: true,
+    validatorDid: validator.did,
+    at: Date.now(),
+  };
+  const token = await signCert(validator, statement);
+  const verified = Boolean(openCert(VaultysId.fromId(validator.id as never).toVersion(1), token));
+  cim.validation = { at: statement.at, digest: createHash("sha256").update(token).digest("hex"), verified, validatorDid: validator.did };
+  log("ok", "Valideur", `Validation signée par ${OFFICER.name} pour ${CIM_HOLDER.name}`);
+  await pause(1200);
+
+  // 2. The control plane enrols the card: an invitation in the validator's name, redeemed by the
+  //    card's key over the Challenger exchange — the same one a browser or a wallet performs.
+  cim.phase = "exchanging";
+  const raw = randomBytes(32).toString("hex");
+  const tokenHash = createHash("sha256").update(raw).digest("hex");
+  await db.invitation.create({
+    data: {
+      tokenHash,
+      name: CIM_HOLDER.name,
+      capabilities: CIM_HOLDER.profile,
+      workspaceId,
+      createdBy: validator.did,
+      expiresAt: new Date(Date.now() + 3600 * 1000),
+    },
+  });
+  const res = await fetch(`${consoleUrl}/api/public/invite/${raw}/connect`);
+  if (!res.ok) throw new Error(`Le control plane refuse l'invitation (${res.status}).`);
+  const { key, token: listen } = (await res.json()) as { key: string; token: string };
+  const channel = new BrowserChannel(`${consoleUrl}/api/public/user/request`, key);
+  const challenger = new Challenger(card);
+  challenger.createChallenge("p2p", "auth", 0);
+  channel.send(challenger.getCertificate()!);
+  await challenger.update(await channel.receive());
+  if (!challenger.isComplete()) throw new Error("Échange Challenger incomplet.");
+  await channel.send(challenger.getCertificate()!);
+
+  // 3. Wait for the control plane to have registered the holder and issued the certificate.
+  const deadline = Date.now() + 30_000;
+  while (Date.now() < deadline) {
+    const poll = (await (await fetch(`${consoleUrl}/api/public/user/listen/${listen}`)).json()) as { status: number };
+    const inv = await db.invitation.findUnique({ where: { tokenHash } });
+    if (inv?.redeemedDid) {
+      const cert = await db.capabilityCertificate.findFirst({ where: { agentDid: inv.redeemedDid, status: "active" }, orderBy: { issuedAt: "desc" } });
+      if (cert) {
+        cim.enrolled = { did: inv.redeemedDid, at: Date.now(), certificateId: cert.id, capabilities: cert.capabilities as string[] };
+        cim.phase = "enrolled";
+        log("ok", CIM_HOLDER.name, "Enrôlé : certificat émis par le control plane, sur validation du valideur");
+        return;
+      }
+    }
+    if (poll.status === -2) throw new Error("Le control plane a refusé l'échange.");
+    await pause(700);
+  }
+  throw new Error("Le control plane n'a pas confirmé l'enrôlement à temps.");
+}
+
+const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+async function resetCard() {
+  gens.cim = genOf("cim") + 1;
+  await saveGens();
+  Object.assign(cim, {
+    vid: null,
+    insertedAt: null,
+    pinAt: null,
+    proof: null,
+    identityChecked: false,
+    phase: "idle",
+    validation: null,
+    enrolled: null,
+    error: "",
+  });
+}
+
+async function cimState() {
+  const right = await validatorRight();
+  return {
+    holder: CIM_HOLDER,
+    card: cim.vid ? { did: cim.vid.did, number: genOf("cim") } : null,
+    insertedAt: cim.insertedAt,
+    pinAt: cim.pinAt,
+    proof: cim.proof,
+    identityChecked: cim.identityChecked,
+    phase: cim.phase,
+    error: cim.error,
+    validator: {
+      name: OFFICER.name,
+      did: validatorVid?.did ?? null,
+      right: VALIDATE_RIGHT,
+      held: right.held,
+      certificateUrl: right.certificateId ? `${consoleUrl}/admin/certificates/${right.certificateId}` : null,
+      actorUrl: validatorVid ? actorUrl(validatorVid.did) : null,
+    },
+    validation: cim.validation,
+    enrolled: cim.enrolled
+      ? {
+          ...cim.enrolled,
+          actorUrl: actorUrl(cim.enrolled.did),
+          certificateUrl: cim.enrolled.certificateId ? `${consoleUrl}/admin/certificates/${cim.enrolled.certificateId}` : null,
+        }
+      : null,
+    auditUrl: `${consoleUrl}/admin/audit`,
+  };
+}
+
 // ─── State for the pages ───────────────────────────────────────────────────────
 
 function modeLabel(mode: Mode) {
@@ -1063,9 +1256,14 @@ const server = createServer(async (req, res) => {
   if (!hosts.includes(req.headers.host ?? "")) return json(res, 403, { error: "Invalid host" });
   // Pages are matched on their path alone, so a query string (`/?debug`) still serves them.
   const page = (req.url ?? "").split("?")[0];
-  if (req.method === "GET" && (page === "/" || page === "/drone")) {
+  if (req.method === "GET" && (page === "/" || page === "/drone" || page === "/enrolement")) {
     res.setHeader("Content-Type", "text/html; charset=utf-8");
-    return res.end((page === "/" ? pages.fleet : pages.drone).replace("__TOKEN__", token));
+    const html = page === "/" ? pages.fleet : page === "/drone" ? pages.drone : pages.enrolment;
+    return res.end(html.replace("__TOKEN__", token));
+  }
+  if (req.method === "GET" && req.url === "/cim/state") {
+    if (!ready) return json(res, 503, { error: fatal || "Démarrage…" });
+    return json(res, 200, await cimState());
   }
   if (req.method === "GET" && req.url === "/fleet3d.js") {
     res.setHeader("Content-Type", "text/javascript; charset=utf-8");
@@ -1133,6 +1331,19 @@ const server = createServer(async (req, res) => {
       case "/enroll/reset":
         await resetEnrolment();
         return json(res, 200, { ok: true });
+      case "/cim/insert":
+        await insertCard();
+        return json(res, 200, { ok: true });
+      case "/cim/pin":
+        if (!/^\d{4}$/.test(String(body.pin ?? ""))) throw new Error("Code PIN : quatre chiffres.");
+        await unlockCard();
+        return json(res, 200, { ok: true });
+      case "/cim/validate":
+        await validateCard(body.identityChecked === true);
+        return json(res, 200, { ok: true });
+      case "/cim/reset":
+        await resetCard();
+        return json(res, 200, { ok: true });
       case "/enroll/invite":
         await inviteHuman();
         return json(res, 200, { ok: true, url: enrolment.invite!.url });
@@ -1189,6 +1400,9 @@ const timers: NodeJS.Timeout[] = [];
 async function main() {
   await fs.mkdir(dataRoot, { recursive: true, mode: 0o700 });
   await loadGens();
+  // Each start hands the CIM page a blank card: the last one may already be enrolled.
+  gens.cim = genOf("cim") + 1;
+  await saveGens();
   server.listen(PORT, "127.0.0.1", () =>
     console.log(`Démonstrateur ECW : flotte http://localhost:${PORT} · drone http://localhost:${PORT}/drone · console ${consoleUrl}`)
   );

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BrandLogo } from "@/components/ui/BrandLogo";
 import { ShieldCheck, Users, ScrollText, Webhook, ChevronRight } from "lucide-react";
 
 const STATS: { headline: string; caption: string }[] = [
@@ -52,12 +53,9 @@ export default function LandingPage() {
     <div className="min-h-screen bg-background">
       <nav className="sticky top-0 z-20 border-b border-neutral-200/60 bg-background/80 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
-          <div className="flex items-center gap-2.5">
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary-600 text-white">
-              <ShieldCheck className="h-4 w-4" />
-            </span>
-            <span className="text-sm font-semibold text-foreground">VaultysClaw</span>
-          </div>
+          <Link href="/" className="flex items-center">
+            <BrandLogo className="h-7" />
+          </Link>
           <Link
             href="/login"
             className="inline-flex items-center gap-1 rounded-lg bg-primary-600 px-3.5 py-1.5 text-sm font-medium text-white transition-colors hover:bg-primary-500"

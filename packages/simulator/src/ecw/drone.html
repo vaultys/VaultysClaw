@@ -195,6 +195,15 @@
       .ready { margin-top: 12px; padding: 10px 12px; border-radius: 9px; background: var(--ok-bg); border: 1px solid var(--ok); color: var(--ok); font-weight: 700; font-size: 14px; display: none; }
       .ready.on { display: block; }
 
+      /* A renewed identity waiting in the control plane's approval queue: the first thing to see. */
+      .pending { display: none; border: 2px solid var(--warn); background: #241c08; border-radius: 12px; padding: 14px 18px; }
+      .pending.on { display: block; }
+      .pending h3 { margin: 0 0 4px; font-size: 17px; color: var(--warn); }
+      .pending p { margin: 0 0 10px; font-size: 13px; color: #d9c38a; }
+      .pending .stepper li { border-top-color: #3a2f12; padding: 8px 0; }
+      .pending .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
+      .pending .go { margin-top: 0; text-decoration: none; display: inline-block; }
+
       dl { display: grid; grid-template-columns: 100px 1fr; gap: 8px 12px; margin: 0; font-size: 13px; }
       dt { color: var(--muted); }
       dd { margin: 0; word-break: break-all; }
@@ -215,6 +224,7 @@
       <nav class="top">
         <a href="/">Flotte</a>
         <a href="/drone" class="active">Console drone</a>
+        <a href="/enrolement">Enrôlement CIM</a>
         <a id="console" href="#" target="_blank" rel="noopener">Control plane ↗</a>
       </nav>
       <span class="tag">Démonstrateur · données fictives</span>
@@ -246,6 +256,11 @@
     <main>
       <div class="col">
         <div class="error" id="error"></div>
+        <section class="pending" id="pending">
+          <h3 id="pending-title">Nouvelle identité en attente d'approbation</h3>
+          <p>Tant qu'un administrateur ne l'a pas approuvée dans le control plane, ce drone n'a aucun droit : toute action est refusée.</p>
+          <ol class="stepper" id="pending-steps"></ol>
+        </section>
 
         <!-- Préparation de mission -->
         <section class="view" data-view="prep">
@@ -315,7 +330,7 @@
           <h2>Réponse à incident</h2>
           <button class="revoke" id="revoke">RÉVOQUER LE CERTIFICAT</button>
           <div class="timeline" id="timeline"></div>
-          <button class="linkbtn" id="reset">Réinitialiser ce drone (identité neuve)</button>
+          <button class="linkbtn" id="reset">Réinitialiser ce drone (identité neuve, à approuver dans le control plane)</button>
         </section>
       </div>
     </main>
@@ -519,12 +534,19 @@
           const bar = document.getElementById("stapleBar");
           bar.style.width = (100 * left) / (s.ttlSeconds * 1000) + "%";
           bar.style.background = sp.staple.status === "active" ? "var(--ok)" : "var(--deny)";
+        } else {
+          // A new identity has no certificate yet, so no proof: never show the previous one's.
+          document.getElementById("staple").textContent = sp.pending || !sp.capabilities.length ? "aucune — pas encore de certificat" : "première vérification en cours…";
+          document.getElementById("stapleBar").style.width = "0";
         }
         const recent = s.links.filter((l) => l.from === sp.key && l.type !== "command");
         const trust = document.getElementById("trust");
         if (sp.isolatedAt) {
           trust.textContent = "⛔ Isolé de la flotte";
           trust.style.color = "var(--deny)";
+        } else if (sp.pending || !sp.staple) {
+          trust.textContent = "Pas encore dans la flotte";
+          trust.style.color = "var(--warn)";
         } else if (recent.length) {
           const ok = recent.filter((l) => l.ok).length;
           trust.textContent = ok === recent.length ? "✓ La flotte lui fait confiance" : `⚠ ${recent.length - ok} pair(s) le refusent`;
@@ -612,6 +634,24 @@
         }
         set("timeline", tl);
 
+        // A renewed identity: onboarding goes through the control plane's approval queue.
+        const pend = document.getElementById("pending");
+        pend.classList.toggle("on", Boolean(sp.pending) && tab !== "prep");
+        if (sp.pending) {
+          document.getElementById("pending-title").textContent = `${sp.label} · identité neuve en attente d'approbation`;
+          stepper("pending-steps", [
+            { title: "Identité neuve générée à bord", detail: `${short(sp.did)} — l'ancienne reste révoquée dans le registre`, state: "done" },
+            { title: "Demande d'enregistrement reçue par le control plane", detail: "Elle apparaît dans la file « Pending approval » de la console", state: "done" },
+            {
+              title: "Un administrateur l'approuve dans le control plane",
+              detail: "Il choisit les droits accordés ; le certificat est remis aussitôt au drone connecté",
+              state: "now",
+              action: `<div class="row"><a class="go" id="pending-console" href="${esc(sp.pending.queueUrl)}" target="_blank" rel="noopener">Ouvrir la file d'attente ↗</a><button class="linkbtn" id="pending-here" style="margin: 0">ou approuver ici (raccourci du stand)</button></div>`,
+            },
+            { title: "Certificat remis par échange signé", detail: "", state: "" },
+          ]);
+        }
+
         renderPrep(s);
       }
 
@@ -651,6 +691,7 @@
         if (e.target.closest("#enroll-approve")) return post("/enroll/approve");
         if (e.target.closest("#enroll-invite")) return post("/enroll/invite");
         if (e.target.closest("#enroll-reset")) return post("/enroll/reset");
+        if (e.target.closest("#pending-here")) return post("/approve");
         const act = e.target.closest(".act");
         if (act) return act.dataset.replay ? post("/replay") : post("/action", { id: act.dataset.id, forge: Boolean(act.dataset.forge) });
       });

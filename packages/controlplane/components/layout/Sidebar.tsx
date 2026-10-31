@@ -19,6 +19,7 @@ import {
   Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { BrandLogo } from "@/components/ui/BrandLogo";
 
 interface NavItem {
   href: string;
@@ -163,17 +164,19 @@ export default function Sidebar({ orgName }: { orgName: string }) {
   }, [actorsActive]);
 
   return (
-    <aside className="flex flex-col w-[200px] shrink-0 h-full bg-background border-r border-neutral-200/60">
-      <div className="flex items-center gap-2 h-14 px-4 border-b border-neutral-200/60">
-        <span className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center shrink-0 shadow-lg shadow-primary-600/20 text-white text-sm font-bold">
-          V
-        </span>
-        <span className="font-semibold text-foreground text-sm tracking-tight truncate">
-          {orgName}
-        </span>
+    <aside className="flex flex-col w-[232px] shrink-0 h-full bg-background-100 dark:bg-background-50 border-r border-neutral-200">
+      <div className="flex items-center h-16 px-5 border-b border-neutral-200">
+        <BrandLogo className="h-6" />
       </div>
 
-      <nav className="flex-1 py-3 px-2 space-y-0.5">
+      <div className="mx-3 mt-3.5 mb-1 flex items-center gap-2.5 rounded-lg border border-neutral-200 bg-background-50 px-2.5 py-2">
+        <span className="grid h-[22px] w-[22px] shrink-0 place-items-center rounded bg-secondary-700 text-[11px] font-semibold text-white dark:bg-secondary-300 dark:text-foreground">
+          {orgName.trim().charAt(0).toUpperCase() || "V"}
+        </span>
+        <span className="truncate text-sm font-medium text-foreground">{orgName}</span>
+      </div>
+
+      <nav className="flex-1 py-2 px-3 space-y-px">
         {NAV_ITEMS.map((item) => {
           const active = itemActive(item, pathname, searchParams);
           const expanded = item.subItems ? (openGroups[item.label] ?? false) : false;
@@ -194,14 +197,16 @@ export default function Sidebar({ orgName }: { orgName: string }) {
                   className={cn(
                     "relative flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors",
                     active
-                      ? "bg-primary-100 text-primary-700"
-                      : "text-foreground-600 hover:text-foreground hover:bg-background-200/50"
+                      ? "bg-primary-100 dark:bg-primary-500/15 text-foreground"
+                      : "text-foreground-500 hover:text-foreground hover:bg-background-200/60"
                   )}
                 >
                   {active && (
-                    <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r-full bg-primary-600" />
+                    <span className="absolute -left-3 top-2 bottom-2 w-[3px] rounded-r-full bg-primary-600" />
                   )}
-                  <item.icon className="w-[18px] h-[18px] shrink-0" />
+                  <item.icon
+                    className={cn("w-[18px] h-[18px] shrink-0", active && "text-primary-600")}
+                  />
                   <span className="min-w-0 flex-1 truncate text-left">{item.label}</span>
                   <ChevronDown
                     className={cn(
@@ -217,14 +222,16 @@ export default function Sidebar({ orgName }: { orgName: string }) {
                   className={cn(
                     "relative flex items-center gap-3 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors",
                     active
-                      ? "bg-primary-100 text-primary-700"
-                      : "text-foreground-600 hover:text-foreground hover:bg-background-200/50"
+                      ? "bg-primary-100 dark:bg-primary-500/15 text-foreground"
+                      : "text-foreground-500 hover:text-foreground hover:bg-background-200/60"
                   )}
                 >
                   {active && (
-                    <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r-full bg-primary-600" />
+                    <span className="absolute -left-3 top-2 bottom-2 w-[3px] rounded-r-full bg-primary-600" />
                   )}
-                  <item.icon className="w-[18px] h-[18px] shrink-0" />
+                  <item.icon
+                    className={cn("w-[18px] h-[18px] shrink-0", active && "text-primary-600")}
+                  />
                   <span className="truncate">{item.label}</span>
                 </Link>
               )}
@@ -250,11 +257,13 @@ export default function Sidebar({ orgName }: { orgName: string }) {
                         className={cn(
                           "flex items-center gap-2 rounded-md px-2 py-1.5 text-xs font-medium transition-colors",
                           subActive
-                            ? "bg-primary-50 text-primary-700"
+                            ? "bg-primary-50 dark:bg-primary-500/10 text-foreground"
                             : "text-foreground-500 hover:bg-background-200/50 hover:text-foreground"
                         )}
                       >
-                        <subItem.icon className="h-3.5 w-3.5 shrink-0" />
+                        <subItem.icon
+                          className={cn("h-3.5 w-3.5 shrink-0", subActive && "text-primary-600")}
+                        />
                         <span className="truncate">{subItem.label}</span>
                       </Link>
                     );

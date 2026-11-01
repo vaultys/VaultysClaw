@@ -5,100 +5,121 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>SENTINELLE · Flotte</title>
     <style>
+      /* Bastion's navy ink neutrals, at night. One accent, gold, for the selection (as the 3D scene
+         marks the piloted drone); orange only for a compromised drone; green and red only for what
+         a peer accepted or refused. */
       :root {
-        --bg: #070d14;
-        --panel: #0d1722;
-        --panel-2: #122030;
-        --line: #1d3044;
-        --text: #dce8f2;
-        --muted: #7f97ab;
-        --ok: #34d399;
-        --deny: #f43f5e;
-        --warn: #fbbf24;
-        --accent: #38bdf8;
-        --ai: #a78bfa;
-        font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
+        --bg: #071217;
+        --panel: #0e1c23;
+        --raised: #152932;
+        --line: rgba(238, 242, 243, 0.08);
+        --line-2: rgba(238, 242, 243, 0.14);
+        --text: #eef2f3;
+        --text-2: #bac8cd;
+        --muted: #8ca0a7;
+        --accent: #e3b341;
+        --ok: #4cc38a;
+        --deny: #e5484d;
+        --warn: #f0883e;
+        --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+        --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-family: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, sans-serif;
         color: var(--text);
         background: var(--bg);
       }
       * { box-sizing: border-box; }
-      body { margin: 0; background: var(--bg); }
+      body { margin: 0; background: var(--bg); font-size: 14px; line-height: 1.5; }
       a { color: var(--accent); text-decoration: none; }
+      a:hover { text-decoration: underline; text-underline-offset: 3px; }
+      :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+      .ic { width: 16px; height: 16px; flex: none; stroke: currentColor; fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
       header {
         display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px;
-        padding: 14px 24px; border-bottom: 1px solid var(--line); background: #08121c;
+        height: 56px; padding: 0 24px; border-bottom: 1px solid var(--line); background: var(--bg);
       }
       .brand { display: flex; align-items: baseline; gap: 12px; }
-      .brand strong { font-size: 18px; letter-spacing: 0.5px; }
+      .brand strong { font-size: 16px; font-weight: 600; }
+      .brand strong em { font-style: normal; font-weight: 400; color: var(--text-2); }
       .brand span { color: var(--muted); font-size: 13px; }
-      nav { display: flex; gap: 6px; }
-      nav a { padding: 8px 14px; border-radius: 8px; color: var(--muted); font-size: 14px; border: 1px solid transparent; }
-      nav a.active { color: var(--text); background: var(--panel-2); border-color: var(--line); }
-      .tag { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--warn); border: 1px solid #5c4813; padding: 4px 8px; border-radius: 6px; }
-      main { padding: 18px 24px 32px; display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 18px; }
+      nav { display: flex; gap: 4px; }
+      nav a { height: 32px; display: inline-flex; align-items: center; padding: 0 12px; border-radius: 8px; color: var(--text-2); font-size: 14px; transition: background-color 120ms var(--ease), color 120ms var(--ease); }
+      nav a:hover { color: var(--text); background: var(--panel); text-decoration: none; }
+      nav a.active { color: var(--text); background: var(--raised); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06); }
+      .tag { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+      main { padding: 24px; display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 24px; max-width: 1600px; margin: 0 auto; }
       .kpis { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
-      .kpi.threat { border-color: #6b1f30; background: #1d0c12; }
-      .kpi { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
-      .kpi b { display: block; font-size: 28px; font-variant-numeric: tabular-nums; margin-top: 4px; }
-      .kpi small { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 1px; }
-      .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
-      .panel h2 { margin: 0 0 12px; font-size: 13px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted); font-weight: 600; }
-      .scene { position: relative; width: 100%; aspect-ratio: 1240 / 640; min-height: 420px; border-radius: 10px; overflow: hidden; background: #070d14; }
+      .kpi { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px 20px; }
+      .kpi b { display: block; font-size: 28px; line-height: 1; font-weight: 500; font-variant-numeric: tabular-nums; margin-top: 12px; }
+      .kpi small { color: var(--text-2); font-size: 13px; }
+      .kpi b.words { font-size: 18px; line-height: 28px; }
+      .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 20px; }
+      .panel h2 { margin: 0 0 16px; font-size: 14px; font-weight: 500; color: var(--text); }
+      .panel h2 small { font-weight: 400; color: var(--muted); }
+      .scene { position: relative; width: 100%; aspect-ratio: 1240 / 640; min-height: 420px; border-radius: 8px; overflow: hidden; background: var(--bg); }
       .scene canvas { display: block; outline: none; cursor: grab; }
       .scene canvas:active { cursor: grabbing; }
       .scene-labels { position: absolute; inset: 0; pointer-events: none; }
       .scene-fallback { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); }
-      .lbl { font-size: 11px; font-weight: 600; color: #c7d8e6; letter-spacing: 0.4px; white-space: nowrap; padding: 2px 7px; border-radius: 5px; background: rgba(7, 13, 20, 0.62); border: 1px solid rgba(56, 189, 248, 0.18); text-shadow: 0 0 6px #000; }
-      .lbl.spot { font-size: 13.5px; font-weight: 800; color: #fde68a; border-color: rgba(251, 191, 36, 0.55); }
-      .lbl.hijacked { color: #fdba74; border-color: rgba(251, 146, 60, 0.7); }
-      .lbl.bad { color: #fecdd3; border-color: rgba(244, 63, 94, 0.75); background: rgba(42, 15, 23, 0.85); }
-      .lbl.zone { background: none; border: 0; color: #4b8db5; font-size: 11px; letter-spacing: 2.4px; }
-      .lbl.zone.ai { color: #a99be8; text-align: center; }
-      .lbl span { display: block; font-size: 10px; font-weight: 500; letter-spacing: 0.6px; opacity: 0.8; }
-      .lbl.threat { color: #fecdd3; font-weight: 800; letter-spacing: 1.4px; text-align: center; border-color: rgba(244, 63, 94, 0.8); background: rgba(42, 15, 23, 0.85); }
-      .view { position: absolute; top: 12px; right: 12px; display: flex; gap: 6px; z-index: 2; }
-      .view button { font: inherit; font-size: 12px; color: var(--muted); background: rgba(13, 23, 34, 0.85); border: 1px solid var(--line); border-radius: 7px; padding: 6px 10px; cursor: pointer; }
-      .view button.on { color: var(--text); border-color: var(--accent); }
-      .hint { position: absolute; left: 14px; bottom: 10px; font-size: 11px; color: #4d6a82; z-index: 2; pointer-events: none; }
-      .side { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
-      .model ol { margin: 0; padding-left: 18px; }
-      .model li { margin-bottom: 9px; line-height: 1.45; font-size: 13.5px; }
-      .model li b { color: var(--text); }
-      .model p { font-size: 12.5px; color: var(--muted); line-height: 1.5; margin: 10px 0 0; border-top: 1px solid var(--line); padding-top: 10px; }
-      .feed { max-height: 360px; overflow: auto; font-size: 12.5px; }
-      .feed div { padding: 6px 0; border-bottom: 1px solid #142334; display: grid; grid-template-columns: 58px 1fr; gap: 8px; }
-      .feed time { color: var(--muted); font-variant-numeric: tabular-nums; }
+      .lbl { font-size: 12px; font-weight: 500; color: var(--text); white-space: nowrap; padding: 2px 8px; border-radius: 4px; background: rgba(7, 18, 23, 0.78); border: 1px solid var(--line-2); }
+      .lbl.spot { font-size: 14px; color: var(--accent); border-color: rgba(227, 179, 65, 0.5); }
+      .lbl.hijacked { color: var(--warn); border-color: rgba(240, 136, 62, 0.5); }
+      .lbl.bad { color: #f4b4b6; border-color: rgba(229, 72, 77, 0.6); background: rgba(46, 18, 21, 0.88); }
+      .lbl.zone { background: none; border: 0; color: rgba(186, 200, 205, 0.7); font-size: 12px; font-weight: 400; }
+      .lbl.zone.ai { text-align: center; }
+      .lbl span { display: block; font-size: 11px; font-weight: 400; color: var(--muted); }
+      .lbl.threat { color: #f4b4b6; text-align: center; border-color: rgba(229, 72, 77, 0.6); background: rgba(46, 18, 21, 0.88); }
+      .view { position: absolute; top: 12px; right: 12px; display: flex; gap: 4px; z-index: 2; }
+      .view button { font: inherit; font-size: 13px; height: 32px; display: inline-flex; align-items: center; gap: 8px; color: var(--text-2); background: rgba(14, 28, 35, 0.9); border: 1px solid var(--line-2); border-radius: 8px; padding: 0 12px; cursor: pointer; transition: background-color 120ms var(--ease), color 120ms var(--ease), border-color 120ms var(--ease); }
+      .view button:hover { color: var(--text); background: var(--raised); }
+      .view button:active { transform: scale(0.98); }
+      .view button.on { color: var(--text); border-color: rgba(227, 179, 65, 0.6); }
+      .view button .ic-play { display: none; }
+      .view button#view-orbit:not(.on) .ic-pause { display: none; }
+      .view button#view-orbit:not(.on) .ic-play { display: block; }
+      .hint { position: absolute; left: 16px; bottom: 12px; font-size: 12px; color: var(--muted); z-index: 2; pointer-events: none; }
+      .side { display: flex; flex-direction: column; gap: 24px; min-width: 0; }
+      .model ol { margin: 0; padding-left: 20px; color: var(--text-2); }
+      .model li { margin-bottom: 12px; line-height: 1.5; font-size: 14px; }
+      .model li b { color: var(--text); font-weight: 500; }
+      .model p { font-size: 13px; color: var(--muted); line-height: 1.5; margin: 16px 0 0; border-top: 1px solid var(--line); padding-top: 12px; }
+      .model p b { color: var(--text-2); font-weight: 500; }
+      .feed { max-height: 360px; overflow: auto; font-size: 13px; color: var(--text-2); }
+      .feed div { padding: 8px 0; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: 64px 1fr; gap: 8px; }
+      .feed time { font-family: var(--mono); font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+      .feed b { font-weight: 500; color: var(--text); }
       .feed .deny b { color: var(--deny); }
       .feed .ok b { color: var(--ok); }
       .feed .alert b { color: var(--warn); }
-      .feed .info b { color: var(--accent); }
-      table { width: 100%; border-collapse: collapse; font-size: 13px; }
-      th { text-align: left; color: var(--muted); font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; padding: 6px 8px; }
-      td { padding: 7px 8px; border-top: 1px solid #142334; }
-      td.num { font-variant-numeric: tabular-nums; text-align: right; }
-      .pill { display: inline-block; padding: 2px 9px; border-radius: 99px; font-size: 12px; border: 1px solid; }
-      .pill.good { color: var(--ok); border-color: #1e5a46; }
-      .pill.bad { color: var(--deny); border-color: #6b1f30; background: #2a0f17; }
-      .pill.wait { color: var(--warn); border-color: #5c4813; }
+      table { width: 100%; border-collapse: collapse; font-size: 14px; }
+      th { text-align: left; color: var(--muted); font-weight: 400; font-size: 13px; padding: 8px; }
+      td { padding: 8px; border-top: 1px solid var(--line); }
+      td b { font-weight: 500; }
+      td.num { font-family: var(--mono); font-size: 13px; font-variant-numeric: tabular-nums; text-align: right; }
+      td.caps { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+      .st { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-2); }
+      .st::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--muted); }
+      .st.good::before { background: var(--ok); }
+      .st.bad { color: var(--deny); }
+      .st.bad::before { background: var(--deny); }
+      .st.wait::before { background: transparent; box-shadow: inset 0 0 0 1.5px var(--muted); }
       .wide { grid-column: 1 / -1; }
-      .banner { grid-column: 1 / -1; padding: 12px 16px; border-radius: 10px; background: #2a0f17; border: 1px solid #6b1f30; color: #fecdd3; display: none; }
-      .legend { display: flex; gap: 18px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-top: 10px; }
-      .legend i { display: inline-block; width: 18px; height: 3px; vertical-align: middle; margin-right: 6px; border-radius: 2px; }
+      .banner { grid-column: 1 / -1; padding: 12px 16px; border-radius: 8px; background: #2e1215; border: 1px solid rgba(229, 72, 77, 0.4); color: #f4b4b6; display: none; }
+      .legend { display: flex; gap: 20px; flex-wrap: wrap; font-size: 13px; color: var(--muted); margin-top: 12px; }
+      .legend i { display: inline-block; width: 16px; height: 2px; vertical-align: middle; margin-right: 8px; border-radius: 1px; }
       /* Cinema mode (/?cinema, remembered for the tab): the theatre fills the screen under a compact
          row of counters — for the stand's big screen, and for the filmed demo. */
-      body.cinema main { grid-template-columns: 1fr; padding: 10px 16px 12px; gap: 10px; }
+      body.cinema main { grid-template-columns: 1fr; padding: 12px 16px; gap: 12px; max-width: none; }
       body.cinema .side, body.cinema .wide, body.cinema .legend, body.cinema .panel > h2, body.cinema .brand span, body.cinema .hint { display: none; }
-      body.cinema .kpi { padding: 8px 14px; }
-      body.cinema .kpi b { font-size: 22px; margin-top: 2px; }
+      body.cinema .kpi { padding: 8px 16px; display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+      body.cinema .kpi b { font-size: 22px; margin-top: 0; }
       body.cinema .panel { padding: 0; border: 0; background: none; }
-      body.cinema .scene { aspect-ratio: auto; height: calc(100vh - 150px); min-height: 360px; }
-      @media (max-width: 1100px) { .brand span, .tag { display: none; } }
-      @media (max-width: 1100px) { main { grid-template-columns: 1fr; } .kpis { grid-template-columns: repeat(2, 1fr); } }
+      body.cinema .scene { aspect-ratio: auto; height: calc(100vh - 140px); min-height: 360px; }
+      @media (max-width: 1100px) { .brand span, .tag { display: none; } main { grid-template-columns: 1fr; } .kpis { grid-template-columns: repeat(2, 1fr); } }
     </style>
   </head>
   <body>
     <header>
-      <div class="brand"><strong>VAULTYSCLAW · OPÉRATION SENTINELLE</strong><span>Identité et confiance d'une flotte autonome</span></div>
+      <div class="brand"><strong>VaultysClaw <em>· Opération Sentinelle</em></strong><span>Identité et confiance d'une flotte autonome</span></div>
       <nav>
         <a href="/" class="active">Flotte</a>
         <a href="/drone">Console drone</a>
@@ -114,25 +135,25 @@
         <div class="kpi"><small>Messages acceptés par les pairs</small><b id="k-ok" style="color: var(--ok)">–</b></div>
         <div class="kpi"><small>Messages refusés par les pairs</small><b id="k-deny" style="color: var(--deny)">–</b></div>
         <div class="kpi"><small id="k-spot-label">Drone piloté</small><b id="k-spot">–</b></div>
-        <div class="kpi threat"><small>Tiers radio · ordres injectés</small><b id="k-attack" style="color: var(--deny)">–</b></div>
+        <div class="kpi"><small>Tiers radio · ordres injectés</small><b id="k-attack" style="color: var(--deny)">–</b></div>
       </section>
       <section class="panel">
-        <h2>Théâtre d'opération — chaque lien est un message signé, vérifié hors ligne par son destinataire</h2>
+        <h2>Théâtre d'opération <small>· chaque lien est un message signé, vérifié hors ligne par son destinataire</small></h2>
         <div class="scene" id="scene" role="img" aria-label="Théâtre d'opération en 3D : la flotte, ses messages et le tiers sur le lien radio">
           <div class="view">
-            <button id="view-focus" type="button" title="Masquer toutes les communications qui ne concernent pas le drone piloté">✦ Seulement <span class="sp-name">RAPACE-07</span></button>
-            <button id="view-orbit" type="button">⏸ Pause rotation</button>
-            <button id="view-follow" type="button">◎ Suivre <span class="sp-name">RAPACE-07</span></button>
-            <button id="view-reset" type="button">⌂ Vue d'ensemble</button>
+            <button id="view-focus" type="button" title="Masquer toutes les communications qui ne concernent pas le drone piloté"><svg class="ic " viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/></svg>Seulement <span class="sp-name">RAPACE-07</span></button>
+            <button id="view-orbit" type="button"><svg class="ic ic-pause" viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="5" width="3" height="14" rx="1"/><rect x="14" y="5" width="3" height="14" rx="1"/></svg><svg class="ic ic-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5l11 7-11 7z"/></svg><span>Pause rotation</span></button>
+            <button id="view-follow" type="button"><svg class="ic " viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="6"/></svg>Suivre <span class="sp-name">RAPACE-07</span></button>
+            <button id="view-reset" type="button"><svg class="ic " viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg>Vue d'ensemble</button>
           </div>
-          <div class="hint">Glisser pour pivoter (met la rotation en pause) · molette pour zoomer · clic droit pour déplacer · Espace : pause / reprise</div>
+          <div class="hint">Glisser pour pivoter · molette pour zoomer · clic droit pour déplacer · Espace pour la rotation</div>
         </div>
         <div class="legend">
           <span><i style="background: var(--ok)"></i>message accepté</span>
           <span><i style="background: var(--deny)"></i>message refusé</span>
           <span><i style="background: var(--deny); height: 2px"></i>ordre du tiers radio</span>
-          <span><i style="background: var(--shield, #67e8f9)"></i>bouclier : ordre rejeté par le destinataire</span>
-          <span>drone · robot terrestre · pilote de terrain · poste C2 (radar) · agent IA · antenne rouge = tiers sur le lien radio</span>
+          <span><i style="background: #67e8f9"></i>bouclier : ordre rejeté par le destinataire</span>
+          <span>antenne rouge : tiers sur le lien radio</span>
         </div>
       </section>
       <aside class="side">
@@ -140,7 +161,7 @@
           <h2>Modèle de sécurité</h2>
           <ol>
             <li><b>Une identité par acteur.</b> Chaque drone, robot ou agent IA a sa propre clé (VaultysID). Aucun secret de flotte partagé : en compromettre un ne compromet pas les autres.</li>
-            <li><b>Moindre privilège.</b> Chaque acteur ne peut faire que ce que son certificat accorde. Un drone compromis donne à l'attaquant <i>ces</i> droits, pas plus.</li>
+            <li><b>Moindre privilège.</b> Chaque acteur ne peut faire que ce que son certificat accorde. Un drone compromis donne à l'attaquant ses droits à lui, pas plus.</li>
             <li><b>Vérification par les pairs.</b> Chaque message porte une preuve de statut signée par le plan de contrôle (TTL <span class="ttl">6</span> s). Impossible à forger sans la clé du plan de contrôle.</li>
             <li><b>Révocation.</b> Écriture irréversible dans le registre. Au plus tard un TTL après, plus aucun pair n'accepte le drone : il est coupé de la flotte, qui continue sa mission.</li>
           </ol>
@@ -200,12 +221,14 @@
           document.getElementById("k-spot-label").textContent = sp.label;
           document.querySelectorAll(".sp-name").forEach((e) => (e.textContent = sp.label));
           const spEl = document.getElementById("k-spot");
-          spEl.textContent = sp.status.toUpperCase() + (sp.mode === "compromised" && !sp.isolatedAt ? " · COMPROMIS" : "");
+          spEl.textContent = sp.status.charAt(0).toUpperCase() + sp.status.slice(1) + (sp.mode === "compromised" && !sp.isolatedAt ? " · compromis" : "");
           spEl.style.color = sp.status === "certifié" && sp.mode !== "compromised" ? "var(--ok)" : sp.status === "certifié" ? "var(--warn)" : "var(--deny)";
           const a = s.attacker;
-          document.getElementById("k-attack").textContent = a.attempts
+          const kAttack = document.getElementById("k-attack");
+          kAttack.textContent = a.attempts
             ? `${(a.attempts - a.accepted).toLocaleString("fr-FR")} / ${a.attempts.toLocaleString("fr-FR")} rejetés`
             : ACTIVITY[a.activity];
+          kAttack.classList.toggle("words", !a.attempts);
           window.dispatchEvent(new CustomEvent("fleet-state", { detail: s }));
           document.getElementById("feed").innerHTML = s.feed
             .slice()
@@ -215,8 +238,8 @@
           document.getElementById("rows").innerHTML = s.members
             .map(
               (m) => `<tr><td><b>${esc(m.label)}</b></td><td style="color: var(--muted)">${esc(m.role)}</td>
-              <td><span class="pill ${tone(m.status)}">${esc(m.status)}</span></td>
-              <td style="color: var(--muted); font-size: 12px">${m.capabilities.map(esc).join(" · ") || "—"}</td>
+              <td><span class="st ${tone(m.status)}">${esc(m.status)}</span></td>
+              <td class="caps">${m.capabilities.map(esc).join(" · ") || "—"}</td>
               <td class="num">${m.accepted}</td><td class="num" style="color: ${m.rejected ? "var(--deny)" : "inherit"}">${m.rejected}</td>
               <td>${m.spotlight ? '<a href="/drone">Piloter →</a>' : `<a href="${esc(m.actorUrl)}" target="_blank" rel="noopener">Console ↗</a>`}</td></tr>`
             )

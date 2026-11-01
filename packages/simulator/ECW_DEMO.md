@@ -26,10 +26,10 @@ pnpm demo:ecw          # terminal 2 : le démonstrateur (localhost:3012)
 
 La vue flotte est une scène 3D (three.js, servi en local par le démonstrateur : aucun accès réseau
 requis sur le stand) posée sur un terrain généré (collines, forêts, lac, montagnes enneigées — le
-même à chaque chargement), avec le quadrillage tactique et les cercles de portée du C2 peints au sol. Boutons en haut à droite : **✦ Seulement RAPACE-07** (masque toutes les
+même à chaque chargement), avec le quadrillage tactique et les cercles de portée du C2 peints au sol. Boutons en haut à droite : **Seulement RAPACE-07** (masque toutes les
 communications qui ne concernent pas RAPACE-07, y compris les attaques visant d'autres drones),
-**⏸ Pause rotation** (coupe ou relance la rotation lente automatique ; aussi la touche Espace, et toute prise en main de la caméra la met en pause — le choix est mémorisé),
-**◎ Suivre RAPACE-07** (la caméra suit le drone), **⌂ Vue d'ensemble**. Chaque message est un
+**Pause rotation** (coupe ou relance la rotation lente automatique ; aussi la touche Espace, et toute prise en main de la caméra la met en pause — le choix est mémorisé),
+**Suivre RAPACE-07** (la caméra suit le drone), **Vue d'ensemble**. Chaque message est un
 trait en arc : vert s'il est accepté, rouge avec un ✕ sur le destinataire qui le refuse. Seul un message que le certificat de son propre émetteur interdit s'arrête à mi-chemin : il n'est jamais vraiment parti. Quand
 un drone rejette un ordre du tiers radio, un bouclier cyan s'allume autour de lui. Un drone isolé
 est enfermé dans une bulle de quarantaine rouge.
@@ -87,7 +87,7 @@ bouton se remplit de vert (« ✓ EXÉCUTÉ ») ou de rouge (« ⛔ REFUSÉ ») 
    console montre la révocation.
 8. **Ré-enrôlement, par le parcours normal.** `Réinitialiser ce drone` crée une identité neuve ;
    l'ancienne reste révoquée dans le registre. La nouvelle s'enregistre et reste **en attente** :
-   le démonstrateur ne l'approuve pas. Une carte jaune le dit, et tout bouton pressé est refusé
+   le démonstrateur ne l'approuve pas. Une carte dorée le dit, et tout bouton pressé est refusé
    (aucun certificat). `Ouvrir la file d'attente ↗` mène à **Actors → Pending** du control plane :
    la demande y figure avec ses droits demandés pré-cochés, l'administrateur clique `Approve`, et
    le certificat est remis aussitôt au drone connecté. Il faut un administrateur dans la console

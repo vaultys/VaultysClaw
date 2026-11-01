@@ -612,7 +612,7 @@ function injectOrder(to: Member, order: string, what: string): Verdict | null {
     `attack:${to.spec.key}:${verdict.check}`,
     verdict.accepted ? "alert" : "deny",
     to.spec.label,
-    `${verdict.accepted ? "EXÉCUTE" : "Rejette"} un ${what} venu du tiers radio — ${verdict.reason}`
+    `${verdict.accepted ? "Exécute" : "Rejette"} un ${what} venu du tiers radio — ${verdict.reason}`
   );
   return verdict;
 }
@@ -695,7 +695,7 @@ async function runAction(c: DroneConsole, actionId: string, forge = false): Prom
   const finish = (allowed: boolean, summary: string): Trace => {
     c.lastTrace = { at: new Date().toISOString(), action: action.id, label: action.label, mode, steps, allowed, summary };
     c.lastResults[action.id] = { allowed, at: c.lastTrace.at, mode };
-    log(allowed ? "ok" : "deny", m.spec.label, `${modeLabel(mode)} · ${action.label} → ${allowed ? "EXÉCUTÉ" : "REFUSÉ"}`);
+    log(allowed ? "ok" : "deny", m.spec.label, `${modeLabel(mode)} · ${action.label} → ${allowed ? "exécuté" : "refusé"}`);
     return c.lastTrace;
   };
 
@@ -805,7 +805,7 @@ async function replayCapturedOrder(c: DroneConsole): Promise<Trace> {
     allowed: verdict.accepted,
     summary: verdict.accepted ? "Ordre accepté" : "Rejeu détecté, ordre ignoré",
   };
-  log(verdict.accepted ? "ok" : "deny", m.spec.label, `Rejeu d'un ordre capturé → ${verdict.accepted ? "ACCEPTÉ" : "REFUSÉ"}`);
+  log(verdict.accepted ? "ok" : "deny", m.spec.label, `Rejeu d'un ordre capturé → ${verdict.accepted ? "accepté" : "refusé"}`);
   return c.lastTrace;
 }
 

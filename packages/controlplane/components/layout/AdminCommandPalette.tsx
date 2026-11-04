@@ -68,14 +68,14 @@ export default function AdminCommandPalette({
       className="fixed inset-0 z-[100]"
     >
       <div className="fixed inset-0 bg-foreground/30" onClick={() => onOpenChange(false)} />
-      <div className="fixed left-1/2 top-20 w-[min(720px,calc(100vw-2rem))] -translate-x-1/2 overflow-hidden rounded-xl border border-neutral-200 bg-background-100 shadow-2xl shadow-black/30">
+      <div className="fixed left-1/2 top-20 w-[min(720px,calc(100vw-2rem))] -translate-x-1/2 overflow-hidden rounded-xl border border-neutral-200 bg-background-100 shadow-lg">
         <div className="flex items-center gap-3 border-b border-neutral-200/60 px-4 py-3">
           <Search className="h-4 w-4 shrink-0 text-foreground-400" />
           <Command.Input
             autoFocus
             value={query}
             onValueChange={setQuery}
-            placeholder="Search admin, actors, sensors, certificates..."
+            placeholder="Search admin, actors, sensors, certificates"
             className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-foreground-400"
           />
           <button
@@ -99,7 +99,7 @@ export default function AdminCommandPalette({
               <Command.Group
                 key={group}
                 heading={group}
-                className="pb-2 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider [&_[cmdk-group-heading]]:text-foreground-500"
+                className="pb-2 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-foreground-500"
               >
                 {groupItems.map((item) => (
                   <Command.Item
@@ -111,8 +111,8 @@ export default function AdminCommandPalette({
                     }}
                     className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-sm text-foreground aria-selected:bg-background-200 aria-selected:text-foreground"
                   >
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-background-200/70 text-foreground-500">
-                      <Icon className="h-4 w-4" />
+                    <span className="flex w-4 shrink-0 items-center justify-center text-foreground-500">
+                      <Icon className="h-4 w-4" strokeWidth={1.5} />
                     </span>
                     <span className="min-w-0">
                       <span className="block truncate font-medium">{item.label}</span>

@@ -61,15 +61,14 @@ html {
   mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='6'%3E%3Cpath d='M0 0h8v4h8v2H0z'/%3E%3C/svg%3E") repeat-x;
 }
 
-/* ── Marketing/login page effects (app/page.tsx, app/login/page.tsx) ────────
-   Kept minimal and semantic (no vc-* prefix, unlike packages/control-plane's
-   equivalent) — this rebuild only ever uses these two, not a full node-diagram
-   login screen. */
+/* ── Entrance ───────────────────────────────────────────────────────────────
+   The one load animation the marketing and login pages use: a short fade and
+   rise for the main content. Same curve as everything else that moves. */
 
 @keyframes fadeInUp {
   from {
     opacity: 0;
-    transform: translateY(12px);
+    transform: translateY(8px);
   }
   to {
     opacity: 1;
@@ -78,34 +77,11 @@ html {
 }
 
 .animate-fade-in-up {
-  animation: fadeInUp 0.6s ease-out both;
-}
-
-@keyframes gradientShift {
-  0%,
-  100% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-}
-
-.animate-gradient-shift {
-  background-size: 200% auto;
-  animation: gradientShift 6s ease-in-out infinite;
-}
-
-/* A faint dot grid used behind the hero/login panels — opacity carries the effect, so it reads as
-   texture rather than a busy pattern. */
-.mesh-overlay {
-  background-image: radial-gradient(rgb(var(--primary-500) / 0.35) 1px, transparent 1px);
-  background-size: 28px 28px;
+  animation: fadeInUp 400ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .animate-fade-in-up,
-  .animate-gradient-shift {
+  .animate-fade-in-up {
     animation: none;
   }
 }

@@ -23,7 +23,7 @@ export function GraphLegend({ colorBy }: { colorBy: "kind" | "workspace" }) {
           </span>
         ))}
       {colorBy === "workspace" && (
-        <span className="text-foreground-400">Nodes coloured by their workspace.</span>
+        <span className="text-foreground-500">Nodes coloured by their workspace</span>
       )}
 
       <span className="h-3 w-px bg-neutral-200" aria-hidden />

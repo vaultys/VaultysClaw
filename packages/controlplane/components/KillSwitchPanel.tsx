@@ -60,10 +60,10 @@ export default function KillSwitchPanel({
 
   if (armed) {
     return (
-      <section className="space-y-3 border border-danger-200 rounded-xl bg-danger-100/50 p-4 max-w-lg">
-        <h2 className="text-sm font-semibold text-danger-700 flex items-center gap-1.5">
-          <ShieldOff className="w-3.5 h-3.5" />
-          Kill switch ARMED
+      <section className="space-y-3 border border-danger-200 rounded-xl bg-danger-100/50 p-5 max-w-lg">
+        <h2 className="text-sm font-medium text-danger-700 flex items-center gap-1.5">
+          <ShieldOff className="w-4 h-4" strokeWidth={1.5} />
+          Kill switch armed
         </h2>
         <dl className="text-xs text-foreground-600 space-y-1">
           <div>
@@ -76,18 +76,19 @@ export default function KillSwitchPanel({
           </div>
           <div>
             <dt className="inline font-medium">Since: </dt>
-            <dd className="inline">{new Date(armed.armedAt).toLocaleString()}</dd>
+            <dd className="inline font-mono tabular-nums">{new Date(armed.armedAt).toLocaleString()}</dd>
           </div>
         </dl>
-        <p className="text-xs text-foreground-600">
+        <p className="text-xs leading-5 text-foreground-600">
           {what} is suspended: every status check reports their certificates revoked, their
-          connections are refused, and no new grant can be issued. <strong>No certificate was
-          actually revoked</strong> — disarming restores everything immediately, with no
+          connections are refused, and no new grant can be issued. <span className="font-medium text-foreground">
+            No certificate was actually revoked
+          </span> — disarming restores everything immediately, with no
           re-issuance and no new handshake.
         </p>
         {error && (
           <p role="alert" className="text-xs text-danger-700 bg-danger-100 border border-danger-200 rounded-lg px-3 py-2 flex gap-1.5">
-            <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+            <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" strokeWidth={1.5} />
             <span>{error}</span>
           </p>
         )}
@@ -95,9 +96,9 @@ export default function KillSwitchPanel({
           type="button"
           disabled={pending}
           onClick={() => submit(disarmKillSwitchAction)}
-          className="text-xs inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-success-600 text-white hover:bg-success-700 disabled:opacity-40"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-primary-500 disabled:opacity-40"
         >
-          <ShieldCheck className="w-3.5 h-3.5" />
+          <ShieldCheck className="w-3.5 h-3.5" strokeWidth={1.5} />
           {pending ? "Disarming…" : "Disarm"}
         </button>
       </section>
@@ -105,16 +106,16 @@ export default function KillSwitchPanel({
   }
 
   return (
-    <section className="space-y-3 border border-danger-200 rounded-xl bg-danger-100/30 p-4 max-w-lg">
-      <h2 className="text-sm font-semibold text-danger-700 flex items-center gap-1.5">
-        <ShieldOff className="w-3.5 h-3.5" />
+    <section className="space-y-3 border border-neutral-200/60 rounded-xl bg-background-100 p-5 max-w-lg">
+      <h2 className="text-sm font-medium text-foreground flex items-center gap-1.5">
+        <ShieldOff className="w-4 h-4 text-foreground-500" strokeWidth={1.5} />
         {scope === "global" ? "Emergency kill switch" : "Workspace kill switch"}
       </h2>
-      <p className="text-xs text-foreground-600">
+      <p className="text-xs leading-5 text-foreground-500">
         Immediately suspends {what}: their certificates resolve as revoked on every status check,
         their live connections are closed, and their reconnections are refused until you disarm.
         Humans are never affected, so this console stays usable.{" "}
-        <strong>Nothing is revoked</strong> — the ledger is untouched and disarming restores
+        <span className="font-medium text-foreground-700">Nothing is revoked</span> — the ledger is untouched and disarming restores
         access at once.
       </p>
 
@@ -122,14 +123,14 @@ export default function KillSwitchPanel({
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="text-xs inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-danger-200 text-danger-700 hover:bg-danger-100"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-background-100 px-3 py-1.5 text-xs font-medium text-danger-700 transition-colors hover:bg-background-200"
         >
-          <ShieldOff className="w-3.5 h-3.5" />
-          Arm kill switch…
+          <ShieldOff className="w-3.5 h-3.5" strokeWidth={1.5} />
+          Arm kill switch
         </button>
       ) : (
         <form
-          className="space-y-2"
+          className="space-y-3"
           onSubmit={(e) => {
             e.preventDefault();
             submit(armKillSwitchAction, { reason, confirm: typed });
@@ -141,7 +142,7 @@ export default function KillSwitchPanel({
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               autoComplete="off"
-              className="mt-1 w-full max-w-sm text-sm rounded-lg border border-neutral-200 bg-background-50 px-2 py-1.5"
+              className="mt-1 w-full max-w-sm rounded-lg border border-neutral-200 bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400"
             />
           </label>
           <label className="block text-xs text-foreground-600">
@@ -150,12 +151,12 @@ export default function KillSwitchPanel({
               value={typed}
               onChange={(e) => setTyped(e.target.value)}
               autoComplete="off"
-              className="mt-1 w-full max-w-sm text-sm rounded-lg border border-neutral-200 bg-background-50 px-2 py-1.5"
+              className="mt-1 w-full max-w-sm rounded-lg border border-neutral-200 bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400"
             />
           </label>
           {error && (
             <p role="alert" className="text-xs text-danger-700 bg-danger-100 border border-danger-200 rounded-lg px-3 py-2 flex gap-1.5">
-              <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+              <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" strokeWidth={1.5} />
               <span>{error}</span>
             </p>
           )}
@@ -163,7 +164,7 @@ export default function KillSwitchPanel({
             <button
               type="submit"
               disabled={pending || typed !== "ARM" || !reason.trim()}
-              className="text-xs px-3 py-1.5 rounded-lg bg-danger-600 text-white hover:bg-danger-700 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="rounded-lg bg-danger-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-danger-500 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {pending ? "Arming…" : "Arm now"}
             </button>
@@ -174,7 +175,7 @@ export default function KillSwitchPanel({
                 setTyped("");
                 setError(null);
               }}
-              className="text-xs px-3 py-1.5 rounded-lg border border-neutral-200 hover:bg-background-200"
+              className="rounded-lg border border-neutral-200 bg-background-100 px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-background-200"
             >
               Cancel
             </button>

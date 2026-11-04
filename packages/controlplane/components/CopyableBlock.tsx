@@ -53,7 +53,7 @@ export default function CopyableBlock({
         <div className="flex items-center gap-2 shrink-0">
           {state === "unavailable" && (
             <span className="text-xs text-warning-700">
-              Clipboard unavailable here — select the text manually.
+              Clipboard unavailable here — select the text manually
             </span>
           )}
           {filename && (
@@ -63,7 +63,7 @@ export default function CopyableBlock({
             <a
               href={`data:text/plain;charset=utf-8,${encodeURIComponent(value)}`}
               download={filename}
-              className="text-xs text-foreground-500 hover:text-foreground-700 underline"
+              className="text-xs text-foreground-600 underline underline-offset-2 transition-colors hover:text-foreground"
             >
               Download
             </a>
@@ -71,24 +71,26 @@ export default function CopyableBlock({
           <button
             type="button"
             onClick={copy}
-            className="text-xs inline-flex items-center gap-1 px-2 py-0.5 rounded border border-neutral-200 hover:bg-background-200 text-foreground-600"
+            className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 bg-background-100 px-2 py-0.5 text-xs text-foreground-600 transition-colors hover:bg-background-200 hover:text-foreground"
           >
             {state === "copied" ? (
               <>
-                <Check className="w-3 h-3" /> Copied
+                <Check className="w-3 h-3" strokeWidth={1.5} /> Copied
               </>
             ) : (
               <>
-                <Copy className="w-3 h-3" /> Copy
+                <Copy className="w-3 h-3" strokeWidth={1.5} /> Copy
               </>
             )}
           </button>
         </div>
       </div>
-      <pre className="text-[11px] font-mono bg-background-200/40 border border-neutral-200/60 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap break-all text-foreground-500">
+      <pre className="text-xs font-mono bg-background-200/40 border border-neutral-200/60 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap break-all text-foreground-500">
         {value}
       </pre>
-      <p className="mt-1 text-xs text-foreground-400">{value.length} characters</p>
+      <p className="mt-1 text-xs text-foreground-500">
+        <span className="font-mono tabular-nums">{value.length}</span> characters
+      </p>
     </div>
   );
 }

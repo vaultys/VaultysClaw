@@ -16,34 +16,36 @@ export type ActorCategory = "human" | "agent";
 export interface ActorKindMeta {
   label: string;
   category: ActorCategory;
-  badgeClass: string;
+  /** True for the kinds that can refuse work rather than only report — their badge carries a
+   *  red dot. Every other kind renders as a plain neutral badge. */
+  enforces: boolean;
 }
 
 export const ACTOR_KIND_META: Record<string, ActorKindMeta> = {
   human: {
     label: "human",
     category: "human",
-    badgeClass: "bg-success-100 text-success-700 border-success-200",
+    enforces: false,
   },
   openclaw: {
     label: "openclaw",
     category: "agent",
-    badgeClass: "bg-primary-100 text-primary-700 border-primary-200",
+    enforces: false,
   },
   mcp: {
     label: "mcp",
     category: "agent",
-    badgeClass: "bg-secondary-100 text-secondary-700 border-secondary-200",
+    enforces: false,
   },
   sensor: {
     label: "sensor",
     category: "agent",
-    badgeClass: "bg-neutral-100 text-foreground-600 border-neutral-200",
+    enforces: false,
   },
   device: {
     label: "device",
     category: "agent",
-    badgeClass: "bg-warning-100 text-warning-700 border-warning-200",
+    enforces: false,
   },
   // An interception point running the intercept role — a CONNECT proxy that
   // refuses agent traffic its certificate does not authorize
@@ -52,33 +54,31 @@ export const ACTOR_KIND_META: Record<string, ActorKindMeta> = {
   // zone semantics of §4.2 explicitly: a proxy governs everything pointed at
   // it, so two agents behind one proxy are indistinguishable to the decision.
   //
-  // Danger-coloured on purpose. The same binary in observe-only mode registers
+  // Marked (a red dot on its badge) on purpose. The same binary in observe-only mode registers
   // as `sensor`; this badge means traffic is being refused somewhere.
   proxy: {
     label: "proxy",
     category: "agent",
-    badgeClass: "bg-danger-100 text-danger-700 border-danger-200",
+    enforces: true,
   },
   // The same binary running the *supervise* role: it launches a coding harness
   // (Claude Code today) and decides every tool call from a signed grant and rule
   // set (docs/HARNESS_SUPERVISOR.md).
   //
-  // Danger-coloured for the same reason `proxy` is — this kind can refuse work —
+  // Marked for the same reason `proxy` is — this kind can refuse work —
   // and note it can be refusing on a *human's* laptop, which is a different blast
   // radius from a server-side proxy and one the detail page has to state.
   harness: {
     label: "harness",
     category: "agent",
-    badgeClass: "bg-danger-100 text-danger-700 border-danger-200",
+    enforces: true,
   },
 };
-
-const DEFAULT_BADGE_CLASS = "bg-neutral-100 text-foreground-600 border-neutral-200";
 
 /** Falls back gracefully for a kind string not in the registry yet — open-ended by design
  *  (docs §4.3), so an unrecognized kind still renders instead of crashing. */
 export function getActorKindMeta(kind: string): ActorKindMeta {
-  return ACTOR_KIND_META[kind] ?? { label: kind, category: "agent", badgeClass: DEFAULT_BADGE_CLASS };
+  return ACTOR_KIND_META[kind] ?? { label: kind, category: "agent", enforces: false };
 }
 
 export function categoryForKind(kind: string): ActorCategory {

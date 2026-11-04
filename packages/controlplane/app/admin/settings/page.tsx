@@ -46,7 +46,7 @@ export default async function SettingsPage() {
   const connectWindowSeconds = parseP2PConnectWindowSeconds(connectWindowRaw);
 
   return (
-    <div className="p-6 max-w-2xl space-y-8">
+    <div className="p-6 max-w-2xl space-y-6">
       <PageChrome toolbar={{ title: "Settings" }} breadcrumbs={[{ label: "Settings" }]} />
 
       {/* First, not last: this is the control an admin comes here for during an
@@ -66,18 +66,18 @@ export default async function SettingsPage() {
       />
 
       <section className="space-y-3">
-        <h2 className="text-sm font-semibold text-foreground-700">Server identity</h2>
-        <p className="text-xs text-foreground-400">
+        <h2 className="text-sm font-medium text-foreground">Server identity</h2>
+        <p className="text-xs leading-5 text-foreground-500">
           This is the identity that signs every certificate and policy in your organization — the
           root of trust the whole ledger hangs off of (docs/CERTIFICATE_WEB_OF_TRUST.md §1).
         </p>
-        <div className="border border-neutral-200/60 rounded-xl bg-background-100 p-4 space-y-3 text-sm">
+        <div className="border border-neutral-200/60 rounded-xl bg-background-100 p-5 space-y-3 text-sm">
           <div>
-            <div className="text-xs text-foreground-500 uppercase font-medium mb-1">DID</div>
-            <div className="font-mono text-xs break-all">{serverVid.did}</div>
+            <div className="text-xs text-foreground-500 mb-1">DID</div>
+            <div className="font-mono text-xs break-all text-foreground-700">{serverVid.did}</div>
           </div>
           <div>
-            <div className="text-xs text-foreground-500 uppercase font-medium mb-1">
+            <div className="text-xs text-foreground-500 mb-1">
               Public key (base64)
             </div>
             <div className="font-mono text-xs break-all text-foreground-500">{serverPublicKey}</div>
@@ -86,13 +86,13 @@ export default async function SettingsPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-sm font-semibold text-foreground-700">Trust policy</h2>
-        <p className="text-xs text-foreground-400">
+        <h2 className="text-sm font-medium text-foreground">Trust policy</h2>
+        <p className="text-xs leading-5 text-foreground-500">
           What a verifier does when it can&apos;t reach the control plane
           (docs/CERTIFICATE_WEB_OF_TRUST.md §5). These are the organization-wide{" "}
-          <strong className="font-medium text-foreground-600">defaults</strong>: a workspace can
+          <span className="font-medium text-foreground-600">defaults</span>: a workspace can
           override either field on its own Settings tab, and inherits the one it doesn&apos;t.
-          Enforcement is <strong className="font-medium text-foreground-600">client-side</strong> —
+          Enforcement is <span className="font-medium text-foreground-600">client-side</span> —
           these settings govern how promptly a well-behaved Actor notices a revocation, not what a
           compromised one can attempt.
         </p>
@@ -103,8 +103,8 @@ export default async function SettingsPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-sm font-semibold text-foreground-700">Sign-in</h2>
-        <p className="text-xs text-foreground-400">
+        <h2 className="text-sm font-medium text-foreground">Sign-in</h2>
+        <p className="text-xs leading-5 text-foreground-500">
           How long a QR sign-in stays open. The server holds a channel waiting for a wallet for
           exactly this long and then gives up, and the login page counts the same window down so
           the person scanning knows where they stand. Shorter means a stale code on a screen is
@@ -112,7 +112,7 @@ export default async function SettingsPage() {
         </p>
         <form
           action={updateSignInSettingsAction}
-          className="border border-neutral-200/60 rounded-xl bg-background-100 p-4 space-y-4 max-w-md"
+          className="border border-neutral-200/60 rounded-xl bg-background-100 p-5 space-y-4 max-w-md"
         >
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">
@@ -126,9 +126,9 @@ export default async function SettingsPage() {
               max={MAX_P2P_CONNECT_WINDOW_SECONDS}
               step={10}
               required
-              className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background"
+              className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400"
             />
-            <p className="text-xs text-foreground-400 mt-1">
+            <p className="text-xs leading-5 text-foreground-500 mt-1">
               Between {MIN_P2P_CONNECT_WINDOW_SECONDS} and {MAX_P2P_CONNECT_WINDOW_SECONDS}{" "}
               seconds. The upper bound is the lifetime of the sign-in record itself — past it, a
               wallet could complete a perfectly valid handshake against a credential that can no
@@ -145,10 +145,10 @@ export default async function SettingsPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-sm font-semibold text-foreground-700">General</h2>
+        <h2 className="text-sm font-medium text-foreground">General</h2>
         <form
           action={updateGeneralSettingsAction}
-          className="border border-neutral-200/60 rounded-xl bg-background-100 p-4 space-y-4 max-w-md"
+          className="border border-neutral-200/60 rounded-xl bg-background-100 p-5 space-y-4 max-w-md"
         >
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">
@@ -159,9 +159,9 @@ export default async function SettingsPage() {
               name="orgName"
               defaultValue={orgName ?? DEFAULT_ORG_NAME}
               required
-              className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background"
+              className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400"
             />
-            <p className="text-xs text-foreground-400 mt-1">Shown in the sidebar.</p>
+            <p className="text-xs leading-5 text-foreground-500 mt-1">Shown in the sidebar</p>
           </div>
           <button
             type="submit"

@@ -26,7 +26,7 @@ export default async function PortalLayout({
       <main className="min-h-screen flex items-center justify-center p-6 bg-background">
         <div className="max-w-md text-center space-y-4">
           <div className="space-y-2">
-            <h1 className="text-lg font-semibold text-foreground">Access denied</h1>
+            <h1 className="text-lg font-medium text-foreground">Access denied</h1>
             <p className="text-sm text-foreground-500">
               Your account does not hold a <code>portal_access</code> certificate.
             </p>

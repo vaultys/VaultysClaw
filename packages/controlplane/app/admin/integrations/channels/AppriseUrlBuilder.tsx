@@ -288,15 +288,15 @@ export default function AppriseUrlBuilder({
 
   return (
     <div className="space-y-3">
-      <div className="rounded-lg border border-neutral-200/60 bg-background-100 p-4">
+      <div className="rounded-xl border border-neutral-200/60 bg-background-100 p-5">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-            <Wrench className="h-4 w-4 text-primary-600" />
-            Notification URL Builder
+            <Wrench className="h-4 w-4 text-foreground-500" strokeWidth={1.5} />
+            Notification URL builder
           </div>
           <div className="flex items-center gap-3">
             {details && (
-              <span className="text-xs text-foreground-400">
+              <span className="text-xs tabular-nums text-foreground-500">
                 {details.schemas.length} integrations
               </span>
             )}
@@ -304,16 +304,20 @@ export default function AppriseUrlBuilder({
               type="button"
               onClick={loadDetails}
               disabled={status === "loading"}
-              className="inline-flex items-center gap-1.5 rounded border border-neutral-200 px-2 py-1 text-xs text-foreground-600 transition-colors hover:bg-background-200/60 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-background-100 px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:bg-background-200 disabled:opacity-50"
             >
-              {status === "loading" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+              {status === "loading" ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.5} />
+              ) : (
+                <RefreshCw className="h-3.5 w-3.5" strokeWidth={1.5} />
+              )}
               Refresh
             </button>
           </div>
         </div>
 
         {status === "error" && (
-          <div className="mb-3 rounded border border-warning-200 bg-warning-50 px-3 py-2 text-xs text-warning-800">
+          <div className="mb-3 rounded-lg border border-warning-200 bg-warning-50 px-4 py-3 text-xs text-warning-700">
             Builder unavailable: {error}
           </div>
         )}
@@ -322,7 +326,7 @@ export default function AppriseUrlBuilder({
           <div className="space-y-4">
             {popularSchemas.length > 0 && (
               <div>
-                <div className="mb-2 text-xs font-semibold uppercase text-foreground-500">Most used</div>
+                <div className="mb-2 text-xs text-foreground-500">Most used</div>
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
                   {popularSchemas.map(({ label, schema, icon: Icon }) => {
                     return (
@@ -330,18 +334,16 @@ export default function AppriseUrlBuilder({
                         key={label}
                         type="button"
                         onClick={() => selectService(schema)}
-                        className={`flex min-h-14 items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-colors ${
+                        className={`flex min-h-14 items-center gap-2.5 rounded-lg border px-3 py-2 text-left text-sm text-foreground transition-colors ${
                           schema.service_name === selected.service_name
-                            ? "border-primary-200 bg-primary-50 text-primary-700"
-                            : "border-neutral-200 bg-background hover:bg-background-200/60"
+                            ? "border-primary-400 bg-background-200"
+                            : "border-neutral-200 bg-background hover:bg-background-200"
                         }`}
                       >
-                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded bg-background-200 text-foreground-600">
-                          <Icon className="h-4 w-4" />
-                        </span>
+                        <Icon className="h-4 w-4 shrink-0 text-foreground-500" strokeWidth={1.5} />
                         <span className="min-w-0">
                           <span className="block truncate font-medium">{label}</span>
-                          <span className="block truncate text-xs text-foreground-400">{schemaProtocols(schema)[0]}</span>
+                          <span className="block truncate font-mono text-xs text-foreground-500">{schemaProtocols(schema)[0]}</span>
                         </span>
                       </button>
                     );
@@ -357,7 +359,7 @@ export default function AppriseUrlBuilder({
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search integrations"
-                className="w-full rounded-lg border border-neutral-200 bg-background px-3 py-2 text-sm"
+                className="w-full rounded-lg border border-neutral-200 bg-background px-3 py-2 text-sm text-foreground focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500/30"
               />
               <div className="max-h-[30rem] overflow-y-auto rounded-lg border border-neutral-200/60">
                 {filteredSchemas.map((schema) => (
@@ -365,14 +367,14 @@ export default function AppriseUrlBuilder({
                     key={schema.service_name}
                     type="button"
                     onClick={() => selectService(schema)}
-                    className={`block w-full border-b border-neutral-200/60 px-3 py-2 text-left text-sm last:border-b-0 ${
+                    className={`block w-full border-b border-l-2 border-b-neutral-200/60 px-3 py-2 text-left text-sm transition-colors last:border-b-0 ${
                       schema.service_name === selected.service_name
-                        ? "bg-primary-50 text-primary-700"
-                        : "text-foreground-600 hover:bg-background-200/60"
+                        ? "border-l-primary-600 bg-background-200 text-foreground"
+                        : "border-l-transparent text-foreground-600 hover:bg-background-200/60"
                     }`}
                   >
                     <span className="block font-medium">{schema.service_name}</span>
-                    <span className="block truncate text-xs text-foreground-400">
+                    <span className="block truncate font-mono text-xs text-foreground-500">
                       {schemaProtocols(schema).join(", ")}
                     </span>
                   </button>
@@ -389,10 +391,10 @@ export default function AppriseUrlBuilder({
                       href={selected.setup_url}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex items-center gap-1 text-xs text-primary-600 hover:underline"
+                      className="inline-flex items-center gap-1 text-xs text-primary-700 hover:underline"
                     >
                       Setup guide
-                      <ExternalLink className="h-3 w-3" />
+                      <ExternalLink className="h-3.5 w-3.5" strokeWidth={1.5} />
                     </a>
                   )}
                 </div>
@@ -400,16 +402,16 @@ export default function AppriseUrlBuilder({
 
               <div className="grid gap-3 lg:grid-cols-2">
                 {tokens.map(([key, field]) => (
-                  <label key={key} className="block text-xs font-medium text-foreground-600">
+                  <label key={key} className="block text-xs text-foreground-500">
                     {fieldLabel(key, field)}
-                    {field.required && <span className="text-danger-600"> *</span>}
-                    {field.private && <span className="text-foreground-400"> private</span>}
+                    {field.required && <span className="text-danger-700"> *</span>}
+                    {field.private && <span className="text-foreground-500"> private</span>}
                     {isChoice(field) ? (
                       <select
                         value={values[key] ?? ""}
                         onChange={(e) => setField(key, e.target.value)}
                         required={field.required}
-                        className="mt-1 w-full rounded-lg border border-neutral-200 bg-background px-3 py-2 text-sm"
+                        className="mt-1 w-full rounded-lg border border-neutral-200 bg-background px-3 py-2 text-sm text-foreground focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500/30"
                       >
                         {field.values?.map((value) => (
                           <option key={value} value={value}>
@@ -424,7 +426,7 @@ export default function AppriseUrlBuilder({
                         required={field.required}
                         rows={2}
                         placeholder="One per line"
-                        className="mt-1 w-full rounded-lg border border-neutral-200 bg-background px-3 py-2 text-sm"
+                        className="mt-1 w-full rounded-lg border border-neutral-200 bg-background px-3 py-2 text-sm text-foreground focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500/30"
                       />
                     ) : (
                       <input
@@ -434,7 +436,7 @@ export default function AppriseUrlBuilder({
                         value={values[key] ?? ""}
                         onChange={(e) => setField(key, e.target.value)}
                         required={field.required}
-                        className="mt-1 w-full rounded-lg border border-neutral-200 bg-background px-3 py-2 text-sm"
+                        className="mt-1 w-full rounded-lg border border-neutral-200 bg-background px-3 py-2 text-sm text-foreground focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500/30"
                       />
                     )}
                   </label>
@@ -442,20 +444,20 @@ export default function AppriseUrlBuilder({
               </div>
 
               {args.length > 0 && (
-                <details className="rounded-lg border border-neutral-200/60 p-3">
+                <details className="rounded-lg border border-neutral-200/60 px-4 py-3">
                   <summary className="cursor-pointer text-sm font-medium text-foreground">Advanced options</summary>
                   <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                    <div className="sm:col-span-2 text-xs text-foreground-400">
-                      Showing {args.length} optional settings for this integration.
+                    <div className="sm:col-span-2 text-xs text-foreground-500">
+                      Showing {args.length} optional settings for this integration
                     </div>
                     {args.map(([key, field]) => (
-                      <label key={key} className="block text-xs font-medium text-foreground-600">
+                      <label key={key} className="block text-xs text-foreground-500">
                         {fieldLabel(key, field)}
                         {isChoice(field) ? (
                           <select
                             value={values[`arg:${key}`] ?? ""}
                             onChange={(e) => setField(`arg:${key}`, e.target.value)}
-                            className="mt-1 w-full rounded-lg border border-neutral-200 bg-background px-3 py-2 text-sm"
+                            className="mt-1 w-full rounded-lg border border-neutral-200 bg-background px-3 py-2 text-sm text-foreground focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500/30"
                           >
                             <option value="">Default</option>
                             {field.values?.map((value) => (
@@ -468,7 +470,7 @@ export default function AppriseUrlBuilder({
                           <select
                             value={values[`arg:${key}`] ?? ""}
                             onChange={(e) => setField(`arg:${key}`, e.target.value)}
-                            className="mt-1 w-full rounded-lg border border-neutral-200 bg-background px-3 py-2 text-sm"
+                            className="mt-1 w-full rounded-lg border border-neutral-200 bg-background px-3 py-2 text-sm text-foreground focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500/30"
                           >
                             <option value="">Default</option>
                             <option value="true">Yes</option>
@@ -481,47 +483,47 @@ export default function AppriseUrlBuilder({
                             max={field.max}
                             value={values[`arg:${key}`] ?? ""}
                             onChange={(e) => setField(`arg:${key}`, e.target.value)}
-                            className="mt-1 w-full rounded-lg border border-neutral-200 bg-background px-3 py-2 text-sm"
+                            className="mt-1 w-full rounded-lg border border-neutral-200 bg-background px-3 py-2 text-sm text-foreground focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500/30"
                           />
                         )}
                       </label>
                     ))}
                   </div>
-                  <label className="mt-3 block text-xs font-medium text-foreground-600">
+                  <label className="mt-3 block text-xs text-foreground-500">
                     Extra query pairs
                     <textarea
                       value={values.__extraArgs ?? ""}
                       onChange={(e) => setField("__extraArgs", e.target.value)}
                       rows={2}
                       placeholder="key=value"
-                      className="mt-1 w-full rounded-lg border border-neutral-200 bg-background px-3 py-2 text-sm font-mono"
+                      className="mt-1 w-full rounded-lg border border-neutral-200 bg-background px-3 py-2 text-sm font-mono text-foreground focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500/30"
                     />
                   </label>
                 </details>
               )}
 
               <div>
-                <label className="block text-xs font-medium text-foreground-600">Generated URL</label>
+                <label className="block text-xs text-foreground-500">Generated URL</label>
                 <div className="mt-1 flex gap-2">
                   <input
                     readOnly
                     value={builtUrl}
-                    className="min-w-0 flex-1 rounded-lg border border-neutral-200 bg-background px-3 py-2 text-sm font-mono"
+                    className="min-w-0 flex-1 rounded-lg border border-neutral-200 bg-background px-3 py-2 text-sm font-mono text-foreground focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500/30"
                   />
                   <button
                     type="button"
                     onClick={copyBuiltUrl}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 px-3 py-2 text-xs transition-colors hover:bg-background-200/60"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-background-100 px-3 py-2 text-xs font-medium text-foreground transition-colors hover:bg-background-200"
                   >
-                    <Copy className="h-3.5 w-3.5" />
+                    <Copy className="h-3.5 w-3.5" strokeWidth={1.5} />
                     Copy
                   </button>
                   <button
                     type="button"
                     onClick={appendBuiltUrl}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-primary-600 px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-primary-500"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-background-100 px-3 py-2 text-xs font-medium text-foreground transition-colors hover:bg-background-200"
                   >
-                    <Plus className="h-3.5 w-3.5" />
+                    <Plus className="h-3.5 w-3.5" strokeWidth={1.5} />
                     Add
                   </button>
                 </div>
@@ -541,12 +543,12 @@ export default function AppriseUrlBuilder({
           value={serviceUrls}
           onChange={(e) => setServiceUrls(e.target.value)}
           placeholder={placeholder}
-          className="w-full rounded-lg border border-neutral-200 bg-background px-3 py-2 font-mono text-sm"
+          className="w-full rounded-lg border border-neutral-200 bg-background px-3 py-2 font-mono text-sm text-foreground focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500/30"
         />
-        <p className="mt-1 text-xs text-foreground-400">{helpText}</p>
+        <p className="mt-1 text-xs text-foreground-500">{helpText}</p>
         {details && (
-          <p className="mt-1 text-right text-[11px] text-foreground-300">
-            powered by Apprise {details.version}
+          <p className="mt-1 text-right text-xs text-foreground-500">
+            Apprise {details.version}
           </p>
         )}
       </div>

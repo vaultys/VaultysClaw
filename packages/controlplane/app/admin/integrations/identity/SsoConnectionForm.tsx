@@ -17,11 +17,14 @@ interface TestResult {
 /** One check, one line. `warn` is for "couldn't tell" — visually distinct from a
  *  failure, because it deliberately does not block saving. */
 function ResultLine({ ok, warn, text }: { ok: boolean; warn?: boolean; text: string }) {
-  const tone = warn ? "text-warning-700" : ok ? "text-success-700" : "text-danger-600";
+  const tone = warn ? "text-warning-700" : ok ? "text-foreground-600" : "text-danger-700";
   const Icon = warn ? AlertTriangle : ok ? CheckCircle2 : XCircle;
   return (
     <div className={`text-xs flex items-start gap-1.5 ${tone}`}>
-      <Icon className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+      <Icon
+        className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${ok && !warn ? "text-success-600" : ""}`}
+        strokeWidth={1.5}
+      />
       <div>{text}</div>
     </div>
   );
@@ -119,10 +122,10 @@ export default function SsoConnectionForm({
                 setKind(option.id);
                 setResult(null);
               }}
-              className={`px-3 py-1.5 text-sm rounded-lg border transition-colors disabled:opacity-60 ${
+              className={`rounded-lg border px-3 py-1.5 text-sm transition-colors disabled:opacity-60 ${
                 kind === option.id
-                  ? "bg-primary-100 text-primary-700 border-primary-200"
-                  : "border-neutral-200 text-foreground-500 hover:bg-background-200/60"
+                  ? "border-primary-400 bg-background-200 text-foreground"
+                  : "border-neutral-200 text-foreground-600 hover:bg-background-200"
               }`}
             >
               {option.label}
@@ -130,8 +133,8 @@ export default function SsoConnectionForm({
           ))}
         </div>
         {isEdit && (
-          <p className="text-xs text-foreground-400 mt-1">
-            Type can&apos;t be changed after creation — create a second connection instead.
+          <p className="text-xs text-foreground-500 mt-1">
+            Type can&apos;t be changed after creation — create a second connection instead
           </p>
         )}
       </div>
@@ -144,10 +147,10 @@ export default function SsoConnectionForm({
           required
           defaultValue={connection?.name}
           placeholder={isEntra ? "Microsoft" : "Acme SSO"}
-          className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background"
+          className="w-full rounded-lg border border-neutral-200 bg-background px-3 py-2 text-sm focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500/30"
         />
-        <p className="text-xs text-foreground-400 mt-1">
-          The label on the sign-in button.
+        <p className="text-xs text-foreground-500 mt-1">
+          The label on the sign-in button
         </p>
       </div>
 
@@ -164,9 +167,9 @@ export default function SsoConnectionForm({
               setResult(null);
             }}
             placeholder="00000000-0000-0000-0000-000000000000"
-            className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background font-mono"
+            className="w-full rounded-lg border border-neutral-200 bg-background px-3 py-2 text-sm focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500/30 font-mono"
           />
-          <p className="text-xs text-foreground-400 mt-1">
+          <p className="text-xs text-foreground-500 mt-1">
             Your directory (tenant) ID from the Azure portal. The issuer is derived from it:{" "}
             <code className="font-mono">
               https://login.microsoftonline.com/&lt;tenant&gt;/v2.0
@@ -186,9 +189,9 @@ export default function SsoConnectionForm({
               setResult(null);
             }}
             placeholder="https://accounts.example.com"
-            className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background font-mono"
+            className="w-full rounded-lg border border-neutral-200 bg-background px-3 py-2 text-sm focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500/30 font-mono"
           />
-          <p className="text-xs text-foreground-400 mt-1">
+          <p className="text-xs text-foreground-500 mt-1">
             The base URL — <code className="font-mono">/.well-known/openid-configuration</code> is
             appended automatically. Pasting the full discovery URL works too.
           </p>
@@ -202,7 +205,7 @@ export default function SsoConnectionForm({
           name="clientId"
           required
           defaultValue={connection?.clientId}
-          className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background font-mono"
+          className="w-full rounded-lg border border-neutral-200 bg-background px-3 py-2 text-sm focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500/30 font-mono"
         />
       </div>
 
@@ -213,18 +216,18 @@ export default function SsoConnectionForm({
           name="clientSecret"
           required={!isEdit}
           placeholder={isEdit ? "Leave blank to keep the current secret" : ""}
-          className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background font-mono"
+          className="w-full rounded-lg border border-neutral-200 bg-background px-3 py-2 text-sm focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500/30 font-mono"
         />
-        <p className="text-xs text-foreground-400 mt-1">
+        <p className="text-xs text-foreground-500 mt-1">
           Encrypted at rest and never redisplayed. This is the secret your IdP issued for the
           application — not a URL.
         </p>
       </div>
 
       {callbackUrl && (
-        <div className="border border-neutral-200/60 rounded-lg p-3 space-y-1.5">
+        <div className="space-y-1.5 rounded-lg border border-neutral-200/60 bg-background-100 px-4 py-3">
           <div className="text-sm font-medium text-foreground">Redirect URI</div>
-          <p className="text-xs text-foreground-400">
+          <p className="text-xs leading-5 text-foreground-500">
             Register this exact URL at your IdP. A mismatch here is the most common reason a new
             connection fails at the first login.
           </p>
@@ -237,27 +240,27 @@ export default function SsoConnectionForm({
                 setCopied(true);
                 setTimeout(() => setCopied(false), 1500);
               }}
-              className="text-xs px-2 py-1 border border-neutral-200 rounded hover:bg-background-200/60 transition-colors inline-flex items-center gap-1 shrink-0"
+              className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-neutral-200 bg-background-100 px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:bg-background-200"
             >
-              <Copy className="w-3 h-3" />
+              <Copy className="h-3.5 w-3.5" strokeWidth={1.5} />
               {copied ? "Copied" : "Copy"}
             </button>
           </div>
         </div>
       )}
 
-      <div className="border border-neutral-200/60 rounded-lg p-3 space-y-2">
+      <div className="space-y-2 rounded-lg border border-neutral-200/60 bg-background-100 px-4 py-3">
         <div className="flex items-center justify-between gap-3">
           <div className="text-sm text-foreground-600">
-            Check the IdP and your client credentials before saving.
+            Check the IdP and your client credentials before saving
           </div>
           <button
             type="button"
             onClick={onTest}
             disabled={testing || (isEntra ? !tenantId : !issuer)}
-            className="text-xs px-3 py-1.5 border border-neutral-200 rounded-lg hover:bg-background-200/60 transition-colors disabled:opacity-50 inline-flex items-center gap-1.5"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-background-100 px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-background-200 disabled:opacity-50"
           >
-            {testing && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+            {testing && <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.5} />}
             Test connection
           </button>
         </div>
@@ -267,7 +270,7 @@ export default function SsoConnectionForm({
               ok={result.ok}
               text={
                 result.ok
-                  ? `Discovery OK at ${result.issuer} — authorization, token and JWKS endpoints all present.`
+                  ? `Discovery OK at ${result.issuer} — authorization, token and JWKS endpoints all present`
                   : `Couldn't verify the issuer: ${result.error}`
               }
             />
@@ -288,7 +291,7 @@ export default function SsoConnectionForm({
                 warn={result.client.verdict === "inconclusive"}
                 text={
                   result.client.verdict === "accepted"
-                    ? `Client credentials accepted — ${result.client.detail}.`
+                    ? `Client credentials accepted — ${result.client.detail}`
                     : result.client.verdict === "rejected"
                       ? `Client credentials rejected. ${result.client.detail}`
                       : `Couldn't check the client credentials: ${result.client.detail}. Saving is still allowed.`
@@ -302,7 +305,7 @@ export default function SsoConnectionForm({
       <div className="flex gap-2 pt-2">
         <button
           type="submit"
-          className="px-4 py-2 bg-primary-600 hover:bg-primary-500 text-white text-sm font-medium rounded-lg transition-colors"
+          className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-500"
         >
           {submitLabel}
         </button>

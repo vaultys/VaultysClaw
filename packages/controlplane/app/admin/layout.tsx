@@ -30,7 +30,7 @@ export default async function AdminLayout({
       <main className="min-h-screen flex items-center justify-center p-6 bg-background">
         <div className="max-w-md text-center space-y-4">
           <div className="space-y-2">
-            <h1 className="text-lg font-semibold text-foreground">Access denied</h1>
+            <h1 className="text-lg font-medium text-foreground">Access denied</h1>
             <p className="text-sm text-foreground-500">
               Your account does not hold an <code>admin_console_access</code> certificate.
             </p>
@@ -62,7 +62,7 @@ export default async function AdminLayout({
     { id: "route-sensors", label: "Sensors", subtitle: "Fleet and workload telemetry", href: "/admin/sensors", group: "Navigate" },
     { id: "route-map", label: "Map", subtitle: "Actor and sensor locations", href: "/admin/map", group: "Navigate" },
     { id: "route-certificates", label: "Certificates", subtitle: "Capability grants and revocation ledger", href: "/admin/certificates", group: "Navigate" },
-    { id: "route-audit", label: "Audit Log", subtitle: "Signed events and operator history", href: "/admin/audit", group: "Navigate" },
+    { id: "route-audit", label: "Audit log", subtitle: "Signed events and operator history", href: "/admin/audit", group: "Navigate" },
     { id: "route-workspaces", label: "Workspaces", subtitle: "Scopes for teams and environments", href: "/admin/workspaces", group: "Navigate" },
     { id: "route-integrations", label: "Integrations", subtitle: "Webhooks, channels, and capabilities", href: "/admin/integrations", group: "Navigate" },
     { id: "route-settings", label: "Settings", subtitle: "Organization defaults and policies", href: "/admin/settings", group: "Navigate" },

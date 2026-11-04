@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import { createInvitationAction } from "../actions";
 
 const CAPABILITIES = [
@@ -46,7 +47,7 @@ export default function InviteHumanForm({ workspaces }: { workspaces: { id: stri
             Copy this invite link now — it will not be shown again, and it only works once.
           </p>
           <div className="flex items-center gap-2">
-            <code className="flex-1 text-xs font-mono bg-background-100 border border-neutral-200 rounded-lg px-3 py-2 overflow-x-auto">
+            <code className="flex-1 text-xs font-mono text-foreground bg-background-100 border border-neutral-200 rounded-lg px-3 py-2 overflow-x-auto">
               {created.url}
             </code>
             <button
@@ -55,14 +56,15 @@ export default function InviteHumanForm({ workspaces }: { workspaces: { id: stri
                 void navigator.clipboard.writeText(created.url);
                 setCopied(true);
               }}
-              className="text-xs px-3 py-2 border border-neutral-200 rounded-lg hover:bg-background-200/60 transition-colors shrink-0"
+              className="text-sm font-medium px-3 py-1.5 border border-neutral-200 bg-background-100 text-foreground rounded-lg hover:bg-background-200 transition-colors shrink-0"
             >
               {copied ? "Copied" : "Copy"}
             </button>
           </div>
         </div>
-        <Link href="/admin/actors" className="inline-block text-sm text-primary-600 hover:underline">
-          Done — back to Actors →
+        <Link href="/admin/actors" className="inline-flex items-center gap-1.5 text-sm text-primary-700 hover:underline">
+          <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.5} />
+          Back to Actors
         </Link>
       </div>
     );
@@ -83,7 +85,7 @@ export default function InviteHumanForm({ workspaces }: { workspaces: { id: stri
           name="name"
           required
           placeholder="e.g. Alice Martin"
-          className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background"
+          className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400"
         />
       </div>
 
@@ -92,8 +94,8 @@ export default function InviteHumanForm({ workspaces }: { workspaces: { id: stri
         <input
           type="email"
           name="email"
-          placeholder="Used for email notifications — optional"
-          className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background"
+          placeholder="Used for email notifications"
+          className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400"
         />
       </div>
 
@@ -101,7 +103,7 @@ export default function InviteHumanForm({ workspaces }: { workspaces: { id: stri
         <label className="block text-sm font-medium text-foreground mb-1.5">Workspace (optional)</label>
         <select
           name="workspaceId"
-          className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background"
+          className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400"
         >
           <option value="">No workspace</option>
           {workspaces.map((w) => (
@@ -118,7 +120,7 @@ export default function InviteHumanForm({ workspaces }: { workspaces: { id: stri
         </label>
         <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm border border-neutral-200 rounded-lg p-3">
           {CAPABILITIES.map((cap) => (
-            <label key={cap} className="flex items-center gap-1.5 text-foreground-700">
+            <label key={cap} className="flex items-center gap-1.5 font-mono text-xs text-foreground-700">
               <input
                 type="checkbox"
                 name="capabilities"
@@ -137,7 +139,7 @@ export default function InviteHumanForm({ workspaces }: { workspaces: { id: stri
         <select
           name="expiryPreset"
           defaultValue="7d"
-          className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background"
+          className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400"
         >
           <option value="1d">1 day</option>
           <option value="7d">7 days</option>

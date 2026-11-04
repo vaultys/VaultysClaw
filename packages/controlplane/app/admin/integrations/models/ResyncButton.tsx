@@ -31,14 +31,14 @@ export default function ResyncButton({ disabled }: { disabled?: boolean }) {
             setBusy(false);
           }
         }}
-        className="px-3 py-1.5 border border-neutral-200 text-xs rounded-lg hover:bg-background-200/60 transition-colors disabled:opacity-50 inline-flex items-center gap-1.5"
+        className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-background-100 px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-background-200 disabled:opacity-50"
       >
-        {busy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+        {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.5} />}
         Re-push all models
       </button>
       {result && (
         <span
-          className={`text-xs ${result.failed > 0 ? "text-warning-700" : "text-success-700"}`}
+          className={`text-xs tabular-nums ${result.failed > 0 ? "text-warning-700" : "text-foreground-600"}`}
         >
           {result.pushed} pushed{result.failed > 0 && `, ${result.failed} failed`}
         </span>

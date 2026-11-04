@@ -35,20 +35,20 @@ export default function DeleteWorkspacePanel({
   const router = useRouter();
 
   return (
-    <section className="space-y-3 border border-danger-200 rounded-xl bg-danger-100/30 p-4 max-w-lg">
-      <h2 className="text-sm font-semibold text-danger-700 flex items-center gap-1.5">
-        <AlertTriangle className="w-3.5 h-3.5" />
+    <section className="space-y-3 border border-danger-200 rounded-xl bg-danger-100/30 p-5 max-w-lg">
+      <h2 className="text-sm font-medium text-danger-700 flex items-center gap-1.5">
+        <AlertTriangle className="w-4 h-4" strokeWidth={1.5} />
         Delete this workspace
       </h2>
 
-      <p className="text-xs text-foreground-600">
+      <p className="text-xs leading-5 text-foreground-600">
         {scopedCertificateCount > 0 ? (
           <>
             This will{" "}
-            <strong>
+            <span className="font-medium text-foreground">
               revoke {scopedCertificateCount} active certificate
               {scopedCertificateCount === 1 ? "" : "s"} scoped to this workspace
-            </strong>
+            </span>
             . Any host holding one stops being authorized at its next status check — including
             hosts that enforce offline and are not connected right now.{" "}
           </>
@@ -70,14 +70,14 @@ export default function DeleteWorkspacePanel({
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="text-xs inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-danger-200 text-danger-700 hover:bg-danger-100"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-background-100 px-3 py-1.5 text-xs font-medium text-danger-700 transition-colors hover:bg-background-200"
         >
-          <Trash2 className="w-3.5 h-3.5" />
-          Delete workspace…
+          <Trash2 className="w-3.5 h-3.5" strokeWidth={1.5} />
+          Delete workspace
         </button>
       ) : (
         <form
-          className="space-y-2"
+          className="space-y-3"
           onSubmit={(e) => {
             e.preventDefault();
             const formData = new FormData();
@@ -100,7 +100,7 @@ export default function DeleteWorkspacePanel({
               value={typed}
               onChange={(e) => setTyped(e.target.value)}
               autoComplete="off"
-              className="mt-1 w-full max-w-sm text-sm rounded-lg border border-neutral-200 bg-background-50 px-2 py-1.5"
+              className="mt-1 w-full max-w-sm rounded-lg border border-neutral-200 bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400"
             />
           </label>
           {error && (
@@ -108,7 +108,7 @@ export default function DeleteWorkspacePanel({
               role="alert"
               className="text-xs text-danger-700 bg-danger-100 border border-danger-200 rounded-lg px-3 py-2 flex gap-1.5"
             >
-              <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+              <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" strokeWidth={1.5} />
               <span>{error}</span>
             </p>
           )}
@@ -116,7 +116,7 @@ export default function DeleteWorkspacePanel({
             <button
               type="submit"
               disabled={pending || typed !== name}
-              className="text-xs px-3 py-1.5 rounded-lg bg-danger-600 text-white hover:bg-danger-700 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="rounded-lg bg-danger-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-danger-500 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {pending ? "Deleting…" : "Delete permanently"}
             </button>
@@ -127,7 +127,7 @@ export default function DeleteWorkspacePanel({
                 setTyped("");
                 setError(null);
               }}
-              className="text-xs px-3 py-1.5 rounded-lg border border-neutral-200 hover:bg-background-200"
+              className="rounded-lg border border-neutral-200 bg-background-100 px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-background-200"
             >
               Cancel
             </button>

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
 import { useEffect, useRef, useState, Fragment } from "react";
-import { LogOut, Sun, Moon, Monitor, ChevronDown, ChevronRight, IdCard, User, Check, Search } from "lucide-react";
+import { LogOut, Sun, Moon, Monitor, ChevronDown, ChevronRight, IdCard, User, Search } from "lucide-react";
 import { useTheme, type Theme } from "@/components/ThemeProvider";
 import { useBreadcrumbsState } from "./BreadcrumbContext";
 import { cn } from "@/lib/utils";
@@ -56,7 +56,7 @@ export default function TopBar({ onOpenCommand }: { onOpenCommand: () => void })
                 <span
                   className={cn(
                     "truncate",
-                    isLast ? "font-semibold text-foreground" : "text-foreground-500"
+                    isLast ? "font-medium text-foreground" : "text-foreground-500"
                   )}
                 >
                   {crumb.label}
@@ -75,9 +75,9 @@ export default function TopBar({ onOpenCommand }: { onOpenCommand: () => void })
         >
           <span className="flex min-w-0 items-center gap-2">
             <Search className="h-3.5 w-3.5 shrink-0" />
-            <span className="truncate">Search admin...</span>
+            <span className="truncate">Search</span>
           </span>
-          <kbd className="rounded border border-neutral-200 bg-background-100 px-1.5 py-0.5 font-mono text-[10px] font-medium text-foreground-400">
+          <kbd className="rounded border border-neutral-200 bg-background-100 px-1.5 py-0.5 font-mono text-xs text-foreground-500">
             ⌘K
           </kbd>
         </button>
@@ -100,17 +100,17 @@ export default function TopBar({ onOpenCommand }: { onOpenCommand: () => void })
               : "text-foreground-700 hover:text-foreground hover:bg-background-200/60"
           )}
         >
-          <span className="w-7 h-7 bg-secondary-700 dark:bg-secondary-400 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0">
-            <User className="w-3.5 h-3.5" />
+          <span className="w-7 h-7 border border-neutral-200 bg-background-200 rounded-full flex items-center justify-center text-foreground-600 shrink-0">
+            <User className="w-3.5 h-3.5" strokeWidth={1.5} />
           </span>
           <span className="hidden sm:block max-w-[140px] truncate text-xs">{displayLabel}</span>
           <ChevronDown className={cn("w-3.5 h-3.5 transition-transform", open ? "rotate-180" : "")} />
         </button>
 
         {open && (
-          <div className="absolute right-0 top-full mt-1.5 w-56 bg-background-100 border border-neutral-300 rounded-xl shadow-2xl shadow-black/40 z-50 overflow-hidden">
+          <div className="absolute right-0 top-full mt-1.5 w-56 bg-background-100 border border-neutral-200 rounded-xl shadow-lg z-50 overflow-hidden">
             <div className="px-3 py-2.5 border-b border-neutral-200">
-              <p className="text-xs text-foreground-700 font-medium uppercase tracking-wider mb-0.5">
+              <p className="text-xs text-foreground-500 mb-0.5">
                 Signed in as
               </p>
               {session?.user?.name && (
@@ -118,7 +118,7 @@ export default function TopBar({ onOpenCommand }: { onOpenCommand: () => void })
                   {session.user.name}
                 </p>
               )}
-              <p className="text-xs text-foreground-700 font-mono truncate">{shortDid(did)}</p>
+              <p className="text-xs text-foreground-500 font-mono truncate">{shortDid(did)}</p>
             </div>
 
             {/* Session-gated only (app/identity/layout.tsx), so this link works for
@@ -130,12 +130,12 @@ export default function TopBar({ onOpenCommand }: { onOpenCommand: () => void })
               onClick={() => setOpen(false)}
               className="flex w-full items-center gap-2.5 border-b border-neutral-200 px-3 py-2.5 text-sm text-foreground-700 transition-colors hover:bg-background-200 hover:text-foreground"
             >
-              <IdCard className="h-4 w-4" />
+              <IdCard className="h-4 w-4" strokeWidth={1.5} />
               My identity
             </Link>
 
             <div className="px-3 py-2 border-b border-neutral-200">
-              <p className="text-xs text-foreground-700 uppercase tracking-wider mb-1.5 font-medium">
+              <p className="text-xs text-foreground-500 mb-1.5">
                 Appearance
               </p>
               <div className="flex gap-1">
@@ -147,13 +147,12 @@ export default function TopBar({ onOpenCommand }: { onOpenCommand: () => void })
                     className={cn(
                       "flex-1 flex flex-col items-center gap-1 py-1.5 rounded-lg text-xs transition-colors border",
                       theme === value
-                        ? "bg-primary-100 border-primary-300 text-primary-700"
+                        ? "bg-background-200 border-neutral-300 text-foreground"
                         : "border-transparent text-foreground-700 hover:text-foreground hover:bg-background-200"
                     )}
                   >
                     <Icon className="w-3.5 h-3.5" />
                     <span>{label}</span>
-                    {theme === value && <Check className="w-2.5 h-2.5 text-primary-700 absolute" />}
                   </button>
                 ))}
               </div>
@@ -161,9 +160,9 @@ export default function TopBar({ onOpenCommand }: { onOpenCommand: () => void })
 
             <button
               onClick={() => signOut({ callbackUrl: "/login" })}
-              className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-danger-500 hover:text-danger-600 hover:bg-danger-50 transition-colors"
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-foreground-700 hover:text-danger-700 hover:bg-background-200 transition-colors"
             >
-              <LogOut className="w-4 h-4" />
+              <LogOut className="w-4 h-4" strokeWidth={1.5} />
               Sign out
             </button>
           </div>

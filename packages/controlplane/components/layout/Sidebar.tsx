@@ -59,7 +59,7 @@ const NAV_ITEMS: NavItem[] = [
       },
       {
         href: "/admin/actors?tab=agents",
-        label: "Agents & Devices",
+        label: "Agents and devices",
         icon: Bot,
       },
       {
@@ -98,7 +98,7 @@ const NAV_ITEMS: NavItem[] = [
   {
     href: "/admin/audit",
     icon: ScrollText,
-    label: "Audit Log",
+    label: "Audit log",
     description: "Signed events and operator history",
     exact: false,
   },
@@ -113,7 +113,7 @@ const NAV_ITEMS: NavItem[] = [
     href: "/admin/integrations",
     icon: Plug,
     label: "Integrations",
-    description: "Webhooks and notification channels",
+    description: "Webhooks, channels, models, identity, and capabilities",
     exact: false,
   },
   {
@@ -164,13 +164,13 @@ export default function Sidebar({ orgName }: { orgName: string }) {
   }, [actorsActive]);
 
   return (
-    <aside className="flex flex-col w-[232px] shrink-0 h-full bg-background-100 dark:bg-background-50 border-r border-neutral-200">
+    <aside className="flex flex-col w-60 shrink-0 h-full bg-background-100 dark:bg-background-50 border-r border-neutral-200">
       <div className="flex items-center h-16 px-5 border-b border-neutral-200">
         <BrandLogo className="h-6" />
       </div>
 
-      <div className="mx-3 mt-3.5 mb-1 flex items-center gap-2.5 rounded-lg border border-neutral-200 bg-background-50 px-2.5 py-2">
-        <span className="grid h-[22px] w-[22px] shrink-0 place-items-center rounded bg-secondary-700 text-[11px] font-semibold text-white dark:bg-secondary-300 dark:text-foreground">
+      <div className="mx-3 mt-4 mb-1 flex items-center gap-2.5 rounded-lg border border-neutral-200 bg-background-50 px-2.5 py-2">
+        <span className="grid h-6 w-6 shrink-0 place-items-center rounded bg-secondary-700 text-xs font-medium text-white dark:bg-secondary-300 dark:text-foreground">
           {orgName.trim().charAt(0).toUpperCase() || "V"}
         </span>
         <span className="truncate text-sm font-medium text-foreground">{orgName}</span>
@@ -206,6 +206,7 @@ export default function Sidebar({ orgName }: { orgName: string }) {
                   )}
                   <item.icon
                     className={cn("w-[18px] h-[18px] shrink-0", active && "text-primary-600")}
+                    strokeWidth={1.5}
                   />
                   <span className="min-w-0 flex-1 truncate text-left">{item.label}</span>
                   <ChevronDown
@@ -231,6 +232,7 @@ export default function Sidebar({ orgName }: { orgName: string }) {
                   )}
                   <item.icon
                     className={cn("w-[18px] h-[18px] shrink-0", active && "text-primary-600")}
+                    strokeWidth={1.5}
                   />
                   <span className="truncate">{item.label}</span>
                 </Link>
@@ -238,9 +240,9 @@ export default function Sidebar({ orgName }: { orgName: string }) {
               <span
                 id={`nav-help-${item.label.toLowerCase().replace(/\s+/g, "-")}`}
                 role="tooltip"
-                className="pointer-events-none absolute left-full top-1/2 z-50 ml-2 hidden w-56 -translate-y-1/2 rounded-lg border border-neutral-200 bg-background-100 px-3 py-2 text-xs font-normal leading-5 text-foreground-600 opacity-0 shadow-xl shadow-black/10 transition-opacity group-hover/nav:block group-hover/nav:opacity-100"
+                className="pointer-events-none absolute left-full top-1/2 z-50 ml-2 hidden w-56 -translate-y-1/2 rounded-lg border border-neutral-200 bg-background-100 px-3 py-2 text-xs font-normal leading-5 text-foreground-600 opacity-0 shadow-lg transition-opacity group-hover/nav:block group-hover/nav:opacity-100"
               >
-                <span className="block font-semibold text-foreground">{item.label}</span>
+                <span className="block font-medium text-foreground">{item.label}</span>
                 {item.description}
               </span>
               {item.subItems && expanded && (
@@ -263,6 +265,7 @@ export default function Sidebar({ orgName }: { orgName: string }) {
                       >
                         <subItem.icon
                           className={cn("h-3.5 w-3.5 shrink-0", subActive && "text-primary-600")}
+                          strokeWidth={1.5}
                         />
                         <span className="truncate">{subItem.label}</span>
                       </Link>

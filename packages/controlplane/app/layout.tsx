@@ -23,13 +23,21 @@ export const metadata: Metadata = {
   description: "Rebuilt control plane — see docs/REBUILD_ARCHITECTURE.md",
 };
 
+// Applies the stored theme before first paint. ThemeProvider only sets the `dark` class in an
+// effect, after hydration, so without this every full page load painted light and then animated
+// every `transition-colors` surface to dark.
+const THEME_BOOT = `try{var t=localStorage.getItem("vc-theme")||"system";var d=t==="dark"||(t==="system"&&matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.classList.toggle("dark",d)}catch(e){}`;
+
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${plexSans.variable} ${plexMono.variable}`}>
+    <html lang="en" className={`${plexSans.variable} ${plexMono.variable}`} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT }} />
+      </head>
       <body className="bg-background text-foreground min-h-screen">
         <ThemeProvider>
           <SessionProviderWrapper>{children}</SessionProviderWrapper>

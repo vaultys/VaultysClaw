@@ -68,10 +68,10 @@ export default function ConnectCountdown({
       <p className={`text-center text-xs tabular-nums ${tone.text}`}>
         {remainingSeconds > 0 ? (
           <>
-            This code expires in <span className="font-medium">{label}</span>
+            This code expires in <span className="font-mono font-medium">{label}</span>
           </>
         ) : (
-          "This code has expired."
+          "This code has expired"
         )}
       </p>
     </div>

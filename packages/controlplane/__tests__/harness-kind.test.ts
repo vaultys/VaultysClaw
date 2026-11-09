@@ -17,9 +17,9 @@ describe("parseHarnessKindConfig", () => {
     const parsed = parseHarnessKindConfig(null);
     expect(parsed.mode).toBe("observe");
     expect(parsed.resourceRules).toEqual([]);
-    // Negative, not 0: a new harness has no status refresh to be fresh against,
-    // and 0 would deny everything the moment it moved to `explicit`.
-    expect(parsed.maxStatusAgeSeconds).toBeLessThan(0);
+    // Finite and positive: 0 would deny everything the moment it moved to
+    // `explicit`, and unbounded let a revoked grant keep authorizing (VC-05).
+    expect(parsed.maxStatusAgeSeconds).toBeGreaterThan(0);
   });
 
   it("throws rather than falling back, so a parse error cannot turn enforcement off", () => {

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/vaultys/VaultysClaw/sdk-go/grant"
+	"github.com/vaultys/VaultysClaw/sdk-go/identity"
 	"github.com/vaultys/vaultysclaw-sensor/internal/config"
 	"github.com/vaultys/vaultysclaw-sensor/internal/intercept"
 )
@@ -38,10 +39,18 @@ func startIntercept(ctx context.Context, cfg *config.Sensor, logger *slog.Logger
 	// `explicit` mode has no attribution source: every caller was pointed here
 	// deliberately, so there is nothing to resolve (§5.2.3). Passing false makes
 	// the store refuse a rule set whose subject-scoped rules could never match.
+	// The grant must have been issued to this host. Same identity file the
+	// supervise role connects with, so one host has one DID (VC-05).
+	id, err := identity.LoadOrCreate(cfg.IdentityPath)
+	if err != nil {
+		return nil, fmt.Errorf("intercept: loading this host's identity: %w", err)
+	}
 	store, err := intercept.NewStore(intercept.StoreOptions{
 		Anchor:               anchor,
 		GrantPath:            ic.GrantPath,
 		RuleSetPath:          ic.RuleSetPath,
+		StatusPath:           ic.StatusPath,
+		LocalDID:             id.DID(),
 		AttributionAvailable: false,
 	})
 	if err != nil {
@@ -58,7 +67,7 @@ func startIntercept(ctx context.Context, cfg *config.Sensor, logger *slog.Logger
 	if ic.MaxStatusAgeSeconds < 0 {
 		// Unbounded. Loud, because it means a revoked certificate keeps working
 		// for as long as this host stays unrefreshed (§8.2).
-		logger.Warn("intercept: maxStatusAgeSeconds is negative — certificate status will back decisions indefinitely without a refresh")
+		logger.Warn("intercept: maxStatusAgeSeconds is negative — a revoked certificate keeps authorizing for as long as this host goes without a status refresh")
 	} else if ic.MaxStatusAgeSeconds == 0 && ic.FailClosed {
 		// The strictest setting, and offline it denies everything. Say so at
 		// startup rather than letting the operator discover it from the spool.

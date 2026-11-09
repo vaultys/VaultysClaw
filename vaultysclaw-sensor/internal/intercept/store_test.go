@@ -49,12 +49,36 @@ func grantToken(t *testing.T, vid *vaultysid.VaultysID, caps []string, domains [
 	})
 }
 
+// localDID is the holder grantToken issues to, and the host every fixture
+// store runs as.
+const localDID = "did:vaultys:proxy"
+
+// statusToken signs a cert_status_response for grantToken's certificate, as
+// the control plane's lib/grant-status.ts does.
+func statusToken(t *testing.T, vid *vaultysid.VaultysID, status string, checkedAt time.Time, seq int64) string {
+	t.Helper()
+	aud := localDID
+	ms := checkedAt.UnixMilli()
+	return packToken(t, vid, map[string]any{
+		"type":         "cert_status_response",
+		"certId":       "cert-store",
+		"agentDid":     localDID,
+		"status":       status,
+		"capabilities": []string{},
+		"checkedAt":    ms,
+		"expiresAt":    nil,
+		"aud":          aud,
+		"seq":          seq,
+	})
+}
+
 type storeFixture struct {
 	server      *vaultysid.VaultysID
 	anchor      *grant.Anchor
 	dir         string
 	grantPath   string
 	ruleSetPath string
+	statusPath  string
 }
 
 func newStoreFixture(t *testing.T) storeFixture {
@@ -74,6 +98,7 @@ func newStoreFixture(t *testing.T) storeFixture {
 		dir:         dir,
 		grantPath:   filepath.Join(dir, "grant.token"),
 		ruleSetPath: filepath.Join(dir, "rules.token"),
+		statusPath:  filepath.Join(dir, "grant-status.token"),
 	}
 }
 
@@ -89,6 +114,8 @@ func (f storeFixture) opts(attributionAvailable bool) StoreOptions {
 		Anchor:               f.anchor,
 		GrantPath:            f.grantPath,
 		RuleSetPath:          f.ruleSetPath,
+		StatusPath:           f.statusPath,
+		LocalDID:             localDID,
 		AttributionAvailable: attributionAvailable,
 	}
 }
@@ -96,6 +123,7 @@ func (f storeFixture) opts(attributionAvailable bool) StoreOptions {
 func TestStoreLoadsAVerifiedGrantAndRuleSet(t *testing.T) {
 	f := newStoreFixture(t)
 	f.write(t, f.grantPath, grantToken(t, f.server, []string{"internet_access"}, []string{"api.github.com"}))
+	f.write(t, f.statusPath, statusToken(t, f.server, "active", time.Now(), 1))
 	f.write(t, f.ruleSetPath, packToken(t, f.server, rules.Set{
 		Version: 1,
 		Rules: []rules.Rule{
@@ -322,5 +350,140 @@ func TestSignatureErrorLeavesOtherFailuresAlone(t *testing.T) {
 	}
 	if !errors.Is(err, grant.ErrMalformed) {
 		t.Error("the underlying error must still be matchable")
+	}
+}
+
+// ─── VC-05: revocation must reach the interception point ──────────────────
+
+func TestStoreRefusesAGrantIssuedToAnotherActor(t *testing.T) {
+	f := newStoreFixture(t)
+	f.write(t, f.grantPath, grantToken(t, f.server, []string{"internet_access"}, nil))
+	opts := f.opts(false)
+	opts.LocalDID = "did:vaultys:someone-else"
+	if _, err := NewStore(opts); !errors.Is(err, grant.ErrWrongHolder) {
+		t.Fatalf("err = %v, want ErrWrongHolder — another Actor's grant must not be enforceable here", err)
+	}
+}
+
+func TestStoreRequiresTheLocalDID(t *testing.T) {
+	f := newStoreFixture(t)
+	opts := f.opts(false)
+	opts.LocalDID = ""
+	if _, err := NewStore(opts); err == nil {
+		t.Fatal("a store with no local DID cannot bind its grant and must refuse to start")
+	}
+}
+
+func TestASignedRevokedStatusDeniesDespiteAValidGrant(t *testing.T) {
+	f := newStoreFixture(t)
+	f.write(t, f.grantPath, grantToken(t, f.server, []string{"internet_access"}, nil))
+	f.write(t, f.statusPath, statusToken(t, f.server, "revoked", time.Now(), 1))
+	s, err := NewStore(f.opts(false))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := s.ConfigFor(time.Hour, true)()
+	if cfg.Certs[0].Status != authz.StatusRevoked {
+		t.Fatalf("status = %q, want revoked", cfg.Certs[0].Status)
+	}
+	if out := Decide(cfg, rules.Destination{Host: "api.github.com", Port: 443}, nil, time.Now()); out.Allowed {
+		t.Error("a revoked grant still authorized a request")
+	}
+}
+
+// Freshness comes from the signed checkedAt. A `touch` on either file used to
+// renew it.
+func TestTouchingTheFilesDoesNotRefreshAnOldStatus(t *testing.T) {
+	f := newStoreFixture(t)
+	f.write(t, f.grantPath, grantToken(t, f.server, []string{"internet_access"}, nil))
+	old := time.Now().Add(-2 * time.Hour)
+	f.write(t, f.statusPath, statusToken(t, f.server, "active", old, 1))
+	f.write(t, f.ruleSetPath, packToken(t, f.server, rules.Set{Version: 1}))
+	now := time.Now()
+	for _, p := range []string{f.grantPath, f.statusPath, f.ruleSetPath} {
+		_ = os.Chtimes(p, now, now)
+	}
+	s, err := NewStore(f.opts(false))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := s.ConfigFor(time.Hour, true)()
+	if !cfg.SyncedAt.Equal(time.UnixMilli(old.UnixMilli())) {
+		t.Errorf("SyncedAt = %v, want the signed checkedAt %v", cfg.SyncedAt, old)
+	}
+	if out := Decide(cfg, rules.Destination{Host: "api.github.com", Port: 443}, nil, now); out.Allowed {
+		t.Error("a two-hour-old status passed a one-hour bound because its file was touched")
+	}
+}
+
+func TestAGrantWithNoStatusIsUnconfirmed(t *testing.T) {
+	f := newStoreFixture(t)
+	f.write(t, f.grantPath, grantToken(t, f.server, []string{"internet_access"}, nil))
+	s, err := NewStore(f.opts(false))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := s.ConfigFor(time.Hour, true)()
+	if !cfg.SyncedAt.IsZero() {
+		t.Errorf("SyncedAt = %v, want zero — no signed status, nothing to be fresh from", cfg.SyncedAt)
+	}
+	if out := Decide(cfg, rules.Destination{Host: "api.github.com", Port: 443}, nil, time.Now()); out.Allowed {
+		t.Error("an unconfirmed grant authorized under a finite bound")
+	}
+	// Only an explicitly unbounded deployment enforces on it as-is.
+	if out := Decide(s.ConfigFor(-1, true)(), rules.Destination{Host: "api.github.com", Port: 443}, nil, time.Now()); !out.Allowed {
+		t.Errorf("unbounded deployment denied: %q", out.Reason)
+	}
+}
+
+func TestAnOlderStatusCannotReplaceANewerOne(t *testing.T) {
+	f := newStoreFixture(t)
+	f.write(t, f.grantPath, grantToken(t, f.server, []string{"internet_access"}, nil))
+	preRevocation := statusToken(t, f.server, "active", time.Now().Add(-time.Minute), 10)
+	f.write(t, f.statusPath, statusToken(t, f.server, "revoked", time.Now(), 20))
+	s, err := NewStore(f.opts(false))
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.write(t, f.statusPath, preRevocation)
+	if err := s.Reload(); !errors.Is(err, ErrStaleStatus) {
+		t.Fatalf("err = %v, want ErrStaleStatus", err)
+	}
+	if got := s.ConfigFor(time.Hour, true)().Certs[0].Status; got != authz.StatusRevoked {
+		t.Errorf("status = %q after a replayed older status, want revoked", got)
+	}
+}
+
+func TestAStatusForAnotherAudienceIsRefused(t *testing.T) {
+	f := newStoreFixture(t)
+	f.write(t, f.grantPath, grantToken(t, f.server, []string{"internet_access"}, nil))
+	f.write(t, f.statusPath, packToken(t, f.server, map[string]any{
+		"type": "cert_status_response", "certId": "cert-store", "agentDid": localDID,
+		"status": "active", "capabilities": []string{}, "checkedAt": time.Now().UnixMilli(),
+		"expiresAt": nil, "aud": "did:vaultys:other", "seq": 1,
+	}))
+	if _, err := NewStore(f.opts(false)); !errors.Is(err, grant.ErrStatusMismatch) {
+		t.Fatalf("err = %v, want ErrStatusMismatch", err)
+	}
+}
+
+// The control plane said there is no grant (or a kill switch dropped it): the
+// file is gone, and the previously loaded grant must stop authorizing even on
+// a store that requires a grant at startup.
+func TestRemovingTheGrantAfterLoadWithdrawsIt(t *testing.T) {
+	f := newStoreFixture(t)
+	f.write(t, f.grantPath, grantToken(t, f.server, []string{"internet_access"}, nil))
+	f.write(t, f.statusPath, statusToken(t, f.server, "active", time.Now(), 1))
+	s, err := NewStore(f.opts(false))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = os.Remove(f.grantPath)
+	_ = os.Remove(f.statusPath)
+	if err := s.Reload(); err != nil {
+		t.Fatalf("Reload: %v", err)
+	}
+	if s.Provisioned() || s.HeldCertID() != "" {
+		t.Error("a withdrawn grant is still in force")
 	}
 }

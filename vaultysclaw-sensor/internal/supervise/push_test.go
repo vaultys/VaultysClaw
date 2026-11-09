@@ -138,13 +138,14 @@ func TestAMalformedPushAppliesNothing(t *testing.T) {
 func TestWriteArtefactsPersistsOnlyTheSignedHalf(t *testing.T) {
 	dir := t.TempDir()
 	grant := filepath.Join(dir, "grant.token")
+	status := filepath.Join(dir, "grant-status.token")
 	rules := filepath.Join(dir, "rules.token")
 
-	g, r := "GRANT-TOKEN", "RULES-TOKEN"
-	if err := WriteArtefacts(vconn.ActorConfigPayload{GrantToken: &g, RuleSetToken: &r}, grant, rules); err != nil {
+	g, st, r := "GRANT-TOKEN", "STATUS-TOKEN", "RULES-TOKEN"
+	if err := WriteArtefacts(vconn.ActorConfigPayload{GrantToken: &g, GrantStatusToken: &st, RuleSetToken: &r}, grant, status, rules); err != nil {
 		t.Fatal(err)
 	}
-	for path, want := range map[string]string{grant: g, rules: r} {
+	for path, want := range map[string]string{grant: g, status: st, rules: r} {
 		body, err := os.ReadFile(path)
 		if err != nil {
 			t.Fatal(err)
@@ -159,23 +160,56 @@ func TestWriteArtefactsPersistsOnlyTheSignedHalf(t *testing.T) {
 	}
 }
 
-func TestANullTokenDoesNotEraseAWorkingArtefact(t *testing.T) {
-	// The control plane sends null when it has nothing to give — no active
-	// certificate, no rules. Erasing a working local artefact because an
-	// unauthenticated message said nothing is a denial of service anyone on the
-	// socket could perform.
+// VC-05: after a revocation the push carries grantToken: null. Leaving the old
+// grant on disk is what kept a revoked grant verifying as "active" until its
+// signed expiry, so a null grant deletes the stored grant and its status.
+func TestANullGrantDeletesTheStoredGrantAndStatus(t *testing.T) {
 	dir := t.TempDir()
 	grant := filepath.Join(dir, "grant.token")
-	if err := os.WriteFile(grant, []byte("EXISTING"), 0o600); err != nil {
-		t.Fatal(err)
+	status := filepath.Join(dir, "grant-status.token")
+	rules := filepath.Join(dir, "rules.token")
+	for _, p := range []string{grant, status, rules} {
+		if err := os.WriteFile(p, []byte("EXISTING"), 0o600); err != nil {
+			t.Fatal(err)
+		}
 	}
 
-	if err := WriteArtefacts(vconn.ActorConfigPayload{}, grant, filepath.Join(dir, "rules.token")); err != nil {
+	if err := WriteArtefacts(vconn.ActorConfigPayload{}, grant, status, rules); err != nil {
 		t.Fatal(err)
 	}
-	body, _ := os.ReadFile(grant)
-	if string(body) != "EXISTING" {
-		t.Errorf("grant = %q, want the existing artefact untouched", body)
+	for _, p := range []string{grant, status} {
+		if _, err := os.Stat(p); !os.IsNotExist(err) {
+			t.Errorf("%s still exists after a push with no grant (err=%v)", p, err)
+		}
+	}
+	// A null rule set still clears nothing — an empty rule set loosens.
+	if body, _ := os.ReadFile(rules); string(body) != "EXISTING" {
+		t.Errorf("rules = %q, want the existing artefact untouched", body)
+	}
+}
+
+// A grant pushed without a status (an older control plane) must not inherit a
+// status signed for something else: the stale one is removed.
+func TestAGrantWithoutStatusRemovesThePreviousStatus(t *testing.T) {
+	dir := t.TempDir()
+	grant := filepath.Join(dir, "grant.token")
+	status := filepath.Join(dir, "grant-status.token")
+	if err := os.WriteFile(status, []byte("OLD-STATUS"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	g := "GRANT-TOKEN"
+	if err := WriteArtefacts(vconn.ActorConfigPayload{GrantToken: &g}, grant, status, ""); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(status); !os.IsNotExist(err) {
+		t.Errorf("the previous status survived a push that carried none (err=%v)", err)
+	}
+}
+
+func TestDropGrantToleratesMissingFiles(t *testing.T) {
+	dir := t.TempDir()
+	if err := DropGrant(filepath.Join(dir, "nope"), filepath.Join(dir, "nope2")); err != nil {
+		t.Errorf("DropGrant on absent files: %v", err)
 	}
 }
 

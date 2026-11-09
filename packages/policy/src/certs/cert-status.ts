@@ -62,6 +62,25 @@ export interface CertStatusResponseBody {
   checkedAt: number;
   /** Ms since epoch, or null for a certificate that does not auto-expire. */
   expiresAt: number | null;
+  /**
+   * The DID this assertion was issued *to* — the requester of a status check, or the Actor an
+   * `actor_config`/`grant_status` push was addressed to. Null when unaddressed.
+   *
+   * Signed so a holder can refuse an assertion minted for somebody else: a status response is
+   * designed to be cached and forwarded, and without an audience one Actor's "active" could be
+   * replayed to back another Actor's decision.
+   *
+   * Optional in the type because a response signed before this field existed decodes without it.
+   */
+  aud?: string | null;
+  /**
+   * Monotonic ordering of assertions from the issuing control plane. A recipient keeps the highest
+   * it has seen per certificate and refuses a lower one, so an older "active" cannot be replayed
+   * over a newer "revoked". Never decreases across restarts of a single control plane (it is
+   * clock-derived, see the control plane's `nextStatusSeq`). Optional for the same reason as
+   * {@link aud}; a recipient should fall back to `checkedAt`.
+   */
+  seq?: number;
 }
 
 export interface CertStatusResponseInput {
@@ -72,6 +91,12 @@ export interface CertStatusResponseInput {
   resourceLimits?: ResourceLimits | null;
   scope?: CertScope | null;
   expiresAt: number | null;
+  /** See {@link CertStatusResponseBody.aud}. */
+  aud?: string | null;
+  /** See {@link CertStatusResponseBody.seq}. Defaults to `checkedAt`. */
+  seq?: number;
+  /** Injected clock, ms since epoch. Defaults to `Date.now()`. */
+  now?: number;
 }
 
 /** Sign a status response with the control plane's VaultysId. */
@@ -79,6 +104,7 @@ export function signCertStatusResponseCert(
   vid: VaultysId,
   input: CertStatusResponseInput
 ): Promise<string> {
+  const checkedAt = input.now ?? Date.now();
   const body: CertStatusResponseBody = {
     type: "cert_status_response",
     certId: input.certId,
@@ -87,8 +113,10 @@ export function signCertStatusResponseCert(
     capabilities: input.capabilities,
     resourceLimits: input.resourceLimits ?? null,
     scope: input.scope ?? null,
-    checkedAt: Date.now(),
+    checkedAt,
     expiresAt: input.expiresAt,
+    aud: input.aud ?? null,
+    seq: input.seq ?? checkedAt,
   };
   return signCert(vid, body);
 }

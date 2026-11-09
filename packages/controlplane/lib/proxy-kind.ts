@@ -41,13 +41,27 @@ export interface ProxyKindConfig {
 }
 
 /** What a freshly created proxy Actor gets: governs nothing, refuses nothing, enforces via its certificate only. */
+/**
+ * The staleness bound both enforcing kinds (`proxy`, `harness`) ship with: how long a signed grant
+ * status may back an offline decision before it must be refreshed.
+ *
+ * One hour, against a refresh every five minutes (`ws-server.ts`'s
+ * `GRANT_STATUS_REFRESH_INTERVAL_MS`) — so a healthy connection never lapses, and a revocation or
+ * kill switch that a severed connection never delivered stops authorizing within the hour. It is
+ * also the sensor's own default (`vaultysclaw-sensor/internal/config`), and must stay so: a signed
+ * kindConfig applies in both directions, so a looser value here would loosen every host.
+ *
+ * Negative (unbounded) is still available, as an explicit admin choice the panel warns about.
+ */
+export const DEFAULT_ENFORCING_MAX_STATUS_AGE_SECONDS = 3600;
+
 export const DEFAULT_PROXY_KIND_CONFIG: ProxyKindConfig = {
   mode: "explicit",
   rules: [],
-  // Unbounded, stated as a negative rather than left at 0. A brand-new proxy
-  // has no status refresh to be fresh against, and 0 would deny everything —
-  // the admin panel surfaces this as the choice it is.
-  maxStatusAgeSeconds: -1,
+  // Finite. An unbounded default meant a revoked grant kept authorizing on
+  // every proxy nobody had tuned, until its signed expiry (VC-05). See
+  // DEFAULT_ENFORCING_MAX_STATUS_AGE_SECONDS.
+  maxStatusAgeSeconds: DEFAULT_ENFORCING_MAX_STATUS_AGE_SECONDS,
 };
 
 export class ProxyKindConfigError extends Error {}

@@ -36,6 +36,7 @@ import {
   type HarnessKindConfig,
 } from "./harness-kind";
 import type { ActorConfigPayload } from "./protocol";
+import { signGrantStatus } from "./grant-status";
 
 /**
  * `certFormat` values whose signed bytes actually carry what was granted.
@@ -87,7 +88,7 @@ export async function buildActorConfig(did: string): Promise<ActorConfigResult |
   const warnings: string[] = [];
 
   if (actor.kind === "harness") {
-    return buildHarnessConfig(did, actor.kindConfig, actor.workspaceId, warnings);
+    return buildHarnessConfig(did, actor, warnings);
   }
 
   if (actor.kind !== "proxy") {
@@ -103,6 +104,7 @@ export async function buildActorConfig(did: string): Promise<ActorConfigResult |
         // a second copy to know what it was granted, and it doesn't enforce on anyone else's
         // behalf, so there is nothing for a grant token to authorize here.
         grantToken: null,
+        grantStatusToken: null,
         ruleSetToken: null,
         trust: await resolveInheritedTrust(actor.workspaceId),
       },
@@ -123,7 +125,7 @@ export async function buildActorConfig(did: string): Promise<ActorConfigResult |
     );
   }
 
-  const grantToken = await resolveGrantToken(did, warnings);
+  const { grantToken, grantStatusToken } = await resolveGrant(did, actor, warnings);
   const ruleSetToken = await signRuleSet(kindConfig);
   const trust = await resolveTrust(kindConfig, actor.workspaceId);
 
@@ -139,6 +141,7 @@ export async function buildActorConfig(did: string): Promise<ActorConfigResult |
       kindConfig,
       kindConfigToken: await signKindConfig(kindConfig),
       grantToken,
+      grantStatusToken,
       ruleSetToken,
       trust,
     },
@@ -170,13 +173,13 @@ async function signKindConfig(kindConfig: unknown): Promise<string> {
  */
 async function buildHarnessConfig(
   did: string,
-  raw: unknown,
-  workspaceId: string | null,
+  actor: { kind: string; kindConfig: unknown; workspaceId: string | null },
   warnings: string[]
 ): Promise<ActorConfigResult> {
+  const workspaceId = actor.workspaceId;
   let kindConfig: HarnessKindConfig;
   try {
-    kindConfig = parseHarnessKindConfig(raw);
+    kindConfig = parseHarnessKindConfig(actor.kindConfig);
   } catch (err) {
     // Same refusal as the proxy's, for the same reason: a malformed stored
     // config silently becoming the default would drop every deny rule the admin
@@ -189,7 +192,7 @@ async function buildHarnessConfig(
     );
   }
 
-  const grantToken = await resolveGrantToken(did, warnings);
+  const { grantToken, grantStatusToken } = await resolveGrant(did, actor, warnings);
   const ruleSetToken = await signHarnessRuleSet(kindConfig);
   warnings.push(...harnessKindConfigWarnings(kindConfig));
 
@@ -198,6 +201,7 @@ async function buildHarnessConfig(
       kindConfig,
       kindConfigToken: await signKindConfig(kindConfig),
       grantToken,
+      grantStatusToken,
       ruleSetToken,
       // The harness's own maxStatusAgeSeconds is authoritative for it, exactly as
       // the proxy's is for the proxy: an offline decider cannot perform the live
@@ -234,7 +238,27 @@ async function signHarnessRuleSet(config: HarnessKindConfig): Promise<string | n
  * sending several would make "which one authorized this" ambiguous in the audit
  * trail for no gain.
  */
-async function resolveGrantToken(did: string, warnings: string[]): Promise<string | null> {
+export async function resolveGrant(
+  did: string,
+  holder: { kind: string; workspaceId: string | null },
+  warnings: string[]
+): Promise<{ grantToken: string | null; grantStatusToken: string | null }> {
+  const cert = await selectGrant(did, warnings);
+  if (!cert) return { grantToken: null, grantStatusToken: null };
+  // The status is signed *with* the grant, never sent on its own: a recipient
+  // pairs them by certId, and a grant arriving without a status is treated as
+  // unconfirmed (stale under any finite bound) rather than as active.
+  return {
+    grantToken: cert.certificate,
+    grantStatusToken: await signGrantStatus(cert, holder, did),
+  };
+}
+
+/**
+ * Pick the certificate an interception point will enforce on, or null with a
+ * warning saying why there is none. See {@link resolveGrant}.
+ */
+export async function selectGrant(did: string, warnings: string[]) {
   const active = await CapabilityCertificateDAO.list({ agentDid: did, status: "active" });
   if (active.length === 0) {
     warnings.push(
@@ -272,7 +296,7 @@ async function resolveGrantToken(did: string, warnings: string[]): Promise<strin
     return null;
   }
 
-  return verifiable.certificate;
+  return verifiable;
 }
 
 /**

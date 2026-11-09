@@ -66,6 +66,29 @@ type ClientConfig struct {
 	// docs/PROXY_ARCHITECTURE.md §9 records in the superseded implementation.
 	OnActorConfig func(ActorConfigPayload)
 
+	// OnGrantStatus, when set, is called with each periodic grant_status
+	// re-assertion. Same goroutine rule as OnActorConfig. The token is signed;
+	// verify it (sdk-go/grant.VerifyStatus) before relying on it.
+	OnGrantStatus func(GrantStatusPayload)
+
+	// OnKillSwitch, when set, is called when the control plane says a kill
+	// switch covering this Actor was armed. The message is unsigned, so a
+	// handler may only *suspend* in response — stop authorizing, discard held
+	// grants — never grant anything. That is safe in both directions: a forged
+	// kill_switch can only deny, which anyone able to inject it could already
+	// do by dropping traffic, and a genuine one must take effect before the
+	// socket closes rather than at the staleness bound.
+	//
+	// Nil still logs the event, loudly: an enforcing client that ignored a kill
+	// switch is the exact gap this exists to close.
+	OnKillSwitch func(KillSwitchPayload)
+
+	// OnCapabilitiesChanged, when set, is called on capabilities_changed. Same
+	// one-direction rule as OnKillSwitch: a handler may drop a grant named in a
+	// certificate_revoked notice immediately, but anything that would widen
+	// authority must wait for the signed actor_config that follows.
+	OnCapabilitiesChanged func(CapabilitiesChangedPayload)
+
 	Logger *slog.Logger
 }
 
@@ -124,6 +147,8 @@ type ClientConn struct {
 	// forget it just because the connection dropped.
 	capMu        sync.Mutex
 	capabilities map[string]bool
+	// suspended is set by a kill_switch and cleared on the next auth_complete.
+	suspended bool
 
 	// writeMu serializes writes to the active connection: sendLoop's ticker-driven telemetry
 	// flushes and its background reader's cert-round replies both write to the same *websocket.Conn,
@@ -186,6 +211,34 @@ func (c *ClientConn) HasCapability(name string) bool {
 	c.capMu.Lock()
 	defer c.capMu.Unlock()
 	return c.capabilities[name]
+}
+
+// suspend drops the in-memory capability set on a kill switch, remembering
+// that it did so. The persisted state is left alone — the switch is
+// reversible, and resumeAfterSuspension restores from it.
+func (c *ClientConn) suspend() {
+	c.capMu.Lock()
+	defer c.capMu.Unlock()
+	c.capabilities = map[string]bool{}
+	c.suspended = true
+}
+
+// resumeAfterSuspension restores the persisted capability set after a kill
+// switch was disarmed. A no-op unless suspend ran.
+func (c *ClientConn) resumeAfterSuspension() {
+	c.capMu.Lock()
+	wasSuspended := c.suspended
+	c.suspended = false
+	c.capMu.Unlock()
+	if !wasSuspended {
+		return
+	}
+	state, err := loadCapabilityState(c.cfg.CapabilityStatePath)
+	if err != nil || state == nil {
+		return
+	}
+	c.setCapabilities(state.Capabilities)
+	c.cfg.Logger.Info("vconn: kill switch lifted — restored persisted capabilities", "capabilities", state.Capabilities)
 }
 
 func (c *ClientConn) setCapabilities(names []string) {
@@ -375,6 +428,10 @@ handshakeLoop:
 			var payload AuthCompletePayload
 			_ = env.Decode(&payload)
 			c.cfg.Logger.Info("vconn: connected", "did", payload.DID)
+			// The control plane refuses the handshake while a kill switch
+			// covers this Actor, so reaching auth_complete means any switch
+			// that suspended it has been disarmed.
+			c.resumeAfterSuspension()
 			// A known Actor reconnecting lands here directly, skipping the pending-approval
 			// cases above entirely — if it still has nothing granted (e.g. its very first
 			// registration was approved with no capabilities), ask now rather than staying
@@ -435,6 +492,35 @@ func (c *ClientConn) sendLoop(ctx context.Context, conn *websocket.Conn) error {
 				}
 				if c.cfg.OnActorConfig != nil {
 					c.cfg.OnActorConfig(payload)
+				}
+			case MsgGrantStatus:
+				var payload GrantStatusPayload
+				if err := env.Decode(&payload); err != nil || payload.GrantStatusToken == "" {
+					c.cfg.Logger.Warn("vconn: grant_status could not be decoded; the held status keeps ageing toward its bound", "error", err)
+					break
+				}
+				if c.cfg.OnGrantStatus != nil {
+					c.cfg.OnGrantStatus(payload)
+				}
+			case MsgKillSwitch:
+				var payload KillSwitchPayload
+				_ = env.Decode(&payload)
+				c.cfg.Logger.Warn("vconn: KILL SWITCH armed by the control plane — suspending",
+					"scope", payload.Scope, "workspaceId", payload.WorkspaceID, "reason", payload.Reason, "armedAt", payload.ArmedAt)
+				// Whatever capability list this client was gating on is no
+				// longer authorized; drop it in memory before anything else.
+				// Not persisted: the switch is reversible, and the next
+				// cert_issued or status refresh re-establishes it.
+				c.suspend()
+				if c.cfg.OnKillSwitch != nil {
+					c.cfg.OnKillSwitch(payload)
+				}
+			case MsgCapabilitiesChanged:
+				var payload CapabilitiesChangedPayload
+				_ = env.Decode(&payload)
+				c.cfg.Logger.Info("vconn: capabilities changed", "reason", payload.Reason, "certIds", payload.CertIDs)
+				if c.cfg.OnCapabilitiesChanged != nil {
+					c.cfg.OnCapabilitiesChanged(payload)
 				}
 			case MsgCertFailed:
 				var payload CertFailedPayload

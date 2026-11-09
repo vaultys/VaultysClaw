@@ -152,10 +152,11 @@ describe("parseProxyKindConfig", () => {
     }
   });
 
-  it("defaults maxStatusAgeSeconds to unbounded, written as a negative", () => {
-    // Not 0 — that is the *strictest* value and would deny everything on a
-    // freshly created proxy that has no status refresh to be fresh against.
-    expect(DEFAULT_PROXY_KIND_CONFIG.maxStatusAgeSeconds).toBeLessThan(0);
+  it("defaults maxStatusAgeSeconds to a finite, positive bound", () => {
+    // Not 0 — the strictest value, which denies everything offline — and not
+    // negative: unbounded let a revoked grant authorize until its signed
+    // expiry on every proxy nobody had tuned (VC-05).
+    expect(DEFAULT_PROXY_KIND_CONFIG.maxStatusAgeSeconds).toBeGreaterThan(0);
   });
 
   it("parses a full config", () => {

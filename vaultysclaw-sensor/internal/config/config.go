@@ -174,7 +174,9 @@ type Supervise struct {
 	// RuleSetPath is the signed rule set. Optional: with none, the local safety
 	// floor is the only deny source and certificates the only allow source.
 	RuleSetPath string `yaml:"ruleSetPath"`
-	SpoolPath   string `yaml:"spoolPath"`
+	// StatusPath mirrors Intercept.StatusPath.
+	StatusPath string `yaml:"statusPath"`
+	SpoolPath  string `yaml:"spoolPath"`
 	// MaxStatusAgeSeconds and FailClosed mirror Intercept's, including the
 	// meaning of zero: it is the *strictest* value, not the loosest. See
 	// Intercept.MaxStatusAgeSeconds for why, and do not let the two drift — one
@@ -260,6 +262,13 @@ type Intercept struct {
 	// RuleSetPath is the signed rule set (§5.2.0). Optional: with no rule set,
 	// every request is decided by the certificate alone.
 	RuleSetPath string `yaml:"ruleSetPath"`
+	// StatusPath is the control plane's signed status assertion for the grant
+	// (a cert_status_response). The staleness bound is measured from its signed
+	// checkedAt — not from any file's mtime — so with no assertion on disk a
+	// grant is unconfirmed and, under a finite MaxStatusAgeSeconds, already
+	// stale. Written by the supervise role's control-plane connection; a
+	// hand-provisioned host places it next to the grant.
+	StatusPath string `yaml:"statusPath"`
 	// SpoolPath is the durable audit spool (G7).
 	SpoolPath string `yaml:"spoolPath"`
 	// MaxStatusAgeSeconds bounds how long an unrefreshed certificate status may
@@ -272,6 +281,9 @@ type Intercept struct {
 	// decider cannot query live, so refusing is the faithful reading of that
 	// choice. Negative means unbounded, and has to be written explicitly so it
 	// can never be reached by leaving the field out.
+	//
+	// The default is finite (DefaultMaxStatusAgeSeconds): unbounded let a
+	// revoked grant keep authorizing until its signed expiry (VC-05).
 	MaxStatusAgeSeconds int `yaml:"maxStatusAgeSeconds"`
 	// FailClosed denies governed requests once MaxStatusAgeSeconds has elapsed.
 	FailClosed bool `yaml:"failClosed"`
@@ -304,6 +316,14 @@ type Collector struct {
 // see catalog_default.go for why. Operational defaults — paths, ports, the
 // intercept and supervise roles — stay here, because they are settings rather
 // than detection data and have no business being reloadable.
+// DefaultMaxStatusAgeSeconds is the staleness bound both enforcing roles ship
+// with: one hour. The control plane re-asserts a connected host's grant status
+// every five minutes, so a healthy connection never lapses; a severed or
+// blackholed one stops authorizing within the hour. Kept equal to the control
+// plane's DEFAULT_ENFORCING_MAX_STATUS_AGE_SECONDS — a signed pushed config
+// applies in both directions, so the two must not disagree.
+const DefaultMaxStatusAgeSeconds = 3600
+
 func DefaultSensorConfig() *Sensor {
 	s := &Sensor{
 		ScanIntervalSeconds: 30,
@@ -326,10 +346,11 @@ func DefaultSensorConfig() *Sensor {
 			// `explicit` mode governs exactly the agents pointed at this proxy
 			// and nothing else on the host.
 			FailClosed: true,
-			// Unbounded by default, stated explicitly as a negative rather than left
-			// at zero: with no control-plane push yet there is no status refresh to be
-			// fresh against, and 0 would deny every request. Startup warns about it.
-			MaxStatusAgeSeconds: -1,
+			StatusPath: defaultPath(".vaultysclaw-sensor/grant-status.token"),
+			// Finite by default. Unbounded meant a revoked grant kept authorizing
+			// until its signed expiry — up to a year, or forever (VC-05). Not 0,
+			// which demands a live check an offline decider cannot make.
+			MaxStatusAgeSeconds: DefaultMaxStatusAgeSeconds,
 		},
 		Supervise: Supervise{
 			// Off, and observe-only when on: the same deliberate-act rule as
@@ -347,10 +368,9 @@ func DefaultSensorConfig() *Sensor {
 			RuleSetPath: defaultPath(".vaultysclaw-sensor/rules.token"),
 			SpoolPath:   defaultPath(".vaultysclaw-sensor/audit.jsonl"),
 			FailClosed:  true,
-			// Unbounded, for the same reason and with the same startup warning
-			// as Intercept: with no control-plane push yet there is no status
-			// refresh to be fresh against, and 0 would deny everything.
-			MaxStatusAgeSeconds: -1,
+			StatusPath:  defaultPath(".vaultysclaw-sensor/grant-status.token"),
+			// Finite, and the same as Intercept's — see DefaultMaxStatusAgeSeconds.
+			MaxStatusAgeSeconds: DefaultMaxStatusAgeSeconds,
 			// Auto by default: confinement where it can be established, and a
 			// loud warning where it cannot. Not "require", because that would
 			// make an upgrade start refusing to launch on a platform whose
@@ -489,6 +509,9 @@ func (s *Sensor) applyEnvOverrides() {
 	}
 	if v := os.Getenv("VCS_INTERCEPT_RULESET_PATH"); v != "" {
 		s.Intercept.RuleSetPath = v
+	}
+	if v := os.Getenv("VCS_INTERCEPT_STATUS_PATH"); v != "" {
+		s.Intercept.StatusPath = v
 	}
 	if v := os.Getenv("VCS_INTERCEPT_MAX_STATUS_AGE_SECONDS"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil {

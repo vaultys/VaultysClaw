@@ -144,6 +144,35 @@ describe("cert-status certs", () => {
     expect(body!.status).toBe("active");
   });
 
+  it("signs the audience and sequence, defaulting seq to checkedAt", async () => {
+    const addressed = await signCertStatusResponseCert(controlPlane, {
+      certId: "cert-1",
+      agentDid: "did:agent:1",
+      status: "revoked",
+      capabilities: [],
+      expiresAt: null,
+      aud: "did:agent:1",
+      seq: 42,
+      now: 1_000,
+    });
+    const body = verifyCertStatusResponseCert(controlPlanePub, addressed)!;
+    expect(body.aud).toBe("did:agent:1");
+    expect(body.seq).toBe(42);
+    expect(body.checkedAt).toBe(1_000);
+
+    const unaddressed = await signCertStatusResponseCert(controlPlane, {
+      certId: "cert-1",
+      agentDid: "did:agent:1",
+      status: "active",
+      capabilities: [],
+      expiresAt: null,
+      now: 2_000,
+    });
+    const plain = verifyCertStatusResponseCert(controlPlanePub, unaddressed)!;
+    expect(plain.aud).toBeNull();
+    expect(plain.seq).toBe(2_000);
+  });
+
   it("rejects a status response older than maxAgeMs (staple TTL enforcement)", async () => {
     const token = await signCertStatusResponseCert(controlPlane, {
       certId: "cert-1",

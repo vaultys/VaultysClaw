@@ -47,7 +47,7 @@ check_docker() {
 compose() (
   # The local env file is authoritative; inherited deployment settings must not
   # redirect this stack's database, queue, login URL or build configuration.
-  unset PG_PASSWORD PG_PORT REDIS_URL REDIS_PORT NEXTAUTH_SECRET NEXTAUTH_URL APP_URL
+  unset PG_PASSWORD PG_APP_PASSWORD PG_PORT REDIS_URL REDIS_PORT REDIS_PASSWORD NEXTAUTH_SECRET NEXTAUTH_URL APP_URL
   unset CONTROLPLANE_PORT CONTROLPLANE_WS_PORT APPRISE_API_URL BULLMQ_PREFIX WEBHOOK_TIMEOUT_MS
   unset NEXT_PUBLIC_WALLET_URL NEXT_PUBLIC_MAP_TILE_URL NEXT_PUBLIC_ALLOW_DEV_LOGIN
   unset LITELLM_BASE_URL LITELLM_MASTER_KEY
@@ -79,8 +79,15 @@ if [[ ! -e "$ENV_FILE" ]]; then
     printf 'PG_PASSWORD=%s\nNEXTAUTH_SECRET=%s\n' "$db_secret" "$auth_secret" > "$ENV_FILE"
   )
 fi
+valid_secret() { grep -Eq "^$1=[A-Za-z0-9+/=_-]{16,}$" "$ENV_FILE"; }
 for key in PG_PASSWORD NEXTAUTH_SECRET; do
-  grep -Eq "^${key}=[A-Za-z0-9+/=_-]{16,}$" "$ENV_FILE" || fail "$ENV_FILE needs a valid $key (at least 16 characters). Existing credentials were preserved."
+  valid_secret "$key" || fail "$ENV_FILE needs a valid $key (at least 16 characters). Existing credentials were preserved."
+done
+# Secrets introduced after a stack was first created are appended, never regenerated: existing
+# values are what the existing volumes were initialised with. Hex, as they go into URLs.
+for key in PG_APP_PASSWORD REDIS_PASSWORD; do
+  grep -Eq "^${key}=" "$ENV_FILE" || printf '%s=%s\n' "$key" "$(openssl rand -hex 24)" >> "$ENV_FILE"
+  valid_secret "$key" || fail "$ENV_FILE needs a valid $key (at least 16 characters). Existing credentials were preserved."
 done
 compose config --quiet
 printf '[quick-start] Building and starting the local stack. First build may take several minutes.\n'

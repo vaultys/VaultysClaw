@@ -200,7 +200,9 @@ Note `stripSensitive` matches the substring `apikey` case-insensitively, so a bo
 | `WEBHOOK_TIMEOUT_MS` | webhook-dispatcher | Per-endpoint delivery timeout (default 10000) |
 | `APPRISE_API_URL` | controlplane, webhook-dispatcher | Self-hosted Apprise API base URL. Unset turns Notification Channels off entirely; webhook delivery is unaffected. |
 | `NEXTAUTH_URL` / `APP_URL` | controlplane | Browser-facing base URL; used to build `adminUrl` deep links (`APP_URL` wins) |
-| `NEXTAUTH_SECRET` | controlplane | NextAuth session secret |
+| `NEXTAUTH_SECRET` | controlplane | NextAuth session secret. A production process refuses to start on one that is short, a placeholder or published in this repo (`lib/startup-secrets.ts`) |
+| `VAULTYSCLAW_ALLOW_INSECURE_SECRETS` | controlplane | `1` skips that check. Set only by the local simulator/video stacks (`docker/*.env`); `docker-compose.yml` never passes it |
+| `PG_PASSWORD` / `PG_APP_PASSWORD` / `REDIS_PASSWORD` | `docker/docker-compose.yml` | Required, no default. Superuser (role setup only), the app's non-superuser role, Redis `requirepass`. See `docker/DOCKER.md` → Hardening |
 | `CONTROLPLANE_PORT` / `CONTROLPLANE_WS_PORT` | controlplane | HTTP + WebSocket ports (defaults 3001 / 8081) |
 | `LITELLM_BASE_URL` / `LITELLM_MASTER_KEY` | controlplane | Deployment-time **fallback** for the Model Registry. The `Setting` rows an admin edits under Integrations → Models win, and the master key is stored encrypted there (`lib/vault.ts`). |
 

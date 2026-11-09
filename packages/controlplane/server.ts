@@ -12,8 +12,17 @@ import { WebSocketServer } from "ws";
 import pino from "pino";
 import { ServerIdentityDAO, WorkspaceDAO } from "./db";
 import { ControlPlaneWSServer, setWSServerInstance } from "./lib/ws-server";
+import { assertProductionSecrets } from "./lib/startup-secrets";
 
 const logger = pino({ name: "controlplane" });
+
+// Before Next.js prepares or any port opens: a known NEXTAUTH_SECRET is a forgeable admin session.
+try {
+  assertProductionSecrets();
+} catch (err) {
+  logger.fatal({ err }, "Insecure configuration");
+  process.exit(1);
+}
 
 const dev = process.env.NODE_ENV !== "production";
 const PORT = process.env.CONTROLPLANE_PORT ? parseInt(process.env.CONTROLPLANE_PORT, 10) : 3001;

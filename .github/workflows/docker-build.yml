@@ -29,6 +29,13 @@ jobs:
       # at build — nothing is started.
       - name: Build compose images
         working-directory: docker
+        # The compose file's secrets are required (${VAR:?}) even to parse it; nothing is started
+        # here, so throwaway values are enough.
+        env:
+          PG_PASSWORD: build-only
+          PG_APP_PASSWORD: build-only
+          REDIS_PASSWORD: build-only
+          NEXTAUTH_SECRET: build-only
         run: docker compose build
 
       - name: Test local setup launcher

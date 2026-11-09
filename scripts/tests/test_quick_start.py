@@ -23,7 +23,7 @@ printf '%s\\n' "$*" >> "$DOCKER_CALLS"
 if [[ "$*" == 'compose version --short' ]]; then echo "${TEST_COMPOSE_VERSION:-2.24.4}"; exit 0; fi
 if [[ "$1" == info ]]; then exit "${TEST_DOCKER_FAILURE:-0}"; fi
 if [[ "$*" == *'up --build'* ]]; then
-  [[ -z "${PG_PASSWORD:-}" && -z "${REDIS_URL:-}" ]] || exit 90
+  [[ -z "${PG_PASSWORD:-}" && -z "${REDIS_URL:-}" && -z "${REDIS_PASSWORD:-}" ]] || exit 90
   exit "${TEST_START_FAILURE:-0}"
 fi
 exit 0
@@ -43,7 +43,8 @@ exit 0
         self.assertNotIn('up --build', (self.root / 'calls').read_text())
 
     def test_start_preserves_credentials_and_isolates_deployment_environment(self):
-        self.env.update(PG_PASSWORD='deployment-password', REDIS_URL='redis://deployment')
+        self.env.update(PG_PASSWORD='deployment-password', REDIS_URL='redis://deployment',
+                        REDIS_PASSWORD='deployment-redis-password')
         result = self.run_script()
         self.assertEqual(result.returncode, 0, result.stderr)
         credentials = self.root / 'docker/quickstart.env'
@@ -84,6 +85,25 @@ exit 0
         credentials.write_text('PG_PASSWORD=short\n')
         self.assertNotEqual(self.run_script().returncode, 0)
         self.assertEqual(credentials.read_text(), 'PG_PASSWORD=short\n')
+
+    def test_generates_every_required_secret(self):
+        self.assertEqual(self.run_script().returncode, 0)
+        keys = {line.split('=', 1)[0] for line in
+                (self.root / 'docker/quickstart.env').read_text().splitlines()}
+        self.assertEqual(keys, {'PG_PASSWORD', 'PG_APP_PASSWORD', 'REDIS_PASSWORD', 'NEXTAUTH_SECRET'})
+
+    def test_older_credentials_gain_new_secrets_without_regenerating(self):
+        credentials = self.root / 'docker/quickstart.env'
+        old = 'PG_PASSWORD=' + 'a1' * 12 + '\nNEXTAUTH_SECRET=' + 'b2' * 16 + '\n'
+        credentials.write_text(old)
+        result = self.run_script()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        text = credentials.read_text()
+        self.assertTrue(text.startswith(old))
+        self.assertRegex(text, r'(?m)^PG_APP_PASSWORD=[0-9a-f]{48}$')
+        self.assertRegex(text, r'(?m)^REDIS_PASSWORD=[0-9a-f]{48}$')
+        self.assertEqual(self.run_script().returncode, 0)
+        self.assertEqual(credentials.read_text(), text)
 
     def test_help_and_unknown_options_do_not_call_docker(self):
         self.assertEqual(self.run_script('--help').returncode, 0)

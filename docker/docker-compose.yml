@@ -4,11 +4,12 @@
 # (`cd docker && docker compose up --build -d`), and what
 # .github/workflows/docker-build.yml builds on every PR without starting anything.
 #
-# Five services, which is the whole system as described in the root CLAUDE.md:
+# Five long-running services (plus one one-shot), which is the whole system as described in the root CLAUDE.md:
 #
 #   controlplane        Next.js admin console + WebSocket server (one process, two ports)
 #   webhook-dispatcher  BullMQ consumer: signs webhooks, fans out to Apprise
 #   postgres            the certificate ledger
+#   postgres-roles      one-shot: the application's non-superuser Postgres role (then exits)
 #   redis               the BullMQ "webhooks" queue
 #   apprise             Notification Channels
 #
@@ -19,8 +20,19 @@
 #   - MinIO, Docling, Prisma Studio, the notifier. All belonged to the pre-rebuild architecture.
 #
 # Quick start (from repo root):
-#   cp .env.compose.example .env.compose     # then fill NEXTAUTH_SECRET + PG_PASSWORD
+#   cp .env.compose.example .env.compose     # then fill the four REQUIRED secrets
 #   docker compose -f docker/docker-compose.yml --env-file .env.compose up --build -d
+# or simply ./quick-start.sh, which generates them for a local stack.
+#
+# Secrets have NO defaults: NEXTAUTH_SECRET, PG_PASSWORD, PG_APP_PASSWORD and REDIS_PASSWORD use
+# ${VAR:?…}, so a missing or incomplete docker/.env makes `docker compose up` fail instead of
+# starting with a value published in this repository. The control plane additionally refuses to
+# start in production with a short or known NEXTAUTH_SECRET (lib/startup-secrets.ts).
+# Use hex/base64url values (openssl rand -hex 32): PG_APP_PASSWORD and REDIS_PASSWORD are embedded
+# in connection URLs.
+#
+# Postgres and Redis host ports are bound to 127.0.0.1 only. Docker's published ports bypass the
+# host firewall (ufw), so a bare "5432:5432" is reachable from the internet whatever ufw says.
 #
 # Not to be confused with the two dev stacks alongside it, which start backing services ONLY and
 # use different ports so all three can coexist:
@@ -38,10 +50,13 @@ services:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: vaultys
-      POSTGRES_PASSWORD: ${PG_PASSWORD:-vaultys_dev_secret}
+      # The bootstrap SUPERUSER. Used only by the postgres-roles service and the healthcheck — the
+      # application connects as the non-superuser PG_APP_USER below.
+      POSTGRES_PASSWORD: ${PG_PASSWORD:?PG_PASSWORD is required — see .env.compose.example}
       POSTGRES_DB: vaultysclaw
     ports:
-      - "${PG_PORT:-5432}:5432"
+      # Loopback only: for psql / Prisma Studio from the host or over an SSH tunnel.
+      - "127.0.0.1:${PG_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -54,13 +69,42 @@ services:
       start_period: 15s
     restart: unless-stopped
 
+  # ── Postgres roles — one-shot, before anything connects ──────────────────────
+  # Creates/updates the application's non-superuser role and hands it ownership of the database
+  # and of every existing object, so migrations keep working on volumes created before this role
+  # existed. See postgres-app-role.sh. Re-runs on every `up`; idempotent.
+  postgres-roles:
+    image: postgres:16-alpine
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres
+      PGUSER: vaultys
+      PGPASSWORD: ${PG_PASSWORD:?PG_PASSWORD is required — see .env.compose.example}
+      PG_DB: vaultysclaw
+      PG_APP_USER: vaultysclaw_app
+      PG_APP_PASSWORD: ${PG_APP_PASSWORD:?PG_APP_PASSWORD is required — see .env.compose.example}
+    volumes:
+      - ./postgres-app-role.sh:/postgres-app-role.sh:ro
+    entrypoint: ["sh", "/postgres-app-role.sh"]
+    restart: "no"
+
   # ── Redis — the BullMQ webhook queue ──────────────────────────────────────────
-  # Host port defaults to 6380 to avoid clashing with a local Redis on 6379; in-network clients
-  # always reach it as redis:6379.
+  # Password-protected: anyone who can write to this queue gets the dispatcher to sign arbitrary
+  # payloads with the real webhook secrets. Host port defaults to 6380 to avoid clashing with a
+  # local Redis on 6379, loopback only; in-network clients always reach it as redis:6379.
   redis:
     image: redis:7-alpine
+    # $$ = a literal $: the container's shell expands it from REDIS_PASSWORD below, so the value
+    # is written once (in the env file) rather than interpolated into this command by compose.
+    command: ["sh", "-c", "exec redis-server --requirepass \"$$REDIS_PASSWORD\""]
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required — see .env.compose.example}
+      # Read by redis-cli, for the healthcheck and for `docker compose exec redis redis-cli`.
+      REDISCLI_AUTH: ${REDIS_PASSWORD:?REDIS_PASSWORD is required — see .env.compose.example}
     ports:
-      - "${REDIS_PORT:-6380}:6379"
+      - "127.0.0.1:${REDIS_PORT:-6380}:6379"
     volumes:
       - redisdata:/data
     healthcheck:
@@ -104,17 +148,22 @@ services:
       - "${CONTROLPLANE_PORT:-3000}:3000"
       - "${CONTROLPLANE_WS_PORT:-8080}:8080"
     depends_on:
-      postgres:
-        condition: service_healthy
+      postgres-roles:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
       apprise:
         condition: service_started
     environment:
-      DATABASE_URL: postgresql://vaultys:${PG_PASSWORD:-vaultys_dev_secret}@postgres:5432/vaultysclaw
-      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      # The non-superuser role from postgres-roles — never the bootstrap superuser.
+      DATABASE_URL: postgresql://vaultysclaw_app:${PG_APP_PASSWORD:?PG_APP_PASSWORD is required}@postgres:5432/vaultysclaw
+      # Not overridable on purpose: the only Redis here is the password-protected one above, and an
+      # inherited REDIS_URL without the password would fail every enqueue with NOAUTH.
+      REDIS_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD is required}@redis:6379
       APPRISE_API_URL: ${APPRISE_API_URL:-http://apprise:8000}
-      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-insecure-dev-secret-change-me}
+      # Required, and checked again at startup: with a known value anyone can forge an admin
+      # session JWT.
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?NEXTAUTH_SECRET is required — openssl rand -hex 32}
       # Browser-facing base URL; also what adminUrl deep links are built from (APP_URL wins).
       NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
       APP_URL: ${APP_URL:-}
@@ -143,15 +192,15 @@ services:
       context: ..
       dockerfile: docker/Dockerfile.webhook-dispatcher
     depends_on:
-      postgres:
-        condition: service_healthy
+      postgres-roles:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
       controlplane:
         condition: service_started
     environment:
-      DATABASE_URL: postgresql://vaultys:${PG_PASSWORD:-vaultys_dev_secret}@postgres:5432/vaultysclaw
-      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      DATABASE_URL: postgresql://vaultysclaw_app:${PG_APP_PASSWORD:?PG_APP_PASSWORD is required}@postgres:5432/vaultysclaw
+      REDIS_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD is required}@redis:6379
       APPRISE_API_URL: ${APPRISE_API_URL:-http://apprise:8000}
       BULLMQ_PREFIX: ${BULLMQ_PREFIX:-vaultysclaw-controlplane}
       WEBHOOK_TIMEOUT_MS: ${WEBHOOK_TIMEOUT_MS:-10000}

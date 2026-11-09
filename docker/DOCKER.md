@@ -5,7 +5,7 @@ backing services for local work and use different ports so all three can coexist
 
 | File | What it is | Ports |
 |---|---|---|
-| `docker-compose.yml` | **The deployed stack** — control plane + webhook dispatcher + Postgres + Redis + Apprise. Built by `.github/workflows/docker-build.yml`, started by `.github/workflows/deploy.yml`. | 3000, 8080, 5432, 6380 |
+| `docker-compose.yml` | **The deployed stack** — control plane + webhook dispatcher + Postgres + Redis + Apprise. Built by `.github/workflows/docker-build.yml`, started by `.github/workflows/deploy.yml`. | 3000, 8080, 127.0.0.1:5432, 127.0.0.1:6380 |
 | `docker-compose.controlplane.yml` | Dev infra for `pnpm controlplane:dev`. Postgres + Redis + Apprise only — the app runs on the host. | 5433, 6381, 8000 |
 | `docker-compose.simulator.yml` | The fleet simulator's own disposable database. | 5434 |
 
@@ -27,7 +27,7 @@ The deployment workflow does not use this override.
 ```bash
 # From the repo root. Fill in the secrets first.
 cp .env.compose.example docker/.env
-$EDITOR docker/.env          # NEXTAUTH_SECRET + PG_PASSWORD at minimum
+$EDITOR docker/.env          # NEXTAUTH_SECRET, PG_PASSWORD, PG_APP_PASSWORD, REDIS_PASSWORD (openssl rand -hex 32)
 
 cd docker
 docker compose up --build -d
@@ -35,14 +35,17 @@ docker compose logs -f controlplane
 ```
 
 Compose reads `docker/.env` automatically when run from this directory, which is exactly what the
-deploy workflow does over SSH.
+deploy workflow does over SSH. **A missing or incomplete `docker/.env` is a failed deploy, not an
+insecure one**: the four secrets use `${VAR:?…}` and have no default, and the control plane exits
+at startup on a NEXTAUTH_SECRET that is short, a placeholder, or a value published in this repo
+(`packages/controlplane/lib/startup-secrets.ts`).
 
 | Service | URL | Notes |
 |---|---|---|
 | Control plane | http://localhost:3000 | Passwordless login via VaultysId QR code |
 | WebSocket | ws://localhost:8080 | Where agents, sensors and the SDK connect |
-| PostgreSQL | localhost:5432 | User `vaultys`, password from `PG_PASSWORD` |
-| Redis | localhost:6380 | Host port only; in-network it is `redis:6379` |
+| PostgreSQL | 127.0.0.1:5432 | App role `vaultysclaw_app` / `PG_APP_PASSWORD`; superuser `vaultys` / `PG_PASSWORD` |
+| Redis | 127.0.0.1:6380 | `requirepass` = `REDIS_PASSWORD`; in-network it is `redis:6379` |
 | Apprise | — | No host port, reachable only inside the compose network |
 | Webhook dispatcher | — | No port; a worker consuming the BullMQ queue |
 
@@ -86,8 +89,31 @@ The dispatcher has no Prisma schema of its own: the image copies
 
 ## Environment variables
 
-`.env.compose.example` at the repo root documents every variable with its default. The two that
-must be changed for any non-local deployment are `NEXTAUTH_SECRET` and `PG_PASSWORD`.
+`.env.compose.example` at the repo root documents every variable. Four are required and have no
+default: `NEXTAUTH_SECRET`, `PG_PASSWORD`, `PG_APP_PASSWORD`, `REDIS_PASSWORD`.
+
+### Hardening, and why
+
+- **Postgres and Redis publish on 127.0.0.1 only.** Docker writes its own iptables rules, so a port
+  published as `5432:5432` is reachable from the internet even when ufw denies it. Use an SSH
+  tunnel (`ssh -L 5432:127.0.0.1:5432 server`) to reach them remotely.
+- **The application is not a Postgres superuser.** `POSTGRES_USER` (`vaultys`) is the cluster's
+  bootstrap superuser, which can run `COPY … FROM PROGRAM`, i.e. a shell on the database host. The
+  one-shot `postgres-roles` service (`postgres-app-role.sh`) creates `vaultysclaw_app` —
+  NOSUPERUSER, NOCREATEDB, NOCREATEROLE — and makes it the owner of the database and of every
+  object in it, so `prisma migrate deploy` still works. It runs before every start and is
+  idempotent; on an existing volume it transfers ownership of the tables an earlier deploy created
+  as the superuser.
+- **Redis requires a password.** A writer to the BullMQ queue gets arbitrary payloads signed by the
+  dispatcher with the real webhook secrets. `REDIS_URL` is built from `REDIS_PASSWORD` inside the
+  compose file and is deliberately not overridable there.
+
+### Upgrading an existing deployment
+
+Add `PG_APP_PASSWORD` and `REDIS_PASSWORD` to the server's `docker/.env`, and replace
+`NEXTAUTH_SECRET` if it is still a default (which signs every current session out). Keep
+`PG_PASSWORD` unchanged — Postgres only reads it when the volume is first initialised. Remove any
+`REDIS_URL=` line; it is ignored now.
 
 ### The `NEXT_PUBLIC_*` ones are build inputs
 
@@ -138,5 +164,5 @@ restart: `docker compose down --remove-orphans && docker compose up --build -d`.
 
 **Webhooks deliver nothing, but the console shows an active subscription.** The dispatcher is
 reading a different Postgres or a different BullMQ prefix than the control plane writes to. In
-this stack both come from the same compose variables (`PG_PASSWORD`, `BULLMQ_PREFIX`); if you
+this stack both come from the same compose variables (`PG_APP_PASSWORD`, `BULLMQ_PREFIX`); if you
 overrode either for one service only, that's the cause.

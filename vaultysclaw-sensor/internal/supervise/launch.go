@@ -40,6 +40,11 @@ type LaunchOptions struct {
 	// Sandbox, when non-nil, confines the harness (tier B). Nil means tier A
 	// only, which is advisory — see AdvisoryNotice.
 	Sandbox *Sandbox
+	// HookFailOpen makes the hook permit a tool call when the daemon cannot be
+	// reached. Only an observe-mode launch sets it; see RunClaudeHook. The hook
+	// command is fixed for the session, because the harness reads its settings
+	// once, at startup.
+	HookFailOpen bool
 }
 
 // claudeSettings is the minimal settings document this launcher generates. It
@@ -72,7 +77,11 @@ type claudeHookEntry struct {
 // MapToolCall does not map yet. That is the point of observe mode — an unmapped
 // tool is recorded as a coverage gap (Outcome.Unmapped), and a gap that is never
 // submitted is a gap nobody can count.
-func WriteClaudeSettings(path, selfPath, socketPath string) error {
+//
+// failOpen adds `--fail-open` to the hook command. Its absence is the closed
+// posture, deliberately: a settings file written by hand, or by an older
+// launcher, must not default to letting calls through unjudged.
+func WriteClaudeSettings(path, selfPath, socketPath string, failOpen bool) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return fmt.Errorf("supervise: preparing the settings directory: %w", err)
 	}
@@ -84,11 +93,11 @@ func WriteClaudeSettings(path, selfPath, socketPath string) error {
 					Type: "command",
 					// %q so a path containing a space cannot split into two
 					// arguments and silently install a hook that never runs.
-					Command: fmt.Sprintf("%q hook --socket %q", selfPath, socketPath),
+					Command: hookCommand(selfPath, socketPath, failOpen),
 					// Seconds. Comfortably above the shim's own 2s dial timeout,
-					// so a slow decision is reported by the shim (which fails
-					// open loudly) rather than killed by the harness (which
-					// would not say why).
+					// so a slow decision is reported by the shim (which says
+					// why it refused or passed) rather than killed by the
+					// harness (which would not).
 					Timeout: 10,
 				}},
 			}},
@@ -102,6 +111,14 @@ func WriteClaudeSettings(path, selfPath, socketPath string) error {
 		return fmt.Errorf("supervise: writing %s: %w", path, err)
 	}
 	return nil
+}
+
+func hookCommand(selfPath, socketPath string, failOpen bool) string {
+	cmd := fmt.Sprintf("%q hook --socket %q", selfPath, socketPath)
+	if failOpen {
+		cmd += " --fail-open"
+	}
+	return cmd
 }
 
 // Preflight refuses to launch unless the gate is actually in place.
@@ -147,7 +164,7 @@ func Preflight(opts LaunchOptions) error {
 // settings generation and argument construction are testable without spawning a
 // coding agent.
 func BuildLaunch(ctx context.Context, opts LaunchOptions) (*exec.Cmd, error) {
-	if err := WriteClaudeSettings(opts.SettingsPath, opts.SelfPath, opts.SocketPath); err != nil {
+	if err := WriteClaudeSettings(opts.SettingsPath, opts.SelfPath, opts.SocketPath, opts.HookFailOpen); err != nil {
 		return nil, err
 	}
 	if err := Preflight(opts); err != nil {

@@ -77,8 +77,9 @@ func main() {
 		// resident daemon has already read.
 		fs := flag.NewFlagSet("hook", flag.ExitOnError)
 		socket := fs.String("socket", os.Getenv("VAULTYSCLAW_SUPERVISE_SOCKET"), "path to the supervisor's decision socket")
+		failOpen := fs.Bool("fail-open", false, "permit the call when the supervisor cannot be reached (observe mode only; the default refuses)")
 		_ = fs.Parse(os.Args[2:])
-		fail(runHook(*socket))
+		fail(runHook(*socket, *failOpen))
 
 	default:
 		usage()
@@ -119,7 +120,7 @@ func runSuperviseCommand(configPath string, command []string) error {
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	return runSupervise(ctx, cfg, logger, command)
+	return runSupervise(ctx, cfg, configPath, logger, command)
 }
 
 func defaultConfigPath() string {

@@ -89,7 +89,7 @@ func TestHookEndToEndOverTheSocket(t *testing.T) {
 			ToolName: tool, ToolInput: json.RawMessage(input),
 		})
 		var out bytes.Buffer
-		if err := RunClaudeHook(socket, bytes.NewReader(payload), &out); err != nil {
+		if err := RunClaudeHook(socket, false, bytes.NewReader(payload), &out); err != nil {
 			t.Fatalf("hook failed: %v", err)
 		}
 		var decoded ClaudeHookOutput
@@ -142,25 +142,49 @@ func TestHookEndToEndOverTheSocket(t *testing.T) {
 	})
 }
 
-func TestHookFailsOpenLoudlyWhenTheDaemonIsGone(t *testing.T) {
-	// The shim cannot be a security boundary — anything that can stop the daemon
-	// can remove the hook too — so it passes. What it must not do is pass in
-	// silence.
+func runUnreachableHook(t *testing.T, failOpen bool, payload []byte) ClaudeHookDecision {
+	t.Helper()
 	var out bytes.Buffer
-	payload, _ := json.Marshal(ClaudeHookInput{ToolName: "Read", Cwd: "/tmp", ToolInput: json.RawMessage(`{"file_path":"/tmp/x"}`)})
-	if err := RunClaudeHook("/nonexistent/vaultysclaw.sock", bytes.NewReader(payload), &out); err != nil {
+	if err := RunClaudeHook("/nonexistent/vaultysclaw.sock", failOpen, bytes.NewReader(payload), &out); err != nil {
 		t.Fatalf("the hook must still produce a decision: %v", err)
 	}
 	var decoded ClaudeHookOutput
 	if err := json.Unmarshal(out.Bytes(), &decoded); err != nil {
 		t.Fatal(err)
 	}
-	if decoded.HookSpecificOutput.PermissionDecision != "allow" {
-		t.Errorf("decision = %q, want allow", decoded.HookSpecificOutput.PermissionDecision)
+	return decoded.HookSpecificOutput
+}
+
+func TestHookFailsOpenLoudlyInObserveMode(t *testing.T) {
+	// Observe refuses nothing even with the daemon up, so failing closed would
+	// buy nothing. What it must not do is pass in silence.
+	payload, _ := json.Marshal(ClaudeHookInput{ToolName: "Read", Cwd: "/tmp", ToolInput: json.RawMessage(`{"file_path":"/tmp/x"}`)})
+	got := runUnreachableHook(t, true, payload)
+	if got.PermissionDecision != "allow" {
+		t.Errorf("decision = %q, want allow", got.PermissionDecision)
 	}
-	if !strings.Contains(decoded.HookSpecificOutput.PermissionDecisionReason, "ungoverned") {
-		t.Errorf("reason = %q, want it to say the call went ungoverned", decoded.HookSpecificOutput.PermissionDecisionReason)
+	if !strings.Contains(got.PermissionDecisionReason, "ungoverned") {
+		t.Errorf("reason = %q, want it to say the call went ungoverned", got.PermissionDecisionReason)
 	}
+}
+
+func TestHookFailsClosedInExplicitMode(t *testing.T) {
+	// The escape this closes: `rm supervise.sock` (or killing the daemon) used
+	// to turn every later tool call into an allow, in explicit mode included.
+	payload, _ := json.Marshal(ClaudeHookInput{ToolName: "Read", Cwd: "/tmp", ToolInput: json.RawMessage(`{"file_path":"/tmp/x"}`)})
+	got := runUnreachableHook(t, false, payload)
+	if got.PermissionDecision != "deny" {
+		t.Errorf("decision = %q, want deny when the supervisor is unreachable", got.PermissionDecision)
+	}
+	if !strings.Contains(got.PermissionDecisionReason, "fails closed") {
+		t.Errorf("reason = %q, want it to say why the call was refused", got.PermissionDecisionReason)
+	}
+
+	t.Run("an unparseable payload is refused too", func(t *testing.T) {
+		if got := runUnreachableHook(t, false, []byte("{not json")); got.PermissionDecision != "deny" {
+			t.Errorf("decision = %q, want deny", got.PermissionDecision)
+		}
+	})
 }
 
 func TestDaemonRefusesAMalformedRequest(t *testing.T) {

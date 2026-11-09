@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { Search, ShieldCheck, X } from "lucide-react";
+import { Search, X } from "lucide-react";
 import { ActorKindBadge } from "@/components/ActorKindBadge";
+import { Badge } from "@/components/ui/Badge";
 
 export interface AuditLogRow {
   id: string;
@@ -22,7 +23,7 @@ const MAX_VISIBLE_ROWS = 160;
 
 function JsonBlock({ value }: { value: unknown }) {
   return (
-    <pre className="text-xs bg-background-200/40 border border-neutral-200/60 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap break-all">
+    <pre className="font-mono text-xs bg-background-200/40 border border-neutral-200/60 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap break-all">
       {JSON.stringify(value, null, 2)}
     </pre>
   );
@@ -79,12 +80,12 @@ export default function AuditLogPanel({
               Search audit log
             </label>
             <div className="flex items-center gap-2 rounded-lg border border-neutral-200 bg-background px-3 py-2">
-              <Search className="h-4 w-4 shrink-0 text-foreground-400" />
+              <Search className="h-4 w-4 shrink-0 text-foreground-400" strokeWidth={1.5} />
               <input
                 type="search"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="Filter visible events by actor, target, event, or details..."
+                placeholder="Filter visible events by actor, target, event or details"
                 className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-foreground-400"
               />
               {query && (
@@ -94,7 +95,7 @@ export default function AuditLogPanel({
                   aria-label="Clear audit search"
                   className="rounded p-0.5 text-foreground-400 transition-colors hover:bg-background-200 hover:text-foreground"
                 >
-                  <X className="h-3.5 w-3.5" />
+                  <X className="h-3.5 w-3.5" strokeWidth={1.5} />
                 </button>
               )}
             </div>
@@ -104,7 +105,7 @@ export default function AuditLogPanel({
             <select
               value={eventType}
               onChange={(event) => setEventType(event.target.value)}
-              className="w-full rounded-lg border border-neutral-200 bg-background px-3 py-2 text-sm text-foreground"
+              className="w-full rounded-lg border border-neutral-200 bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400"
             >
               <option value="all">All visible events</option>
               {eventTypes.map((type) => (
@@ -119,7 +120,7 @@ export default function AuditLogPanel({
             <select
               value={signedState}
               onChange={(event) => setSignedState(event.target.value)}
-              className="w-full rounded-lg border border-neutral-200 bg-background px-3 py-2 text-sm text-foreground"
+              className="w-full rounded-lg border border-neutral-200 bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400"
             >
               <option value="all">All signatures</option>
               <option value="signed">Signed</option>
@@ -130,7 +131,8 @@ export default function AuditLogPanel({
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-foreground-500">
           <span>
-            Showing {filtered.length} of {entries.length} loaded entries
+            Showing <span className="font-mono tabular-nums">{filtered.length}</span> of{" "}
+            <span className="font-mono tabular-nums">{entries.length}</span> loaded entries
           </span>
           {(query || eventType !== "all" || signedState !== "all") && (
             <button
@@ -140,7 +142,7 @@ export default function AuditLogPanel({
                 setEventType("all");
                 setSignedState("all");
               }}
-              className="font-medium text-primary-600 hover:underline"
+              className="font-medium text-primary-700 hover:underline"
             >
               Clear filters
             </button>
@@ -149,7 +151,7 @@ export default function AuditLogPanel({
       </div>
 
       <div className="border border-neutral-200/60 rounded-xl overflow-hidden divide-y divide-neutral-200/60">
-        <div className="grid grid-cols-[11rem_1fr_11rem_11rem_5rem] gap-2 px-4 py-2 bg-background-200/40 text-left text-xs text-foreground-500 uppercase font-medium">
+        <div className="grid grid-cols-[11rem_1fr_11rem_11rem_5rem] gap-2 px-4 py-2 text-left text-xs text-foreground-500 font-normal">
           <span>Time</span>
           <span>{actorColumnLabel}</span>
           <span>Event</span>
@@ -158,13 +160,13 @@ export default function AuditLogPanel({
         </div>
         {visible.map((entry) => (
           <details key={entry.id} className="group">
-            <summary className="grid grid-cols-[11rem_1fr_11rem_11rem_5rem] gap-2 px-4 py-2.5 items-center cursor-pointer hover:bg-background-200/30 text-sm">
-              <span className="text-xs text-foreground-500">{entry.createdAt}</span>
+            <summary className="grid grid-cols-[11rem_1fr_11rem_11rem_5rem] gap-2 px-4 py-2.5 items-center cursor-pointer transition-colors hover:bg-background-200/40 text-sm">
+              <span className="font-mono text-xs text-foreground-500">{entry.createdAt}</span>
               <span className="flex items-center gap-1.5 min-w-0">
                 {entry.actorName ? (
                   <span className="truncate">{entry.actorName}</span>
                 ) : (
-                  <span className="text-foreground-400 italic">system</span>
+                  <span className="text-foreground-500">system</span>
                 )}
                 {entry.actorKind && (
                   <span className="shrink-0">
@@ -175,20 +177,18 @@ export default function AuditLogPanel({
               <span className="text-foreground-700">{entry.eventLabel}</span>
               <span>
                 {entry.targetHref && entry.targetId ? (
-                  <Link href={entry.targetHref} className="text-primary-600 hover:underline truncate block">
+                  <Link href={entry.targetHref} className="block truncate font-mono text-xs text-primary-700 hover:underline">
                     {entry.targetId}
                   </Link>
                 ) : (
-                  <span className="text-foreground-400">-</span>
+                  <span className="text-foreground-500">-</span>
                 )}
               </span>
               <span>
                 {entry.verified === true && (
-                  <span className="inline-flex items-center gap-1 text-xs text-success-700">
-                    <ShieldCheck className="w-3.5 h-3.5" /> signed
-                  </span>
+                  <Badge tone="positive">signed</Badge>
                 )}
-                {entry.verified === false && <span className="text-xs text-danger-600">invalid</span>}
+                {entry.verified === false && <Badge tone="negative">invalid</Badge>}
               </span>
             </summary>
             <div className="px-4 pb-3">
@@ -197,8 +197,8 @@ export default function AuditLogPanel({
           </details>
         ))}
         {visible.length === 0 && (
-          <div className="px-4 py-6 text-center text-foreground-400 text-sm">
-            No audit log entries match these filters.
+          <div className="px-4 py-6 text-center text-foreground-500 text-sm">
+            No audit log entries match these filters
           </div>
         )}
       </div>

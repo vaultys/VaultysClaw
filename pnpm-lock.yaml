@@ -291,6 +291,9 @@ importers:
       '@prisma/client':
         specifier: ^7.8.0
         version: 7.8.0(prisma@7.8.0(@types/react-dom@19.2.3(@types/react@19.2.18))(@types/react@19.2.18)(better-sqlite3@12.10.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(typescript@5.9.3))(typescript@5.9.3)
+      '@vaultys/channel-browser':
+        specifier: 2.4.2
+        version: 2.4.2(@vaultys/id@3.0.0-beta6)
       '@vaultys/id':
         specifier: 3.0.0-beta6
         version: 3.0.0-beta6
@@ -15154,6 +15157,10 @@ snapshots:
       d3-selection: 3.0.0
       d3-transition: 3.0.1(d3-selection@3.0.0)
 
+  '@vaultys/channel-browser@2.4.2(@vaultys/id@3.0.0-beta6)':
+    dependencies:
+      '@vaultys/id': 3.0.0-beta6
+
   '@vaultys/channel-browser@2.4.2(@vaultys/id@3.0.0-beta9.3)':
     dependencies:
       '@vaultys/id': 3.0.0-beta9.3
@@ -15201,6 +15208,14 @@ snapshots:
       '@vitest/utils': 2.1.9
       chai: 5.3.3
       tinyrainbow: 1.2.0
+
+  '@vitest/mocker@2.1.9(vite@5.4.21(@types/node@22.19.21)(terser@5.48.0))':
+    dependencies:
+      '@vitest/spy': 2.1.9
+      estree-walker: 3.0.3
+      magic-string: 0.30.21
+    optionalDependencies:
+      vite: 5.4.21(@types/node@22.19.21)(terser@5.48.0)
 
   '@vitest/mocker@2.1.9(vite@5.4.21(@types/node@22.20.1)(terser@5.48.0))':
     dependencies:
@@ -21906,7 +21921,7 @@ snapshots:
   vitest@2.1.9(@types/node@22.19.21)(@vitest/ui@2.1.9)(jsdom@29.1.1(@noble/hashes@2.3.0))(supports-color@8.1.1)(terser@5.48.0):
     dependencies:
       '@vitest/expect': 2.1.9
-      '@vitest/mocker': 2.1.9(vite@5.4.21(@types/node@22.20.1)(terser@5.48.0))
+      '@vitest/mocker': 2.1.9(vite@5.4.21(@types/node@22.19.21)(terser@5.48.0))
       '@vitest/pretty-format': 2.1.9
       '@vitest/runner': 2.1.9
       '@vitest/snapshot': 2.1.9

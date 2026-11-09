@@ -5,6 +5,7 @@ import PageChrome from "@/components/layout/PageChrome";
 import { callbackUrlFor } from "@/lib/sso-config";
 import { encodeDidParam } from "@/lib/actor-route";
 import SsoConnectionForm from "../SsoConnectionForm";
+import { Badge } from "@/components/ui/Badge";
 import ConnectionHealth from "../ConnectionHealth";
 import { updateSsoConnectionAction, deleteSsoConnectionAction } from "../actions";
 
@@ -46,55 +47,53 @@ export default async function SsoConnectionDetailPage({
 
       <section className="space-y-3">
         <div>
-          <h2 className="text-sm font-semibold text-foreground">Linked identities</h2>
-          <p className="text-xs text-foreground-400 mt-0.5">
+          <h2 className="text-sm font-medium text-foreground">Linked identities</h2>
+          <p className="mt-0.5 text-xs leading-5 text-foreground-500">
             People who have signed in through this provider. An identity is only usable once it has
             been bound to a VaultysId — signing in is what creates the binding link, and completing
             it is what creates the Actor.
           </p>
         </div>
 
-        <div className="overflow-x-auto border border-neutral-200/60 rounded-xl">
+        <div className="overflow-x-auto rounded-xl border border-neutral-200/60">
           <table className="w-full text-sm bg-background-100">
-            <thead className="bg-background-200/40 text-left text-xs text-foreground-500 uppercase">
+            <thead className="border-b border-neutral-200/60 text-left text-xs text-foreground-500">
               <tr>
-                <th className="px-4 py-2 font-medium">Identity</th>
-                <th className="px-4 py-2 font-medium">Bound to</th>
-                <th className="px-4 py-2 font-medium">Last login</th>
+                <th className="px-4 py-2 font-normal">Identity</th>
+                <th className="px-4 py-2 font-normal">Bound to</th>
+                <th className="px-4 py-2 font-normal">Last login</th>
               </tr>
             </thead>
             <tbody>
               {identities.map((identity) => (
-                <tr key={identity.id} className="border-t border-neutral-200/60">
+                <tr key={identity.id} className="border-t border-neutral-200/60 transition-colors hover:bg-background-200/40">
                   <td className="px-4 py-2.5">
                     <div className="text-foreground">{identity.name ?? "—"}</div>
                     {identity.email && (
-                      <div className="text-xs text-foreground-400">{identity.email}</div>
+                      <div className="text-xs text-foreground-500">{identity.email}</div>
                     )}
                   </td>
                   <td className="px-4 py-2.5">
                     {identity.did ? (
                       <Link
                         href={`/admin/actors/${encodeDidParam(identity.did)}`}
-                        className="text-xs font-mono text-primary-600 hover:underline"
+                        className="font-mono text-xs text-primary-700 hover:underline"
                       >
                         {identity.did.slice(0, 24)}…
                       </Link>
                     ) : (
-                      <span className="text-xs px-2 py-0.5 rounded-full border bg-warning-100 text-warning-700 border-warning-200">
-                        Not bound
-                      </span>
+                      <Badge tone="caution">Not bound</Badge>
                     )}
                   </td>
-                  <td className="px-4 py-2.5 text-foreground-500 text-xs">
+                  <td className="px-4 py-2.5 font-mono text-xs tabular-nums text-foreground-500">
                     {identity.lastLoginAt ? identity.lastLoginAt.toLocaleString() : "—"}
                   </td>
                 </tr>
               ))}
               {identities.length === 0 && (
                 <tr>
-                  <td colSpan={3} className="px-4 py-6 text-center text-foreground-400">
-                    Nobody has signed in through this provider yet.
+                  <td colSpan={3} className="px-4 py-6 text-center text-sm text-foreground-500">
+                    Nobody has signed in through this provider yet
                   </td>
                 </tr>
               )}
@@ -103,9 +102,9 @@ export default async function SsoConnectionDetailPage({
         </div>
       </section>
 
-      <section className="space-y-2 pt-2 border-t border-neutral-200/60">
-        <h2 className="text-sm font-semibold text-danger-600">Delete this provider</h2>
-        <p className="text-xs text-foreground-400">
+      <section className="space-y-2 border-t border-neutral-200/60 pt-6">
+        <h2 className="text-sm font-medium text-danger-700">Delete this provider</h2>
+        <p className="text-xs leading-5 text-foreground-500">
           Removes the connection and its {identities.length} linked{" "}
           {identities.length === 1 ? "identity" : "identities"}
           {bound.length > 0 && (
@@ -121,7 +120,7 @@ export default async function SsoConnectionDetailPage({
           <input type="hidden" name="id" value={connection.id} />
           <button
             type="submit"
-            className="text-xs px-3 py-1.5 border border-danger-200 text-danger-600 rounded-lg hover:bg-danger-50 transition-colors"
+            className="rounded-lg border border-neutral-200 bg-background-100 px-3 py-1.5 text-xs font-medium text-danger-700 transition-colors hover:bg-background-200"
           >
             Delete provider
           </button>

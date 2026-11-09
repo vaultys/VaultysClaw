@@ -3,6 +3,7 @@ import { ModelDAO, WorkspaceDAO } from "@/db";
 import PageChrome from "@/components/layout/PageChrome";
 import { isRoutableThroughLiteLLM, PROVIDERS, isKnownProvider } from "@/lib/model-providers";
 import { getLiteLLMConfig } from "@/lib/litellm";
+import { Badge } from "@/components/ui/Badge";
 import ModelForm from "../ModelForm";
 import { updateModelAction, deleteModelAction, setModelWorkspaceAccessAction } from "../../actions";
 
@@ -33,19 +34,13 @@ export default async function ModelDetailPage({ params }: { params: Promise<{ id
 
       <div className="flex flex-wrap gap-8">
         <div>
-          <div className="text-xs font-medium text-foreground-500 uppercase mb-1">Status</div>
-          <span
-            className={`text-xs px-2 py-0.5 rounded-full border ${
-              model.isActive
-                ? "bg-success-100 text-success-700 border-success-200"
-                : "bg-neutral-100 text-foreground-500 border-neutral-200"
-            }`}
-          >
-            ● {model.isActive ? "Active" : "Disabled"}
-          </span>
+          <div className="mb-1 text-xs text-foreground-500">Status</div>
+          <Badge tone={model.isActive ? "positive" : "muted"}>
+            {model.isActive ? "Active" : "Disabled"}
+          </Badge>
         </div>
         <div>
-          <div className="text-xs font-medium text-foreground-500 uppercase mb-1">Routing</div>
+          <div className="mb-1 text-xs text-foreground-500">Routing</div>
           {/* The honest three-way answer, not a boolean: a model can be routable in
               principle but unpushed because the proxy isn't configured. */}
           {!routable ? (
@@ -66,18 +61,18 @@ export default async function ModelDetailPage({ params }: { params: Promise<{ id
 
       <section className="space-y-3">
         <div>
-          <h2 className="text-sm font-semibold text-foreground">Workspace access</h2>
-          <p className="text-xs text-foreground-400 mt-0.5">
+          <h2 className="text-sm font-medium text-foreground">Workspace access</h2>
+          <p className="mt-0.5 text-xs leading-5 text-foreground-500">
             Which workspaces may use this model. Recorded and audited here; actual enforcement at
             inference time needs the LiteLLM key path, which isn&apos;t built yet.
           </p>
         </div>
 
-        <div className="border border-neutral-200/60 rounded-xl divide-y divide-neutral-200/60">
+        <div className="divide-y divide-neutral-200/60 rounded-xl border border-neutral-200/60 bg-background-100">
           {workspaces.map((ws) => {
             const isGranted = granted.has(ws.id);
             return (
-              <div key={ws.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
+              <div key={ws.id} className="flex items-center justify-between gap-3 px-4 py-3">
                 <div className="flex items-center gap-2 min-w-0">
                   <span
                     className="w-2 h-2 rounded-full shrink-0"
@@ -85,7 +80,7 @@ export default async function ModelDetailPage({ params }: { params: Promise<{ id
                   />
                   <span className="text-sm text-foreground truncate">{ws.name}</span>
                   {ws.isDefault && (
-                    <span className="text-xs text-foreground-400 shrink-0">default</span>
+                    <span className="text-xs text-foreground-500 shrink-0">default</span>
                   )}
                 </div>
                 <form action={setModelWorkspaceAccessAction}>
@@ -94,12 +89,10 @@ export default async function ModelDetailPage({ params }: { params: Promise<{ id
                   <input type="hidden" name="grant" value={(!isGranted).toString()} />
                   <button
                     type="submit"
-                    className={`text-xs px-2 py-1 rounded border transition-colors ${
-                      isGranted
-                        ? "bg-success-100 text-success-700 border-success-200 hover:bg-success-200/60"
-                        : "border-neutral-200 text-foreground-500 hover:bg-background-200/60"
-                    }`}
+                    title={isGranted ? "Click to revoke" : undefined}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-background-100 px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:bg-background-200"
                   >
+                    {isGranted && <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-success-600" />}
                     {isGranted ? "Granted" : "Grant"}
                   </button>
                 </form>
@@ -107,16 +100,16 @@ export default async function ModelDetailPage({ params }: { params: Promise<{ id
             );
           })}
           {workspaces.length === 0 && (
-            <div className="px-4 py-6 text-center text-foreground-400 text-sm">
-              No workspaces yet.
+            <div className="px-4 py-6 text-center text-sm text-foreground-500">
+              No workspaces yet
             </div>
           )}
         </div>
       </section>
 
-      <section className="space-y-2 pt-2 border-t border-neutral-200/60">
-        <h2 className="text-sm font-semibold text-danger-600">Delete this model</h2>
-        <p className="text-xs text-foreground-400">
+      <section className="space-y-2 border-t border-neutral-200/60 pt-6">
+        <h2 className="text-sm font-medium text-danger-700">Delete this model</h2>
+        <p className="text-xs leading-5 text-foreground-500">
           Removes the registry entry and its workspace grants
           {model.litellmModelName && <>, and deregisters it from LiteLLM</>}. Agents already
           configured to use it will start failing.
@@ -125,7 +118,7 @@ export default async function ModelDetailPage({ params }: { params: Promise<{ id
           <input type="hidden" name="id" value={model.id} />
           <button
             type="submit"
-            className="text-xs px-3 py-1.5 border border-danger-200 text-danger-600 rounded-lg hover:bg-danger-50 transition-colors"
+            className="rounded-lg border border-neutral-200 bg-background-100 px-3 py-1.5 text-xs font-medium text-danger-700 transition-colors hover:bg-background-200"
           >
             Delete model
           </button>

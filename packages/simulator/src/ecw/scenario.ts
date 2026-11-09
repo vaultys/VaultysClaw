@@ -34,6 +34,7 @@ export const REGISTRY: RegistryEntry[] = [
   { name: "drone:drive.start", label: "Démarrer", description: "Quitter la base par la route.", group: "Roulage" },
   { name: "drone:drive.patrol", label: "Patrouiller (au sol)", description: "Suivi d'un circuit de patrouille au sol.", group: "Roulage" },
   { name: "drone:drive.return", label: "Retour base (au sol)", description: "Retour à la base par la route.", group: "Roulage" },
+  { name: "mission:enrol.validate", label: "Valider les enrôlements", description: "Contrôler l'identité d'une personne et valider son enrôlement dans la mission.", group: "Mission" },
   { name: "drone:cargo.deliver", label: "Livrer le matériel", description: "Dépose du matériel transporté au point de rendez-vous.", group: "Charge utile" },
 ];
 
@@ -97,6 +98,20 @@ export const OFFICER = {
   key: "officier",
   name: "Cne Bernard (officier de mission, fictif)",
   email: "officier.bernard@sim.invalid",
+};
+
+/** The right an officer must hold to validate an enrolment — checked against the ledger, live. */
+export const VALIDATE_RIGHT = "mission:enrol.validate";
+
+/** The person the CIM page enrols: a fictional military ID card whose chip holds a VaultysID. */
+export const CIM_HOLDER = {
+  name: "Sgt Hugo Garnier (fictif)",
+  grade: "Sergent",
+  unit: "1er Régiment de drones (fictif)",
+  matricule: "FICTIF-0471-2026",
+  born: "14/03/1996",
+  /** What the validator grants: a person's own access — piloting goes through their terminal. */
+  profile: ["portal_access", "agent_communication"],
 };
 
 /** The person the mission-prep tab enrols, through a real control-plane invitation. */

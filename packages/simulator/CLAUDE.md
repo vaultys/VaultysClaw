@@ -291,9 +291,12 @@ helper as an implicit shortcut here. Test the operation boundaries in `guided-ch
 
 `pnpm demo:ecw` runs `src/ecw/main.ts` at localhost:3012 against the isolated simulator — a fleet
 view (`/`) and a drone console (`/drone`). See [ECW_DEMO.md](ECW_DEMO.md) for the talk track and the
-security model it states. Unlike the guided presenter it approves its own `ecw-` registrations and
-offers a stand shortcut for revocation (a ledger write + audit entry); console revocation is
-observed the same way.
+security model it states. Unlike the guided presenter it approves its own `ecw-` registrations on
+arrival — except a console drone's **renewed** identity (generation > 1, after "Réinitialiser"),
+which stays pending for an administrator to approve in the console (`awaitsConsole`; the only
+write is its `targetWorkspaceId`, which grants nothing). `/approve` is the stand shortcut for when no
+admin is signed in, and the film's setup uses it. It also offers a stand shortcut for revocation (a
+ledger write + audit entry); console revocation is observed the same way.
 
 - **Peers decide, the presenter never does.** `mesh.ts` is the whole fleet protocol: a message is
   signed with the sender's own key and carries its latest control-plane-signed staple
@@ -320,6 +323,13 @@ observed the same way.
   (`orderRequirements`: `fleet:command` for anything, `fleet:command.flight` for take-off, patrol
   and landing only), then the drone must hold the right to *do* it. The required right is read from
   the order's own payload, which is safe because the signature over it is checked first.
+- **`/enrolement` is the CIM onboarding page** (`enrolment.html`, `/cim/*` routes). The card is a
+  real VaultysID (`.simdata/ecw/cim-g<gen>/`, a new generation per start and per "Nouvelle carte");
+  the validator (the `officier` human, Cne Bernard) must hold `VALIDATE_RIGHT`
+  (`mission:enrol.validate`, granted as a standing grant), signs a validation statement checked
+  with `openCert`, then an Invitation `createdBy` the validator is redeemed by the card over
+  `@vaultys/channel-browser` — the same path as the pilot's tablet. Only the card, the reader and
+  the PIN are simulated; nothing writes a certificate by hand.
 - **The field pilot is a human Actor who does not connect.** Humans onboard through login, never the
   WS handshake, so the person is written into the ledger like the simulator's population
   (`upsertPeople`, `@sim.invalid`), and the radio is spoken by the `pilote` terminal — a `device`

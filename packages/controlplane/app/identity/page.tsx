@@ -5,13 +5,7 @@ import { ActorKindBadge } from "@/components/ActorKindBadge";
 import BrowserIdentitiesPanel from "@/components/BrowserIdentitiesPanel";
 import IdentityTabs from "@/components/IdentityTabs";
 import type { CertScope } from "@vaultysclaw/policy";
-
-const STATUS_BADGE: Record<string, string> = {
-  active: "bg-success-100 text-success-700 border-success-200",
-  revoked: "bg-danger-100 text-danger-700 border-danger-200",
-  superseded: "bg-neutral-100 text-foreground-500 border-neutral-200",
-  expired: "bg-neutral-100 text-foreground-500 border-neutral-200",
-};
+import { Badge, statusTone } from "@/components/ui/Badge";
 
 /**
  * My identity — who this session is, and what it holds.
@@ -42,9 +36,9 @@ export default async function IdentityPage({
   const active = certs.filter((c) => c.status === "active");
 
   return (
-    <div className="mx-auto max-w-3xl space-y-8 p-6">
+    <div className="mx-auto max-w-3xl space-y-6 p-6">
       <div>
-        <h1 className="text-lg font-semibold text-foreground">My identity</h1>
+        <h1 className="text-lg font-medium text-foreground">My identity</h1>
         <p className="mt-0.5 text-sm text-foreground-500">
           The VaultysID this session is signed in as, and the access it
           currently holds.
@@ -57,7 +51,7 @@ export default async function IdentityPage({
         <BrowserIdentitiesPanel currentDid={did} />
       ) : (
         <>
-          <section className="space-y-3 rounded-xl border border-neutral-200/60 bg-background-100 p-4">
+          <section className="space-y-3 rounded-xl border border-neutral-200/60 bg-background-100 p-5">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
                 <div className="text-sm font-medium text-foreground">
@@ -76,19 +70,23 @@ export default async function IdentityPage({
 
             <dl className="grid grid-cols-2 gap-4 pt-2 text-sm">
               <div>
-                <dt className="mb-1 text-xs font-medium uppercase text-foreground-500">
+                <dt className="mb-1 text-xs text-foreground-500">
                   Registered
                 </dt>
-                <dd>{actor ? actor.registeredAt.toISOString() : "—"}</dd>
+                <dd className="font-mono text-xs text-foreground-700">
+                  {actor ? actor.registeredAt.toISOString() : "—"}
+                </dd>
               </div>
               <div>
-                <dt className="mb-1 text-xs font-medium uppercase text-foreground-500">
+                <dt className="mb-1 text-xs text-foreground-500">
                   Last seen
                 </dt>
-                <dd>{actor ? actor.lastSeen.toISOString() : "—"}</dd>
+                <dd className="font-mono text-xs text-foreground-700">
+                  {actor ? actor.lastSeen.toISOString() : "—"}
+                </dd>
               </div>
               <div className="col-span-2">
-                <dt className="mb-1 text-xs font-medium uppercase text-foreground-500">
+                <dt className="mb-1 text-xs text-foreground-500">
                   Public key
                 </dt>
                 <dd className="break-all font-mono text-xs text-foreground-500">
@@ -99,27 +97,27 @@ export default async function IdentityPage({
           </section>
 
           <section className="space-y-3">
-            <h2 className="text-sm font-semibold text-foreground-700">
-              Access{" "}
-              <span className="font-normal text-foreground-400">
-                ({active.length} active)
+            <h2 className="flex items-baseline gap-2 text-sm font-medium text-foreground">
+              Access
+              <span className="text-xs text-foreground-500">
+                <span className="font-mono tabular-nums">{active.length}</span> active
               </span>
             </h2>
 
             {certs.length === 0 ? (
-              <p className="text-sm text-foreground-400">
+              <p className="rounded-xl border border-dashed border-neutral-200 px-4 py-6 text-sm text-foreground-500">
                 You have not been granted any access yet. An admin issues
                 certificates; there is no self-service request.
               </p>
             ) : (
               <div className="overflow-x-auto rounded-xl border border-neutral-200/60">
                 <table className="w-full bg-background-100 text-sm">
-                  <thead className="bg-background-200/40 text-left text-xs uppercase text-foreground-500">
+                  <thead className="border-b border-neutral-200/60 text-left text-xs text-foreground-500">
                     <tr>
-                      <th className="px-4 py-2 font-medium">Capability</th>
-                      <th className="px-4 py-2 font-medium">Scope</th>
-                      <th className="px-4 py-2 font-medium">Status</th>
-                      <th className="px-4 py-2 font-medium">Expires</th>
+                      <th className="px-4 py-2 font-normal">Capability</th>
+                      <th className="px-4 py-2 font-normal">Scope</th>
+                      <th className="px-4 py-2 font-normal">Status</th>
+                      <th className="px-4 py-2 font-normal">Expires</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -128,31 +126,24 @@ export default async function IdentityPage({
                       return (
                         <tr
                           key={cert.id}
-                          className="border-t border-neutral-200/60"
+                          className="border-t border-neutral-200/60 transition-colors hover:bg-background-200/40"
                         >
-                          <td className="px-4 py-2 font-mono text-xs">
+                          <td className="px-4 py-2 font-mono text-xs text-foreground-700">
                             {(cert.capabilities as string[]).join(", ") || "—"}
                           </td>
                           <td className="px-4 py-2 font-mono text-xs text-foreground-500">
                             {scope?.resource ?? scope?.resourcePattern ?? "—"}
                           </td>
                           <td className="px-4 py-2">
-                            <span
-                              className={`rounded-full border px-2 py-0.5 text-xs ${
-                                STATUS_BADGE[cert.status] ??
-                                STATUS_BADGE.expired
-                              }`}
-                            >
-                              {cert.status}
-                            </span>
+                            <Badge tone={statusTone(cert.status)}>{cert.status}</Badge>
                           </td>
-                          <td className="px-4 py-2 text-xs">
+                          <td className="px-4 py-2 font-mono text-xs text-foreground-500">
                             {cert.expiresAt ? (
                               cert.expiresAt.toISOString().slice(0, 10)
                             ) : (
                               // Never neutral — a certificate that does not expire is a
                               // standing grant and should read as one.
-                              <span className="text-warning-600">Never</span>
+                              <Badge tone="caution">Never</Badge>
                             )}
                           </td>
                         </tr>

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, MapPin } from "lucide-react";
+import { ArrowLeft, ArrowRight, MapPin } from "lucide-react";
 import {
   CapabilityCertificateDAO,
   ActorDAO,
@@ -13,6 +13,7 @@ import {
 import { isCustomCapability } from "@vaultysclaw/policy";
 import PageChrome from "@/components/layout/PageChrome";
 import { ActorKindBadge } from "@/components/ActorKindBadge";
+import { Badge, statusTone } from "@/components/ui/Badge";
 import ActorSearchSelect from "@/components/ActorSearchSelect";
 import AuditLogPanel from "@/components/AuditLogPanel";
 import ProxyConfigPanel from "@/components/proxy/ProxyConfigPanel";
@@ -30,13 +31,6 @@ import { buildEgoGraph } from "@/lib/actor-graph";
 import { decodeDidParam, encodeDidParam } from "@/lib/actor-route";
 import type { CertScope } from "@vaultysclaw/policy";
 import { getWebhookEvent } from "@vaultysclaw/shared";
-
-const STATUS_BADGE: Record<string, string> = {
-  active: "bg-success-100 text-success-700 border-success-200",
-  revoked: "bg-danger-100 text-danger-700 border-danger-200",
-  superseded: "bg-neutral-100 text-foreground-500 border-neutral-200",
-  expired: "bg-neutral-100 text-foreground-500 border-neutral-200",
-};
 
 const TABS = [
   { id: "overview", label: "Overview" },
@@ -61,7 +55,7 @@ function TabLink({
       href={`?tab=${id}`}
       className={`-mb-px border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
         active
-          ? "border-primary-600 text-primary-700"
+          ? "border-primary-600 text-foreground"
           : "border-transparent text-foreground-500 hover:text-foreground"
       }`}
     >
@@ -176,7 +170,7 @@ export default async function ActorDetailPage({
   ).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
   return (
-    <div className="w-full max-w-7xl p-6 space-y-8">
+    <div className="w-full max-w-7xl p-6 space-y-6">
       <PageChrome
         toolbar={{ title: actor.name }}
         breadcrumbs={[
@@ -189,13 +183,13 @@ export default async function ActorDetailPage({
         href="/admin/actors"
         className="inline-flex items-center gap-1.5 text-sm text-foreground-500 hover:text-foreground transition-colors"
       >
-        <ArrowLeft className="w-3.5 h-3.5" />
+        <ArrowLeft className="w-3.5 h-3.5" strokeWidth={1.5} />
         Back to Actors
       </Link>
 
       <div className="flex items-start justify-between gap-6">
         <div className="min-w-0">
-          <h1 className="text-lg font-semibold text-foreground">
+          <h1 className="text-base font-medium text-foreground">
             {actor.name}
           </h1>
           <p className="text-xs text-foreground-500 font-mono mt-0.5 break-all">
@@ -222,25 +216,25 @@ export default async function ActorDetailPage({
         <>
           <section className="grid grid-cols-1 gap-4 text-sm md:grid-cols-2 xl:grid-cols-4">
             <div>
-              <div className="text-xs text-foreground-500 uppercase font-medium mb-1">
+              <div className="text-xs text-foreground-500 mb-1">
                 Registered
               </div>
-              <div>{actor.registeredAt.toISOString()}</div>
+              <div className="font-mono text-xs tabular-nums text-foreground-700">{actor.registeredAt.toISOString()}</div>
             </div>
             <div>
-              <div className="text-xs text-foreground-500 uppercase font-medium mb-1">
+              <div className="text-xs text-foreground-500 mb-1">
                 Last seen
               </div>
-              <div>{actor.lastSeen.toISOString()}</div>
+              <div className="font-mono text-xs tabular-nums text-foreground-700">{actor.lastSeen.toISOString()}</div>
             </div>
             <div>
-              <div className="text-xs text-foreground-500 uppercase font-medium mb-1">
+              <div className="text-xs text-foreground-500 mb-1">
                 Active certificates
               </div>
-              <div>{activeCount}</div>
+              <div className="font-mono tabular-nums text-foreground">{activeCount}</div>
             </div>
             <div>
-              <div className="text-xs text-foreground-500 uppercase font-medium mb-1">
+              <div className="text-xs text-foreground-500 mb-1">
                 Public key
               </div>
               <div className="text-xs font-mono break-all text-foreground-500">
@@ -256,23 +250,24 @@ export default async function ActorDetailPage({
           {actor.kind === "proxy" && <ProxyConfigPanel actor={actor} />}
           {actor.kind === "harness" && <HarnessConfigPanel actor={actor} />}
 
-      <DeleteActorPanel
-        did={actor.did}
-        name={actor.name}
-        activeCertificateCount={certs.filter((c) => c.status === "active").length}
-      />
+          <DeleteActorPanel
+            did={actor.did}
+            name={actor.name}
+            activeCertificateCount={certs.filter((c) => c.status === "active").length}
+          />
 
-          <section className="space-y-3 border border-neutral-200/60 rounded-xl bg-background-100 p-4">
+          <section className="space-y-3 border border-neutral-200/60 rounded-xl bg-background-100 p-5">
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-foreground-700 flex items-center gap-1.5">
-                <MapPin className="w-3.5 h-3.5 text-foreground-400" />
+              <h2 className="text-sm font-medium text-foreground flex items-center gap-1.5">
+                <MapPin className="w-4 h-4 text-foreground-500" strokeWidth={1.5} />
                 Location
               </h2>
               <Link
                 href="/admin/map"
-                className="text-xs text-primary-600 hover:underline"
+                className="inline-flex items-center gap-1 text-xs text-primary-700 hover:underline"
               >
-                View on map →
+                View on map
+                <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.5} />
               </Link>
             </div>
             {hasLocation ? (
@@ -284,7 +279,7 @@ export default async function ActorDetailPage({
                 </span>
               </p>
             ) : (
-              <p className="text-sm text-foreground-400">Not located.</p>
+              <p className="text-sm text-foreground-500">Not located</p>
             )}
             <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
               <form
@@ -297,11 +292,11 @@ export default async function ActorDetailPage({
                   type="text"
                   name="city"
                   placeholder="Look up by city, e.g. Paris, France"
-                  className="flex-1 border border-neutral-200 rounded-lg px-3 py-1.5 text-sm bg-background"
+                  className="flex-1 border border-neutral-200 rounded-lg px-3 py-1.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400"
                 />
                 <button
                   type="submit"
-                  className="px-3 py-1.5 border border-neutral-200 text-foreground text-sm font-medium rounded-lg hover:bg-background-200 transition-colors shrink-0"
+                  className="px-3 py-1.5 border border-neutral-200 bg-background-100 text-foreground text-sm font-medium rounded-lg hover:bg-background-200 transition-colors shrink-0"
                 >
                   Look up
                 </button>
@@ -318,7 +313,7 @@ export default async function ActorDetailPage({
                   name="lat"
                   defaultValue={actor.locationLat ?? ""}
                   placeholder="Latitude"
-                  className="w-24 border border-neutral-200 rounded-lg px-3 py-1.5 text-sm bg-background"
+                  className="w-24 border border-neutral-200 rounded-lg px-3 py-1.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400"
                 />
                 <input
                   type="number"
@@ -326,18 +321,18 @@ export default async function ActorDetailPage({
                   name="lon"
                   defaultValue={actor.locationLon ?? ""}
                   placeholder="Longitude"
-                  className="w-24 border border-neutral-200 rounded-lg px-3 py-1.5 text-sm bg-background"
+                  className="w-24 border border-neutral-200 rounded-lg px-3 py-1.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400"
                 />
                 <input
                   type="text"
                   name="label"
                   defaultValue={actor.locationLabel ?? ""}
                   placeholder="Label (optional)"
-                  className="flex-1 border border-neutral-200 rounded-lg px-3 py-1.5 text-sm bg-background"
+                  className="flex-1 border border-neutral-200 rounded-lg px-3 py-1.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400"
                 />
                 <button
                   type="submit"
-                  className="px-3 py-1.5 border border-neutral-200 text-foreground text-sm font-medium rounded-lg hover:bg-background-200 transition-colors shrink-0"
+                  className="px-3 py-1.5 border border-neutral-200 bg-background-100 text-foreground text-sm font-medium rounded-lg hover:bg-background-200 transition-colors shrink-0"
                 >
                   Set
                 </button>
@@ -349,7 +344,7 @@ export default async function ActorDetailPage({
                 <input type="hidden" name="mode" value="clear" />
                 <button
                   type="submit"
-                  className="text-xs text-danger-600 hover:underline"
+                  className="text-xs text-danger-700 hover:underline"
                 >
                   Clear location
                 </button>
@@ -357,8 +352,8 @@ export default async function ActorDetailPage({
             )}
           </section>
 
-          <section className="space-y-4 border border-neutral-200/60 rounded-xl bg-background-100 p-4 xl:max-w-4xl">
-            <h2 className="text-sm font-semibold text-foreground-700">Edit</h2>
+          <section className="space-y-4 border border-neutral-200/60 rounded-xl bg-background-100 p-5 xl:max-w-4xl">
+            <h2 className="text-sm font-medium text-foreground">Edit</h2>
             <form action={updateActorAction} className="space-y-4">
               <input type="hidden" name="did" value={actor.did} />
               <div>
@@ -370,7 +365,7 @@ export default async function ActorDetailPage({
                   name="name"
                   defaultValue={actor.name}
                   required
-                  className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background"
+                  className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400"
                 />
               </div>
               <div>
@@ -380,7 +375,7 @@ export default async function ActorDetailPage({
                 <select
                   name="workspaceId"
                   defaultValue={actor.workspaceId ?? ""}
-                  className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background"
+                  className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400"
                 >
                   <option value="">No workspace</option>
                   {workspaces.map((w) => (
@@ -399,8 +394,8 @@ export default async function ActorDetailPage({
                     type="email"
                     name="email"
                     defaultValue={human?.humanProfile?.email ?? ""}
-                    placeholder="Used for email notifications — optional"
-                    className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background"
+                    placeholder="Used for email notifications, optional"
+                    className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400"
                   />
                 </div>
               )}
@@ -418,9 +413,9 @@ export default async function ActorDetailPage({
                       kind: a.kind,
                     }))}
                     emptyLabel="No owner"
-                    placeholder="Search owners by name, kind, or DID..."
+                    placeholder="Search owners by name, kind, or DID"
                   />
-                  <p className="text-xs text-foreground-400 mt-1">
+                  <p className="text-xs leading-5 text-foreground-500 mt-1">
                     The actor this one belongs to / acts for (e.g. a device
                     belonging to a human or an agent) — descriptive only today,
                     not yet enforced by any certificate.
@@ -438,27 +433,30 @@ export default async function ActorDetailPage({
 
           {declaredStatus.length > 0 && (
             <section>
-              <h2 className="text-sm font-semibold text-foreground-700 mb-1">
-                Declared capabilities ({declaredStatus.length})
+              <h2 className="text-sm font-medium text-foreground mb-1">
+                Declared capabilities{" "}
+                <span className="font-mono text-xs tabular-nums text-foreground-500">
+                  {declaredStatus.length}
+                </span>
               </h2>
-              <p className="text-xs text-foreground-400 mb-3">
+              <p className="text-xs leading-5 text-foreground-500 mb-3">
                 What this Actor&rsquo;s application says it needs, reported when
                 it connected. A declaration is not a request and grants nothing
                 &mdash; it is here so you can see what is wanted.
               </p>
               <div className="overflow-x-auto border border-neutral-200/60 rounded-xl">
                 <table className="w-full text-sm bg-background-100">
-                  <thead className="bg-background-200/40 text-left text-xs text-foreground-500 uppercase">
+                  <thead className="border-b border-neutral-200/60 text-left text-xs text-foreground-500">
                     <tr>
-                      <th className="px-4 py-2 font-medium">Capability</th>
-                      <th className="px-4 py-2 font-medium">Status</th>
+                      <th className="px-4 py-2 font-normal">Capability</th>
+                      <th className="px-4 py-2 font-normal">Status</th>
                     </tr>
                   </thead>
                   <tbody>
                     {declaredStatus.map((d) => (
                       <tr
                         key={d.name}
-                        className="border-t border-neutral-200/60 align-top"
+                        className="border-t border-neutral-200/60 align-top transition-colors hover:bg-background-200/40"
                       >
                         <td className="px-4 py-2.5">
                           <code className="font-mono text-foreground">
@@ -470,38 +468,34 @@ export default async function ActorDetailPage({
                             </div>
                           )}
                           {d.description && (
-                            <div className="text-xs text-foreground-400 mt-0.5">
+                            <div className="text-xs text-foreground-500 mt-0.5">
                               {d.description}
                             </div>
                           )}
                         </td>
                         <td className="px-4 py-2.5">
                           {d.granted ? (
-                            <span className="text-xs px-2 py-0.5 rounded-full bg-success-100 text-success-700 border border-success-200">
-                              Granted
-                            </span>
+                            <Badge tone="positive">Granted</Badge>
                           ) : d.inRegistry ? (
                             <>
-                              <span className="text-xs px-2 py-0.5 rounded-full bg-background-200 text-foreground-500 border border-neutral-200/60">
-                                Not granted
-                              </span>
+                              <Badge tone="muted">Not granted</Badge>
                               <Link
                                 href={`/admin/certificates/new?agentDid=${encodeURIComponent(did)}`}
-                                className="ml-2 text-xs text-primary-600 hover:underline"
+                                className="ml-2 inline-flex items-center gap-1 text-xs text-primary-700 hover:underline"
                               >
-                                Issue &rarr;
+                                Issue
+                                <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.5} />
                               </Link>
                             </>
                           ) : (
                             <>
-                              <span className="text-xs px-2 py-0.5 rounded-full bg-warning-100 text-warning-700 border border-warning-200">
-                                Not in registry
-                              </span>
+                              <Badge tone="caution">Not in registry</Badge>
                               <Link
                                 href="/admin/integrations/capabilities/new"
-                                className="ml-2 text-xs text-primary-600 hover:underline"
+                                className="ml-2 inline-flex items-center gap-1 text-xs text-primary-700 hover:underline"
                               >
-                                Add to registry &rarr;
+                                Add to registry
+                                <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.5} />
                               </Link>
                             </>
                           )}
@@ -519,25 +513,29 @@ export default async function ActorDetailPage({
       {activeTab === "access" && (
         <section>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold text-foreground-700">
-              Certificates ({certs.length})
+            <h2 className="text-sm font-medium text-foreground">
+              Certificates{" "}
+              <span className="font-mono text-xs tabular-nums text-foreground-500">
+                {certs.length}
+              </span>
             </h2>
             <Link
               href={`/admin/certificates/new`}
-              className="text-xs text-primary-600 hover:underline"
+              className="inline-flex items-center gap-1 text-xs text-primary-700 hover:underline"
             >
-              Issue certificate →
+              Issue certificate
+              <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.5} />
             </Link>
           </div>
           <div className="overflow-x-auto border border-neutral-200/60 rounded-xl">
             <table className="w-full text-sm bg-background-100">
-              <thead className="bg-background-200/40 text-left text-xs text-foreground-500 uppercase">
+              <thead className="border-b border-neutral-200/60 text-left text-xs text-foreground-500">
                 <tr>
-                  <th className="px-4 py-2 font-medium">Capabilities</th>
-                  <th className="px-4 py-2 font-medium">Scope</th>
-                  <th className="px-4 py-2 font-medium">Status</th>
-                  <th className="px-4 py-2 font-medium">Expires</th>
-                  <th className="px-4 py-2 font-medium">Actions</th>
+                  <th className="px-4 py-2 font-normal">Capabilities</th>
+                  <th className="px-4 py-2 font-normal">Scope</th>
+                  <th className="px-4 py-2 font-normal">Status</th>
+                  <th className="px-4 py-2 font-normal">Expires</th>
+                  <th className="px-4 py-2 font-normal">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -546,36 +544,34 @@ export default async function ActorDetailPage({
                   return (
                     <tr
                       key={cert.id}
-                      className="border-t border-neutral-200/60 align-top"
+                      className="border-t border-neutral-200/60 align-top transition-colors hover:bg-background-200/40"
                     >
-                      <td className="px-4 py-2.5">
+                      <td className="px-4 py-2.5 font-mono text-xs">
                         <Link
                           href={`/admin/certificates/${cert.id}`}
-                          className="text-foreground-700 hover:text-primary-600 hover:underline"
+                          className="text-foreground-700 hover:text-primary-700 hover:underline"
                         >
                           {(cert.capabilities as string[]).join(", ") || "—"}
                         </Link>
                       </td>
-                      <td className="px-4 py-2.5 text-foreground-500">
+                      <td className="px-4 py-2.5 font-mono text-xs text-foreground-500">
                         {scope?.resource ?? scope?.resourcePattern ?? "—"}
                       </td>
                       <td className="px-4 py-2.5">
-                        <span
-                          className={`text-xs px-2 py-0.5 rounded-full border ${STATUS_BADGE[cert.status] ?? STATUS_BADGE.expired}`}
+                        <Badge
+                          tone={statusTone(cert.status)}
                           title={cert.revokedReason ?? undefined}
                         >
                           {cert.status}
-                        </span>
+                        </Badge>
                       </td>
                       <td className="px-4 py-2.5">
                         {cert.expiresAt ? (
-                          <span className="text-foreground-500">
+                          <span className="font-mono text-xs tabular-nums text-foreground-500">
                             {cert.expiresAt.toISOString().slice(0, 10)}
                           </span>
                         ) : (
-                          <span className="text-warning-600 font-medium">
-                            Never
-                          </span>
+                          <Badge tone="caution">Never</Badge>
                         )}
                       </td>
                       <td className="px-4 py-2.5">
@@ -593,11 +589,11 @@ export default async function ActorDetailPage({
                               type="text"
                               name="reason"
                               placeholder="Reason"
-                              className="text-xs border border-neutral-200 rounded px-1.5 py-1 w-24 bg-background"
+                              className="text-xs border border-neutral-200 rounded-lg px-2 py-1 w-24 bg-background focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400"
                             />
                             <button
                               type="submit"
-                              className="text-xs px-2 py-1 border border-danger-200 text-danger-600 rounded hover:bg-danger-50 transition-colors"
+                              className="text-xs font-medium px-2 py-1 border border-neutral-200 bg-background-100 text-danger-700 rounded-lg hover:bg-background-200 transition-colors"
                             >
                               Revoke
                             </button>
@@ -611,9 +607,9 @@ export default async function ActorDetailPage({
                   <tr>
                     <td
                       colSpan={5}
-                      className="px-4 py-6 text-center text-foreground-400"
+                      className="px-4 py-6 text-center text-foreground-500"
                     >
-                      No certificates issued to this Actor yet.
+                      No certificates issued to this Actor yet
                     </td>
                   </tr>
                 )}
@@ -627,10 +623,10 @@ export default async function ActorDetailPage({
         <>
           {egoGraph && (
             <section className="space-y-3">
-              <h2 className="text-sm font-semibold text-foreground-700">
+              <h2 className="text-sm font-medium text-foreground">
                 Relationship graph
               </h2>
-              <p className="text-xs text-foreground-400">
+              <p className="text-xs leading-5 text-foreground-500">
                 This Actor and everything within {egoDepth} hop
                 {egoDepth === 1 ? "" : "s"} of it — ownership and links together. The lists below
                 are the same data, and are where you edit it.
@@ -640,10 +636,10 @@ export default async function ActorDetailPage({
           )}
 
           <section className="space-y-3">
-            <h2 className="text-sm font-semibold text-foreground-700">
+            <h2 className="text-sm font-medium text-foreground">
               Ownership
             </h2>
-            <p className="text-xs text-foreground-400">
+            <p className="text-xs leading-5 text-foreground-500">
               Which actor this one belongs to / acts for, and which actors
               belong to it — see the &quot;Owned by&quot; field in Edit above.
               Descriptive only today, not yet enforced by any certificate.
@@ -654,7 +650,7 @@ export default async function ActorDetailPage({
                   <span className="text-foreground-500">Belongs to</span>{" "}
                   <Link
                     href={`/admin/actors/${encodeDidParam(owner.did)}`}
-                    className="text-foreground hover:text-primary-600 hover:underline"
+                    className="text-foreground hover:text-primary-700 hover:underline"
                   >
                     {owner.name}
                   </Link>
@@ -668,25 +664,25 @@ export default async function ActorDetailPage({
                   <span className="text-foreground-500">Owns</span>{" "}
                   <Link
                     href={`/admin/actors/${encodeDidParam(a.did)}`}
-                    className="text-foreground hover:text-primary-600 hover:underline"
+                    className="text-foreground hover:text-primary-700 hover:underline"
                   >
                     {a.name}
                   </Link>
                 </div>
               ))}
               {!owner && ownedActors.length === 0 && (
-                <p className="text-sm text-foreground-400">
-                  No ownership relationships recorded yet.
+                <p className="text-sm text-foreground-500">
+                  No ownership relationships recorded yet
                 </p>
               )}
             </div>
           </section>
 
           <section className="space-y-3">
-            <h2 className="text-sm font-semibold text-foreground-700">
+            <h2 className="text-sm font-medium text-foreground">
               Relationships
             </h2>
-            <p className="text-xs text-foreground-400">
+            <p className="text-xs leading-5 text-foreground-500">
               A directed, freely-labeled link to any other Actor — &quot;reports
               to&quot;, &quot;belongs to&quot;, &quot;manages&quot;, or anything
               else worth recording.
@@ -701,7 +697,7 @@ export default async function ActorDetailPage({
                     <span className="text-foreground-500">{link.label}</span>{" "}
                     <Link
                       href={`/admin/actors/${encodeDidParam(link.to.did)}`}
-                      className="text-foreground hover:text-primary-600 hover:underline"
+                      className="text-foreground hover:text-primary-700 hover:underline"
                     >
                       {link.to.name}
                     </Link>
@@ -711,7 +707,7 @@ export default async function ActorDetailPage({
                     <input type="hidden" name="returnToDid" value={did} />
                     <button
                       type="submit"
-                      className="text-xs text-danger-600 hover:underline"
+                      className="text-xs text-danger-700 hover:underline"
                     >
                       Remove
                     </button>
@@ -726,19 +722,19 @@ export default async function ActorDetailPage({
                   <span>
                     <Link
                       href={`/admin/actors/${encodeDidParam(link.from.did)}`}
-                      className="text-foreground hover:text-primary-600 hover:underline"
+                      className="text-foreground hover:text-primary-700 hover:underline"
                     >
                       {link.from.name}
                     </Link>{" "}
                     <span className="text-foreground-500">{link.label}</span>{" "}
-                    <span className="text-foreground-400">this actor</span>
+                    <span className="text-foreground-500">this actor</span>
                   </span>
                   <form action={deleteActorLinkAction}>
                     <input type="hidden" name="id" value={link.id} />
                     <input type="hidden" name="returnToDid" value={did} />
                     <button
                       type="submit"
-                      className="text-xs text-danger-600 hover:underline"
+                      className="text-xs text-danger-700 hover:underline"
                     >
                       Remove
                     </button>
@@ -746,15 +742,15 @@ export default async function ActorDetailPage({
                 </div>
               ))}
               {links.from.length === 0 && links.to.length === 0 && (
-                <p className="text-sm text-foreground-400">
-                  No relationships recorded yet.
+                <p className="text-sm text-foreground-500">
+                  No relationships recorded yet
                 </p>
               )}
             </div>
             {linkableActors.length > 0 && (
               <form
                 action={addActorLinkAction}
-                className="flex flex-wrap items-end gap-2 border border-neutral-200/60 rounded-xl bg-background-100 p-4"
+                className="flex flex-wrap items-end gap-2 border border-neutral-200/60 rounded-xl bg-background-100 p-5"
               >
                 <input type="hidden" name="fromDid" value={did} />
                 <div>
@@ -767,7 +763,7 @@ export default async function ActorDetailPage({
                     placeholder="e.g. belongs to"
                     required
                     list="actor-link-label-presets"
-                    className="w-40 border border-neutral-200 rounded-lg px-3 py-1.5 text-sm bg-background"
+                    className="w-40 border border-neutral-200 rounded-lg px-3 py-1.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400"
                   />
                   <datalist id="actor-link-label-presets">
                     <option value="belongs to" />
@@ -789,7 +785,7 @@ export default async function ActorDetailPage({
                       kind: a.kind,
                     }))}
                     emptyLabel="Select a target actor"
-                    placeholder="Search target actors..."
+                    placeholder="Search target actors"
                   />
                 </div>
                 <button
@@ -807,12 +803,12 @@ export default async function ActorDetailPage({
       {activeTab === "history" && (
         <section className="space-y-3">
           <div>
-            <h2 className="text-sm font-semibold text-foreground-700">
-              Audit Trail
+            <h2 className="text-sm font-medium text-foreground">
+              Audit trail
             </h2>
             <p className="mt-1 text-xs leading-5 text-foreground-500">
               Events targeting this actor and admin events performed by this
-              actor.
+              actor
             </p>
           </div>
           <AuditLogPanel

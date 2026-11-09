@@ -49,7 +49,7 @@ export default function IdentityBackupPanel({
     setError(null);
     setNotice(null);
     if (passphrase !== confirmPassphrase) {
-      setError("The two passphrases do not match.");
+      setError("The two passphrases do not match");
       return;
     }
     setWorking(true);
@@ -79,7 +79,7 @@ export default function IdentityBackupPanel({
     setError(null);
     setNotice(null);
     if (!restoreFile) {
-      setError("Choose a backup file first.");
+      setError("Choose a backup file first");
       return;
     }
     setWorking(true);
@@ -105,22 +105,23 @@ export default function IdentityBackupPanel({
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {error && (
         <p className="rounded-lg border border-danger-200 bg-danger-50 px-3 py-2 text-sm text-danger-700">
           {error}
         </p>
       )}
       {notice && (
-        <p className="rounded-lg border border-success-200 bg-success-50 px-3 py-2 text-sm text-success-700">
-          {notice}
+        <p className="flex gap-2.5 rounded-lg border border-neutral-200/60 bg-background-100 px-4 py-3 text-sm text-foreground-600">
+          <span aria-hidden className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-success-600" />
+          <span>{notice}</span>
         </p>
       )}
 
-      <p className="flex gap-2 rounded-lg border border-warning-200 bg-warning-50 px-3 py-2.5 text-xs text-warning-800">
-        <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
+      <p className="flex gap-2 rounded-lg border border-warning-200 bg-warning-50 px-4 py-3 text-xs leading-5 text-warning-800">
+        <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.5} />
         <span>
-          A backup contains the <strong>private keys</strong> of the identities in this browser. It is
+          A backup contains the <span className="font-medium">private keys</span> of the identities in this browser. It is
           always encrypted with a passphrase you choose, and that passphrase is never stored or
           recoverable. Only browser-held identities are covered — a key held by the wallet app never
           leaves it, so there is nothing here to export for one.
@@ -130,8 +131,9 @@ export default function IdentityBackupPanel({
       <section className="space-y-3">
         <div>
           <h3 className="text-sm font-medium text-foreground">Back up</h3>
-          <p className="text-xs text-foreground-500">
-            Downloads all {identities.length} {identities.length === 1 ? "identity" : "identities"} as one encrypted file.
+          <p className="mt-1 text-xs leading-5 text-foreground-500">
+            Downloads all <span className="font-mono tabular-nums">{identities.length}</span>{" "}
+            {identities.length === 1 ? "identity" : "identities"} as one encrypted file
           </p>
         </div>
 
@@ -141,7 +143,7 @@ export default function IdentityBackupPanel({
           onChange={(e) => setPassphrase(e.target.value)}
           placeholder={`Passphrase (at least ${MIN_PASSPHRASE_LENGTH} characters)`}
           autoComplete="new-password"
-          className="w-full rounded-lg border border-neutral-200 bg-background px-3 py-2 text-sm text-foreground"
+          className="w-full rounded-lg border border-neutral-200 bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400"
         />
         <input
           type="password"
@@ -149,16 +151,16 @@ export default function IdentityBackupPanel({
           onChange={(e) => setConfirmPassphrase(e.target.value)}
           placeholder="Confirm passphrase"
           autoComplete="new-password"
-          className="w-full rounded-lg border border-neutral-200 bg-background px-3 py-2 text-sm text-foreground"
+          className="w-full rounded-lg border border-neutral-200 bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400"
         />
 
         <button
           type="button"
           disabled={working || identities.length === 0 || passphrase.length === 0}
           onClick={handleExport}
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary-600 py-2.5 text-sm font-medium text-white transition-colors hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-60"
+          className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-500 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          <Download className="h-4 w-4" />
+          <Download className="h-4 w-4" strokeWidth={1.5} />
           Download encrypted backup
         </button>
       </section>
@@ -166,7 +168,7 @@ export default function IdentityBackupPanel({
       <section className="space-y-3 border-t border-neutral-200/60 pt-6">
         <div>
           <h3 className="text-sm font-medium text-foreground">Restore</h3>
-          <p className="text-xs text-foreground-500">
+          <p className="mt-1 text-xs leading-5 text-foreground-500">
             Adds the identities in a backup to this browser. Nothing already here is removed or
             overwritten.
           </p>
@@ -188,16 +190,16 @@ export default function IdentityBackupPanel({
           onChange={(e) => setRestorePassphrase(e.target.value)}
           placeholder="Backup passphrase"
           autoComplete="off"
-          className="w-full rounded-lg border border-neutral-200 bg-background px-3 py-2 text-sm text-foreground"
+          className="w-full rounded-lg border border-neutral-200 bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400"
         />
 
         <button
           type="button"
           disabled={working || !restoreFile || restorePassphrase.length === 0}
           onClick={handleImport}
-          className="flex w-full items-center justify-center gap-2 rounded-xl border border-neutral-200 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-background-200 disabled:cursor-not-allowed disabled:opacity-60"
+          className="flex w-full items-center justify-center gap-2 rounded-lg border border-neutral-200 bg-background-100 px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-background-200 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          <Upload className="h-4 w-4" />
+          <Upload className="h-4 w-4" strokeWidth={1.5} />
           Restore from backup
         </button>
       </section>

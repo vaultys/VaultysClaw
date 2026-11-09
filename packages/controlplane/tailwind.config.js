@@ -4,6 +4,17 @@ module.exports = {
   content: ["./app/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}"],
   theme: {
     extend: {
+      // Bastion: IBM Plex (CSS variables set by next/font in app/layout.tsx).
+      fontFamily: {
+        sans: ["var(--font-sans)", "system-ui", "sans-serif"],
+        mono: ["var(--font-mono)", "ui-monospace", "monospace"],
+      },
+      // Bastion's tighter corners: 6px controls, 10px cards.
+      borderRadius: {
+        lg: "0.375rem",
+        xl: "0.625rem",
+        "2xl": "0.75rem",
+      },
       colors: {
         // ── Adaptive palette (50–950 auto-invert in dark mode via CSS vars in app/theme.css) ──
         primary: {

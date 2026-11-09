@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Info, Plus } from "lucide-react";
+import { ArrowRight, Info, Plus } from "lucide-react";
 import { CapabilityCertificateDAO, ActorDAO } from "@/db";
 import PageChrome from "@/components/layout/PageChrome";
 import CertificateDirectoryPanel from "@/components/CertificateDirectoryPanel";
@@ -20,7 +20,7 @@ export default async function CertificatesPage() {
   const actorByDid = new Map(actors.map((p) => [p.did, p]));
 
   return (
-    <div className="p-6 space-y-4">
+    <div className="p-6 space-y-6">
       <PageChrome
         toolbar={{
           title: "Certificates",
@@ -37,7 +37,7 @@ export default async function CertificatesPage() {
               id: "issue",
               label: "Issue certificate",
               variant: "primary",
-              icon: <Plus className="w-3.5 h-3.5" />,
+              icon: <Plus className="w-3.5 h-3.5" strokeWidth={1.5} />,
               href: "/admin/certificates/new",
             },
           ],
@@ -45,11 +45,11 @@ export default async function CertificatesPage() {
         breadcrumbs={[{ label: "Certificates" }]}
       />
 
-      <section className="rounded-xl border border-primary-200 bg-primary-50 px-4 py-3">
+      <section className="rounded-lg border border-neutral-200/60 bg-background-100 px-4 py-3 text-sm text-foreground-600">
         <div className="flex gap-3">
-          <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary-700" />
+          <Info className="mt-0.5 h-4 w-4 shrink-0 text-foreground-500" strokeWidth={1.5} />
           <div>
-            <h2 className="text-sm font-semibold text-foreground">
+            <h2 className="text-sm font-medium text-foreground">
               Certificates are the permission ledger
             </h2>
             <p className="mt-1 text-sm leading-6 text-foreground-600">
@@ -80,14 +80,18 @@ export default async function CertificatesPage() {
         revokeAction={revokeCertificateAction}
       />
 
-      <p className="text-xs text-foreground-400">
+      <p className="text-xs leading-5 text-foreground-500">
         Revoking is a ledger write, not a forced disconnect — it takes effect the next time
         anyone checks this Actor&apos;s status, not immediately on an open connection.
       </p>
 
       <div className="pt-2">
-        <Link href="/admin/certificates/new" className="text-sm text-primary-600 hover:underline">
-          Issue certificate →
+        <Link
+          href="/admin/certificates/new"
+          className="inline-flex items-center gap-1 text-sm text-primary-700 hover:underline"
+        >
+          Issue certificate
+          <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.5} />
         </Link>
       </div>
     </div>

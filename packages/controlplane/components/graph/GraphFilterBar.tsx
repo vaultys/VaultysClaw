@@ -6,9 +6,12 @@ import { ACTOR_KIND_META } from "@/lib/actor-kinds";
 import { EDGE_KINDS, EDGE_KIND_LABEL, type ActorGraphEdgeKind } from "./actor-graph/types";
 import type { GraphFilters } from "./actor-graph/filters";
 
-const CHIP = "px-2.5 py-1 rounded-full border text-xs transition-colors";
-const CHIP_ON = "bg-primary-100 border-primary-200 text-primary-700";
-const CHIP_OFF = "bg-background-100 border-neutral-200 text-foreground-500 hover:text-foreground";
+// Filter toggles: compact hairline buttons. "On" is a quiet surface step, not a fill — the kind and
+// edge colours belong to the graph itself, and orange is kept for actions.
+const CHIP = "px-2.5 py-1 rounded-md border text-xs transition-colors";
+const CHIP_ON = "bg-background-200 border-neutral-300 text-foreground";
+const CHIP_OFF =
+  "bg-background-100 border-neutral-200 text-foreground-500 hover:bg-background-200/60 hover:text-foreground";
 
 function toggle<T>(list: T[], value: T): T[] {
   return list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
@@ -43,15 +46,15 @@ export function GraphFilterBar({
     <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
       <div className="relative">
         <Search
-          size={13}
-          className="absolute left-2.5 top-1/2 -translate-y-1/2 text-foreground-400 pointer-events-none"
+          strokeWidth={1.5}
+          className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-foreground-500 pointer-events-none"
         />
         <input
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder="Find by name or DID"
           aria-label="Find an actor in the graph"
-          className="pl-7 pr-2 py-1 w-56 text-xs bg-background-100 border border-neutral-200 rounded-lg text-foreground placeholder:text-foreground-400 focus:outline-none focus:border-primary-400"
+          className="pl-7 pr-2 py-1 w-56 text-xs bg-background-100 border border-neutral-200 rounded-lg text-foreground placeholder:text-foreground-400 focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400"
         />
       </div>
 
@@ -63,7 +66,7 @@ export function GraphFilterBar({
           router.push(e.target.value ? `/admin/graph?workspace=${e.target.value}` : "/admin/graph")
         }
         aria-label="Workspace"
-        className="py-1 px-2 text-xs bg-background-100 border border-neutral-200 rounded-lg text-foreground"
+        className="py-1 px-2 text-xs bg-background-100 border border-neutral-200 rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400"
       >
         <option value="">All workspaces</option>
         {workspaces.map((w) => (
@@ -79,6 +82,8 @@ export function GraphFilterBar({
           return (
             <button
               key={kind}
+              type="button"
+              aria-pressed={on}
               onClick={() => {
                 // An empty list means "everything", so the first click has to start from the full
                 // set — otherwise clicking one kind off would read as selecting only that kind.
@@ -100,6 +105,8 @@ export function GraphFilterBar({
           return (
             <button
               key={edge}
+              type="button"
+              aria-pressed={on}
               onClick={() => onChange({ ...filters, edgeKinds: toggle(filters.edgeKinds, edge) })}
               className={`${CHIP} ${on ? CHIP_ON : CHIP_OFF}`}
             >

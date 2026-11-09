@@ -27,11 +27,11 @@ export default async function ChannelDetailPage({ params }: { params: Promise<{ 
 
       <div className="flex gap-8">
         <div>
-          <div className="text-xs font-medium text-foreground-500 uppercase mb-1">Type</div>
+          <div className="mb-1 text-xs text-foreground-500">Type</div>
           <ServiceTypeBadges types={channel.serviceTypes as string[]} />
         </div>
         <div>
-          <div className="text-xs font-medium text-foreground-500 uppercase mb-1">Delivery key</div>
+          <div className="mb-1 text-xs text-foreground-500">Delivery key</div>
           <code className="text-xs font-mono text-foreground-500">{channel.appriseKey}</code>
         </div>
       </div>
@@ -46,7 +46,7 @@ export default async function ChannelDetailPage({ params }: { params: Promise<{ 
             name="name"
             required
             defaultValue={channel.name}
-            className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background"
+            className="w-full rounded-lg border border-neutral-200 bg-background px-3 py-2 text-sm focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500/30"
           />
         </div>
 
@@ -56,7 +56,7 @@ export default async function ChannelDetailPage({ params }: { params: Promise<{ 
             type="text"
             name="description"
             defaultValue={channel.description ?? ""}
-            className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background"
+            className="w-full rounded-lg border border-neutral-200 bg-background px-3 py-2 text-sm focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500/30"
           />
         </div>
 
@@ -72,10 +72,10 @@ export default async function ChannelDetailPage({ params }: { params: Promise<{ 
 
         <div>
           <label className="block text-sm font-medium text-foreground mb-1.5">Events</label>
-          <div className="border border-neutral-200 rounded-lg divide-y divide-neutral-200/60">
+          <div className="divide-y divide-neutral-200/60 rounded-lg border border-neutral-200">
             {EVENT_GROUPS.map((group) => (
               <div key={group} className="p-3">
-                <div className="text-xs font-semibold text-foreground-500 uppercase mb-2">{group}</div>
+                <div className="mb-2 text-xs text-foreground-500">{group}</div>
                 <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm">
                   {CONTROLPLANE_WEBHOOK_EVENTS.filter((e) => e.group === group).map((e) => (
                     <label
@@ -102,7 +102,7 @@ export default async function ChannelDetailPage({ params }: { params: Promise<{ 
         <div className="flex gap-2 pt-2">
           <button
             type="submit"
-            className="px-4 py-2 bg-primary-600 hover:bg-primary-500 text-white text-sm font-medium rounded-lg transition-colors"
+            className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-500"
           >
             Save changes
           </button>

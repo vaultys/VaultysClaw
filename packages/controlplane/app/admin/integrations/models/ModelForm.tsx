@@ -84,11 +84,11 @@ export default function ModelForm({
           required
           defaultValue={model?.name}
           placeholder="e.g. GPT-4o"
-          className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background"
+          className="w-full rounded-lg border border-neutral-200 bg-background px-3 py-2 text-sm focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500/30"
         />
-        <p className="text-xs text-foreground-400 mt-1">
+        <p className="text-xs text-foreground-500 mt-1">
           How this model is referred to across the console
-          {routable && <> — also the name it&apos;s registered under in LiteLLM.</>}
+          {routable && <> — also the name it&apos;s registered under in LiteLLM</>}
         </p>
       </div>
 
@@ -98,7 +98,7 @@ export default function ModelForm({
           type="text"
           name="description"
           defaultValue={model?.description ?? ""}
-          className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background"
+          className="w-full rounded-lg border border-neutral-200 bg-background px-3 py-2 text-sm focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500/30"
         />
       </div>
 
@@ -112,7 +112,7 @@ export default function ModelForm({
           value={provider}
           onChange={(e) => onProviderChange(e.target.value as LlmProviderType)}
           disabled={isEdit}
-          className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background disabled:opacity-60"
+          className="w-full rounded-lg border border-neutral-200 bg-background px-3 py-2 text-sm focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500/30 disabled:opacity-60"
         >
           {PROVIDER_IDS.map((p) => (
             <option key={p} value={p}>
@@ -121,8 +121,8 @@ export default function ModelForm({
           ))}
         </select>
         {isEdit && (
-          <p className="text-xs text-foreground-400 mt-1">
-            Provider can&apos;t be changed after registration — register a new model instead.
+          <p className="text-xs text-foreground-500 mt-1">
+            Provider can&apos;t be changed after registration — register a new model instead
           </p>
         )}
         {!routable && !isEdit && (
@@ -145,7 +145,7 @@ export default function ModelForm({
               setBaseUrl(e.target.value);
               setProbe(null);
             }}
-            className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background font-mono"
+            className="w-full rounded-lg border border-neutral-200 bg-background px-3 py-2 text-sm focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500/30 font-mono"
           />
         </div>
       )}
@@ -161,44 +161,44 @@ export default function ModelForm({
           value={apiKey}
           onChange={(e) => setApiKey(e.target.value)}
           placeholder={model?.hasApiKey ? "Leave blank to keep the current key" : ""}
-          className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background font-mono"
+          className="w-full rounded-lg border border-neutral-200 bg-background px-3 py-2 text-sm focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500/30 font-mono"
         />
-        <p className="text-xs text-foreground-400 mt-1">
+        <p className="text-xs text-foreground-500 mt-1">
           Encrypted at rest and never shown again after this
-          {model?.hasApiKey && <> — a key is currently set.</>}
+          {model?.hasApiKey && <> — a key is currently set</>}
         </p>
       </div>
 
       {routable && (
-        <div className="border border-neutral-200/60 rounded-lg p-3 space-y-2">
+        <div className="space-y-2 rounded-lg border border-neutral-200/60 bg-background-100 px-4 py-3">
           <div className="flex items-center justify-between gap-3">
             <div className="text-sm text-foreground-600">
-              Check the endpoint answers before saving.
+              Check the endpoint answers before saving
             </div>
             <button
               type="button"
               onClick={onTest}
               disabled={probing || !baseUrl}
-              className="text-xs px-3 py-1.5 border border-neutral-200 rounded-lg hover:bg-background-200/60 transition-colors disabled:opacity-50 inline-flex items-center gap-1.5"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-background-100 px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-background-200 disabled:opacity-50"
             >
-              {probing && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+              {probing && <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.5} />}
               Test connection
             </button>
           </div>
           {probe && (
             <div
               className={`text-xs flex items-start gap-1.5 ${
-                probe.ok ? "text-success-700" : "text-danger-600"
+                probe.ok ? "text-foreground-600" : "text-danger-700"
               }`}
             >
               {probe.ok ? (
-                <CheckCircle2 className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success-600" strokeWidth={1.5} />
               ) : (
-                <XCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                <XCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={1.5} />
               )}
               <div>
                 {probe.ok
-                  ? `Reachable — ${probe.models.length} model${probe.models.length === 1 ? "" : "s"} advertised.`
+                  ? `Reachable — ${probe.models.length} model${probe.models.length === 1 ? "" : "s"} advertised`
                   : `Couldn't reach it: ${probe.error}`}
                 {probe.ok && probe.models.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 mt-1.5">
@@ -207,10 +207,10 @@ export default function ModelForm({
                         key={m}
                         type="button"
                         onClick={() => setModelId(m)}
-                        className={`px-1.5 py-0.5 rounded border font-mono transition-colors ${
+                        className={`rounded border px-1.5 py-0.5 font-mono transition-colors ${
                           modelId === m
-                            ? "bg-primary-100 text-primary-700 border-primary-200"
-                            : "border-neutral-200 text-foreground-500 hover:bg-background-200/60"
+                            ? "border-primary-400 bg-background-200 text-foreground"
+                            : "border-neutral-200 text-foreground-600 hover:bg-background-200"
                         }`}
                       >
                         {m}
@@ -233,17 +233,17 @@ export default function ModelForm({
           value={modelId}
           onChange={(e) => setModelId(e.target.value)}
           placeholder={meta.exampleModelId}
-          className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background font-mono"
+          className="w-full rounded-lg border border-neutral-200 bg-background px-3 py-2 text-sm focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500/30 font-mono"
         />
-        <p className="text-xs text-foreground-400 mt-1">
-          The identifier the provider itself knows this model by.
+        <p className="text-xs text-foreground-500 mt-1">
+          The identifier the provider itself knows this model by
         </p>
       </div>
 
       <div className="flex gap-2 pt-2">
         <button
           type="submit"
-          className="px-4 py-2 bg-primary-600 hover:bg-primary-500 text-white text-sm font-medium rounded-lg transition-colors"
+          className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-500"
         >
           {submitLabel}
         </button>

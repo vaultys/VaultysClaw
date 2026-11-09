@@ -1,5 +1,6 @@
 import { AlertTriangle, Info, ShieldBan, Trash2 } from "lucide-react";
 import type { Actor } from "@prisma/client";
+import { Badge } from "@/components/ui/Badge";
 import { buildActorConfig } from "@/lib/actor-config";
 import { parseHarnessKindConfig } from "@/lib/harness-kind";
 import { getWSServerInstance } from "@/lib/ws-server";
@@ -55,25 +56,19 @@ export default async function HarnessConfigPanel({ actor }: { actor: Actor }) {
   }
 
   return (
-    <section className="space-y-4 border border-neutral-200/60 rounded-xl bg-background-100 p-4">
+    <section className="space-y-4 border border-neutral-200/60 rounded-xl bg-background-100 p-5">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-foreground-700 flex items-center gap-1.5">
-          <ShieldBan className="w-3.5 h-3.5 text-danger-500" />
+        <h2 className="text-sm font-medium text-foreground flex items-center gap-1.5">
+          <ShieldBan className="w-4 h-4 text-foreground-500" strokeWidth={1.5} />
           Harness supervision
         </h2>
-        <span
-          className={`text-xs px-2 py-0.5 rounded-full border ${
-            connected
-              ? "bg-success-100 text-success-700 border-success-200"
-              : "bg-neutral-100 text-foreground-500 border-neutral-200"
-          }`}
-        >
-          {connected ? "connected — changes apply immediately" : "offline — changes apply on reconnect"}
-        </span>
+        <Badge tone={connected ? "positive" : "muted"}>
+          {connected ? "Connected · changes apply immediately" : "Offline · changes apply on reconnect"}
+        </Badge>
       </div>
 
-      <p className="text-xs text-foreground-500 flex gap-1.5">
-        <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+      <p className="text-xs leading-5 text-foreground-600 flex gap-1.5">
+        <Info className="w-3.5 h-3.5 shrink-0 mt-0.5 text-foreground-500" strokeWidth={1.5} />
         <span>
           This Actor governs a coding harness at the tool-call boundary: every file read, file write
           and command is decided locally from its certificate and the rules below, with no round trip
@@ -85,7 +80,7 @@ export default async function HarnessConfigPanel({ actor }: { actor: Actor }) {
 
       {parseError && (
         <p role="alert" className="text-xs text-danger-700 bg-danger-100 border border-danger-200 rounded-lg px-3 py-2 flex gap-1.5">
-          <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+          <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" strokeWidth={1.5} />
           <span>
             This harness&apos;s stored configuration could not be read, so nothing below reflects
             what it is enforcing: {parseError}
@@ -100,7 +95,7 @@ export default async function HarnessConfigPanel({ actor }: { actor: Actor }) {
               key={w}
               className="text-xs text-warning-700 bg-warning-100 border border-warning-200 rounded-lg px-3 py-2 flex gap-1.5"
             >
-              <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+              <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" strokeWidth={1.5} />
               <span>{w}</span>
             </li>
           ))}
@@ -119,7 +114,7 @@ export default async function HarnessConfigPanel({ actor }: { actor: Actor }) {
               <select
                 name="mode"
                 defaultValue={config.mode}
-                className="mt-1 w-full text-sm rounded-lg border border-neutral-200 bg-background-50 px-2 py-1.5"
+                className="mt-1 w-full text-sm rounded-lg border border-neutral-200 bg-background px-2 py-1.5 text-foreground focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400"
               >
                 <option value="observe">observe — decide and record, refuse nothing</option>
                 <option value="explicit">explicit — refuse anything uncovered</option>
@@ -130,7 +125,7 @@ export default async function HarnessConfigPanel({ actor }: { actor: Actor }) {
               <select
                 name="sandbox"
                 defaultValue={config.sandbox}
-                className="mt-1 w-full text-sm rounded-lg border border-neutral-200 bg-background-50 px-2 py-1.5"
+                className="mt-1 w-full text-sm rounded-lg border border-neutral-200 bg-background px-2 py-1.5 text-foreground focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400"
               >
                 <option value="off">off — advisory only</option>
                 <option value="auto">auto — confine where possible</option>
@@ -143,16 +138,16 @@ export default async function HarnessConfigPanel({ actor }: { actor: Actor }) {
                 name="maxStatusAgeSeconds"
                 defaultValue={config.maxStatusAgeSeconds}
                 inputMode="numeric"
-                className="mt-1 w-full text-sm rounded-lg border border-neutral-200 bg-background-50 px-2 py-1.5"
+                className="mt-1 w-full text-sm rounded-lg border border-neutral-200 bg-background px-2 py-1.5 text-foreground focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400"
               />
-              <span className="block mt-1 text-foreground-400">
+              <span className="block mt-1 text-foreground-500">
                 0 is the strictest value, not the loosest. Negative means unbounded.
               </span>
             </label>
             <div className="sm:col-span-6">
               <button
                 type="submit"
-                className="text-xs px-3 py-1.5 rounded-lg bg-primary-600 text-white hover:bg-primary-700"
+                className="text-sm font-medium px-3 py-1.5 rounded-lg bg-primary-600 text-white transition-colors hover:bg-primary-500"
               >
                 Save settings
               </button>
@@ -160,29 +155,26 @@ export default async function HarnessConfigPanel({ actor }: { actor: Actor }) {
           </ProxyActionForm>
 
           <div className="space-y-2">
-            <h3 className="text-xs font-semibold text-foreground-600">
-              Resource rules ({config.resourceRules.length})
+            <h3 className="text-sm font-medium text-foreground">
+              Resource rules{" "}
+              <span className="font-mono text-xs tabular-nums text-foreground-500">
+                {config.resourceRules.length}
+              </span>
             </h3>
             {config.resourceRules.length === 0 ? (
-              <p className="text-xs text-foreground-400">
+              <p className="text-xs text-foreground-500">
                 None. Every call is decided by the certificate alone, plus whatever local safety floor
                 the host is configured with.
               </p>
             ) : (
-              <ul className="divide-y divide-neutral-200/60 border border-neutral-200/60 rounded-lg">
+              <ul className="divide-y divide-neutral-200/60 border border-neutral-200/60 rounded-lg bg-background">
                 {config.resourceRules.map((rule) => (
                   <li key={rule.id} className="flex items-center justify-between gap-3 px-3 py-2">
                     <div className="min-w-0">
-                      <p className="text-xs font-medium text-foreground-700">
-                        <span
-                          className={`mr-2 px-1.5 py-0.5 rounded border text-[10px] uppercase ${
-                            rule.effect === "deny"
-                              ? "bg-danger-100 text-danger-700 border-danger-200"
-                              : "bg-success-100 text-success-700 border-success-200"
-                          }`}
-                        >
+                      <p className="flex items-center gap-2 font-mono text-xs text-foreground-700">
+                        <Badge mono tone={rule.effect === "deny" ? "negative" : "positive"}>
                           {rule.effect}
-                        </span>
+                        </Badge>
                         {rule.id}
                       </p>
                       <p className="text-xs text-foreground-500 font-mono truncate">
@@ -195,9 +187,9 @@ export default async function HarnessConfigPanel({ actor }: { actor: Actor }) {
                       <button
                         type="submit"
                         aria-label={`Delete rule ${rule.id}`}
-                        className="text-foreground-400 hover:text-danger-600 p-1"
+                        className="text-foreground-500 hover:text-danger-700 transition-colors p-1"
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        <Trash2 className="w-3.5 h-3.5" strokeWidth={1.5} />
                       </button>
                     </form>
                   </li>
@@ -217,7 +209,7 @@ export default async function HarnessConfigPanel({ actor }: { actor: Actor }) {
                 name="id"
                 required
                 placeholder="deny-ssh-keys"
-                className="mt-1 w-full text-sm rounded-lg border border-neutral-200 bg-background-50 px-2 py-1.5"
+                className="mt-1 w-full text-sm rounded-lg border border-neutral-200 bg-background px-2 py-1.5 text-foreground focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400"
               />
             </label>
             <label className="sm:col-span-3 text-xs text-foreground-600">
@@ -226,11 +218,11 @@ export default async function HarnessConfigPanel({ actor }: { actor: Actor }) {
                 name="resources"
                 required
                 placeholder="file:///Users/fx/.ssh/*, exec://docker"
-                className="mt-1 w-full text-sm rounded-lg border border-neutral-200 bg-background-50 px-2 py-1.5 font-mono"
+                className="mt-1 w-full text-sm rounded-lg border border-neutral-200 bg-background px-2 py-1.5 text-foreground focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400 font-mono"
               />
-              <span className="block mt-1 text-foreground-400">
-                An exact URI, or a prefix ending <code>/*</code>. Paths must be as the host resolves
-                them — copy them from <code>vaultysclaw-sensor report</code>, which prints the
+              <span className="block mt-1 text-foreground-500">
+                An exact URI, or a prefix ending <code className="font-mono">/*</code>. Paths must be as the host resolves
+                them — copy them from <code className="font-mono">vaultysclaw-sensor report</code>, which prints the
                 resolved form the matcher actually sees.
               </span>
             </label>
@@ -239,7 +231,7 @@ export default async function HarnessConfigPanel({ actor }: { actor: Actor }) {
               <select
                 name="effect"
                 defaultValue="deny"
-                className="mt-1 w-full text-sm rounded-lg border border-neutral-200 bg-background-50 px-2 py-1.5"
+                className="mt-1 w-full text-sm rounded-lg border border-neutral-200 bg-background px-2 py-1.5 text-foreground focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400"
               >
                 <option value="deny">deny</option>
                 <option value="allow">allow</option>
@@ -248,12 +240,12 @@ export default async function HarnessConfigPanel({ actor }: { actor: Actor }) {
             <div className="sm:col-span-6">
               <button
                 type="submit"
-                className="text-xs px-3 py-1.5 rounded-lg border border-neutral-200 hover:bg-background-200"
+                className="text-sm font-medium px-3 py-1.5 rounded-lg border border-neutral-200 bg-background-100 text-foreground transition-colors hover:bg-background-200"
               >
                 Add rule
               </button>
-              <span className="ml-2 text-xs text-foreground-400">
-                An <code>allow</code> rule bypasses the certificate entirely — it is not a scope, it
+              <span className="ml-2 text-xs text-foreground-500">
+                An <code className="font-mono">allow</code> rule bypasses the certificate entirely — it is not a scope, it
                 is an exemption.
               </span>
             </div>

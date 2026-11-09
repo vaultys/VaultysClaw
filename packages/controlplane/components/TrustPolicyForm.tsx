@@ -83,7 +83,7 @@ export default function TrustPolicyForm({
   return (
     <form
       onSubmit={submit}
-      className="border border-neutral-200/60 rounded-xl bg-background-100 p-4 space-y-4 max-w-md"
+      className="border border-neutral-200/60 rounded-xl bg-background-100 p-5 space-y-4 max-w-md"
     >
       <div>
         <label className="block text-sm font-medium text-foreground mb-1.5">Fail mode</label>
@@ -91,7 +91,7 @@ export default function TrustPolicyForm({
           name="failMode"
           value={failMode}
           onChange={(e) => setFailMode(e.target.value)}
-          className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background"
+          className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400"
         >
           {perWorkspace && (
             <option value="inherit">
@@ -113,7 +113,7 @@ export default function TrustPolicyForm({
           <select
             value={stapleTtlMode}
             onChange={(e) => setStapleTtlMode(e.target.value as "inherit" | "custom")}
-            className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background mb-2"
+            className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background mb-2 focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400"
           >
             <option value="inherit">
               Inherit from the organization ({inherited?.stapleTtlSeconds ?? 0}s)
@@ -128,10 +128,10 @@ export default function TrustPolicyForm({
             min={0}
             value={stapleTtlSeconds}
             onChange={(e) => setStapleTtlSeconds(e.target.value)}
-            className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background"
+            className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400"
           />
         )}
-        <p className="text-xs text-foreground-400 mt-1">
+        <p className="text-xs leading-5 text-foreground-500 mt-1">
           0 forces a live query every time. A positive value lets a verifier accept a signed
           status response presented within that window instead. An interception point
           (<span className="font-mono">proxy</span>, <span className="font-mono">harness</span>)
@@ -140,8 +140,13 @@ export default function TrustPolicyForm({
         </p>
       </div>
 
-      {error && <p className="text-xs text-danger-600">{error}</p>}
-      {saved && !error && <p className="text-xs text-success-700">Saved.</p>}
+      {error && <p className="text-xs text-danger-700">{error}</p>}
+      {saved && !error && (
+        <p className="flex items-center gap-1.5 text-xs text-foreground-600">
+          <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-success-600" />
+          Saved
+        </p>
+      )}
 
       <button
         type="submit"

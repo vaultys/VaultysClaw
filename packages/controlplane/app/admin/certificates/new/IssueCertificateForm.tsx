@@ -137,7 +137,7 @@ export default function IssueCertificateForm({
           emptyLabel="Select an actor"
           onValueChange={setActorDid}
         />
-        <p className="text-xs text-foreground-400 mt-1">
+        <p className="text-xs leading-5 text-foreground-500 mt-1">
           Search by name, actor kind, or full DID. The capability list updates for the selected
           actor type.
         </p>
@@ -147,20 +147,20 @@ export default function IssueCertificateForm({
         <label className="block text-sm font-medium text-foreground mb-1.5">Capabilities</label>
         <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm border border-neutral-200 rounded-lg p-3">
           {builtins.map((cap) => (
-            <label key={cap} className="flex items-center gap-1.5 text-foreground-700">
+            <label key={cap} className="flex items-center gap-1.5 font-mono text-xs text-foreground-700">
               <input type="checkbox" name="capabilities" value={cap} className="accent-primary-600" />
               {cap}
             </label>
           ))}
         </div>
         {selectedActor && (
-          <p className="text-xs text-foreground-400 mt-1">
-            Showing built-ins grantable to a {selectedActor.kind} actor.
+          <p className="text-xs leading-5 text-foreground-500 mt-1">
+            Showing built-ins grantable to a {selectedActor.kind} actor
           </p>
         )}
         {!selectedActor && (
-          <p className="text-xs text-foreground-400 mt-1">
-            Select an actor to narrow this list to capabilities grantable for that actor type.
+          <p className="text-xs leading-5 text-foreground-500 mt-1">
+            Select an actor to narrow this list to capabilities grantable for that actor type
           </p>
         )}
       </div>
@@ -173,7 +173,7 @@ export default function IssueCertificateForm({
           <div className="space-y-3 text-sm border border-neutral-200 rounded-lg p-3">
             {customGroups.map(([group, caps]) => (
               <div key={group}>
-                <div className="text-xs uppercase text-foreground-400 mb-1">{group}</div>
+                <div className="text-xs text-foreground-500 mb-1">{group}</div>
                 <div className="flex flex-wrap gap-x-4 gap-y-2">
                   {caps.map((cap) => (
                     <label
@@ -188,22 +188,22 @@ export default function IssueCertificateForm({
                         className="accent-primary-600"
                       />
                       <span>{cap.label}</span>
-                      <code className="text-xs text-foreground-400">{cap.name}</code>
+                      <code className="font-mono text-xs text-foreground-500">{cap.name}</code>
                     </label>
                   ))}
                 </div>
               </div>
             ))}
           </div>
-          <p className="text-xs text-foreground-400 mt-1">
-            Defined under Integrations &rarr; Capabilities. Scoping, expiry and revocation apply
+          <p className="text-xs leading-5 text-foreground-500 mt-1">
+            Defined under Integrations, on the Capabilities tab. Scoping, expiry and revocation apply
             exactly as they do to a built-in.
           </p>
         </div>
       )}
 
-      <section className="border-t border-neutral-200 pt-5">
-        <h2 className="text-sm font-semibold text-foreground mb-4">Scope &amp; expiry</h2>
+      <section className="border-t border-neutral-200/60 pt-5">
+        <h2 className="text-sm font-medium text-foreground mb-4">Scope &amp; expiry</h2>
         <label className="block text-sm font-medium text-foreground mb-1.5">
           Scope — resource (optional)
         </label>
@@ -212,22 +212,22 @@ export default function IssueCertificateForm({
           name="resource"
           defaultValue={defaultResource ?? ""}
           placeholder='e.g. file:///reports/q3.pdf — leave empty for a standing grant'
-          className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background"
+          className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400"
         />
-        <p className="text-xs text-foreground-400 mt-1">
+        <p className="text-xs leading-5 text-foreground-500 mt-1">
           Leaving this empty issues a standing grant, not scoped to one resource.
         </p>
       </section>
 
-      <section className="border-t border-neutral-200 pt-5">
-        <h2 className="text-sm font-semibold text-foreground">OS confinement (tier B)</h2>
-        <p className="text-xs text-foreground-500 mt-1 mb-4">
+      <section className="border-t border-neutral-200/60 pt-5">
+        <h2 className="text-sm font-medium text-foreground">OS confinement (tier B)</h2>
+        <p className="text-xs leading-5 text-foreground-500 mt-1 mb-4">
           Enforced below the tool boundary by{" "}
           <a
             href="https://github.com/anthropic-experimental/sandbox-runtime"
             target="_blank"
             rel="noreferrer"
-            className="underline"
+            className="text-primary-700 hover:underline"
           >
             sandbox-runtime
           </a>{" "}
@@ -243,7 +243,7 @@ export default function IssueCertificateForm({
             <select
               value={templateId}
               onChange={(e) => setTemplateId(e.target.value)}
-              className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background"
+              className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400"
             >
               <option value="">No template</option>
               {workspaceTemplates.length === 0 ? (
@@ -273,7 +273,7 @@ export default function IssueCertificateForm({
                 </>
               )}
             </select>
-            <p className="text-xs text-foreground-400 mt-1">
+            <p className="text-xs leading-5 text-foreground-500 mt-1">
               {template?.description ??
                 "Pre-fills the fields below. Whatever you submit is what gets signed."}
             </p>
@@ -290,11 +290,11 @@ export default function IssueCertificateForm({
             name="allowedDomains"
             defaultValue={template?.allowedDomains.join(", ") ?? ""}
             placeholder="api.anthropic.com, github.com"
-            className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background"
+            className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400"
           />
-          <p className="text-xs text-foreground-400 mt-1">
-            Leaving this empty means <strong>no domain limit</strong>. A supervised harness with
-            confinement set to <code>require</code> cannot express that and will refuse to launch.
+          <p className="text-xs leading-5 text-foreground-500 mt-1">
+            Leaving this empty means <span className="font-medium text-foreground-700">no domain limit</span>. A supervised harness with
+            confinement set to <code className="font-mono">require</code> cannot express that and will refuse to launch.
           </p>
         </div>
 
@@ -308,7 +308,7 @@ export default function IssueCertificateForm({
         <select
           name="expiryPreset"
           defaultValue="30d"
-          className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background"
+          className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400"
         >
           <option value="1h">1 hour</option>
           <option value="1d">1 day</option>
@@ -328,7 +328,7 @@ export default function IssueCertificateForm({
       <div className="flex gap-2 pt-2">
         <button
           type="submit"
-          className="px-4 py-2 bg-primary-600 hover:bg-primary-500 text-white text-sm font-medium rounded-lg transition-colors"
+          className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-500"
         >
           Issue certificate
         </button>

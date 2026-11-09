@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { BrandLogo } from "@/components/ui/BrandLogo";
 import { QRCodeSVG } from "qrcode.react";
 import { signIn } from "next-auth/react";
 import { ShieldCheck, Fingerprint, ScrollText, KeyRound } from "lucide-react";
@@ -224,58 +225,46 @@ export default function LoginPage() {
   const showBrowserOption = hasKey || BROWSER_BOOTSTRAP_ENABLED;
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-background">
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-primary-50/80 via-background to-background" />
-      <div className="pointer-events-none absolute left-1/2 top-[-160px] h-[500px] w-[900px] -translate-x-1/2 rounded-full bg-primary-400/10 blur-3xl" />
-      <div className="mesh-overlay pointer-events-none absolute inset-0 opacity-30 [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,black,transparent)]" />
-
+    <main className="min-h-screen bg-background">
       <Link
         href="/"
-        className="relative z-10 flex items-center gap-2.5 p-6 text-sm font-semibold text-foreground"
+        className="flex w-fit items-center p-6"
       >
-        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary-600 text-white">
-          <ShieldCheck className="h-4 w-4" />
-        </span>
-        VaultysClaw
+        <BrandLogo className="h-7" />
       </Link>
 
-      <div className="relative z-10 mx-auto grid max-w-5xl items-center gap-16 px-6 pb-16 pt-4 lg:grid-cols-2 lg:pt-16">
-        <div className="hidden lg:block">
-          <h1 className="animate-fade-in-up text-4xl font-bold tracking-tight text-foreground">
-            Sign in with your{" "}
-            <span className="bg-gradient-to-r from-primary-600 via-secondary-600 to-primary-600 bg-clip-text text-transparent">
-              VaultysID
-            </span>
+      <div className="mx-auto grid max-w-5xl items-center gap-16 px-6 pb-16 pt-4 lg:grid-cols-2 lg:pt-16">
+        <div className="animate-fade-in-up hidden lg:block">
+          <span aria-hidden className="crenel w-14" />
+          <h1 className="mt-6 text-4xl font-medium leading-[1.1] tracking-[-0.02em] text-foreground">
+            Sign in with your VaultysID
           </h1>
-          <p className="animate-fade-in-up mt-4 max-w-md text-foreground-500" style={{ animationDelay: "100ms" }}>
+          <p className="mt-4 max-w-md leading-7 text-foreground-600">
             No account to create, nothing to remember — just a cryptographic identity only you hold.
           </p>
           <div className="mt-10 space-y-6">
-            {BRAND_POINTS.map((point, i) => (
-              <div
-                key={point.title}
-                className="animate-fade-in-up flex items-start gap-3"
-                style={{ animationDelay: `${200 + i * 100}ms` }}
-              >
-                <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-100 text-primary-600">
-                  <point.icon className="h-4.5 w-4.5" />
-                </span>
+            {BRAND_POINTS.map((point) => (
+              <div key={point.title} className="flex items-start gap-3">
+                <point.icon
+                  className="mt-0.5 h-[18px] w-[18px] shrink-0 text-foreground-500"
+                  strokeWidth={1.5}
+                />
                 <div>
                   <div className="text-sm font-medium text-foreground">{point.title}</div>
-                  <div className="text-sm text-foreground-500">{point.description}</div>
+                  <div className="mt-0.5 text-sm leading-6 text-foreground-600">{point.description}</div>
                 </div>
               </div>
             ))}
           </div>
         </div>
 
-        <div className="animate-fade-in-up mx-auto w-full max-w-sm rounded-2xl border border-neutral-200 bg-background-100 p-8 shadow-xl shadow-primary-950/5">
+        <div className="mx-auto w-full max-w-sm rounded-xl border border-neutral-200 bg-background-100 p-8 shadow-[0_8px_24px_rgba(0,0,0,0.06)]">
           <div className="flex flex-col items-center gap-3 text-center">
-            <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-600 text-white shadow-lg shadow-primary-600/20">
-              <KeyRound className="h-5 w-5" />
+            <span className="flex h-11 w-11 items-center justify-center rounded-lg border border-neutral-200 bg-background-50 text-foreground-700">
+              <KeyRound className="h-5 w-5" strokeWidth={1.5} />
             </span>
             <div>
-              <h2 className="text-lg font-semibold text-foreground">Sign in with VaultysID</h2>
+              <h2 className="text-lg font-medium text-foreground">Sign in with VaultysID</h2>
               {/* "scan the QR code below" has to stop being said once there is no code below. */}
               <p className="mt-1 text-sm text-foreground-500">
                 {phase === "failure"
@@ -309,7 +298,7 @@ export default function LoginPage() {
              */
             <div className="mt-6 flex justify-center">
               <div className="flex h-52 w-52 flex-col items-center justify-center gap-4 rounded-xl border border-dashed border-danger-200 bg-danger-50/40 px-6 text-center">
-                <p className="text-sm text-danger-600">Connection failed or timed out.</p>
+                <p className="text-sm text-danger-600">Connection failed or timed out</p>
                 <button
                   onClick={start}
                   className="px-4 py-2 bg-primary-600 hover:bg-primary-500 text-white rounded-lg text-sm font-medium transition-colors"
@@ -375,7 +364,7 @@ export default function LoginPage() {
                 <div>
                   <button
                     onClick={() => setAdvanced(true)}
-                    className="text-[11px] text-foreground-400/80 hover:text-foreground-600 transition-colors underline underline-offset-2"
+                    className="text-xs text-foreground-500 hover:text-foreground-700 transition-colors underline underline-offset-2"
                   >
                     Use a saved or backed-up VaultysID
                   </button>

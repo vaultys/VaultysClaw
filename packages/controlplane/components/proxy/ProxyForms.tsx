@@ -25,7 +25,7 @@ function ActionError({ error }: { error: string | null }) {
       role="alert"
       className="text-xs text-danger-700 bg-danger-100 border border-danger-200 rounded-lg px-3 py-2 flex gap-1.5"
     >
-      <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+      <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" strokeWidth={1.5} />
       <span>{error}</span>
     </p>
   );

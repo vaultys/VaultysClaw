@@ -11,6 +11,7 @@ import { Info, MoreHorizontal, Pencil } from "lucide-react";
 import { useToolbarState, type ToolbarAction } from "./ToolbarContext";
 import ToolbarSearch from "./ToolbarSearch";
 import ToolbarSteps from "./ToolbarSteps";
+import { Badge, type BadgeTone } from "@/components/ui/Badge";
 
 /** Run layout effects on the client, fall back to useEffect during SSR. */
 const useIsomorphicLayoutEffect =
@@ -27,17 +28,17 @@ const CENTER_RESERVE = 240;
 
 const BADGE_TONES: Record<
   NonNullable<Extract<ToolbarAction, { kind: "badge" }>["tone"]>,
-  string
+  BadgeTone
 > = {
-  success: "bg-success-100 border-success-300 text-success-700",
-  neutral: "bg-background-200 border-neutral-200 text-foreground-400",
-  warning: "bg-warning-100 border-warning-300 text-warning-700",
-  danger: "bg-danger-100 border-danger-300 text-danger-700",
+  success: "positive",
+  neutral: "muted",
+  warning: "caution",
+  danger: "negative",
 };
 
 const BUTTON_VARIANT_CLASSES = {
   primary: "bg-primary-600 hover:bg-primary-500 text-white",
-  danger: "border border-danger-300 text-danger-600 hover:bg-danger-500/10",
+  danger: "bg-background-100 border border-neutral-200 text-danger-700 hover:bg-background-200",
   default:
     "bg-background-100 border border-neutral-200 text-foreground hover:bg-background-200",
   success: "bg-success-600 hover:bg-success-500 text-white",
@@ -57,14 +58,10 @@ function ActionItem({
 }) {
   if (action.kind === "badge") {
     return (
-      <span
-        className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border whitespace-nowrap ${
-          BADGE_TONES[action.tone ?? "neutral"]
-        }`}
-      >
+      <Badge tone={BADGE_TONES[action.tone ?? "neutral"]}>
         {action.icon}
         {action.label}
-      </span>
+      </Badge>
     );
   }
 
@@ -179,7 +176,7 @@ function OverflowMenu({
       {!open && <Tooltip label="More actions" />}
 
       {open && (
-        <div className="absolute right-0 top-full mt-1.5 min-w-[180px] bg-background-100 border border-neutral-200 rounded-lg shadow-xl shadow-black/20 z-50 py-1">
+        <div className="absolute right-0 top-full mt-1.5 min-w-[180px] bg-background-100 border border-neutral-200 rounded-lg shadow-lg z-50 py-1">
           {items.map((item) => (
             <button
               key={item.id}
@@ -384,7 +381,7 @@ function EditableTitle({
           else if (e.key === "Escape") cancel();
         }}
         placeholder={placeholder}
-        className="text-lg font-semibold text-foreground bg-background-100 border border-primary-400 rounded-md px-1.5 py-0.5 -my-0.5 -mx-1.5 outline-none focus:ring-1 focus:ring-primary-400 min-w-0 w-full"
+        className="text-lg font-medium text-foreground bg-background-100 border border-primary-400 rounded-md px-1.5 py-0.5 -my-0.5 -mx-1.5 outline-none focus:ring-1 focus:ring-primary-400 min-w-0 w-full"
       />
     );
   }
@@ -399,7 +396,7 @@ function EditableTitle({
       title="Rename"
       className="group/title flex items-center gap-1.5 min-w-0 max-w-full rounded-md px-1.5 py-0.5 -mx-1.5 hover:bg-background-200 transition-colors"
     >
-      <span className="text-lg font-semibold text-foreground truncate">
+      <span className="text-lg font-medium text-foreground truncate">
         {value || placeholder}
       </span>
       <Pencil className="w-3.5 h-3.5 shrink-0 text-foreground-400 opacity-0 group-hover/title:opacity-100 transition-opacity" />
@@ -425,10 +422,10 @@ function TitleInfo({
       </button>
       <span
         role="tooltip"
-        className="pointer-events-none absolute left-1/2 top-full z-50 mt-2 w-72 -translate-x-1/2 rounded-lg border border-neutral-200 bg-background-100 p-3 text-left text-xs leading-5 text-foreground-600 opacity-0 shadow-xl shadow-black/20 transition-opacity duration-75 group-hover/info:opacity-100 group-focus-within/info:opacity-100"
+        className="pointer-events-none absolute left-1/2 top-full z-50 mt-2 w-72 -translate-x-1/2 rounded-lg border border-neutral-200 bg-background-100 p-3 text-left text-xs leading-5 text-foreground-600 opacity-0 shadow-lg transition-opacity duration-75 group-hover/info:opacity-100 group-focus-within/info:opacity-100"
       >
         {title && (
-          <span className="mb-1 block font-semibold text-foreground">
+          <span className="mb-1 block font-medium text-foreground">
             {title}
           </span>
         )}
@@ -480,11 +477,12 @@ export default function Toolbar() {
       className="flex flex-col bg-background border-b border-neutral-200/60 shrink-0"
     >
       <div
-        className={`flex items-center gap-4 px-6 pt-3 ${
-          tabActions.length > 0 ? "pb-2" : "pb-3"
+        className={`flex items-end gap-4 px-6 pt-5 ${
+          tabActions.length > 0 ? "pb-3" : "pb-4"
         }`}
       >
         <div ref={titleRef} className="min-w-0 shrink-0 max-w-[40%]">
+          <span aria-hidden className="crenel mb-2.5 w-14" />
           {config.onTitleChange ? (
             <div className="flex min-w-0 items-center gap-1.5">
               <EditableTitle
@@ -496,7 +494,7 @@ export default function Toolbar() {
             </div>
           ) : (
             <div className="flex min-w-0 items-center gap-1.5">
-              <h1 className="truncate text-lg font-semibold text-foreground">
+              <h1 className="truncate text-xl font-medium text-foreground">
                 {config.title}
               </h1>
               {config.info && <TitleInfo {...config.info} />}

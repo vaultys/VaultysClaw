@@ -31,9 +31,9 @@ export default async function MapPage() {
       </div>
 
       {markers.length === 0 ? (
-        <div className="border border-dashed border-neutral-300 rounded-xl p-10 text-center">
-          <h2 className="text-sm font-semibold text-foreground mb-1">No located actors yet</h2>
-          <p className="text-sm text-foreground-500">
+        <div className="rounded-xl border border-dashed border-neutral-200 px-4 py-6 text-sm text-foreground-500">
+          <h2 className="font-medium text-foreground mb-1">No located actors yet</h2>
+          <p>
             Set a location from any Actor&apos;s detail page (by city name or exact coordinates) to
             see it here.
           </p>

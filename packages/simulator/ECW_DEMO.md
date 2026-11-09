@@ -26,10 +26,10 @@ pnpm demo:ecw          # terminal 2 : le démonstrateur (localhost:3012)
 
 La vue flotte est une scène 3D (three.js, servi en local par le démonstrateur : aucun accès réseau
 requis sur le stand) posée sur un terrain généré (collines, forêts, lac, montagnes enneigées — le
-même à chaque chargement), avec le quadrillage tactique et les cercles de portée du C2 peints au sol. Boutons en haut à droite : **✦ Seulement RAPACE-07** (masque toutes les
+même à chaque chargement), avec le quadrillage tactique et les cercles de portée du C2 peints au sol. Boutons en haut à droite : **Seulement RAPACE-07** (masque toutes les
 communications qui ne concernent pas RAPACE-07, y compris les attaques visant d'autres drones),
-**⏸ Pause rotation** (coupe ou relance la rotation lente automatique ; aussi la touche Espace, et toute prise en main de la caméra la met en pause — le choix est mémorisé),
-**◎ Suivre RAPACE-07** (la caméra suit le drone), **⌂ Vue d'ensemble**. Chaque message est un
+**Pause rotation** (coupe ou relance la rotation lente automatique ; aussi la touche Espace, et toute prise en main de la caméra la met en pause — le choix est mémorisé),
+**Suivre RAPACE-07** (la caméra suit le drone), **Vue d'ensemble**. Chaque message est un
 trait en arc : vert s'il est accepté, rouge avec un ✕ sur le destinataire qui le refuse. Seul un message que le certificat de son propre émetteur interdit s'arrête à mi-chemin : il n'est jamais vraiment parti. Quand
 un drone rejette un ordre du tiers radio, un bouclier cyan s'allume autour de lui. Un drone isolé
 est enfermé dans une bulle de quarantaine rouge.
@@ -84,8 +84,36 @@ bouton se remplit de vert (« ✓ EXÉCUTÉ ») ou de rouge (« ⛔ REFUSÉ ») 
    6 secondes, tous les liens de RAPACE-07 passent au rouge : **isolé**. Le reste de la flotte
    continue. L'onglet **Drone** montre ses droits barrés et les pairs qui le refusent.
 7. **Après.** Tous les boutons sont refusés, quel que soit l'onglet. Le journal d'audit de la
-   console montre la révocation. `Réinitialiser` crée un nouveau RAPACE-07 (identité neuve) ;
-   l'ancien reste révoqué dans le registre.
+   console montre la révocation.
+8. **Ré-enrôlement, par le parcours normal.** `Réinitialiser ce drone` crée une identité neuve ;
+   l'ancienne reste révoquée dans le registre. La nouvelle s'enregistre et reste **en attente** :
+   le démonstrateur ne l'approuve pas. Une carte dorée le dit, et tout bouton pressé est refusé
+   (aucun certificat). `Ouvrir la file d'attente ↗` mène à **Actors → Pending** du control plane :
+   la demande y figure avec ses droits demandés pré-cochés, l'administrateur clique `Approve`, et
+   le certificat est remis aussitôt au drone connecté. Il faut un administrateur dans la console
+   (`pnpm simulator admin`, voir `CLAUDE.md`) ; sans lui, `approuver ici (raccourci du stand)`.
+
+## Enrôlement par carte d'identité militaire (CIM)
+
+**http://localhost:3012/enrolement** — une page à part, pour raconter l'arrivée d'un militaire
+dans la flotte avec sa CIM fonctionnalisée VaultysID, et mettre en avant **celui qui valide**.
+
+1. **Carte présentée** — `Insérer la carte` : la CIM du Sgt Hugo Garnier (fictif) glisse dans le
+   lecteur ; elle porte une VaultysID (sa clé ne quitte pas la carte).
+2. **Possession prouvée** — le code PIN (4 chiffres, n'importe lesquels) déverrouille la carte, qui
+   signe un défi : la possession est vérifiée, pas déclarée.
+3. **Validation signée par le valideur** — à droite, le Cne Bernard, officier de mission, détient
+   le droit `mission:enrol.validate` (lu dans le registre). Il coche « contrôlé en face à face »,
+   voit le profil demandé (`portal_access`, `agent_communication`) et clique `VALIDER ET SIGNER` :
+   il signe une déclaration de validation avec sa propre VaultysID, et le démonstrateur la
+   vérifie avant d'aller plus loin. Sans ce droit, pas de bouton.
+4. **Certificat émis par le control plane** — une invitation créée au nom du valideur est
+   échangée par la carte (le vrai parcours d'invitation, Challenger compris) : le control plane
+   émet le certificat du militaire. Le bandeau final mène à la console, au certificat et à l'audit.
+
+Ce qui est réel : la VaultysID de la carte, sa signature, celle du valideur, l'invitation, le
+certificat et son entrée d'audit. Ce qui est simulé : la carte physique, le lecteur et le PIN.
+`Nouvelle carte` recommence avec une identité neuve (chaque lancement en crée une aussi).
 
 ## Le modèle de sécurité, sans ambiguïté
 
@@ -109,7 +137,8 @@ bouton se remplit de vert (« ✓ EXÉCUTÉ ») ou de rouge (« ⛔ REFUSÉ ») 
 
 Uniquement dans la base jetable du simulateur (refus explicite sinon) : quatorze capacités
 personnalisées `drone:*` / `fleet:*`, le pilote et l'officier (des acteurs `human` en
-`@sim.invalid`), les invitations du pilote à enrôler, l'espace de travail « Opération SENTINELLE (fictive) »
+`@sim.invalid`, l'officier avec le droit `mission:enrol.validate`), les invitations du pilote à
+enrôler et des porteurs de CIM, l'espace de travail « Opération SENTINELLE (fictive) »
 (preuves TTL 6 s, échec fermé), l'approbation des enregistrements `ecw-…`, et — pour le bouton de
 révocation du stand — la révocation du certificat de RAPACE-07 plus son entrée d'audit. Les
 identités vivent sous `packages/simulator/.simdata/ecw/` (ignoré par Git).

@@ -32,8 +32,8 @@ and `Ungoverned` — §4.4's one event shape for both roles.
 policy-signed packcert: the anchor pins, the grant verifies, the generated settings file reaches the
 harness, and four tool calls round-trip the real socket and land in the spool with distinct reasons
 — an out-of-scope read denied by certificate, a `~/.ssh` read refused by the floor, a `Bash` mapped
-to `exec://git`, and a `WebFetch` recorded as an ungoverned coverage gap. Also verified: the shim
-fails open *loudly* when the daemon is unreachable, and the preflight probe is answered but never
+to `exec://git`, and a `WebFetch` recorded as an ungoverned coverage gap. Also verified: when the daemon is
+unreachable the shim fails closed in `explicit` and open *loudly* in `observe` (§7), and the preflight probe is answered but never
 recorded (a synthetic call must not inflate the coverage metric).
 
 `vaultysclaw-sensor report` summarizes a spool: calls per capability, the tools that produced them,
@@ -505,6 +505,38 @@ Three requirements, all cheap, all in phase 0:
    fatal-not-degraded posture `startIntercept` takes when a grant is missing.
 3. Once tier B exists, deny writes to the harness config directory. Until then, it is in the safety
    floor.
+
+### 7.1 What the supervised agent must not be able to modify
+
+The supervisor's whole state is one list — `selfArtefacts` in `cmd/sensor/supervise.go` — and both
+enforcement paths read it, so they cannot disagree:
+
+| Artefact | Why it matters |
+|---|---|
+| `config.yaml` | `sandbox: off`, `mode: observe` or a new anchor is a complete escape at the next launch |
+| grant, anchor, `rules.token` | the policy itself; a deleted rule set used to read as "no rules" at the next reload |
+| the generated harness settings | they install the hook |
+| the decision socket | removing it used to turn every later call into an allow |
+| detection catalog, identity key, audit spool | detection, the host's identity, the audit trail |
+| the sensor binary, `srt`, its package and its interpreter | a replaced binary is an unconfined next launch |
+
+- **With tier B**, every state artefact is write-denied *with its directory* — so a file that does
+  not exist yet (no rules pushed) cannot be planted and a socket cannot be unlinked — and binaries
+  file by file. A directory the harness works beneath (cwd, `$HOME`, the temp dir, the harness's own
+  bin dir) is never protected whole; keep the state in its own directory, as the defaults do.
+- **Without tier B, `explicit` refuses to launch** if the current uid can modify any of them, *or
+  any directory above them* — a root-owned `~/.vaultysclaw-sensor` is still renamed away by a user
+  who owns `~`. Either enable confinement, or install the binary, config and state root-owned all
+  the way up (`/usr/local/bin`, `/etc/vaultysclaw`, `/var/lib/vaultysclaw`). `observe` refuses
+  nothing anyway, and launches with the advisory notice.
+- The state artefacts are also on the tier-A floor as own artefacts, so a tool call touching them is
+  refused with a reason, and no signed allow lifts that.
+- **The hook fails closed in `explicit`.** Unreachable daemon or unparseable payload → deny, with
+  the reason. `observe` launches write `--fail-open` into the hook command instead; that posture is
+  fixed for the session, because the harness reads its settings once — relaunch after the control
+  plane switches a host to `explicit`.
+- **A rule set that was loaded and then disappears is an error**, and the last verified set stays in
+  force (`intercept.ErrRuleSetVanished`). Nothing in the sensor deletes one; restart to run without.
 
 Until phase 2, the startup banner, the config comments and any UI must say **advisory** in the same
 voice `startIntercept` uses for a negative `maxStatusAgeSeconds`. An operator who believes they are

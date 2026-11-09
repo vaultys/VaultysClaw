@@ -54,19 +54,34 @@ type ClaudeHookDecision struct {
 // RunClaudeHook reads one PreToolUse payload from in, asks the daemon at
 // socketPath, and writes the decision to out.
 //
-// **It fails open on every transport error** — a daemon that is not running, a
-// socket that has gone away, a timeout — and says so in the reason. That is the
-// opposite of the daemon's own posture, and deliberately so: the shim is not a
-// security boundary and cannot be one, because anything able to stop the daemon
-// can equally well remove the hook that calls it. Making a broken supervisor
-// wedge the harness would buy no safety and would guarantee the first thing an
-// operator does about it is turn the supervisor off. What it must never do is
-// fail open *silently*, so the reason travels with the pass and the exit code
-// stays 0 only because a non-zero one would be read as a denial.
-func RunClaudeHook(socketPath string, in io.Reader, out io.Writer) error {
+// What happens when no decision can be obtained — a daemon that is not running,
+// a socket that has gone away, a timeout, a payload that does not parse — is
+// failOpen's to say, and the supervisor sets it from the mode it launched in:
+//
+//   - **explicit fails closed.** The mode's whole claim is that nothing no
+//     certificate covers gets through, and an agent that can make the daemon
+//     unreachable — remove the socket, kill the process — must not thereby turn
+//     every later call into an allow. Fail-open here made `rm supervise.sock`
+//     a one-line escape from governance.
+//   - **observe fails open**, loudly. Observe refuses nothing even when the
+//     daemon answers, so failing closed there would buy no safety and would
+//     wedge a harness that was only ever being watched.
+//
+// Either way the reason travels with the verdict, so a refusal the agent sees is
+// attributable and an ungoverned pass is never silent. The exit code stays 0:
+// a non-zero one would be read as a denial without the reason.
+func RunClaudeHook(socketPath string, failOpen bool, in io.Reader, out io.Writer) error {
+	unreachable := func(why string) error {
+		if failOpen {
+			return writeClaudeDecision(out, "allow", "vaultysclaw: passing ungoverned — "+why)
+		}
+		return writeClaudeDecision(out, "deny",
+			"vaultysclaw: refused — no decision could be obtained from the supervisor, and explicit mode fails closed: "+why)
+	}
+
 	var payload ClaudeHookInput
 	if err := json.NewDecoder(in).Decode(&payload); err != nil {
-		return writeClaudeDecision(out, "allow", "vaultysclaw: passing — the hook payload could not be parsed: "+err.Error())
+		return unreachable("the hook payload could not be parsed: " + err.Error())
 	}
 
 	resp, err := Ask(socketPath, Request{
@@ -76,7 +91,7 @@ func RunClaudeHook(socketPath string, in io.Reader, out io.Writer) error {
 		Session: payload.SessionID,
 	})
 	if err != nil {
-		return writeClaudeDecision(out, "allow", "vaultysclaw: passing ungoverned — "+err.Error())
+		return unreachable(err.Error())
 	}
 
 	if resp.Allowed {

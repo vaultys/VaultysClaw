@@ -71,6 +71,10 @@ type StoreOptions struct {
 // interception point has been granted nothing and can authorize nothing.
 var ErrNoGrant = errors.New("intercept: no capability grant provisioned")
 
+// ErrRuleSetVanished means a rule set that had been verified and enforced is no
+// longer on disk. Reload refuses it rather than reading it as "no rules".
+var ErrRuleSetVanished = errors.New("intercept: the signed rule set disappeared")
+
 // NewStore builds a Store and performs the first load. It returns an error
 // rather than an empty Store when nothing is provisioned: starting a proxy that
 // will refuse every request looks identical to a proxy that is working, and the
@@ -153,8 +157,23 @@ func (s *Store) Reload() error {
 				syncedAt = t
 			}
 		case os.IsNotExist(err):
-			// No rule set is a valid configuration: every request is then
-			// decided by the certificate alone.
+			// No rule set is a valid configuration — *at startup*: every request
+			// is then decided by the certificate alone.
+			//
+			// A rule set that was loaded and has since disappeared is not that.
+			// Nothing in this binary deletes one (a push with no rules clears
+			// nothing, see supervise.WriteArtefacts), so a vanished file is
+			// either an accident or something removing the signed denies it
+			// carried — `rm rules.token` and wait for the next reload. Treated
+			// as an error, which keeps the last verified set in force; an
+			// operator who really means to run without rules restarts.
+			s.mu.RLock()
+			hadRules := s.ruleSet != nil
+			s.mu.RUnlock()
+			if hadRules {
+				return fmt.Errorf("%w: %s was verified and loaded earlier and is now missing — keeping the last verified rule set; "+
+					"restart to run without one", ErrRuleSetVanished, s.ruleSetPath)
+			}
 		default:
 			return err
 		}

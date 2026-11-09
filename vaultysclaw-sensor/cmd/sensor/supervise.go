@@ -29,7 +29,7 @@ import (
 // startIntercept's are: a harness running with a hook that silently never fires
 // looks exactly like a governed one, and an operator who believes they are
 // supervising something must not be quietly wrong.
-func runSupervise(ctx context.Context, cfg *config.Sensor, logger *slog.Logger, command []string) error {
+func runSupervise(ctx context.Context, cfg *config.Sensor, configPath string, logger *slog.Logger, command []string) error {
 	sv := cfg.Supervise
 	if !sv.Enabled {
 		return fmt.Errorf("supervise: the supervise role is disabled — set supervise.enabled: true in the config")
@@ -107,14 +107,15 @@ func runSupervise(ctx context.Context, cfg *config.Sensor, logger *slog.Logger, 
 		floorPaths = supervise.DefaultFloorPaths
 	}
 	// The supervisor's own artefacts go on the floor unconditionally, whatever
-	// the operator configured: a supervisor whose grant, anchor and hook
-	// settings are writable by what it supervises is not supervising anything.
-	floor := supervise.NewFloor(floorPaths,
-		supervise.FloorPath{Path: sv.GrantPath, Reason: "this supervisor's own capability grant"},
-		supervise.FloorPath{Path: sv.AnchorPath, Reason: "this supervisor's own control-plane trust anchor"},
-		supervise.FloorPath{Path: sv.SettingsPath, Reason: "the harness settings that install this supervisor's hook"},
-		supervise.FloorPath{Path: sv.SpoolPath, Reason: "this supervisor's own audit spool"},
-	)
+	// the operator configured: a supervisor whose grant, anchor, config, rule
+	// set or hook settings are writable by what it supervises is not
+	// supervising anything.
+	self, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("supervise: locating this binary for the hook command: %w", err)
+	}
+	artefacts := selfArtefacts(cfg, configPath, self)
+	floor := supervise.NewFloor(floorPaths, ownFloorPaths(artefacts)...)
 
 	mode := supervise.Mode(sv.Mode)
 	maxStatusAge := time.Duration(sv.MaxStatusAgeSeconds) * time.Second
@@ -190,11 +191,12 @@ func runSupervise(ctx context.Context, cfg *config.Sensor, logger *slog.Logger, 
 	// string to reveal the discrepancy.
 	awaitFirstConfig(ctx, logger, firstConfig, time.Duration(sv.StartupSyncTimeoutMs)*time.Millisecond)
 
-	self, err := os.Executable()
-	if err != nil {
-		return fmt.Errorf("supervise: locating this binary for the hook command: %w", err)
-	}
 	cwd, _ := os.Getwd()
+
+	// The mode the session starts in, after the first push had its chance to
+	// change it. It fixes the hook's posture for the session: the harness reads
+	// its settings once.
+	launchMode := settings.Mode()
 
 	// Tier B. The spec comes from the same Floor tier A decides with, so an
 	// operator configures the deny list once and gets both the reasoned refusal
@@ -205,8 +207,13 @@ func runSupervise(ctx context.Context, cfg *config.Sensor, logger *slog.Logger, 
 		// come from the same instant of policy — a spec assembled from two reads
 		// could describe a combination that never existed.
 		policy := interceptConfig()
+		protect := artefacts
+		if bin, err := supervise.LocateSRT(); err == nil {
+			// The launcher itself: a replaced srt is an unconfined next launch.
+			protect = append(append([]supervise.SelfArtefact{}, artefacts...), supervise.SRTArtefacts(bin)...)
+		}
 		spec := supervise.SpecFromPolicy(policy.Rules, floor,
-			[]string{sv.GrantPath, sv.AnchorPath, sv.SettingsPath, sv.SpoolPath}, policy.Certs)
+			supervise.SelfProtection(protect, harnessWritablePaths(cwd, command[0])), policy.Certs)
 		if err := checkHarnessIsLaunchable(spec, command[0]); err != nil {
 			return err
 		}
@@ -232,6 +239,23 @@ func runSupervise(ctx context.Context, cfg *config.Sensor, logger *slog.Logger, 
 		}
 	}
 
+	// Without confinement nothing stops the harness from editing what governs
+	// it, so the only way explicit mode can still mean something is for those
+	// files not to be the harness's to edit. Refused rather than warned: an
+	// operator who chose explicit believes calls are being refused, and the
+	// first rewritten config.yaml would make that silently false.
+	if sandbox == nil && launchMode == supervise.ModeExplicit {
+		if writable := supervise.ModifiableArtefacts(artefacts); len(writable) > 0 {
+			return fmt.Errorf("supervise: refusing to launch in explicit mode — OS confinement is not in force, "+
+				"and the harness would run as a user able to modify what governs it:\n  %s\n"+
+				"Either enable tier B (supervise.sandbox: require, with sandbox-runtime installed), "+
+				"or install the sensor binary, its config and its state where this user cannot write them — "+
+				"root-owned all the way up, e.g. /usr/local/bin, /etc/vaultysclaw and /var/lib/vaultysclaw — "+
+				"and point --config and the supervise paths there",
+				strings.Join(writable, "\n  "))
+		}
+	}
+
 	cmd, err := supervise.BuildLaunch(ctx, supervise.LaunchOptions{
 		Harness:      supervise.HarnessClaudeCode,
 		Command:      command,
@@ -240,6 +264,9 @@ func runSupervise(ctx context.Context, cfg *config.Sensor, logger *slog.Logger, 
 		SettingsPath: sv.SettingsPath,
 		Dir:          cwd,
 		Sandbox:      sandbox,
+		// Explicit fails closed: an agent that makes the daemon unreachable must
+		// not turn that into an allow. See supervise.RunClaudeHook.
+		HookFailOpen: launchMode == supervise.ModeObserve,
 	})
 	if err != nil {
 		return err
@@ -248,7 +275,7 @@ func runSupervise(ctx context.Context, cfg *config.Sensor, logger *slog.Logger, 
 	logger.Info("supervise: governing harness",
 		"harness", supervise.HarnessClaudeCode,
 		"command", filepath.Base(command[0]),
-		"mode", mode,
+		"mode", launchMode,
 		"socket", sv.SocketPath,
 		"spool", sv.SpoolPath,
 		"floor", floor.Paths(),
@@ -258,8 +285,10 @@ func runSupervise(ctx context.Context, cfg *config.Sensor, logger *slog.Logger, 
 		"enforcedCapabilities", supervise.EnforcedCapabilities(),
 		"ungovernedTools", supervise.UngovernedNotice,
 	)
-	if mode == supervise.ModeObserve {
-		logger.Warn("supervise: OBSERVE mode — every tool call is decided and recorded, and none are refused")
+	if launchMode == supervise.ModeObserve {
+		logger.Warn("supervise: OBSERVE mode — every tool call is decided and recorded, and none are refused. " +
+			"The hook also passes calls when the supervisor is unreachable, and keeps doing so for this session " +
+			"even if the control plane switches it to explicit: relaunch for a fail-closed hook")
 	}
 	// §7: an operator must be told exactly what is and is not in force, in both
 	// modes, every launch.
@@ -322,8 +351,59 @@ func checkHarnessIsLaunchable(spec supervise.SandboxSpec, harness string) error 
 // runHook is the shim the harness executes before every tool call. It must stay
 // tiny and must not touch the config file: it runs once per tool call, and
 // anything it does is on the critical path of the agent's work.
-func runHook(socketPath string) error {
-	return supervise.RunClaudeHook(socketPath, os.Stdin, os.Stdout)
+func runHook(socketPath string, failOpen bool) error {
+	return supervise.RunClaudeHook(socketPath, failOpen, os.Stdin, os.Stdout)
+}
+
+// selfArtefacts is everything the supervised harness must not be able to
+// modify: a change to any of it lifts governance, at the next reload or the
+// next launch. One list, so the tier-B profile and the no-confinement refusal
+// cannot disagree about what has to hold.
+func selfArtefacts(cfg *config.Sensor, configPath, self string) []supervise.SelfArtefact {
+	sv := cfg.Supervise
+	state := func(path, reason string) supervise.SelfArtefact {
+		return supervise.SelfArtefact{Path: path, Reason: reason, Kind: supervise.ArtefactState}
+	}
+	return []supervise.SelfArtefact{
+		state(configPath, "this supervisor's configuration — mode, sandbox, anchor and every path below"),
+		state(sv.GrantPath, "this supervisor's own capability grant"),
+		state(sv.AnchorPath, "this supervisor's own control-plane trust anchor"),
+		state(sv.RuleSetPath, "the signed rule set"),
+		state(sv.SettingsPath, "the harness settings that install this supervisor's hook"),
+		state(sv.SpoolPath, "this supervisor's own audit spool"),
+		state(sv.SocketPath, "the decision socket the hook asks"),
+		state(cfg.CatalogPath, "the detection catalog"),
+		state(cfg.IdentityPath, "this host's identity key"),
+		{Path: self, Reason: "the sensor binary the hook runs", Kind: supervise.ArtefactBinary},
+	}
+}
+
+// ownFloorPaths puts the state half of selfArtefacts on the tier-A floor, so the
+// hook refuses a tool call that touches them with a reason, and no signed allow
+// can lift that. The binary is left off: reading it is harmless, and its
+// protection is tier B's.
+func ownFloorPaths(artefacts []supervise.SelfArtefact) []supervise.FloorPath {
+	var out []supervise.FloorPath
+	for _, a := range artefacts {
+		if a.Kind == supervise.ArtefactState && strings.TrimSpace(a.Path) != "" {
+			out = append(out, supervise.FloorPath{Path: a.Path, Reason: a.Reason})
+		}
+	}
+	return out
+}
+
+// harnessWritablePaths are the places the harness legitimately writes beneath,
+// so a state directory above any of them is protected file by file instead of
+// whole. See supervise.SelfProtection.
+func harnessWritablePaths(cwd, harness string) []string {
+	paths := []string{cwd, os.TempDir()}
+	if home, err := os.UserHomeDir(); err == nil {
+		paths = append(paths, home)
+	}
+	if p, err := exec.LookPath(harness); err == nil {
+		paths = append(paths, p)
+	}
+	return paths
 }
 
 // runSuperviseReport summarizes an observe-mode spool. Phase 0's deliverable is
@@ -358,13 +438,17 @@ func runSandboxCheck(configPath string) error {
 	if len(floorPaths) == 0 {
 		floorPaths = supervise.DefaultFloorPaths
 	}
-	floor := supervise.NewFloor(floorPaths,
-		supervise.FloorPath{Path: sv.GrantPath, Reason: "own capability grant"},
-		supervise.FloorPath{Path: sv.AnchorPath, Reason: "own trust anchor"},
-		supervise.FloorPath{Path: sv.SettingsPath, Reason: "own harness settings"},
-		supervise.FloorPath{Path: sv.SpoolPath, Reason: "own audit spool"},
-	)
-	spec := supervise.SpecFromFloor(floor, []string{sv.GrantPath, sv.AnchorPath, sv.SettingsPath, sv.SpoolPath})
+	self, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("locating this binary: %w", err)
+	}
+	cwd, _ := os.Getwd()
+	protect := selfArtefacts(cfg, configPath, self)
+	floor := supervise.NewFloor(floorPaths, ownFloorPaths(protect)...)
+	if bin, err := supervise.LocateSRT(); err == nil {
+		protect = append(protect, supervise.SRTArtefacts(bin)...)
+	}
+	spec := supervise.SpecFromFloor(floor, supervise.SelfProtection(protect, harnessWritablePaths(cwd, "")))
 
 	sandbox, err := supervise.NewSandbox(spec, os.TempDir())
 	if err != nil {

@@ -234,6 +234,31 @@ func TestReloadIsAllOrNothing(t *testing.T) {
 	}
 }
 
+func TestReloadKeepsTheRuleSetWhenItsFileVanishes(t *testing.T) {
+	// The escape this closes: `rm rules.token`, then the next reload read the
+	// missing file as "no rules" and every signed deny was gone.
+	f := newStoreFixture(t)
+	f.write(t, f.grantPath, grantToken(t, f.server, []string{"internet_access"}, nil))
+	f.write(t, f.ruleSetPath, packToken(t, f.server, rules.Set{
+		Rules: []rules.Rule{{ID: "deny-openai", Subject: rules.SubjectAny, Hosts: []string{".openai.com"}, Effect: rules.EffectDeny}},
+	}))
+	s, err := NewStore(f.opts(false))
+	if err != nil {
+		t.Fatalf("NewStore: %v", err)
+	}
+
+	if err := os.Remove(f.ruleSetPath); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Reload(); !errors.Is(err, ErrRuleSetVanished) {
+		t.Fatalf("Reload = %v, want ErrRuleSetVanished", err)
+	}
+	cfg := s.ConfigFor(-1, true)()
+	if out := Decide(cfg, rules.Destination{Host: "api.openai.com", Port: 443}, nil, time.Now()); out.Allowed {
+		t.Error("deleting the rule set file lifted its deny")
+	}
+}
+
 func TestReloadPicksUpANewRuleSet(t *testing.T) {
 	f := newStoreFixture(t)
 	f.write(t, f.grantPath, grantToken(t, f.server, []string{"internet_access"}, nil))

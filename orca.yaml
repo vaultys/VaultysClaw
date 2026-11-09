@@ -1,0 +1,11 @@
+# Orca worktree hooks — see scripts/worktree.mjs.
+#
+# setup: gives the new worktree its own slot (ports 20000 + 10 × slot + k), its own
+#        packages/controlplane/.env, its own Docker stack (Postgres/Redis/Apprise), migrates and
+#        seeds it (an admin whose key is exported for the browser + a small owned fleet).
+# archive: deletes that Docker stack and its volumes when the worktree is deleted.
+scripts:
+  setup: |
+    node scripts/worktree.mjs setup
+  archive: |
+    if [ -f scripts/worktree.mjs ]; then node scripts/worktree.mjs teardown; fi

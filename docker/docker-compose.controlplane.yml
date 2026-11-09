@@ -19,6 +19,10 @@
 #   PostgreSQL → localhost:5433 (override with PG_PORT)
 #   Redis      → localhost:6381 (override with REDIS_PORT)
 #   Apprise    → http://localhost:8000 (override with APPRISE_PORT)
+#
+# Those are the main checkout's. A git worktree runs its own copy of this stack: the pnpm scripts
+# go through scripts/worktree.mjs, which sets COMPOSE_PROJECT_NAME (vaultysclaw-controlplane-<slot>,
+# overriding `name:` below) and the three ports above for that worktree's slot.
 name: vaultysclaw-controlplane
 
 services:

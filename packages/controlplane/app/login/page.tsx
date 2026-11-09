@@ -9,6 +9,7 @@ import {
   connectWithBrowserIdentity,
   completeCertificateRound,
   hasBrowserIdentity,
+  importBrowserIdentities,
   type BrowserIdData,
 } from "@/lib/browser-connect";
 import BrowserIdentityPicker from "@/components/BrowserIdentityPicker";
@@ -105,6 +106,23 @@ export default function LoginPage() {
   const cancelled = useRef(false);
 
   useEffect(() => setHasKey(hasBrowserIdentity()), []);
+
+  // A git worktree's dev stack (scripts/worktree.mjs) seeds an admin and serves its key to this
+  // page only — see app/api/public/dev/worktree-admin. Everywhere else the route is a 404 and no
+  // button appears. Only the name is fetched here; the key is fetched when the button is clicked.
+  const [worktreeAdmin, setWorktreeAdmin] = useState<{ name: string } | null>(null);
+  useEffect(() => {
+    let ignore = false;
+    fetch("/api/public/dev/worktree-admin")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((admin) => {
+        if (!ignore && admin?.name) setWorktreeAdmin({ name: admin.name });
+      })
+      .catch(() => {});
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   // Read from `window.location` in an effect rather than with `useSearchParams`,
   // which would force this page out of static prerendering (or need a Suspense
@@ -218,6 +236,19 @@ export default function LoginPage() {
       cancelled.current = true;
     };
   }, [start]);
+
+  /** Stores the worktree admin's key in this browser, then signs in through the ordinary browser-key login. */
+  const signInAsWorktreeAdmin = useCallback(async () => {
+    const res = await fetch("/api/public/dev/worktree-admin", { method: "POST" });
+    if (!res.ok) {
+      setSignInError("The worktree admin is not available — run `pnpm worktree:seed`.");
+      return;
+    }
+    const identity = (await res.json()) as BrowserIdData;
+    importBrowserIdentities([identity]);
+    setHasKey(true);
+    await startBrowserLogin(identity);
+  }, [startBrowserLogin]);
 
   // A key already in this browser is a login; offering to make one is a
   // registration, and only the bootstrap gate opens that.
@@ -344,6 +375,19 @@ export default function LoginPage() {
                   totalSeconds={connectWindow.seconds}
                 />
               )}
+            </div>
+          )}
+          {worktreeAdmin && (phase === "waiting" || phase === "loading") && (
+            <div className="mt-6">
+              <button
+                onClick={() => void signInAsWorktreeAdmin()}
+                className="w-full rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-500"
+              >
+                Sign in as the worktree admin
+              </button>
+              <p className="mt-1.5 text-center text-[11px] text-foreground-400">
+                Dev only — {worktreeAdmin.name}, seeded by scripts/worktree.mjs
+              </p>
             </div>
           )}
           {showBrowserOption && (phase === "waiting" || phase === "loading") && (

@@ -70,7 +70,11 @@ demo/.demo-sim-containers
 demo/.env.demo
 demo/simulator/identities/
 demo/simulator/demo-config.json
-/.claude
+# Claude Code: the shared hooks and their settings are committed; personal settings
+# (settings.local.json), launch configs and hook state (.hook-state/) are not.
+/.claude/*
+!/.claude/settings.json
+!/.claude/hooks/
 /docs-site/.docusaurus
 /packages/agent-controller/src/web/public
 packages/control-plane/tsconfig.tsbuildinfo
@@ -90,3 +94,6 @@ __tests__/temp/
 
 # Python launcher-test cache
 __pycache__/
+
+# Per-worktree state written by scripts/worktree.mjs (seeded admin key, simulator identities)
+.worktree/

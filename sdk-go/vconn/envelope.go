@@ -97,6 +97,20 @@ const (
 	// derived from the unsigned half must therefore be unable to *weaken* what
 	// this host enforces — see ActorConfigPayload.
 	MsgActorConfig MessageType = "actor_config"
+	// MsgGrantStatus re-asserts the status of the grant last delivered in
+	// actor_config, signed — sent periodically so a healthy connection keeps an
+	// enforcing host's status fresh under a finite staleness bound.
+	MsgGrantStatus MessageType = "grant_status"
+	// MsgKillSwitch says an admin armed an emergency kill switch covering this
+	// Actor. Sent just before the control plane closes the socket. **Unsigned**:
+	// a recipient may act on it only in the direction it points, i.e. by
+	// suspending what it authorizes, never by granting anything.
+	MsgKillSwitch MessageType = "kill_switch"
+	// MsgCapabilitiesChanged says this Actor's certificates changed (issued,
+	// revoked, a custom capability deleted). Unsigned and advisory, with the
+	// same one-direction rule as MsgKillSwitch; the authoritative update is the
+	// actor_config push that follows it.
+	MsgCapabilitiesChanged MessageType = "capabilities_changed"
 )
 
 // Envelope is the JSON message wrapper exchanged over the WebSocket
@@ -258,12 +272,45 @@ type ActorConfigPayload struct {
 	// GrantToken is a packcert capability grant, signed by the control plane and
 	// verified offline against the pinned anchor. Safe to persist and enforce on
 	// precisely because the transport is not trusted to deliver it intact.
+	//
+	// Null means this Actor holds no enforceable grant *now* — revoked,
+	// withheld, never issued. A recipient must delete any grant it stored from
+	// an earlier push rather than keep enforcing on it: that stale file is
+	// exactly how a revoked grant used to stay "active" on disk (VC-05).
 	GrantToken *string `json:"grantToken"`
+	// GrantStatusToken is the control plane's signed cert_status_response for
+	// GrantToken, addressed to this Actor and ordered by seq (sdk-go/grant's
+	// Status). The grant proves what was granted; this proves whether it still
+	// is, as of a signed checkedAt. Null when GrantToken is null, and from a
+	// control plane that predates the field.
+	GrantStatusToken *string `json:"grantStatusToken"`
 	// RuleSetToken is a signed rule set, with the same property.
 	RuleSetToken *string `json:"ruleSetToken"`
 	// Trust is the org's fail mode and staleness bound — **unsigned**, like
 	// KindConfig, and subject to the same rule.
 	Trust *ActorConfigTrust `json:"trust"`
+}
+
+// GrantStatusPayload is the body of MsgGrantStatus.
+type GrantStatusPayload struct {
+	GrantStatusToken string `json:"grantStatusToken"`
+}
+
+// KillSwitchPayload is the body of MsgKillSwitch — packages/controlplane/lib/protocol.ts's
+// KillSwitchPayload.
+type KillSwitchPayload struct {
+	Scope       string `json:"scope"`
+	WorkspaceID string `json:"workspaceId,omitempty"`
+	Reason      string `json:"reason"`
+	ArmedAt     string `json:"armedAt"`
+}
+
+// CapabilitiesChangedPayload is the body of MsgCapabilitiesChanged.
+type CapabilitiesChangedPayload struct {
+	// Reason is one of certificate_issued, certificate_revoked,
+	// capability_deleted, admin_update.
+	Reason  string   `json:"reason"`
+	CertIDs []string `json:"certIds,omitempty"`
 }
 
 // ActorConfigTrust is the unsigned trust block.

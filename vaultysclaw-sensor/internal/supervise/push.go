@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/vaultys/VaultysClaw/sdk-go/grant"
 	"github.com/vaultys/VaultysClaw/sdk-go/vconn"
@@ -241,14 +242,37 @@ func statusAgeStricter(local, pushed int) bool {
 //
 // Written to the same paths a hand-provisioned deployment uses, deliberately:
 // one verification path serves both, and there is no "pushed" state that behaves
-// differently from a file someone placed there. A nil token clears nothing — the
-// control plane sends null when it has nothing to give (no active certificate,
-// no rules), and erasing a working local artefact because an unauthenticated
-// message said nothing would be a denial of service anyone on the socket could
-// perform.
-func WriteArtefacts(payload vconn.ActorConfigPayload, grantPath, ruleSetPath string) error {
-	if payload.GrantToken != nil {
+// differently from a file someone placed there.
+//
+// The grant and its status travel together and are written together:
+//
+//   - A null GrantToken means this Actor holds no enforceable grant now
+//     (revoked, withheld for a deleted custom capability, never issued). The
+//     stored grant and its status are **deleted**. Keeping them was the defect:
+//     a revoked grant stayed on disk and kept verifying as "active" until its
+//     signed expiry (VC-05). Deleting can only reduce authority, and an
+//     attacker able to forge this message could already deny service by
+//     dropping traffic, which a finite staleness bound turns into denial too.
+//   - A grant with no GrantStatusToken (a control plane that predates it) is
+//     written with any previous status removed, so it loads as unconfirmed
+//     rather than inheriting a status signed for something else.
+//
+// A null RuleSetToken still clears nothing: an empty rule set loosens, and that
+// direction stays reserved for a signed artefact.
+func WriteArtefacts(payload vconn.ActorConfigPayload, grantPath, statusPath, ruleSetPath string) error {
+	if payload.GrantToken == nil || strings.TrimSpace(*payload.GrantToken) == "" {
+		if err := DropGrant(grantPath, statusPath); err != nil {
+			return err
+		}
+	} else {
 		if err := writeToken(grantPath, *payload.GrantToken); err != nil {
+			return err
+		}
+		if payload.GrantStatusToken != nil && *payload.GrantStatusToken != "" {
+			if err := writeToken(statusPath, *payload.GrantStatusToken); err != nil {
+				return err
+			}
+		} else if err := removeIfPresent(statusPath); err != nil {
 			return err
 		}
 	}
@@ -256,6 +280,34 @@ func WriteArtefacts(payload vconn.ActorConfigPayload, grantPath, ruleSetPath str
 		if err := writeToken(ruleSetPath, *payload.RuleSetToken); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+// WriteStatus persists a periodic grant_status re-assertion. The Store verifies
+// it on reload — signature, certificate, holder, audience and sequence — so an
+// assertion that does not belong is refused there, not here.
+func WriteStatus(statusPath, token string) error {
+	return writeToken(statusPath, token)
+}
+
+// DropGrant deletes the stored grant and its status. Used when the control
+// plane says there is no grant, on a kill switch, and on a revocation notice
+// naming the held certificate. Grant first: a reader catching the gap sees no
+// grant, never a grant without its (revoked) status.
+func DropGrant(grantPath, statusPath string) error {
+	if err := removeIfPresent(grantPath); err != nil {
+		return err
+	}
+	return removeIfPresent(statusPath)
+}
+
+func removeIfPresent(path string) error {
+	if path == "" {
+		return nil
+	}
+	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("supervise: removing %s: %w", path, err)
 	}
 	return nil
 }

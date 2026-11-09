@@ -43,6 +43,10 @@ export type ProtocolMessageType =
   // have been a kind-specific exception in a file whose stated rule is that
   // none belong here.
   | "actor_config"
+  // A fresh signed status for the grant an interception point already holds,
+  // re-sent periodically so its staleness bound measures the control plane's
+  // last word rather than a file's mtime. See GrantStatusPayload.
+  | "grant_status"
   | "error";
 
 export interface ProtocolMessage {
@@ -154,6 +158,20 @@ export interface ActorConfigPayload {
    * was granted (§8.1).
    */
   grantToken: string | null;
+  /**
+   * The control plane's signed assertion of {@link grantToken}'s *current* status — a
+   * `cert_status_response` (`packages/policy`) addressed to this Actor (`aud`) and ordered by
+   * `seq`, resolved through the same predicate as a live status check (kill switch and capability
+   * registry included). See `lib/grant-status.ts`.
+   *
+   * The grant's signature proves what was granted, never that it is still live; this is the half
+   * that does. A recipient takes its freshness from the signed `checkedAt`, never from when a file
+   * was written, and treats a grant with no status as unconfirmed.
+   *
+   * Null exactly when {@link grantToken} is null — which a recipient must take as "you hold no
+   * grant" and delete any it has stored, rather than keep enforcing on the previous one.
+   */
+  grantStatusToken: string | null;
   /** A signed rule set (`lib/proxy-rules.ts`), or null when none is configured. */
   ruleSetToken: string | null;
   /**
@@ -239,6 +257,16 @@ export interface KillSwitchPayload {
   /** The admin's reason, verbatim — surfaced in the client's own logs. */
   reason: string;
   armedAt: string;
+}
+
+/**
+ * A periodic re-assertion of the status of the grant last pushed in `actor_config`
+ * (`ActorConfigPayload.grantStatusToken`'s shape exactly). Sent to connected enforcing Actors every
+ * `GRANT_STATUS_REFRESH_INTERVAL_MS`, so a healthy connection keeps their status fresh under a
+ * finite staleness bound and a severed one lets it lapse.
+ */
+export interface GrantStatusPayload {
+  grantStatusToken: string;
 }
 
 export interface CapabilityRegistryChangedPayload {

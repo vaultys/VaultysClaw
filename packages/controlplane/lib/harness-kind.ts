@@ -23,6 +23,7 @@ import {
   proxyResourceRuleWarnings,
   type ProxyResourceRule,
 } from "./proxy-rules";
+import { DEFAULT_ENFORCING_MAX_STATUS_AGE_SECONDS } from "./proxy-kind";
 
 /** How a decision is applied on the host (docs/HARNESS_SUPERVISOR.md §4, §5). */
 export type HarnessMode = "observe" | "explicit";
@@ -82,10 +83,9 @@ export const DEFAULT_HARNESS_KIND_CONFIG: HarnessKindConfig = {
   mode: "observe",
   sandbox: "auto",
   resourceRules: [],
-  // Unbounded, stated as a negative rather than left at 0 — a brand-new harness
-  // has no status refresh to be fresh against, and 0 would deny everything the
-  // moment it moved to `explicit`.
-  maxStatusAgeSeconds: -1,
+  // Finite, and the same value as the proxy's — see
+  // DEFAULT_ENFORCING_MAX_STATUS_AGE_SECONDS for why it is not unbounded.
+  maxStatusAgeSeconds: DEFAULT_ENFORCING_MAX_STATUS_AGE_SECONDS,
 };
 
 export class HarnessKindConfigError extends Error {}

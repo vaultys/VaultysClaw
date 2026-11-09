@@ -30,6 +30,7 @@ export type ProtocolMessageType =
   | "kill_switch"
   | "sensor_telemetry"
   | "actor_config"
+  | "grant_status"
   | "error";
 
 export interface ProtocolMessage<P = unknown> {
@@ -175,6 +176,12 @@ export interface CertStatusResponsePayload {
 export interface ActorConfigPayload {
   kindConfig: unknown;
   grantToken: string | null;
+  /**
+   * The signed `cert_status_response` for {@link grantToken}, addressed to this Actor (`aud`) and
+   * ordered by `seq`. Null exactly when `grantToken` is null. Optional because a control plane
+   * that predates it omits the field.
+   */
+  grantStatusToken?: string | null;
   ruleSetToken: string | null;
   trust: {
     failClosed: boolean;

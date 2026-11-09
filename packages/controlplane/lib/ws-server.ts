@@ -45,7 +45,8 @@ import { isRegisterableKind, MAX_KIND_LENGTH } from "./actor-kinds";
 import { recordEvent } from "./audit";
 import { buildAdminUrl } from "./webhook-payloads";
 import { WsSender, type AgentSender } from "./agent-sender";
-import { buildActorConfig } from "./actor-config";
+import { buildActorConfig, selectGrant } from "./actor-config";
+import { nextStatusSeq, signGrantStatus } from "./grant-status";
 import {
   getKillSwitchState,
   invalidateKillSwitchCache,
@@ -65,6 +66,7 @@ import type {
   CertIssuedPayload,
   CertStatusRequestPayload,
   CertStatusResponsePayload,
+  GrantStatusPayload,
   ErrorPayload,
   KillSwitchPayload,
   ProtocolMessage,
@@ -104,6 +106,19 @@ const DELIVERY_SWEEP_BATCH = 100;
  * each build costs several queries and, for the enforcing kinds, a signature.
  */
 const CONFIG_PUSH_CONCURRENCY = 25;
+
+/**
+ * How often connected enforcing Actors (`proxy`, `harness`) are sent a fresh signed status for the
+ * grant they hold (`grant_status`).
+ *
+ * Sized against the default staleness bound those kinds ship with (`DEFAULT_ENFORCING_MAX_STATUS_AGE_SECONDS`,
+ * one hour): twelve refreshes per bound, so a few dropped messages never let a healthy connection's
+ * status lapse, while a severed or blackholed one does within the bound.
+ */
+const GRANT_STATUS_REFRESH_INTERVAL_MS = 5 * 60_000;
+
+/** The kinds that enforce offline on a pushed grant, and therefore need its status refreshed. */
+const ENFORCING_KINDS = new Set(["proxy", "harness"]);
 
 const HANDSHAKE_TIMEOUT_MS = 30_000;
 const DEFAULT_GRANT_TTL_MS = 365 * 24 * 60 * 60 * 1000;
@@ -186,7 +201,9 @@ export class ControlPlaneWSServer {
   private statusCheckBuffer: { certId: string; requesterDid: string; status: string; checkedAt: Date }[] = [];
   private flushTimer: ReturnType<typeof setInterval> | null = null;
   private deliverySweepTimer: ReturnType<typeof setInterval> | null = null;
+  private grantStatusTimer: ReturnType<typeof setInterval> | null = null;
   private sweepInFlight = false;
+  private grantStatusRefreshInFlight = false;
 
   constructor(wss: WebSocketServer) {
     this.wss = wss;
@@ -197,6 +214,9 @@ export class ControlPlaneWSServer {
 
     this.deliverySweepTimer = setInterval(() => void this.sweepUndeliveredGrants(), DELIVERY_SWEEP_INTERVAL_MS);
     this.deliverySweepTimer.unref?.();
+
+    this.grantStatusTimer = setInterval(() => void this.refreshGrantStatuses(), GRANT_STATUS_REFRESH_INTERVAL_MS);
+    this.grantStatusTimer.unref?.();
   }
 
   getListeningPort(): number | null {
@@ -318,6 +338,8 @@ export class ControlPlaneWSServer {
     this.flushTimer = null;
     if (this.deliverySweepTimer) clearInterval(this.deliverySweepTimer);
     this.deliverySweepTimer = null;
+    if (this.grantStatusTimer) clearInterval(this.grantStatusTimer);
+    this.grantStatusTimer = null;
     await this.flushDeferredWrites();
   }
 
@@ -995,6 +1017,10 @@ export class ControlPlaneWSServer {
       resourceLimits: cert.resourceLimits as never,
       scope: cert.scope as never,
       expiresAt: cert.expiresAt ? cert.expiresAt.getTime() : null,
+      // Addressed to whoever asked, so the response cannot be replayed to back
+      // a different Actor's decision.
+      aud: requesterDid,
+      seq: nextStatusSeq(),
     });
 
     this.statusCheckBuffer.push({
@@ -1121,6 +1147,52 @@ export class ControlPlaneWSServer {
     } catch (err) {
       logger.error({ did, err }, "Failed to build actor config; the agent keeps its last verified config");
       return false;
+    }
+  }
+
+  /**
+   * Re-sign and send the status of every connected enforcing Actor's grant.
+   *
+   * An Actor whose grant has gone away since the last push (revoked, withheld
+   * for a deleted custom capability, superseded) gets a full `actor_config`
+   * instead, whose null `grantToken` tells it to delete what it holds — a
+   * status for a certificate it should no longer have would say nothing useful.
+   *
+   * Bounded like `pushActorConfigMany`, and skipped while a previous pass is
+   * still running.
+   */
+  async refreshGrantStatuses(): Promise<void> {
+    if (this.grantStatusRefreshInFlight) return;
+    this.grantStatusRefreshInFlight = true;
+    try {
+      const targets = [...this.connected.values()].filter((a) => ENFORCING_KINDS.has(a.kind));
+      if (targets.length === 0) return;
+      const rows = new Map((await ActorDAO.findManyByDid(targets.map((a) => a.did))).map((r) => [r.did, r]));
+
+      for (let i = 0; i < targets.length; i += CONFIG_PUSH_CONCURRENCY) {
+        const batch = targets.slice(i, i + CONFIG_PUSH_CONCURRENCY);
+        await Promise.all(
+          batch.map(async (target) => {
+            const row = rows.get(target.did);
+            if (!row) return;
+            try {
+              const cert = await selectGrant(target.did, []);
+              if (!cert) {
+                await this.pushActorConfig(target.did);
+                return;
+              }
+              const grantStatusToken = await signGrantStatus(cert, row, target.did);
+              // Re-read: the socket may have closed while we were signing.
+              const live = this.connected.get(target.did);
+              if (live) this.sendMessage(live.sender, "grant_status", { grantStatusToken } satisfies GrantStatusPayload);
+            } catch (err) {
+              logger.error({ did: target.did, err }, "Failed to refresh grant status; the Actor's status will age toward its bound");
+            }
+          })
+        );
+      }
+    } finally {
+      this.grantStatusRefreshInFlight = false;
     }
   }
 

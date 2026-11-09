@@ -30,6 +30,12 @@ type Store struct {
 	anchor      *grant.Anchor
 	grantPath   string
 	ruleSetPath string
+	statusPath  string
+	// localDID is this host's own identity. A grant naming anyone else is
+	// refused: its signature is valid, but it was not granted to this host, and
+	// enforcing it would let a more permissive grant issued to another Actor be
+	// copied here and used (VC-05).
+	localDID string
 
 	// AttributionAvailable is whether this deployment can resolve subjects. In
 	// `explicit` mode it is false, and Reload then refuses a rule set containing
@@ -42,6 +48,13 @@ type Store struct {
 	certs    []authz.Certificate
 	ruleSet  *rules.Set
 	syncedAt time.Time
+	// The status assertion currently in force, if any: which certificate it is
+	// for and its sequence number, so an older assertion cannot be swapped back
+	// in over a newer one (replaying a pre-revocation "active").
+	statusCertID string
+	statusSeq    int64
+	// loaded is set by the first successful Reload; see the missing-grant case.
+	loaded bool
 }
 
 // StoreOptions configures a Store.
@@ -49,6 +62,17 @@ type StoreOptions struct {
 	Anchor      *grant.Anchor
 	GrantPath   string
 	RuleSetPath string
+	// StatusPath holds the control plane's signed status assertion for the
+	// grant (sdk-go/grant.Status). Its signed checkedAt is what the staleness
+	// bound measures from — never a file's mtime, which `touch` rewrites.
+	//
+	// A grant with no status file is *unconfirmed*: it is loaded as active, but
+	// with no sync time, so under any finite MaxStatusAge it is already stale
+	// and decides as the fail mode says. Only an explicitly unbounded
+	// deployment (MaxStatusAge < 0) enforces on it as-is.
+	StatusPath string
+	// LocalDID is this host's DID; required. See Store.localDID.
+	LocalDID string
 	// AttributionAvailable — see Store.attributionAvailable.
 	AttributionAvailable bool
 	// AllowUnprovisioned permits starting with no capability grant on disk yet.
@@ -79,10 +103,15 @@ func NewStore(opts StoreOptions) (*Store, error) {
 	if opts.Anchor == nil {
 		return nil, errors.New("intercept: a pinned control-plane anchor is required")
 	}
+	if strings.TrimSpace(opts.LocalDID) == "" {
+		return nil, errors.New("intercept: this host's DID is required, to refuse a grant issued to another Actor")
+	}
 	s := &Store{
 		anchor:               opts.Anchor,
 		grantPath:            opts.GrantPath,
 		ruleSetPath:          opts.RuleSetPath,
+		statusPath:           opts.StatusPath,
+		localDID:             opts.LocalDID,
 		attributionAvailable: opts.AttributionAvailable,
 		allowUnprovisioned:   opts.AllowUnprovisioned,
 	}
@@ -111,6 +140,11 @@ func (s *Store) Provisioned() bool {
 func (s *Store) Reload() error {
 	var certs []authz.Certificate
 	var syncedAt time.Time
+	var statusCertID string
+	var statusSeq int64
+	s.mu.RLock()
+	loaded := s.loaded
+	s.mu.RUnlock()
 
 	token, err := readToken(s.grantPath)
 	switch {
@@ -119,14 +153,33 @@ func (s *Store) Reload() error {
 		if verr != nil {
 			return signatureError("capability grant", s.grantPath, s.anchor.DID(), verr)
 		}
-		// The control plane asserts current status separately from the signature
-		// (see internal/grant). Until an actor_config push has been received
-		// there is no live assertion to read, so a provisioned grant is taken as
-		// active and the staleness bound is measured from when it was
-		// provisioned — the file's mtime. That is a real, checkable timestamp,
-		// not an assumption that the grant is fresh.
-		certs = []authz.Certificate{body.ToCertificate(authz.StatusActive)}
-		syncedAt = fileModTime(s.grantPath)
+		if err := body.BindTo(s.localDID); err != nil {
+			return fmt.Errorf("intercept: refusing the grant at %s: %w", s.grantPath, err)
+		}
+
+		// The signature proves what was granted, never that it is still
+		// granted. Current status comes from the control plane's separate,
+		// signed assertion, and freshness from *its* signed checkedAt.
+		status := authz.StatusActive
+		st, serr := s.readStatus(body)
+		switch {
+		case serr != nil:
+			return serr
+		case st != nil:
+			status, _ = st.CertificateStatus() // VerifyStatus already rejected unknown words
+			syncedAt = time.UnixMilli(st.CheckedAt)
+			statusCertID = st.CertID
+			statusSeq = st.Sequence()
+		default:
+			// No assertion: unconfirmed. syncedAt stays zero, so any finite
+			// bound treats it as stale. Deliberately not the file's mtime.
+		}
+		certs = []authz.Certificate{body.ToCertificate(status)}
+	case os.IsNotExist(err) && loaded:
+		// The grant was removed after this Store had loaded one — the control
+		// plane said there is none (revoked, withheld) or a kill switch dropped
+		// it. Withdrawal, not corruption, so it applies rather than leaving the
+		// previous grant in force: the safe direction here is "nothing".
 	case os.IsNotExist(err) && s.allowUnprovisioned:
 		// No grant yet. Left empty rather than erroring: an empty certificate set
 		// authorizes nothing, which is the safe direction, and this client is
@@ -149,9 +202,9 @@ func (s *Store) Reload() error {
 			if err := ruleSet.Validate(s.attributionAvailable); err != nil {
 				return fmt.Errorf("intercept: %w", err)
 			}
-			if t := fileModTime(s.ruleSetPath); t.After(syncedAt) {
-				syncedAt = t
-			}
+			// The rule set says nothing about the grant's status, so it does
+			// not refresh syncedAt. It used to (by mtime), which let every rule
+			// re-signing — or a `touch` — extend a revoked grant's life.
 		case os.IsNotExist(err):
 			// No rule set is a valid configuration: every request is then
 			// decided by the certificate alone.
@@ -164,8 +217,61 @@ func (s *Store) Reload() error {
 	s.certs = certs
 	s.ruleSet = ruleSet
 	s.syncedAt = syncedAt
+	s.statusCertID = statusCertID
+	s.statusSeq = statusSeq
+	s.loaded = true
 	s.mu.Unlock()
 	return nil
+}
+
+// ErrStaleStatus means a status assertion older than the one in force was
+// presented for the same certificate. Refused so a captured pre-revocation
+// "active" cannot be put back on disk to undo a revocation.
+var ErrStaleStatus = errors.New("intercept: status assertion is older than the one in force")
+
+// readStatus loads and checks the status assertion for body. Nil, nil when
+// there is none.
+func (s *Store) readStatus(body *grant.Body) (*grant.Status, error) {
+	if strings.TrimSpace(s.statusPath) == "" {
+		return nil, nil
+	}
+	token, err := readToken(s.statusPath)
+	switch {
+	case os.IsNotExist(err):
+		return nil, nil
+	case err != nil:
+		return nil, err
+	}
+	st, err := grant.VerifyStatus(s.anchor.VaultysID(), token)
+	if err != nil {
+		return nil, signatureError("grant status", s.statusPath, s.anchor.DID(), err)
+	}
+	if err := st.Bind(body, s.localDID); err != nil {
+		// A status for some other certificate is not a status for this one.
+		// Most often a new grant arrived and its status has not yet: treat the
+		// grant as unconfirmed rather than failing the whole reload.
+		if st.CertID != body.CertID {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("intercept: refusing the grant status at %s: %w", s.statusPath, err)
+	}
+	s.mu.RLock()
+	curCert, curSeq := s.statusCertID, s.statusSeq
+	s.mu.RUnlock()
+	if curCert == st.CertID && st.Sequence() < curSeq {
+		return nil, fmt.Errorf("%w (certificate %s: seq %d < %d)", ErrStaleStatus, st.CertID, st.Sequence(), curSeq)
+	}
+	return st, nil
+}
+
+// HeldCertID is the id of the grant currently in force, or "" when none.
+func (s *Store) HeldCertID() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if len(s.certs) == 0 {
+		return ""
+	}
+	return s.certs[0].ID
 }
 
 // ConfigFor builds the decision Config, suitable for Proxy.ConfigFor.
@@ -213,12 +319,16 @@ func (s *Store) Summary() string {
 		hostRules = len(s.ruleSet.Rules)
 		resourceRules = len(s.ruleSet.ResourceRules)
 	}
-	provisioned := "never"
-	if !s.syncedAt.IsZero() {
-		provisioned = s.syncedAt.UTC().Format(time.RFC3339)
+	status := "none"
+	if len(s.certs) > 0 {
+		status = string(s.certs[0].Status)
 	}
-	return fmt.Sprintf("capabilities=%s allowedDomains=%s hostRules=%d resourceRules=%d provisionedAt=%s",
-		caps, domains, hostRules, resourceRules, provisioned)
+	confirmed := "never"
+	if !s.syncedAt.IsZero() {
+		confirmed = s.syncedAt.UTC().Format(time.RFC3339)
+	}
+	return fmt.Sprintf("capabilities=%s allowedDomains=%s hostRules=%d resourceRules=%d status=%s statusConfirmedAt=%s",
+		caps, domains, hostRules, resourceRules, status, confirmed)
 }
 
 // readToken reads a token file, tolerating trailing whitespace from an operator
@@ -233,13 +343,6 @@ func readToken(path string) (string, error) {
 		return "", fmt.Errorf("intercept: %s is empty", path)
 	}
 	return token, nil
-}
-
-func fileModTime(path string) time.Time {
-	if info, err := os.Stat(path); err == nil {
-		return info.ModTime()
-	}
-	return time.Time{}
 }
 
 // signatureError explains a failed signature check in terms of what actually

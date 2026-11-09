@@ -61,10 +61,19 @@ func runSupervise(ctx context.Context, cfg *config.Sensor, logger *slog.Logger, 
 	// Without a control plane, nothing will ever provide it, so a missing grant
 	// stays fatal exactly as it is for the intercept role.
 	connected := strings.TrimSpace(sv.ControlPlaneURL) != ""
+
+	// This host's own identity, loaded before the store: a grant is only
+	// enforceable here if it was issued to this DID (VC-05).
+	id, err := identity.LoadOrCreate(cfg.IdentityPath)
+	if err != nil {
+		return fmt.Errorf("supervise: loading this host's identity: %w", err)
+	}
 	store, err := intercept.NewStore(intercept.StoreOptions{
 		Anchor:               anchor,
 		GrantPath:            sv.GrantPath,
 		RuleSetPath:          sv.RuleSetPath,
+		StatusPath:           sv.StatusPath,
+		LocalDID:             id.DID(),
 		AttributionAvailable: false,
 		AllowUnprovisioned:   connected,
 	})
@@ -111,6 +120,7 @@ func runSupervise(ctx context.Context, cfg *config.Sensor, logger *slog.Logger, 
 	// settings are writable by what it supervises is not supervising anything.
 	floor := supervise.NewFloor(floorPaths,
 		supervise.FloorPath{Path: sv.GrantPath, Reason: "this supervisor's own capability grant"},
+		supervise.FloorPath{Path: sv.StatusPath, Reason: "this supervisor's own grant status"},
 		supervise.FloorPath{Path: sv.AnchorPath, Reason: "this supervisor's own control-plane trust anchor"},
 		supervise.FloorPath{Path: sv.SettingsPath, Reason: "the harness settings that install this supervisor's hook"},
 		supervise.FloorPath{Path: sv.SpoolPath, Reason: "this supervisor's own audit spool"},
@@ -119,7 +129,7 @@ func runSupervise(ctx context.Context, cfg *config.Sensor, logger *slog.Logger, 
 	mode := supervise.Mode(sv.Mode)
 	maxStatusAge := time.Duration(sv.MaxStatusAgeSeconds) * time.Second
 	if sv.MaxStatusAgeSeconds < 0 {
-		logger.Warn("supervise: maxStatusAgeSeconds is negative — certificate status will back decisions indefinitely without a refresh")
+		logger.Warn("supervise: maxStatusAgeSeconds is negative — a revoked certificate keeps authorizing for as long as this host goes without a status refresh")
 	} else if sv.MaxStatusAgeSeconds == 0 && sv.FailClosed {
 		logger.Warn("supervise: maxStatusAgeSeconds is 0 with failClosed — every governed tool call will be denied, since an offline decider cannot perform the live status check that setting demands")
 	}
@@ -169,7 +179,7 @@ func runSupervise(ctx context.Context, cfg *config.Sensor, logger *slog.Logger, 
 	// happen.
 	var firstConfig <-chan struct{}
 	if connected {
-		stopConn, ready, err := startSuperviseConnection(ctx, cfg, logger, store, anchor, settings)
+		stopConn, ready, err := startSuperviseConnection(ctx, cfg, logger, id, store, anchor, settings)
 		if err != nil {
 			return err
 		}
@@ -396,15 +406,27 @@ func startSuperviseConnection(
 	ctx context.Context,
 	cfg *config.Sensor,
 	logger *slog.Logger,
+	id *identity.Provider,
 	store *intercept.Store,
 	anchor *grant.Anchor,
 	settings *supervise.Settings,
 ) (func(), <-chan struct{}, error) {
 	sv := cfg.Supervise
 
-	id, err := identity.LoadOrCreate(cfg.IdentityPath)
-	if err != nil {
-		return nil, nil, fmt.Errorf("supervise: loading this host's identity: %w", err)
+	// dropGrant is the one-direction response to an unsigned notice that this
+	// host's authority is gone (kill switch, revocation). Deleting can only
+	// reduce what is authorized, so the notice need not be signed; the store
+	// then reloads with no grant, and the next signed actor_config — after a
+	// disarm, on reconnect — puts it back.
+	dropGrant := func(why string, attrs ...any) {
+		if err := supervise.DropGrant(sv.GrantPath, sv.StatusPath); err != nil {
+			logger.Error("supervise: could not remove the held grant", append([]any{"why", why, "err", err}, attrs...)...)
+		}
+		if err := store.Reload(); err != nil {
+			logger.Warn("supervise: reload after dropping the grant failed", "err", err)
+		}
+		logger.Warn("supervise: capability grant dropped — this host authorizes nothing until the control plane re-issues it",
+			append([]any{"why", why, "summary", store.Summary()}, attrs...)...)
 	}
 	hostname, _ := os.Hostname()
 	name := cfg.DeviceName
@@ -453,7 +475,7 @@ func startSuperviseConnection(
 
 			// The signed half first: written to the same paths a hand-provisioned
 			// deployment uses, so one verification path serves both.
-			if err := supervise.WriteArtefacts(payload, sv.GrantPath, sv.RuleSetPath); err != nil {
+			if err := supervise.WriteArtefacts(payload, sv.GrantPath, sv.StatusPath, sv.RuleSetPath); err != nil {
 				logger.Warn("supervise: could not persist pushed artefacts; keeping the current policy", "err", err)
 				return
 			}
@@ -470,6 +492,7 @@ func startSuperviseConnection(
 				// nothing at all.
 				logger.Info("supervise: configuration received from the control plane",
 					"grant", present(payload.GrantToken),
+					"grantStatus", present(payload.GrantStatusToken),
 					"ruleSet", present(payload.RuleSetToken),
 					"summary", store.Summary())
 				if !store.Provisioned() {
@@ -536,6 +559,34 @@ func startSuperviseConnection(
 				// absence of an effect.
 				logger.Warn("supervise: REFUSED a pushed configuration that would weaken enforcement — kindConfig is unsigned and may only tighten",
 					"refused", applied.Refused)
+			}
+		},
+		OnGrantStatus: func(payload vconn.GrantStatusPayload) {
+			if err := supervise.WriteStatus(sv.StatusPath, payload.GrantStatusToken); err != nil {
+				logger.Warn("supervise: could not persist the refreshed grant status", "err", err)
+				return
+			}
+			if err := store.Reload(); err != nil {
+				logger.Warn("supervise: refreshed grant status refused; continuing on the last verified state", "err", err)
+				return
+			}
+			logger.Debug("supervise: grant status refreshed", "summary", store.Summary())
+		},
+		OnKillSwitch: func(payload vconn.KillSwitchPayload) {
+			dropGrant("kill switch armed", "scope", payload.Scope, "workspaceId", payload.WorkspaceID, "reason", payload.Reason)
+		},
+		OnCapabilitiesChanged: func(payload vconn.CapabilitiesChangedPayload) {
+			if payload.Reason != "certificate_revoked" {
+				// Anything else may widen authority, which only the signed
+				// actor_config that follows is allowed to do.
+				return
+			}
+			held := store.HeldCertID()
+			for _, id := range payload.CertIDs {
+				if held != "" && id == held {
+					dropGrant("certificate revoked", "certId", id)
+					return
+				}
 			}
 		},
 	})

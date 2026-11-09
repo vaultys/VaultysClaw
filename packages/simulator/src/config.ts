@@ -74,6 +74,11 @@ export interface SimConfig {
   adminPassphrase: string | null;
   /** `admin` only: where to write the backup. Defaults next to the identities directory. */
   adminOut: string | null;
+  /**
+   * `admin` only: also write the key *unencrypted* here (0600). For a disposable dev stack whose
+   * console offers a one-click sign-in as this admin (scripts/worktree.mjs) — never elsewhere.
+   */
+  adminIdentityOut: string | null;
 }
 
 const USAGE = `
@@ -103,6 +108,7 @@ Options for "admin"
   --name <s>         display name for the human                    (default "Demo Admin")
   --email <s>        optional email for the profile
   --out <path>       where to write the backup    (default <data-dir>/<generated backup name>)
+  --identity-out <path>  also write the key unencrypted (dev worktrees' one-click sign-in only)
   --status-refresh <ms>  force every Actor to re-check its certificate this often (0 = persona default)
   --reconnect-after-approve  cycle connections after approving, instead of letting the control
                              plane's delivery sweep hand out grants over existing connections
@@ -132,6 +138,7 @@ export function parseConfig(argv: string[]): SimConfig {
       email: { type: "string" },
       passphrase: { type: "string" },
       out: { type: "string" },
+      "identity-out": { type: "string" },
       "status-refresh": { type: "string" },
       "reconnect-after-approve": { type: "boolean" },
       help: { type: "boolean", short: "h" },
@@ -171,6 +178,7 @@ export function parseConfig(argv: string[]): SimConfig {
     adminEmail: values.email ?? null,
     adminPassphrase: values.passphrase ?? null,
     adminOut: values.out ?? null,
+    adminIdentityOut: values["identity-out"] ?? null,
     statusRefreshMs: int(values["status-refresh"], 0),
     reconnectAfterApprove: values["reconnect-after-approve"] ?? false,
     command,

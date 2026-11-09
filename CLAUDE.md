@@ -78,6 +78,36 @@ the same schema — otherwise jobs are consumed and every event reports zero tar
 console shows an active subscription. `controlplane:webhook:dev` sources
 `packages/controlplane/.env` for exactly this reason; don't write that URL down a second time.
 
+### Git worktrees (Orca)
+
+Every git worktree runs its own control plane, Docker stack and seeded database, side by side with
+the others — `scripts/worktree.mjs` is the single source of truth, `orca.yaml` wires it to Orca.
+
+- **Slots.** The main checkout is slot 0 and keeps the historical ports above, untouched. Any other
+  worktree gets a slot n (1–99, stored in its git admin dir, so it survives `git worktree move` and
+  is freed with the worktree) and the ports `20000 + 10n + k`: http `…1`, ws `…2`, postgres `…3`,
+  redis `…4`, apprise `…5` — slot 2 is console :20021. A dedicated range, not the main ports
+  shifted, because VaultysHub's worktrees already shift *its* 5433 Postgres by +1000.
+  `pnpm worktree` prints the current slot.
+- **`pnpm controlplane:*` go through `node scripts/worktree.mjs exec`**, which exports the slot's
+  `DATABASE_URL`, ports and `COMPOSE_PROJECT_NAME` (`vaultysclaw-controlplane-<n>`). It must be the
+  process environment, not just `.env`: `server.ts` reads `CONTROLPLANE_PORT` before Next loads any
+  `.env`. In slot 0 it adds nothing. In a worktree with no slot it refuses to run rather than fall
+  back onto the main checkout's database.
+- **`pnpm worktree:setup`** (Orca's `setup` hook): slot, `packages/controlplane/.env` copied from
+  the main checkout with the slot's infra, install, build, Docker up, migrate, then
+  **`pnpm worktree:seed`**: a temporary control plane, an admin "Worktree Admin", and a 60-Actor
+  fleet owned by 12 people via the simulator. `--force` to seed again.
+- **Signing in**: `pnpm dev` prints the console URL; `/login` then shows **"Sign in as the worktree
+  admin"**. The seed writes that admin's key unencrypted to `.worktree/admin.identity.json`, and
+  `app/api/public/dev/worktree-admin` serves it to the button, which stores it in the browser and
+  runs the ordinary browser-key login. The route only exists when `NODE_ENV` is not production
+  **and** `VAULTYSCLAW_WORKTREE_ADMIN` (set by `worktree.mjs exec`) points at that file, so it is a
+  404 in the main checkout and in every build. Same key, encrypted:
+  `.worktree/admin.vaultysid.json` (passphrase `vaultysclaw-worktree`).
+- **`pnpm worktree:teardown`** (Orca's `archive` hook): `docker compose down -v` of the slot's stack.
+- Not slotted: the simulator, video and quickstart stacks (`docker/*.env`) — still one per machine.
+
 `packages/webhook-dispatcher` has **no Prisma schema of its own** — run
 `pnpm controlplane:webhook:prisma` (or the `controlplane:webhook:dev` script, which does it for
 you) to copy the control plane's schema in and generate a client, or its type-check and tests fail

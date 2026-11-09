@@ -50,6 +50,8 @@ export interface MintedAdmin {
    * to a terminal you are already looking at, for a database built to be thrown away.
    */
   browserSnippet: string;
+  /** The same key, unencrypted, in the shape the browser stores — for `--identity-out`. */
+  identity: BrowserIdData;
 }
 
 /**
@@ -147,5 +149,6 @@ export async function mintAdmin(input: {
     backup,
     suggestedFilename: backupFilename(),
     browserSnippet,
+    identity: browserIdentity,
   };
 }

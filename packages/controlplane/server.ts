@@ -36,11 +36,21 @@ async function main() {
       res.end("internal server error");
     });
   });
-  httpServer.listen(PORT, () => logger.info({ port: PORT }, "HTTP server listening"));
-
   const wss = new WebSocketServer({ port: WS_PORT });
   setWSServerInstance(new ControlPlaneWSServer(wss));
   logger.info({ port: WS_PORT }, "Control plane WebSocket server listening");
+
+  httpServer.listen(PORT, () => {
+    logger.info({ port: PORT }, "HTTP server listening");
+    // Plain text, not a pino line: the one thing a developer looks for in the dev terminal —
+    // more so now that every git worktree runs on its own ports (scripts/worktree.mjs).
+    const slot = process.env.VAULTYSCLAW_SLOT ? ` — worktree slot ${process.env.VAULTYSCLAW_SLOT}` : "";
+    process.stdout.write(
+      `\n  ▸ VaultysClaw control plane ready${slot}\n` +
+        `    console    http://localhost:${PORT}\n` +
+        `    websocket  ws://localhost:${WS_PORT}\n\n`
+    );
+  });
 }
 
 main().catch((err) => {

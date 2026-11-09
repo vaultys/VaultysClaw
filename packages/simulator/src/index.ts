@@ -190,6 +190,14 @@ async function admin(cfg: SimConfig): Promise<void> {
 
   const snippetPath = `${outPath}.load-in-browser.js`;
   fs.writeFileSync(snippetPath, `${result.browserSnippet}\n`, { mode: 0o600 });
+  if (cfg.adminIdentityOut) {
+    fs.mkdirSync(path.dirname(cfg.adminIdentityOut), { recursive: true });
+    fs.writeFileSync(
+      cfg.adminIdentityOut,
+      JSON.stringify({ name: result.name, ...result.identity }, null, 2),
+      { mode: 0o600 }
+    );
+  }
 
   process.stdout.write(
     [

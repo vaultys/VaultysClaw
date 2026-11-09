@@ -90,3 +90,6 @@ __tests__/temp/
 
 # Python launcher-test cache
 __pycache__/
+
+# Per-worktree state written by scripts/worktree.mjs (seeded admin key, simulator identities)
+.worktree/

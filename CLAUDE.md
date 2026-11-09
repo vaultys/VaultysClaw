@@ -108,6 +108,27 @@ the others — `scripts/worktree.mjs` is the single source of truth, `orca.yaml`
 - **`pnpm worktree:teardown`** (Orca's `archive` hook): `docker compose down -v` of the slot's stack.
 - Not slotted: the simulator, video and quickstart stacks (`docker/*.env`) — still one per machine.
 
+### Claude Code hooks
+
+Committed in `.claude/settings.json` + `.claude/hooks/` (state and logs in the git-ignored
+`.claude/.hook-state/`; personal settings stay in `settings.local.json`).
+
+- **SessionStart** (`session-start.mjs`): the worktree slot and its ports, or a note that
+  `pnpm worktree:setup` has not run.
+- **PreToolUse, files** (`guard-paths.mjs`): refuses hand edits of generated files (`dist/`,
+  `.next/`, `next-env.d.ts`, the dispatcher's and simulator's schema copies, `.worktree/`); asks
+  before a Prisma migration, a `conformance/` fixture or an `.env`.
+- **PreToolUse, Bash** (`guard-bash.mjs`): asks before force-push, push to main, `reset --hard`,
+  `git clean -f`, a bare `git stash`/`pop`/`drop` (the stash is shared by every worktree),
+  `prisma migrate reset`, `docker compose down -v`, volume deletion, `worktree:teardown`, `*:nuke`.
+- **PostToolUse** (`reminders.mjs`): the webhook checklist when `shared/src/webhooks.ts` changes,
+  both suites for `conformance/`, a migration for `schema.prisma`, a rebuild for
+  policy/trust/shared/sdk `src/`.
+- **Stop** (`checks.mjs`): for uncommitted code changes, rebuilds changed libs, type-checks the
+  changed packages and their dependents, runs the changed packages' tests, and `go test` for
+  `sdk-go/` (also on any `conformance/` change) and `vaultysclaw-sensor/`. No lint. A failure goes
+  back to Claude; an unchanged green tree is not re-checked.
+
 `packages/webhook-dispatcher` has **no Prisma schema of its own** — run
 `pnpm controlplane:webhook:prisma` (or the `controlplane:webhook:dev` script, which does it for
 you) to copy the control plane's schema in and generate a client, or its type-check and tests fail

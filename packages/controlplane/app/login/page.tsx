@@ -87,6 +87,13 @@ const SIGN_IN_ERRORS: Record<string, string> = {
  * SSO get their browser key from the binding step at `/invite/[token]?sso=1`, not
  * from here.
  */
+/** `?setup=…` from the server-log setup URL (lib/bootstrap-token.ts), forwarded so the first human
+ *  on a fresh deployment can register. Empty on every ordinary visit. */
+function setupQuery(): string {
+  const setup = new URLSearchParams(window.location.search).get("setup");
+  return setup ? `?setup=${encodeURIComponent(setup)}` : "";
+}
+
 interface SsoProviderOption {
   id: string;
   name: string;
@@ -102,6 +109,8 @@ export default function LoginPage() {
   // localStorage read in an effect, not during render — see lib/advanced-identity.ts.
   const [hasKey, setHasKey] = useState(false);
   const [signInError, setSignInError] = useState<string | null>(null);
+  /** The server refused to hand out a code: no admin exists yet and no valid setup token was given. */
+  const [setupRequired, setSetupRequired] = useState(false);
   const [advanced, setAdvanced] = useAdvancedIdentity();
   const cancelled = useRef(false);
 
@@ -179,7 +188,13 @@ export default function LoginPage() {
     setWindow(null);
     cancelled.current = false;
 
-    const res = await fetch("/api/public/user/p2p-connect");
+    const res = await fetch(`/api/public/user/p2p-connect${setupQuery()}`);
+    if (!res.ok) {
+      setSetupRequired(res.status === 404);
+      setPhase("failure");
+      return;
+    }
+    setSetupRequired(false);
     const { connectionString, token, key, serverDid, connectWindowSeconds } = await res.json();
 
     const didParam = serverDid ? `&did=${encodeURIComponent(serverDid)}` : "";
@@ -196,7 +211,7 @@ export default function LoginPage() {
     setWindow(null);
     cancelled.current = false;
 
-    const res = await fetch("/api/public/user/connect");
+    const res = await fetch(`/api/public/user/connect${setupQuery()}`);
     // 404 means this deployment has no human yet *and* browser bootstrap is off —
     // the route's own gate. Nothing to poll, so say so rather than spinning for
     // three minutes.
@@ -267,7 +282,9 @@ export default function LoginPage() {
               <h2 className="text-lg font-medium text-foreground">Sign in with VaultysID</h2>
               {/* "scan the QR code below" has to stop being said once there is no code below. */}
               <p className="mt-1 text-sm text-foreground-500">
-                {phase === "failure"
+                {phase === "failure" && setupRequired
+                  ? "This deployment has no administrator yet"
+                  : phase === "failure"
                   ? "That code is no longer valid — start again for a fresh one"
                   : "Open your VaultysID app and scan the QR code below"}
               </p>
@@ -298,7 +315,11 @@ export default function LoginPage() {
              */
             <div className="mt-6 flex justify-center">
               <div className="flex h-52 w-52 flex-col items-center justify-center gap-4 rounded-xl border border-dashed border-danger-200 bg-danger-50/40 px-6 text-center">
-                <p className="text-sm text-danger-600">Connection failed or timed out</p>
+                <p className="text-sm text-danger-600">
+                  {setupRequired
+                    ? "Open the one-time setup link printed in the control plane's server log to register the first administrator."
+                    : "Connection failed or timed out."}
+                </p>
                 <button
                   onClick={start}
                   className="px-4 py-2 bg-primary-600 hover:bg-primary-500 text-white rounded-lg text-sm font-medium transition-colors"

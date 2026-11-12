@@ -18,6 +18,7 @@ import ActorSearchSelect from "@/components/ActorSearchSelect";
 import AuditLogPanel from "@/components/AuditLogPanel";
 import ProxyConfigPanel from "@/components/proxy/ProxyConfigPanel";
 import HarnessConfigPanel from "@/components/harness/HarnessConfigPanel";
+import HookAuditPanel from "@/components/harness/HookAuditPanel";
 import DeleteActorPanel from "@/components/DeleteActorPanel";
 import { revokeCertificateAction } from "@/app/admin/certificates/actions";
 import {
@@ -249,6 +250,7 @@ export default async function ActorDetailPage({
           below optional metadata. */}
           {actor.kind === "proxy" && <ProxyConfigPanel actor={actor} />}
           {actor.kind === "harness" && <HarnessConfigPanel actor={actor} />}
+          {actor.kind === "harness" && <HookAuditPanel did={actor.did} />}
 
           <DeleteActorPanel
             did={actor.did}

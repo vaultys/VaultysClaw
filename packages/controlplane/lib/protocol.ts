@@ -43,6 +43,11 @@ export type ProtocolMessageType =
   // have been a kind-specific exception in a file whose stated rule is that
   // none belong here.
   | "actor_config"
+  // A kind:"harness" Actor's tool-call decisions, recorded by vaultysclaw-hooks
+  // (docs/HARNESS_HOOKS.md) and shipped by its agent. The second kind-specific
+  // message, for the same reason as sensor_telemetry: an audit trail of what an
+  // enforcing Actor decided has no kind-agnostic equivalent.
+  | "hook_audit"
   | "error";
 
 export interface ProtocolMessage {
@@ -270,4 +275,14 @@ export interface SensorTelemetryEvent {
 
 export interface SensorTelemetryPayload {
   events: SensorTelemetryEvent[];
+}
+
+/**
+ * Mirrors sdk-go/vconn's `HookAuditPayload`. Each event is one vaultysclaw-hooks
+ * spool line, forwarded verbatim by its agent, so the shape is validated on
+ * arrival (`lib/hook-audit.ts`) rather than trusted: it comes from a process
+ * running as the governed user, on the governed machine.
+ */
+export interface HookAuditPayload {
+  events: unknown[];
 }

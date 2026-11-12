@@ -66,6 +66,22 @@ type ClientConfig struct {
 	// docs/PROXY_ARCHITECTURE.md §9 records in the superseded implementation.
 	OnActorConfig func(ActorConfigPayload)
 
+	// Outbox, when set, lets a role ship its own message types without this
+	// package knowing them. It is called on every BatchInterval tick, after
+	// queued telemetry, and returns envelopes ready to send plus an ack that is
+	// called once all of them were written to the socket. A failed write skips
+	// the ack and drops the connection, so an Outbox backed by durable storage
+	// re-offers the same envelopes after reconnecting — delivery is
+	// at-least-once, and a receiver must tolerate duplicates.
+	Outbox func() (msgs []Envelope, ack func())
+
+	// OnCertStatusResponse, when set, receives each cert_status_response token
+	// as it arrives, **unverified**. The token is signed by the control plane;
+	// the handler must check it against its pinned anchor
+	// (grant.VerifyStatusResponse) before relying on it. Requests go out through
+	// Outbox. Runs on the read goroutine, like OnActorConfig: do not block.
+	OnCertStatusResponse func(certToken string)
+
 	Logger *slog.Logger
 }
 
@@ -436,6 +452,15 @@ func (c *ClientConn) sendLoop(ctx context.Context, conn *websocket.Conn) error {
 				if c.cfg.OnActorConfig != nil {
 					c.cfg.OnActorConfig(payload)
 				}
+			case MsgCertStatusResponse:
+				var payload CertStatusPayload
+				if err := env.Decode(&payload); err != nil || payload.CertToken == "" {
+					c.cfg.Logger.Warn("vconn: malformed cert_status_response ignored", "error", err)
+					break
+				}
+				if c.cfg.OnCertStatusResponse != nil {
+					c.cfg.OnCertStatusResponse(payload.CertToken)
+				}
 			case MsgCertFailed:
 				var payload CertFailedPayload
 				_ = env.Decode(&payload)
@@ -458,6 +483,9 @@ func (c *ClientConn) sendLoop(ctx context.Context, conn *websocket.Conn) error {
 			return fmt.Errorf("connection closed: %w", err)
 		case <-ticker.C:
 			if err := c.flushOnce(conn); err != nil {
+				return err
+			}
+			if err := c.flushOutbox(conn); err != nil {
 				return err
 			}
 		}
@@ -519,6 +547,26 @@ func (c *ClientConn) flushOnce(conn *websocket.Conn) error {
 			return nil
 		}
 	}
+}
+
+// flushOutbox sends whatever the role's Outbox offers, acking only after every
+// envelope was written.
+func (c *ClientConn) flushOutbox(conn *websocket.Conn) error {
+	if c.cfg.Outbox == nil {
+		return nil
+	}
+	msgs, ack := c.cfg.Outbox()
+	did := c.cfg.Identity.VaultysID().DID()
+	for _, env := range msgs {
+		env.AgentID = did
+		if err := c.writeJSON(conn, env); err != nil {
+			return fmt.Errorf("sending %s: %w", env.Type, err)
+		}
+	}
+	if ack != nil {
+		ack()
+	}
+	return nil
 }
 
 // toWebSocketURL derives a ws(s):// URL (at path /ws) from an http(s)://

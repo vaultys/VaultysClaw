@@ -37,6 +37,7 @@ import {
   CapabilityCertificateDAO,
   CertStatusCheckDAO,
   SensorWorkloadDAO,
+  HookAuditDAO,
   ServerIdentityDAO,
   CustomCapabilityDAO,
 } from "@/db";
@@ -73,7 +74,9 @@ import type {
   RegisterPayload,
   RegistrationPendingPayload,
   SensorTelemetryPayload,
+  HookAuditPayload,
 } from "./protocol";
+import { parseHookAuditBatch } from "./hook-audit";
 
 const logger = pino({ name: "ws-server" });
 const Buf = vCrypto.Buffer;
@@ -466,6 +469,9 @@ export class ControlPlaneWSServer {
         return;
       case "sensor_telemetry":
         void this.handleSensorTelemetry(sender, message.payload as SensorTelemetryPayload);
+        return;
+      case "hook_audit":
+        void this.handleHookAudit(sender, message.payload as HookAuditPayload);
         return;
       default:
         this.sendError(sender, `Unhandled message type: ${message.type}`);
@@ -1070,6 +1076,37 @@ export class ControlPlaneWSServer {
       accepted++;
     }
     logger.info({ deviceDid, accepted }, "Sensor telemetry accepted");
+  }
+
+  /**
+   * A vaultysclaw-hooks agent's audit trail (docs/HARNESS_HOOKS.md): what its
+   * hooks decided on this host. Accepted only from an authenticated
+   * `kind: "harness"` Actor, attributed to the connection's own DID (never a
+   * client-claimed field), validated and capped by `lib/hook-audit.ts`, and
+   * stored idempotently — the agent re-sends a batch whose delivery it could
+   * not confirm.
+   *
+   * Display-only data. Nothing here authorizes or revokes anything; it is the
+   * host's own account of what it enforced.
+   */
+  private async handleHookAudit(sender: AgentSender, payload: HookAuditPayload): Promise<void> {
+    const did = this.connectedBySender.get(sender);
+    if (!did) {
+      this.sendError(sender, "Not authenticated");
+      return;
+    }
+    const actor = await ActorDAO.findByDid(did);
+    if (!actor || actor.kind !== "harness") {
+      logger.warn({ did, kind: actor?.kind }, "hook_audit from a non-harness Actor ignored");
+      return;
+    }
+    const { accepted, rejected, truncated } = parseHookAuditBatch(payload?.events);
+    try {
+      const inserted = await HookAuditDAO.insertMany(did, accepted);
+      logger.info({ did, inserted, duplicates: accepted.length - inserted, rejected, truncated }, "Hook audit accepted");
+    } catch (err) {
+      logger.error({ err, did }, "Failed to store hook audit batch");
+    }
   }
 
   // ─── Send helpers ────────────────────────────────────────────────────────

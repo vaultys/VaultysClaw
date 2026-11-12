@@ -307,6 +307,25 @@ export const WEBHOOK_EVENTS: WebhookEventDef[] = [
     group: "Actors",
   },
   {
+    // Raised by the host, not by an admin: a vaultysclaw-hooks agent reporting
+    // that its hook refused a tool call in enforce mode (docs/HARNESS_HOOKS.md).
+    // Observe-mode "would refuse" records never raise it — they refused nothing.
+    type: "harness.tool_denied",
+    label: "Harness tool call refused",
+    description:
+      "A coding harness governed by vaultysclaw-hooks refused a tool call in enforce mode — by the safety floor, a signed rule, or because no certificate granted it.",
+    group: "Actors",
+  },
+  {
+    // The console must never say "enforcing" for a harness that is not; this is
+    // the push version of that rule, for whoever is not looking at the console.
+    type: "harness.coverage_degraded",
+    label: "Harness coverage degraded",
+    description:
+      "A vaultysclaw-hooks host reported that a coding harness became less governed: a lower coverage level, enforce mode switched to observe, or hooks no longer installed at machine scope.",
+    group: "Actors",
+  },
+  {
     type: "human.invited",
     label: "Human invited",
     description: "An admin created a single-use invite link for a human to onboard directly.",

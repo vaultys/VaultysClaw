@@ -53,9 +53,13 @@ The decision itself is not here: it is `sdk-go/toolgate`, shared with `vaultyscl
 - **Coverage never overstates.** A vendor's known blind spots go in `Check.Gaps`, and any gap caps
   the level at *partial*. A new adapter that hooks less than every sensitive action must declare
   it there, or the console will say *enforcing* for a harness that is not.
-- **Answer in the shape the harness needs.** Claude Code and Codex: silence for no objection.
-  Cursor: invalid output on a permission hook is itself a refusal, so it always gets JSON (`{}`).
-  Never "allow", anywhere.
+- **Answer in the shape the harness needs.** Claude Code, Codex, Gemini, Copilot and Cline:
+  silence for no objection. Cursor: invalid output on a permission hook is itself a refusal, so it
+  always gets JSON (`{}`). Never "allow", anywhere — in Copilot it skips the approval prompt.
+- **Lists are decided item by item.** A tool that takes several commands, files or URLs (Cline's
+  `run_commands`, Gemini's `read_many_files`, any `apply_patch`) becomes one decision per item via
+  `Event.More`; one refusal refuses the call. Loosely documented arguments are read with the
+  `adapter` helpers (`Object`, `FirstString`, `PatchPaths`), which err towards more decisions.
 - **The spool is claimed, never read live.** Rename aside, wait out the grace period, delete only
   on ack. Records carry ids; the control plane dedupes on `(actorDid, eventId)`.
 

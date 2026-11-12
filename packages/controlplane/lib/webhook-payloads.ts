@@ -364,3 +364,73 @@ export function proxyConfigPayload(
     },
   };
 }
+
+/**
+ * One tool call a vaultysclaw-hooks host refused (`harness.tool_denied`).
+ *
+ * The host's audit record is already free of tool arguments, prompts and file
+ * contents (vaultysclaw-hooks never writes them); this allow-list keeps it that
+ * way and drops the working directory and session id, which identify a
+ * developer's checkout and conversation without helping anyone act on a denial.
+ * `moreInBatch` counts refusals in the same report that did not get an event
+ * of their own (see `MAX_DENIAL_EVENTS_PER_BATCH`).
+ */
+export function harnessToolDeniedPayload(
+  actor: AnyRecord,
+  e: {
+    eventId: string;
+    occurredAt: Date;
+    vendor: string;
+    tool: string | null;
+    capability: string | null;
+    resource: string | null;
+    reason: string | null;
+    floorRefused: boolean;
+    ruleId: string | null;
+    certId: string | null;
+  },
+  moreInBatch: number
+): AnyRecord {
+  return {
+    did: actor.did,
+    name: actor.name,
+    kind: actor.kind,
+    eventId: e.eventId,
+    occurredAt: e.occurredAt.toISOString(),
+    harness: e.vendor,
+    tool: e.tool,
+    capability: e.capability,
+    resource: e.resource,
+    reason: e.reason,
+    refusedBy: e.floorRefused ? "safety_floor" : e.ruleId ? "rule" : "certificate",
+    ruleId: e.ruleId,
+    moreInBatch,
+  };
+}
+
+interface CoverageLike {
+  mode: string;
+  scope: string;
+  tamperResistant: boolean;
+  vendors: readonly { vendor: string; level: string; reasons: readonly string[] }[];
+}
+
+/** What got worse in a host's coverage (`harness.coverage_degraded`). */
+export function harnessCoverageDegradedPayload(
+  actor: AnyRecord,
+  after: CoverageLike,
+  degradations: readonly { vendor: string; from: string | null; to: string; reasons: readonly string[] }[],
+  hostChanges: readonly string[]
+): AnyRecord {
+  return {
+    did: actor.did,
+    name: actor.name,
+    kind: actor.kind,
+    mode: after.mode,
+    scope: after.scope,
+    tamperResistant: after.tamperResistant,
+    hostChanges: [...hostChanges],
+    degraded: degradations.map((d) => ({ harness: d.vendor, from: d.from, to: d.to, reasons: [...d.reasons] })),
+    coverage: after.vendors.map((v) => ({ harness: v.vendor, level: v.level })),
+  };
+}

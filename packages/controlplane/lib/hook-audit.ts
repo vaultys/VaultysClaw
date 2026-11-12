@@ -177,3 +177,50 @@ export function parseHookCoverage(raw: unknown): HookCoverageInput | null {
   }
   return { mode, scope, tamperResistant: scope === "machine" && bool(r.tamperResistant), vendors };
 }
+
+/**
+ * At most this many `harness.tool_denied` events are raised per audit batch;
+ * the rest are counted in the last event's `moreInBatch`. An agent retrying a
+ * refused call in a loop must not turn into a webhook flood.
+ */
+export const MAX_DENIAL_EVENTS_PER_BATCH = 20;
+
+const RANK: Record<CoverageLevel, number> = { enforcing: 3, partial: 2, observe: 1, ungoverned: 0 };
+
+export interface CoverageDegradation {
+  vendor: string;
+  /** Null when the harness was not in the previous report (or there was none). */
+  from: CoverageLevel | null;
+  to: CoverageLevel;
+  reasons: string[];
+}
+
+/**
+ * What got worse between two coverage reports.
+ *
+ * - A harness at a lower level than before is a degradation.
+ * - A harness that appears *ungoverned* without a previous level is one too —
+ *   including on a host's very first report: "Cursor is on this laptop and
+ *   nothing governs it" is exactly the news, not a baseline to stay quiet on.
+ * - A harness that disappears from the report is not: it was uninstalled from
+ *   the host, which removes what there was to govern.
+ * - Host-wide: enforce → observe, and machine → user scope.
+ */
+export function coverageDegradations(
+  before: HookCoverageInput | null,
+  after: HookCoverageInput
+): { vendors: CoverageDegradation[]; host: string[] } {
+  const prev = new Map((before?.vendors ?? []).map((v) => [v.vendor, v.level]));
+  const vendors: CoverageDegradation[] = [];
+  for (const v of after.vendors) {
+    const from = prev.get(v.vendor) ?? null;
+    const worse = from === null ? v.level === "ungoverned" : RANK[v.level] < RANK[from];
+    if (worse) vendors.push({ vendor: v.vendor, from, to: v.level, reasons: v.reasons });
+  }
+  const host: string[] = [];
+  if (before?.mode === "enforce" && after.mode !== "enforce") host.push(`mode changed from enforce to ${after.mode}`);
+  if (before?.tamperResistant && !after.tamperResistant) {
+    host.push("hooks are no longer installed at machine scope; the governed user can remove them");
+  }
+  return { vendors, host };
+}

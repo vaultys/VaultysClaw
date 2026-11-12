@@ -45,7 +45,12 @@ import {
 import { persistChallengerCertificate, selectRedeliverableCertificate } from "./certificates";
 import { isRegisterableKind, MAX_KIND_LENGTH } from "./actor-kinds";
 import { recordEvent } from "./audit";
-import { buildAdminUrl } from "./webhook-payloads";
+import {
+  actorAdminUrl,
+  buildAdminUrl,
+  harnessCoverageDegradedPayload,
+  harnessToolDeniedPayload,
+} from "./webhook-payloads";
 import { WsSender, type AgentSender } from "./agent-sender";
 import { buildActorConfig } from "./actor-config";
 import {
@@ -78,7 +83,12 @@ import type {
   HookAuditPayload,
   HookCoveragePayload,
 } from "./protocol";
-import { parseHookAuditBatch, parseHookCoverage } from "./hook-audit";
+import {
+  coverageDegradations,
+  MAX_DENIAL_EVENTS_PER_BATCH,
+  parseHookAuditBatch,
+  parseHookCoverage,
+} from "./hook-audit";
 
 const logger = pino({ name: "ws-server" });
 const Buf = vCrypto.Buffer;
@@ -1116,7 +1126,22 @@ export class ControlPlaneWSServer {
       return;
     }
     try {
+      const before = await HookCoverageDAO.get(did);
       await HookCoverageDAO.upsert(did, report);
+      const { vendors, host } = coverageDegradations(before, report);
+      if (vendors.length > 0 || host.length > 0) {
+        const performedBy = { did, name: actor.name };
+        await recordEvent({
+          eventType: "harness.coverage_degraded",
+          payload: {
+            ...harnessCoverageDegradedPayload(actor, report, vendors, host),
+            adminUrl: actorAdminUrl(did),
+          },
+          performedBy,
+          targetType: "actor",
+          targetId: did,
+        });
+      }
     } catch (err) {
       logger.error({ err, did }, "Failed to store hook coverage");
     }
@@ -1136,7 +1161,25 @@ export class ControlPlaneWSServer {
     const { accepted, rejected, truncated } = parseHookAuditBatch(payload?.events);
     try {
       const inserted = await HookAuditDAO.insertMany(did, accepted);
-      logger.info({ did, inserted, duplicates: accepted.length - inserted, rejected, truncated }, "Hook audit accepted");
+      logger.info(
+        { did, inserted: inserted.length, duplicates: accepted.length - inserted.length, rejected, truncated },
+        "Hook audit accepted"
+      );
+      // Only rows that are new: a batch re-sent after a dropped connection
+      // inserts nothing and so raises nothing twice.
+      const denied = inserted.filter((e) => e.blocked);
+      const raised = denied.slice(0, MAX_DENIAL_EVENTS_PER_BATCH);
+      const performedBy = { did, name: actor.name };
+      for (const [i, e] of raised.entries()) {
+        const more = i === raised.length - 1 ? denied.length - raised.length : 0;
+        await recordEvent({
+          eventType: "harness.tool_denied",
+          payload: { ...harnessToolDeniedPayload(actor, e, more), adminUrl: actorAdminUrl(did) },
+          performedBy,
+          targetType: "actor",
+          targetId: did,
+        });
+      }
     } catch (err) {
       logger.error({ err, did }, "Failed to store hook audit batch");
     }

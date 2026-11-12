@@ -17,7 +17,6 @@
 package codex
 
 import (
-	"bufio"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -142,31 +141,9 @@ func fileInput(path string) json.RawMessage {
 	return b
 }
 
-// PatchPaths lists every path an apply_patch envelope touches, in order,
-// without duplicates: added, updated, deleted, and move destinations.
-//
-// Deliberately more lenient than Codex's own parser (surrounding whitespace is
-// ignored): a marker this misses but Codex accepts would be an undecided
-// write, while one this over-reads only adds a decision.
-func PatchPaths(patch string) []string {
-	prefixes := []string{"*** Add File: ", "*** Update File: ", "*** Delete File: ", "*** Move to: "}
-	seen := map[string]bool{}
-	var out []string
-	sc := bufio.NewScanner(strings.NewReader(patch))
-	sc.Buffer(make([]byte, 0, 64*1024), 8*1024*1024)
-	for sc.Scan() {
-		line := strings.TrimSpace(sc.Text())
-		for _, pre := range prefixes {
-			if strings.HasPrefix(line, pre) {
-				if path := strings.TrimSpace(strings.TrimPrefix(line, pre)); path != "" && !seen[path] {
-					seen[path] = true
-					out = append(out, path)
-				}
-			}
-		}
-	}
-	return out
-}
+// PatchPaths is adapter.PatchPaths, kept here for the tests that pin Codex's
+// envelope.
+func PatchPaths(patch string) []string { return adapter.PatchPaths(patch) }
 
 type decision struct {
 	HookSpecificOutput struct {

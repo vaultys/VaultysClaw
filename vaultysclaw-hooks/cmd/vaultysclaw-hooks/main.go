@@ -34,8 +34,11 @@ import (
 
 	// Adapters register themselves.
 	_ "github.com/vaultys/vaultysclaw-hooks/internal/adapter/claudecode"
+	_ "github.com/vaultys/vaultysclaw-hooks/internal/adapter/cline"
 	_ "github.com/vaultys/vaultysclaw-hooks/internal/adapter/codex"
+	_ "github.com/vaultys/vaultysclaw-hooks/internal/adapter/copilot"
 	_ "github.com/vaultys/vaultysclaw-hooks/internal/adapter/cursor"
+	_ "github.com/vaultys/vaultysclaw-hooks/internal/adapter/gemini"
 )
 
 var version = "dev"

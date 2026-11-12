@@ -117,6 +117,12 @@ func canonical(v string) string {
 		return "codex"
 	case "cursor-agent":
 		return "cursor"
+	case "copilot-cli", "github-copilot":
+		return "copilot"
+	case "gemini-cli":
+		return "gemini"
+	case "cline-cli":
+		return "cline"
 	}
 	return strings.ToLower(v)
 }

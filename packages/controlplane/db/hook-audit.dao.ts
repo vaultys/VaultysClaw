@@ -8,14 +8,17 @@ import type { HookAuditInput } from "@/lib/hook-audit";
  * deletes a row except the cascade from its Actor.
  */
 export class HookAuditDAO {
-  /** Insert a validated batch. Returns how many rows were new — a re-sent batch counts 0. */
-  static async insertMany(actorDid: string, events: HookAuditInput[]): Promise<number> {
-    if (events.length === 0) return 0;
-    const result = await prisma.hookAuditEvent.createMany({
+  /**
+   * Insert a validated batch and return the rows that were new — a re-sent
+   * batch returns none, which is what keeps a redelivery from re-raising its
+   * `harness.tool_denied` events.
+   */
+  static async insertMany(actorDid: string, events: HookAuditInput[]): Promise<HookAuditEvent[]> {
+    if (events.length === 0) return [];
+    return prisma.hookAuditEvent.createManyAndReturn({
       data: events.map((e) => ({ actorDid, ...e })),
       skipDuplicates: true,
     });
-    return result.count;
   }
 
   /** The most recent events for one Actor, newest first. */

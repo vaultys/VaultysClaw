@@ -3,8 +3,10 @@
 **Status:** phases 0 and 1 built (§9) — `sdk-go/toolgate`, `vaultysclaw-hooks/` with Claude Code in
 observe and enforce modes, `install` / `uninstall` / `doctor`, `enroll` / `agent`, and the audit
 trail reaching the control plane, and signed status refresh (`cert_status_request` from Go). Phase
-2 built: Codex and Cursor adapters, and the per-harness coverage indicator. Not yet: wave 3–4
-vendors, webhook events for decisions, a live run against each vendor.
+2 built: Codex and Cursor adapters, the per-harness coverage indicator, and the
+`harness.tool_denied` / `harness.coverage_degraded` webhook events. Wave 3 built: Gemini CLI,
+Copilot CLI, Cline. Not yet: OpenCode (wave 4), a live run against each vendor, the decision on
+replacing the sensor (§8).
 
 **Goal:** a single, OS-agnostic Go binary that installs itself into every coding harness through
 that harness's *own* hook system, and allows or blocks each tool call from the certificates the
@@ -114,8 +116,9 @@ Modes: `observe` (decide and record, always allow) and `enforce` (block, fail cl
 
 - **A new audit message** in `packages/controlplane/lib/protocol.ts` (e.g. `hook_audit`), with
   storage and a per-harness view: blocked and allowed calls, and sessions.
-- **New webhook events** (e.g. `harness.tool_denied`, `harness.hook_tampered`), following the
-  six-step checklist in `CLAUDE.md`.
+- **Webhook events** — built: `harness.tool_denied` (a refusal in enforce mode, capped per batch)
+  and `harness.coverage_degraded`. The latter covers what `harness.hook_tampered` was meant for: a
+  removed or broken hook shows up as a harness dropping to *ungoverned*.
 - **A coverage indicator per harness and device**: *enforcing*, *observe only*, or *ungoverned*.
   The console must never say "enforcing" for a harness whose sensitive tools are not all hooked.
   This is the same posture as the *advisory* banner in `docs/HARNESS_SUPERVISOR.md` §7.
@@ -128,7 +131,7 @@ Modes: `observe` (decide and record, always allow) and `enforce` (block, fail cl
 |---|---|---|
 | 1 | Claude Code | Parity with today's supervisor tier A; doubles as the regression test. |
 | 2 | Codex, Cursor | **Built** — see "Phase 2 as built". Checked against openai/codex rust-v0.167.2 source and cursor.com/docs/agent/hooks, not yet against a live run. |
-| 3 | Gemini CLI (`BeforeTool`), Copilot CLI (`preToolUse`), Cline (`PreToolUse`) | Pre-tool hooks documented. |
+| 3 | Gemini CLI, Copilot CLI, Cline | **Built** — see "Phase 3 (wave 3) as built". Checked against gemini-cli v0.68.0 and cline v4.1.26 source, and the Copilot CLI hooks reference (CLI 1.0.109); not yet against a live run. |
 | 4 | OpenCode | TS plugin calling the binary; known subagent bypass. |
 
 Hook formats for waves 2–4 come partly from third-party write-ups. Each adapter must be checked
@@ -294,3 +297,52 @@ outright. Shell calls arrive as `Bash`, MCP tools as `mcp__<server>__<tool>`.
 - **Not every limit is a gap.** Every vendor fails open when our process crashes or times out,
   except Cursor with `failClosed`. That is a limit of the hook model as a whole, not of any one
   harness, so it is documented here and not listed as a gap.
+
+### Phase 3 (wave 3) as built
+
+Every adapter maps its harness's tools onto toolgate's vocabulary. Where a tool takes a list —
+several commands, files or URLs — every item is decided and the call is refused if any one is.
+Where arguments are documented loosely, paths are looked up under several key names, and a file
+tool with no recognisable path is refused in enforce mode.
+
+| | Gemini CLI | Copilot CLI | Cline |
+|---|---|---|---|
+| Decision event | `BeforeTool` | `preToolUse` (camelCase payload) | `PreToolUse` executable file |
+| Refusal | `{"decision":"deny","reason"}` | `{"permissionDecision":"deny","permissionDecisionReason"}` | `{"cancel":true,"errorMessage"}` — ends the whole turn |
+| "allow" | would not skip confirmation; never sent | **skips the approval prompt**; never sent | does not exist |
+| Machine scope | system `settings.json`, merged | own file in `policy.d/` (root-owned, not group/world-writable) | **none exists** — skipped, reported ungoverned |
+| User scope | `~/.gemini/settings.json` | own file in `~/.copilot/hooks/` | scripts in `~/Documents/Cline/Hooks/` (read by the extension and the CLI) |
+| Failure | fails open on every error path | crash fails **closed**, timeout fails open | fails open on every error path |
+
+**Gemini CLI.**
+- MCP tools are named `mcp_<server>_<tool>` with single underscores, which cannot be split
+  reliably. The payload's `mcp_context` names the server, and only that is used.
+- `web_fetch` takes a prompt with the URLs inside it. Every URL in the prompt is decided, and a
+  prompt naming none is refused in enforce mode.
+- **Gaps:**
+  - No hook runs, system ones included, in a folder Gemini does not trust. Folder trust is on by
+    default.
+  - A user can disable any hook by name. `Check` reports it when the name is in a settings file,
+    but `/hooks disable` at runtime leaves no trace.
+
+**Copilot CLI.**
+- `toolArgs` is documented only as "unknown", so it is decoded both as an object and as a JSON
+  string.
+- **Gaps:**
+  - MCP tool naming is undocumented, so MCP tools are left unmapped rather than guessed.
+  - At user scope, a repository's `disableAllHooks` switches user hooks off.
+- **Unverified:** the argument names of `view`, `create` and `edit`.
+
+**Cline.**
+- **Two payload shapes.** The VS Code extension sends `preToolUse.parameters`, with every value
+  converted to a string. The CLI sends `tool_call.input`, the model's raw input. Both are read,
+  and stringified lists are decoded.
+- **Hook files.** Each hook is a whole file per event. An existing one that is not ours stops the
+  install before anything is written.
+- **Gaps:**
+  - every failure lets the call through;
+  - there is no admin-managed location, and any user can switch hooks off;
+  - the CLI's `--yolo` mode runs no hooks.
+
+Cline is therefore *partial* at best at user scope, and *ungoverned* at machine scope. The console
+says so.

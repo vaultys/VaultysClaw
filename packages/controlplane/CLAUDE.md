@@ -276,13 +276,19 @@ the Model Registry, OIDC/Entra ID single sign-on, the Access Portal shell, and t
   `createMany({ skipDuplicates })` on `(actorDid, eventId)` — the agent delivers at least once.
   Shown by `components/harness/HookAuditPanel.tsx` on the Actor page, which keeps "would refuse"
   (observe mode) visibly distinct from "blocked". **Display-only**: the host's own account of what it
-  enforced, never an input to a decision. No webhook event yet — adding `harness.tool_denied` means
-  the full checklist in the root CLAUDE.md.
+  enforced, never an input to a decision. Each *newly inserted* blocked row raises
+  `harness.tool_denied` (`createManyAndReturn` with `skipDuplicates`, so a redelivered batch raises
+  nothing), capped at `MAX_DENIAL_EVENTS_PER_BATCH` with the remainder counted in `moreInBatch` —
+  an agent retrying a refused call in a loop must not become a webhook flood. Observe-mode
+  "would refuse" rows never raise it.
 - **`handleHookCoverage`** — same gate, for `hook_coverage`: the host's per-harness level
   (enforcing / partial / observe / ungoverned), computed on the host by the same code `doctor`
   prints. `parseHookCoverage` reads an unknown level as *ungoverned* and only ever reports tamper
   resistance at machine scope; the latest report per Actor lives in `HookCoverage` (one row,
-  upserted). The panel labels a report older than 30 minutes as stale rather than current.
+  upserted). The panel labels a report older than 30 minutes as stale rather than current. A
+  report that is worse than the previous one (`coverageDegradations`: a lower level, an
+  ungoverned harness on a first report, enforce → observe, machine → user scope) raises
+  `harness.coverage_degraded`; an uninstalled harness or an improvement raises nothing.
 - **`app/admin/sensors/{page.tsx,[did]/page.tsx}`** (ported from `packages/control-plane`'s
   fleet-monitoring page) — a list (stat cards: sensor count, online now via
   `getWSServerInstance().isConnected`, total/shadow workloads via `SHADOW_THRESHOLD =

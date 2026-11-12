@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { MAX_HOOK_AUDIT_BATCH, parseHookAuditBatch, parseHookAuditEvent, parseHookCoverage } from "@/lib/hook-audit";
+import {
+  coverageDegradations,
+  MAX_HOOK_AUDIT_BATCH,
+  parseHookAuditBatch,
+  parseHookAuditEvent,
+  parseHookCoverage,
+} from "@/lib/hook-audit";
 
 const now = new Date("2026-11-12T12:00:00Z");
 
@@ -127,5 +133,33 @@ describe("parseHookCoverage", () => {
     expect(parseHookCoverage(null)).toBeNull();
     expect(parseHookCoverage({ mode: "enforce" })).toBeNull();
     expect(parseHookCoverage([])).toBeNull();
+  });
+});
+
+describe("coverageDegradations", () => {
+  const cov = (mode: string, scope: string, vendors: [string, string][]) =>
+    parseHookCoverage({ mode, scope, tamperResistant: scope === "machine", vendors: vendors.map(([vendor, level]) => ({ vendor, level })) })!;
+
+  it("flags a lower level, never a higher one", () => {
+    const before = cov("enforce", "machine", [["cursor", "enforcing"], ["codex", "observe"]]);
+    const after = cov("enforce", "machine", [["cursor", "partial"], ["codex", "enforcing"]]);
+    const d = coverageDegradations(before, after);
+    expect(d.vendors.map((v) => [v.vendor, v.from, v.to])).toEqual([["cursor", "enforcing", "partial"]]);
+    expect(d.host).toEqual([]);
+  });
+
+  it("reports an ungoverned harness on a first report, but not a governed one", () => {
+    const d = coverageDegradations(null, cov("enforce", "machine", [["cursor", "ungoverned"], ["codex", "enforcing"]]));
+    expect(d.vendors.map((v) => [v.vendor, v.from])).toEqual([["cursor", null]]);
+  });
+
+  it("does not treat an uninstalled harness as degraded", () => {
+    const d = coverageDegradations(cov("enforce", "machine", [["cursor", "enforcing"]]), cov("enforce", "machine", []));
+    expect(d.vendors).toEqual([]);
+  });
+
+  it("flags enforce → observe and machine → user", () => {
+    const d = coverageDegradations(cov("enforce", "machine", []), cov("observe", "user", []));
+    expect(d.host).toHaveLength(2);
   });
 });

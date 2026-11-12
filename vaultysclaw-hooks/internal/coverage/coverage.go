@@ -75,6 +75,7 @@ func vendorLevel(mode state.Mode, c install.Check) Vendor {
 	case len(c.Installed) == 0:
 		v.Level = Ungoverned
 		v.Reasons = append(v.Reasons, "no hooks installed")
+		v.Reasons = append(v.Reasons, c.Problems...)
 		return v
 	case !c.Decides:
 		v.Level = Ungoverned

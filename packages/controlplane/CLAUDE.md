@@ -278,6 +278,11 @@ the Model Registry, OIDC/Entra ID single sign-on, the Access Portal shell, and t
   (observe mode) visibly distinct from "blocked". **Display-only**: the host's own account of what it
   enforced, never an input to a decision. No webhook event yet — adding `harness.tool_denied` means
   the full checklist in the root CLAUDE.md.
+- **`handleHookCoverage`** — same gate, for `hook_coverage`: the host's per-harness level
+  (enforcing / partial / observe / ungoverned), computed on the host by the same code `doctor`
+  prints. `parseHookCoverage` reads an unknown level as *ungoverned* and only ever reports tamper
+  resistance at machine scope; the latest report per Actor lives in `HookCoverage` (one row,
+  upserted). The panel labels a report older than 30 minutes as stale rather than current.
 - **`app/admin/sensors/{page.tsx,[did]/page.tsx}`** (ported from `packages/control-plane`'s
   fleet-monitoring page) — a list (stat cards: sensor count, online now via
   `getWSServerInstance().isConnected`, total/shadow workloads via `SHADOW_THRESHOLD =

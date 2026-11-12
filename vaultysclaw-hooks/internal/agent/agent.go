@@ -12,6 +12,7 @@ import (
 	"github.com/vaultys/VaultysClaw/sdk-go/toolgate"
 	"github.com/vaultys/VaultysClaw/sdk-go/vconn"
 
+	"github.com/vaultys/vaultysclaw-hooks/internal/coverage"
 	"github.com/vaultys/vaultysclaw-hooks/internal/state"
 )
 
@@ -34,6 +35,9 @@ type Options struct {
 	Logger  *slog.Logger
 	// FlushInterval is how often the spool is drained. Defaults to 10s.
 	FlushInterval time.Duration
+	// Coverage, when set, computes the host's coverage report, sent as
+	// hook_coverage when it changes and at least every coverageEvery.
+	Coverage func() coverage.Report
 }
 
 // Run connects and serves until ctx is cancelled, reconnecting on its own.
@@ -64,6 +68,7 @@ func Run(ctx context.Context, o Options) error {
 
 	outbox := &Outbox{Dir: o.Paths.SpoolDir, MaxBatch: 200, Grace: 2 * time.Second, Logger: log}
 	status := &StatusRefresher{Scope: o.Scope, Paths: o.Paths, Anchor: anchor, Identity: id, Logger: log}
+	cov := &CoverageReporter{Compute: o.Coverage}
 	client := vconn.NewClientConn(vconn.ClientConfig{
 		CollectorURL: coords.URL,
 		Identity:     id,
@@ -96,7 +101,16 @@ func Run(ctx context.Context, o Options) error {
 		// not durable and needs no ack: a lost request times out and is re-sent.
 		Outbox: func() ([]vconn.Envelope, func()) {
 			msgs, ack := outbox.Next()
-			return append(status.Next(), msgs...), ack
+			covMsgs, covAck := cov.Next()
+			out := append(append(status.Next(), covMsgs...), msgs...)
+			return out, func() {
+				if covAck != nil {
+					covAck()
+				}
+				if ack != nil {
+					ack()
+				}
+			}
 		},
 		OnCertStatusResponse: func(token string) {
 			if err := status.Accept(token); err != nil {

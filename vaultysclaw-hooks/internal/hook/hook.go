@@ -100,6 +100,11 @@ func Run(o Options) (code int) {
 	}
 
 	parsed, err := ad.Parse(o.Event, payload)
+	if errors.Is(err, adapter.ErrDeferred) {
+		rec.Event, rec.Kind, rec.Session, rec.Cwd = parsed.RawEvent, string(parsed.Kind), parsed.Session, parsed.Cwd
+		rec.VendorTool, rec.Reason = parsed.VendorTool, err.Error()
+		return ad.Respond(parsed, adapter.Verdict{}, o.Stdout)
+	}
 	if err != nil {
 		rec.Error = err.Error()
 		return failure(ad, ev, cfg, &rec, o)
@@ -120,16 +125,47 @@ func Run(o Options) (code int) {
 	}
 
 	floor := state.Floor(cfg, o.Paths, o.ExtraOwn...)
-	action, mapErr := toolgate.MapToolCall(ev.Tool, ev.Input, ev.Cwd)
-	out := toolgate.Decide(state.ToolgateConfig(cfg, pol, floor), action, mapErr, t)
+	tcfg := state.ToolgateConfig(cfg, pol, floor)
+	calls := append([]adapter.Call{{Tool: ev.Tool, Input: ev.Input}}, ev.More...)
+
+	// Every call is decided; the record describes the worst outcome among them
+	// (floor, then refused, then would-refuse, then ungoverned), so one refusal refuses the
+	// invocation and an observe-mode record still names what enforce would do.
+	var action toolgate.Action
+	var out toolgate.Outcome
+	for i, c := range calls {
+		a, mapErr := toolgate.MapToolCall(c.Tool, c.Input, ev.Cwd)
+		res := toolgate.Decide(tcfg, a, mapErr, t)
+		if i == 0 || severity(res) > severity(out) {
+			action, out = a, res
+		}
+	}
 
 	rec.Decided = true
+	rec.Tool = action.Tool
 	rec.Capability, rec.Resource = string(action.Capability), action.Resource
 	rec.Blocked = !out.Allowed
 	rec.WouldDeny, rec.Unmapped, rec.NoResource, rec.FloorRefused = out.WouldDeny, out.Unmapped, out.NoResource, out.FloorRefused
 	rec.RuleID, rec.CertID, rec.Reason = out.RuleID, out.GrantingCertID, out.Reason
 
 	return respond(ad, ev, adapter.Verdict{Deny: !out.Allowed, Reason: "vaultysclaw: " + out.Reason}, o)
+}
+
+// severity orders outcomes from harmless to refused. A floor refusal ranks
+// above any other: it holds whatever the grant says, so it is the one an admin
+// must see first when one invocation trips several.
+func severity(o toolgate.Outcome) int {
+	switch {
+	case o.FloorRefused:
+		return 4
+	case !o.Allowed:
+		return 3
+	case o.WouldDeny:
+		return 2
+	case o.Unmapped || o.NoResource:
+		return 1
+	}
+	return 0
 }
 
 // failure answers an invocation that could not be evaluated normally.

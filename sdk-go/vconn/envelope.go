@@ -101,6 +101,11 @@ const (
 	// vaultysclaw-hooks (docs/HARNESS_HOOKS.md). Sent by a kind:"harness" Actor
 	// only after MsgAuthComplete; see HookAuditPayload.
 	MsgHookAudit MessageType = "hook_audit"
+	// MsgHookCoverage carries a vaultysclaw-hooks host's coverage report: per
+	// harness, whether it is enforcing, partial, observe-only or ungoverned.
+	// Its payload is owned by vaultysclaw-hooks' coverage package and passed
+	// through verbatim, like HookAuditPayload's events.
+	MsgHookCoverage MessageType = "hook_coverage"
 	// MsgCertStatusRequest asks the control plane for one certificate's current
 	// status (docs/CERTIFICATE_WEB_OF_TRUST.md §4.1). The payload carries a
 	// packcert token signed by this client's own identity — grant.SignStatusRequest.

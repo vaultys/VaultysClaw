@@ -13,6 +13,7 @@ package adapter
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"sort"
@@ -54,7 +55,23 @@ type Event struct {
 	// never written to the audit trail: arguments routinely carry file
 	// contents, secrets and prompts.
 	Input json.RawMessage
+	// More are further calls the same invocation makes — one apply_patch
+	// touching three files is three file writes. Each is decided like the first,
+	// and the invocation is refused if any of them is.
+	More []Call
 }
+
+// Call is one tool call in canonical form.
+type Call struct {
+	Tool  string
+	Input json.RawMessage
+}
+
+// ErrDeferred, returned by Parse, means another event the harness fires for
+// the same action makes the decision — for example because only that event
+// names the MCP server. It is not a parse failure: the invocation is recorded
+// and answered with no objection, in enforce mode too.
+var ErrDeferred = errors.New("adapter: decided by another event")
 
 // Verdict is the answer to a KindPreTool event.
 type Verdict struct {

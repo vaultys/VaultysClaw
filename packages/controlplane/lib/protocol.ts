@@ -48,6 +48,7 @@ export type ProtocolMessageType =
   // message, for the same reason as sensor_telemetry: an audit trail of what an
   // enforcing Actor decided has no kind-agnostic equivalent.
   | "hook_audit"
+  | "hook_coverage"
   | "error";
 
 export interface ProtocolMessage {
@@ -286,3 +287,11 @@ export interface SensorTelemetryPayload {
 export interface HookAuditPayload {
   events: unknown[];
 }
+
+/**
+ * A vaultysclaw-hooks host's coverage report: per harness, whether it is
+ * enforcing, partial, observe-only or ungoverned (vaultysclaw-hooks'
+ * `internal/coverage`). Like the audit, a claim by the governed host — validated
+ * on arrival by `parseHookCoverage`, displayed, never decided on.
+ */
+export type HookCoveragePayload = unknown;

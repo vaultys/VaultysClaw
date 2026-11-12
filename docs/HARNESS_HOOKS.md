@@ -2,8 +2,9 @@
 
 **Status:** phases 0 and 1 built (§9) — `sdk-go/toolgate`, `vaultysclaw-hooks/` with Claude Code in
 observe and enforce modes, `install` / `uninstall` / `doctor`, `enroll` / `agent`, and the audit
-trail reaching the control plane, and signed status refresh (`cert_status_request` from Go). Not
-yet: other vendors, webhook events for decisions.
+trail reaching the control plane, and signed status refresh (`cert_status_request` from Go). Phase
+2 built: Codex and Cursor adapters, and the per-harness coverage indicator. Not yet: wave 3–4
+vendors, webhook events for decisions, a live run against each vendor.
 
 **Goal:** a single, OS-agnostic Go binary that installs itself into every coding harness through
 that harness's *own* hook system, and allows or blocks each tool call from the certificates the
@@ -126,7 +127,7 @@ Modes: `observe` (decide and record, always allow) and `enforce` (block, fail cl
 | Wave | Vendors | Note |
 |---|---|---|
 | 1 | Claude Code | Parity with today's supervisor tier A; doubles as the regression test. |
-| 2 | Codex, Cursor | OpenLIT adapters exist. Verify Codex's `PreToolUse` coverage beyond `Bash`. |
+| 2 | Codex, Cursor | **Built** — see "Phase 2 as built". Checked against openai/codex rust-v0.167.2 source and cursor.com/docs/agent/hooks, not yet against a live run. |
 | 3 | Gemini CLI (`BeforeTool`), Copilot CLI (`preToolUse`), Cline (`PreToolUse`) | Pre-tool hooks documented. |
 | 4 | OpenCode | TS plugin calling the binary; known subagent bypass. |
 
@@ -147,7 +148,7 @@ against the vendor's current release when it is built.
 |---|---|
 | ~~0~~ | ~~Extract `sdk-go/toolgate`. Package skeleton (`hook`, `install`, `doctor`) for Claude Code in `observe` mode.~~ **Built** — see below. |
 | ~~1~~ | ~~`enforce` mode, `enroll` and `agent`, audit shipped to the control plane.~~ **Built** — see below. |
-| 2 | Codex and Cursor; the coverage indicator in the console. |
+| ~~2~~ | ~~Codex and Cursor; the coverage indicator in the console.~~ **Built** — see below. |
 | 3 | Remaining vendors. Decide on replacing the sensor, knowing §8. |
 
 ### Phase 0 as built
@@ -226,3 +227,70 @@ checks the status itself:
 The org's unsigned trust block is still not adopted. Persisting its TTL tighten-only would be a
 ratchet: an admin who later relaxed the org bound would never see this host follow. The harness
 kind's own `maxStatusAgeSeconds`, signed in the kindConfig, is the knob, and it moves both ways.
+
+### Phase 2 as built
+
+**Codex** (`internal/adapter/codex`, checked against openai/codex `rust-v0.167.2`). Codex follows
+Claude Code's protocol: same payload fields, same `PreToolUse` denial, and it rejects "allow"
+outright. Shell calls arrive as `Bash`, MCP tools as `mcp__<server>__<tool>`.
+
+- **`apply_patch`** carries the whole patch text, and one patch can add, update, delete and move
+  several files. Every path it touches becomes its own file-write decision (`adapter.Event.More`),
+  and the patch is refused if any of them is. Markers are matched more leniently than Codex's own
+  parser, because a missed marker is an undecided write.
+- **Install.** Machine scope writes `/etc/codex/hooks.json`, in Codex's system layer: managed, so
+  always trusted, and the user cannot disable it. User scope writes `~/.codex/hooks.json`
+  (`$CODEX_HOME`). Codex runs user-layer hooks only after the user approves them in its hook
+  review, which cannot be checked from outside, so it is declared as a gap.
+- **Blind spot:** text typed into an already-running interactive shell (`write_stdin`) never
+  reaches a hook.
+
+**Cursor** (`internal/adapter/cursor`, checked against cursor.com/docs/agent/hooks).
+
+- **Decision events.** `preToolUse` is the only event that sees writes and deletes before they
+  happen, so it is the decision point. `beforeShellExecution`, `beforeReadFile`, `beforeMCPExecution`
+  and `beforeTabFileRead` are registered as well: their payloads are better, and `cursor-agent` has
+  historically fired only some events. A call decided twice gets the same answer both times.
+- **Mapping.**
+  - `Shell` → `Bash`; `Delete` → `Write`.
+  - File paths are looked up under several key names. A file tool with no recognisable path is
+    refused in enforce mode.
+  - `MCP:<tool>` on `preToolUse` names no server, so it is deferred (`adapter.ErrDeferred`) to
+    `beforeMCPExecution`, which does name it.
+- **Output.**
+  - Invalid output on a permission hook is a refusal, so every decision event answers valid JSON:
+    a `deny`, or `{}` for no objection.
+  - Never `allow`: the docs do not say whether it skips Cursor's own approval.
+  - Every entry sets `failClosed: true`; by default Cursor lets an action through when a hook
+    crashes or times out.
+- **Install.**
+  - Machine scope merges into the enterprise `hooks.json`, which may also be managed by an MDM
+    profile, so it is never overwritten.
+  - Cursor runs every level's hooks and a `deny` from any of them wins, so a lower level cannot
+    overrule ours.
+- **Blind spots:**
+  - web search, web fetch and codebase search are not documented as reaching `preToolUse`;
+  - MCP calls are ungoverned on `cursor-agent` releases that do not fire `beforeMCPExecution`.
+- **Unverified until a live run:**
+  - that `{}` reads as "no objection";
+  - the exact `tool_input` keys for Read, Write and Delete.
+
+**Coverage indicator.**
+
+- `internal/coverage` derives one level per harness from the installer checks:
+  - **enforcing**;
+  - **partial**: enforce mode, but the vendor declares gaps;
+  - **observe**;
+  - **ungoverned**: no decision hook, or a broken one.
+- Each level below enforcing says why.
+- `doctor` prints exactly what the agent reports, so the CLI and the console cannot disagree.
+- **Reporting.** The agent sends it as `hook_coverage` whenever it changes, and every 10 minutes
+  otherwise.
+- **Control plane.**
+  - The control plane keeps the latest report per Actor (`HookCoverage`).
+  - An unknown level is read as ungoverned.
+  - Tamper resistance is only shown at machine scope.
+  - A report older than 30 minutes is labelled stale on the Actor page.
+- **Not every limit is a gap.** Every vendor fails open when our process crashes or times out,
+  except Cursor with `failClosed`. That is a limit of the hook model as a whole, not of any one
+  harness, so it is documented here and not listed as a gap.

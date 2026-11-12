@@ -38,6 +38,7 @@ import {
   CertStatusCheckDAO,
   SensorWorkloadDAO,
   HookAuditDAO,
+  HookCoverageDAO,
   ServerIdentityDAO,
   CustomCapabilityDAO,
 } from "@/db";
@@ -75,8 +76,9 @@ import type {
   RegistrationPendingPayload,
   SensorTelemetryPayload,
   HookAuditPayload,
+  HookCoveragePayload,
 } from "./protocol";
-import { parseHookAuditBatch } from "./hook-audit";
+import { parseHookAuditBatch, parseHookCoverage } from "./hook-audit";
 
 const logger = pino({ name: "ws-server" });
 const Buf = vCrypto.Buffer;
@@ -472,6 +474,9 @@ export class ControlPlaneWSServer {
         return;
       case "hook_audit":
         void this.handleHookAudit(sender, message.payload as HookAuditPayload);
+        return;
+      case "hook_coverage":
+        void this.handleHookCoverage(sender, message.payload as HookCoveragePayload);
         return;
       default:
         this.sendError(sender, `Unhandled message type: ${message.type}`);
@@ -1089,6 +1094,34 @@ export class ControlPlaneWSServer {
    * Display-only data. Nothing here authorizes or revokes anything; it is the
    * host's own account of what it enforced.
    */
+  /**
+   * A vaultysclaw-hooks host's coverage report (docs/HARNESS_HOOKS.md §6). Same
+   * gate as `hook_audit`: an authenticated `harness` Actor, attributed to the
+   * connection's DID. Display-only — the host's own account of itself.
+   */
+  private async handleHookCoverage(sender: AgentSender, payload: HookCoveragePayload): Promise<void> {
+    const did = this.connectedBySender.get(sender);
+    if (!did) {
+      this.sendError(sender, "Not authenticated");
+      return;
+    }
+    const actor = await ActorDAO.findByDid(did);
+    if (!actor || actor.kind !== "harness") {
+      logger.warn({ did, kind: actor?.kind }, "hook_coverage from a non-harness Actor ignored");
+      return;
+    }
+    const report = parseHookCoverage(payload);
+    if (!report) {
+      logger.warn({ did }, "Malformed hook_coverage ignored");
+      return;
+    }
+    try {
+      await HookCoverageDAO.upsert(did, report);
+    } catch (err) {
+      logger.error({ err, did }, "Failed to store hook coverage");
+    }
+  }
+
   private async handleHookAudit(sender: AgentSender, payload: HookAuditPayload): Promise<void> {
     const did = this.connectedBySender.get(sender);
     if (!did) {

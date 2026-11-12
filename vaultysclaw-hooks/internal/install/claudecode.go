@@ -211,6 +211,7 @@ func (c claudeCode) Check(o Options) Check {
 			}
 		}
 	}
+	chk.Decides = !contains(chk.Missing, "PreToolUse")
 	if len(chk.Installed) > 0 && contains(chk.Missing, "PreToolUse") {
 		chk.Problems = append(chk.Problems, "PreToolUse is not hooked: tool calls are not being decided")
 	}

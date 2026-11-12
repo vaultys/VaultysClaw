@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/vaultys/vaultysclaw-hooks/internal/audit"
+	"github.com/vaultys/vaultysclaw-hooks/internal/coverage"
 	"github.com/vaultys/vaultysclaw-hooks/internal/hook"
 	"github.com/vaultys/vaultysclaw-hooks/internal/install"
 	"github.com/vaultys/vaultysclaw-hooks/internal/state"
@@ -82,9 +83,26 @@ func Run(o install.Options, installers []install.Installer, w io.Writer) bool {
 			ok = false
 			fmt.Fprintf(w, "  PROBLEM:   %s\n", p)
 		}
+		for _, g := range chk.Gaps {
+			fmt.Fprintf(w, "  not seen:  %s\n", g)
+		}
 		for _, wn := range chk.Warnings {
 			fmt.Fprintf(w, "  note:      %s\n", wn)
 		}
+	}
+
+	// The same computation the agent reports to the console, so the two can
+	// never disagree about this host.
+	rep := coverage.ForHost(o, installers)
+	fmt.Fprintln(w, "\ncoverage (as reported to the control plane):")
+	if !rep.TamperResistant {
+		fmt.Fprintln(w, "  user scope — anything running as this user can remove these hooks")
+	}
+	if len(rep.Vendors) == 0 {
+		fmt.Fprintln(w, "  no supported harness found on this host")
+	}
+	for _, v := range rep.Vendors {
+		fmt.Fprintf(w, "  %-12s %s\n", v.Vendor, v.Level)
 	}
 	return ok
 }

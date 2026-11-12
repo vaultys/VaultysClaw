@@ -115,3 +115,65 @@ export function parseHookAuditBatch(
   }
   return { accepted, rejected, truncated };
 }
+
+// ─── Coverage (`hook_coverage`) ─────────────────────────────────────────────
+
+/** Coverage levels, best to worst — vaultysclaw-hooks' `coverage.Level`. */
+export const COVERAGE_LEVELS = ["enforcing", "partial", "observe", "ungoverned"] as const;
+export type CoverageLevel = (typeof COVERAGE_LEVELS)[number];
+
+const MAX_VENDORS = 32;
+const MAX_REASONS = 16;
+
+export interface HookCoverageVendor {
+  vendor: string;
+  level: CoverageLevel;
+  found: boolean;
+  reasons: string[];
+}
+
+export interface HookCoverageInput {
+  mode: "enforce" | "observe" | "unknown";
+  scope: "machine" | "user" | "unknown";
+  tamperResistant: boolean;
+  vendors: HookCoverageVendor[];
+}
+
+/**
+ * Parse a coverage report. Null when it is not recognisably one.
+ *
+ * An unknown level is not dropped but read as `ungoverned`: a newer agent
+ * reporting a level this console does not know must not be displayed as
+ * anything better than the worst it could mean. `tamperResistant` is true only
+ * when literally true *and* the scope is machine — the claim is meaningless at
+ * user scope.
+ */
+export function parseHookCoverage(raw: unknown): HookCoverageInput | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const r = raw as Record<string, unknown>;
+  if (!Array.isArray(r.vendors)) return null;
+
+  const mode = r.mode === "enforce" || r.mode === "observe" ? r.mode : "unknown";
+  const scope = r.scope === "machine" || r.scope === "user" ? r.scope : "unknown";
+  const vendors: HookCoverageVendor[] = [];
+  for (const v of r.vendors.slice(0, MAX_VENDORS)) {
+    if (!v || typeof v !== "object" || Array.isArray(v)) continue;
+    const o = v as Record<string, unknown>;
+    const vendor = str(o.vendor, MAX_SHORT);
+    if (!vendor) continue;
+    const level = (COVERAGE_LEVELS as readonly string[]).includes(o.level as string)
+      ? (o.level as CoverageLevel)
+      : "ungoverned";
+    const reasons = Array.isArray(o.reasons)
+      ? o.reasons
+          .slice(0, MAX_REASONS)
+          .map((x) => str(x, 512))
+          .filter((x): x is string => x !== null)
+      : [];
+    if (level === "ungoverned" && o.level !== "ungoverned") {
+      reasons.unshift(`unrecognised coverage level reported: ${String(o.level).slice(0, 32)}`);
+    }
+    vendors.push({ vendor, level, found: bool(o.found), reasons });
+  }
+  return { mode, scope, tamperResistant: scope === "machine" && bool(r.tamperResistant), vendors };
+}

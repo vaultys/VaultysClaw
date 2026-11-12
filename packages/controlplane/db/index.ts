@@ -6,6 +6,7 @@ export { CapabilityCertificateDAO, toLite } from "./certificate.dao";
 export { CertStatusCheckDAO } from "./cert-status-check.dao";
 export { SensorWorkloadDAO, SHADOW_THRESHOLD, type SensorWorkloadInput } from "./sensor-workload.dao";
 export { HookAuditDAO } from "./hook-audit.dao";
+export { HookCoverageDAO } from "./hook-coverage.dao";
 export { ActorLinkDAO, type ActorLinkWithActors } from "./actor-link.dao";
 export { WorkspaceDAO } from "./workspace.dao";
 export { KillSwitchDAO, GLOBAL_KILL_SWITCH_ID } from "./kill-switch.dao";

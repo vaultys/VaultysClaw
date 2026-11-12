@@ -1,7 +1,15 @@
-import { Activity, Info } from "lucide-react";
+import { Activity, Info, ShieldCheck } from "lucide-react";
 import type { HookAuditEvent } from "@prisma/client";
 import { Badge, type BadgeTone } from "@/components/ui/Badge";
-import { HookAuditDAO } from "@/db";
+import { HookAuditDAO, HookCoverageDAO } from "@/db";
+import type { HookCoverageRecord } from "@/db/hook-coverage.dao";
+import type { CoverageLevel } from "@/lib/hook-audit";
+
+/**
+ * The agent re-sends an unchanged report every 10 minutes; past this, the
+ * report is shown as stale rather than as the host's current state.
+ */
+const COVERAGE_STALE_MS = 30 * 60 * 1000;
 
 /**
  * Recent tool-call decisions reported by a `kind: "harness"` Actor's
@@ -21,12 +29,30 @@ import { HookAuditDAO } from "@/db";
  */
 export default async function HookAuditPanel({ did }: { did: string }) {
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
-  const [events, summary] = await Promise.all([
+  const [events, summary, coverage] = await Promise.all([
     HookAuditDAO.recent(did, { limit: 50, decisionsOnly: true }),
     HookAuditDAO.summary(did, since),
+    HookCoverageDAO.get(did),
   ]);
-  if (summary.lastAt === null) return null;
+  if (summary.lastAt === null && coverage === null) return null;
 
+  return (
+    <>
+      {coverage && <CoverageSection coverage={coverage} />}
+      {summary.lastAt !== null && (
+        <DecisionsSection events={events} summary={{ ...summary, lastAt: summary.lastAt }} />
+      )}
+    </>
+  );
+}
+
+function DecisionsSection({
+  events,
+  summary,
+}: {
+  events: HookAuditEvent[];
+  summary: Awaited<ReturnType<typeof HookAuditDAO.summary>> & { lastAt: Date };
+}) {
   return (
     <section className="space-y-4 border border-neutral-200/60 rounded-xl bg-background-100 p-5">
       <div className="flex items-center justify-between gap-3">
@@ -90,6 +116,78 @@ export default async function HookAuditPanel({ did }: { did: string }) {
             </tbody>
           </table>
         </div>
+      )}
+    </section>
+  );
+}
+
+const LEVEL: Record<CoverageLevel, { label: string; tone: BadgeTone }> = {
+  enforcing: { label: "Enforcing", tone: "positive" },
+  partial: { label: "Partial", tone: "attention" },
+  observe: { label: "Observe only", tone: "caution" },
+  ungoverned: { label: "Ungoverned", tone: "negative" },
+};
+
+/**
+ * Per-harness coverage, as computed on the host by the same code `doctor`
+ * prints. The console never upgrades it: an unknown level was already read as
+ * ungoverned on arrival, and a report that has gone quiet is labelled stale
+ * rather than left looking current.
+ */
+function CoverageSection({ coverage }: { coverage: HookCoverageRecord }) {
+  const stale = Date.now() - coverage.reportedAt.getTime() > COVERAGE_STALE_MS;
+  return (
+    <section className="space-y-4 border border-neutral-200/60 rounded-xl bg-background-100 p-5">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-sm font-medium text-foreground flex items-center gap-1.5">
+          <ShieldCheck className="w-4 h-4 text-foreground-500" strokeWidth={1.5} />
+          Harness coverage
+        </h2>
+        <span className="text-xs text-foreground-500 flex items-center gap-2">
+          {stale && <Badge tone="caution">Stale</Badge>}
+          Reported {coverage.reportedAt.toLocaleString()}
+        </span>
+      </div>
+
+      <div className="flex flex-wrap gap-2 text-xs">
+        <Badge tone={coverage.mode === "enforce" ? "positive" : "caution"}>
+          {coverage.mode === "enforce" ? "Enforce mode" : coverage.mode === "observe" ? "Observe mode" : "Mode unknown"}
+        </Badge>
+        {coverage.tamperResistant ? (
+          <Badge tone="positive">Machine scope</Badge>
+        ) : (
+          <Badge tone="caution">User scope — removable by the governed user</Badge>
+        )}
+      </div>
+
+      {stale && (
+        <p className="text-xs text-foreground-600">
+          No report for over 30 minutes. The host may be offline or its agent stopped; this is the last state it
+          reported, not necessarily its current one.
+        </p>
+      )}
+
+      {coverage.vendors.length === 0 ? (
+        <p className="text-xs text-foreground-500">No supported coding harness found on this host.</p>
+      ) : (
+        <ul className="divide-y divide-neutral-200/40">
+          {coverage.vendors.map((v) => {
+            const l = LEVEL[v.level] ?? LEVEL.ungoverned;
+            return (
+              <li key={v.vendor} className="py-2 flex gap-3 items-start">
+                <span className="w-28 shrink-0 text-xs font-mono text-foreground-700">{v.vendor}</span>
+                <Badge tone={l.tone}>{l.label}</Badge>
+                {v.reasons.length > 0 && (
+                  <ul className="text-xs text-foreground-600 space-y-0.5 list-disc pl-4">
+                    {v.reasons.map((r) => (
+                      <li key={r}>{r}</li>
+                    ))}
+                  </ul>
+                )}
+              </li>
+            );
+          })}
+        </ul>
       )}
     </section>
   );

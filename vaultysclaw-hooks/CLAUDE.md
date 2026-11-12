@@ -22,6 +22,7 @@ go build -o vaultysclaw-hooks ./cmd/vaultysclaw-hooks
 | `internal/state` | Per-OS paths, `config.json`, and verification of the signed anchor/grant/rule set on every invocation. |
 | `internal/install` | Writes/removes our registrations in each harness's settings; `Check` feeds `doctor`. |
 | `internal/audit` | JSONL spool, one line per invocation, each with an `id`. |
+| `internal/coverage` | Per-harness level (enforcing / partial / observe / ungoverned) from the installer checks; printed by `doctor`, sent by the agent as `hook_coverage`. |
 | `internal/agent` | `enroll`, the push handler (`ApplyPush`), the spool `Outbox` and the `StatusRefresher`; never on a decision path. |
 
 The decision itself is not here: it is `sdk-go/toolgate`, shared with `vaultysclaw-sensor`'s supervisor.
@@ -49,6 +50,12 @@ The decision itself is not here: it is `sdk-go/toolgate`, shared with `vaultyscl
   signed `cert_status_response` for the *current* grant. Its status wins over the push (a non-active
   one is final), its capabilities are intersected with the grant's, and an unverifiable file is an
   error. The refresher never writes an older response over a newer one.
+- **Coverage never overstates.** A vendor's known blind spots go in `Check.Gaps`, and any gap caps
+  the level at *partial*. A new adapter that hooks less than every sensitive action must declare
+  it there, or the console will say *enforcing* for a harness that is not.
+- **Answer in the shape the harness needs.** Claude Code and Codex: silence for no objection.
+  Cursor: invalid output on a permission hook is itself a refusal, so it always gets JSON (`{}`).
+  Never "allow", anywhere.
 - **The spool is claimed, never read live.** Rename aside, wait out the grace period, delete only
   on ack. Records carry ids; the control plane dedupes on `(actorDid, eventId)`.
 

@@ -26,6 +26,7 @@ import (
 
 	"github.com/vaultys/VaultysClaw/sdk-go/toolgate"
 	"github.com/vaultys/vaultysclaw-hooks/internal/agent"
+	"github.com/vaultys/vaultysclaw-hooks/internal/coverage"
 	"github.com/vaultys/vaultysclaw-hooks/internal/doctor"
 	"github.com/vaultys/vaultysclaw-hooks/internal/hook"
 	"github.com/vaultys/vaultysclaw-hooks/internal/install"
@@ -33,6 +34,8 @@ import (
 
 	// Adapters register themselves.
 	_ "github.com/vaultys/vaultysclaw-hooks/internal/adapter/claudecode"
+	_ "github.com/vaultys/vaultysclaw-hooks/internal/adapter/codex"
+	_ "github.com/vaultys/vaultysclaw-hooks/internal/adapter/cursor"
 )
 
 var version = "dev"
@@ -271,7 +274,16 @@ func runAgent(args []string) int {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: level}))
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
-	if err := agent.Run(ctx, agent.Options{Scope: scope, Paths: state.PathsFor(scope, dir), Version: version, Logger: logger}); err != nil {
+	installers, err := install.For("all")
+	if err != nil {
+		return fail(err)
+	}
+	binary, _ := os.Executable()
+	opts := install.Options{Scope: scope, Binary: binary, StateDir: dir}
+	if err := agent.Run(ctx, agent.Options{
+		Scope: scope, Paths: state.PathsFor(scope, dir), Version: version, Logger: logger,
+		Coverage: func() coverage.Report { return coverage.ForHost(opts, installers) },
+	}); err != nil {
 		return fail(err)
 	}
 	return 0

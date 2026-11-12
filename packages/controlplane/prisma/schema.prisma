@@ -76,6 +76,7 @@ model Actor {
   humanProfile    User?
   sensorWorkloads SensorWorkload[]
   hookAuditEvents HookAuditEvent[]
+  hookCoverage    HookCoverage?
   linksFrom       ActorLink[]              @relation("ActorLinkFrom")
   linksTo         ActorLink[]              @relation("ActorLinkTo")
   ownedActors     Actor[]                  @relation("ActorOwnership")
@@ -396,6 +397,20 @@ model HookAuditEvent {
 
   @@unique([actorDid, eventId])
   @@index([actorDid, occurredAt])
+}
+
+/// The latest coverage report from a vaultysclaw-hooks host (lib/hook-audit.ts
+/// parseHookCoverage). One row per Actor, replaced on every report.
+model HookCoverage {
+  actorDid        String   @id
+  reportedAt      DateTime
+  mode            String
+  scope           String
+  tamperResistant Boolean
+  /// HookCoverageVendor[]
+  vendors         Json
+
+  actor Actor @relation(fields: [actorDid], references: [did], onDelete: Cascade)
 }
 
 // ─── Actor relationships ──────────────────────────────────────────────────────

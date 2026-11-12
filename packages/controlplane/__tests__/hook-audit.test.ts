@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { MAX_HOOK_AUDIT_BATCH, parseHookAuditBatch, parseHookAuditEvent } from "@/lib/hook-audit";
+import { MAX_HOOK_AUDIT_BATCH, parseHookAuditBatch, parseHookAuditEvent, parseHookCoverage } from "@/lib/hook-audit";
 
 const now = new Date("2026-11-12T12:00:00Z");
 
@@ -78,5 +78,54 @@ describe("parseHookAuditBatch", () => {
 
   it("returns nothing for a payload that is not an array", () => {
     expect(parseHookAuditBatch({ not: "an array" }, now).accepted).toEqual([]);
+  });
+});
+
+describe("parseHookCoverage", () => {
+  const report = {
+    mode: "enforce",
+    scope: "machine",
+    tamperResistant: true,
+    vendors: [
+      { vendor: "claude-code", level: "enforcing", found: true },
+      { vendor: "cursor", level: "partial", found: true, reasons: ["web search is not hooked"] },
+    ],
+  };
+
+  it("accepts a well-formed report", () => {
+    const r = parseHookCoverage(report)!;
+    expect(r.mode).toBe("enforce");
+    expect(r.tamperResistant).toBe(true);
+    expect(r.vendors.map((v) => v.level)).toEqual(["enforcing", "partial"]);
+    expect(r.vendors[1].reasons).toEqual(["web search is not hooked"]);
+  });
+
+  it("reads an unknown level as ungoverned, never as something better", () => {
+    const r = parseHookCoverage({ ...report, vendors: [{ vendor: "x", level: "super-enforcing" }] })!;
+    expect(r.vendors[0].level).toBe("ungoverned");
+    expect(r.vendors[0].reasons[0]).toMatch(/unrecognised coverage level/);
+  });
+
+  it("never claims tamper resistance at user scope", () => {
+    expect(parseHookCoverage({ ...report, scope: "user" })!.tamperResistant).toBe(false);
+    expect(parseHookCoverage({ ...report, tamperResistant: "yes" })!.tamperResistant).toBe(false);
+  });
+
+  it("caps and clips what a host can make it store", () => {
+    const many = Array.from({ length: 100 }, (_, i) => ({
+      vendor: `v${i}`,
+      level: "observe",
+      reasons: Array.from({ length: 50 }, () => "r".repeat(5000)),
+    }));
+    const r = parseHookCoverage({ ...report, vendors: many })!;
+    expect(r.vendors).toHaveLength(32);
+    expect(r.vendors[0].reasons).toHaveLength(16);
+    expect(r.vendors[0].reasons[0]).toHaveLength(512);
+  });
+
+  it("rejects what is not a report", () => {
+    expect(parseHookCoverage(null)).toBeNull();
+    expect(parseHookCoverage({ mode: "enforce" })).toBeNull();
+    expect(parseHookCoverage([])).toBeNull();
   });
 });

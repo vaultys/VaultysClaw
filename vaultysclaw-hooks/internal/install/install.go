@@ -49,6 +49,14 @@ type Check struct {
 	// Missing the ones that should have one and do not.
 	Installed []string
 	Missing   []string
+	// Decides reports whether every event this harness needs for a decision is
+	// hooked. A harness with some audit hooks but no decision hook is watched,
+	// not governed.
+	Decides bool
+	// Gaps are sensitive actions this harness's hook system never shows a hook,
+	// whatever is installed — fixed by the vendor's protocol, not by us. A
+	// non-empty list means "enforcing" would overstate what is governed.
+	Gaps []string
 	// Problems are things that make the installation not work as intended.
 	Problems []string
 	// Warnings are limits the operator should know about but cannot fix here.
@@ -105,6 +113,10 @@ func canonical(v string) string {
 	switch strings.ToLower(v) {
 	case "cc", "claude", "claudecode":
 		return "claude-code"
+	case "openai-codex":
+		return "codex"
+	case "cursor-agent":
+		return "cursor"
 	}
 	return strings.ToLower(v)
 }

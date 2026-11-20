@@ -268,3 +268,14 @@ Note `stripSensitive` matches the substring `apikey` case-insensitively, so a bo
   `await requireAdmin()` (`lib/require-admin.ts`).
 - **Never change a `conformance/` fixture on one side only** — the TS and Go suites both consume
   them, and that is the entire point.
+
+## Issues GitHub
+
+Pour créer, découper ou rattacher une issue, suivre le skill Claude Code `vaultys-issue`
+(source : https://github.com/vaultys/VaultysPilot/blob/main/claude/vaultys-issue/SKILL.md).
+S'il n'est pas installé, le lire avec :
+`gh api repos/vaultys/VaultysPilot/contents/claude/vaultys-issue/SKILL.md --jq .content | base64 -d`
+
+En bref : les tâches de ce repo vont dans le Project VaultysClaw (#17), au statut Backlog par défaut ;
+une issue qui fait partie d'une release est rattachée comme sous-issue de l'issue de release
+dans vaultys/VaultysPilot (ex. « VaultysHub 2026-R4 ») ; pas de milestone.

@@ -4,6 +4,7 @@ import { UserLoginChannel } from "@/lib/user-login-channel";
 import { parseP2PConnectWindowSeconds } from "@/lib/login-window";
 import { SETTINGS_KEYS } from "@/lib/org-settings";
 import { SettingsDAO } from "@/db";
+import { isBootstrapRegistrationAllowed } from "@/lib/bootstrap-token";
 
 /**
  * GET /api/public/user/p2p-connect — open a server-side PeerJS channel and
@@ -14,9 +15,18 @@ import { SettingsDAO } from "@/db";
  * `connectWindowSeconds` comes back with it: the same number the background session is bounded by,
  * so the page can count it down instead of spinning indefinitely against a server that has already
  * given up. Read once here and passed both ways, rather than read independently on each side.
+ *
+ * With no human yet this hands out a *registration* certificate, and completing it makes the caller
+ * the first administrator — so outside dev/simulator that branch requires the deployment's setup
+ * token (`?setup=…`, `lib/bootstrap-token.ts`). Without it, whoever reached this URL first owned the
+ * deployment. 404 on refusal, same as `/api/public/user/connect`.
  */
-export async function GET() {
+export async function GET(req: Request) {
   const hasHuman = await UserLoginChannel.hasAnyHuman();
+  if (!hasHuman) {
+    const setup = new URL(req.url).searchParams.get("setup");
+    if (!(await isBootstrapRegistrationAllowed(setup))) return new NextResponse(null, { status: 404 });
+  }
   const cert = hasHuman
     ? await UserLoginChannel.createConnectionCertificate()
     : await UserLoginChannel.createRegistrationCertificate();

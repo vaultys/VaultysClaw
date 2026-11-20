@@ -60,7 +60,7 @@ jobs:
   # `sdk-go/capability`. A change that breaks only the Go reading of a fixture
   # would have gone green here.
   #
-  # Two independent modules, no `go.work` — `vaultysclaw-sensor` reaches the SDK
+  # Independent modules, no `go.work` — `vaultysclaw-sensor` and `vaultysclaw-hooks` reach the SDK
   # through a `replace` directive pointing at `../sdk-go`, so a plain checkout is
   # all either one needs. The matrix keeps them parallel and, more usefully, names
   # which module failed in the job title.
@@ -70,7 +70,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        module: [sdk-go, vaultysclaw-sensor]
+        module: [sdk-go, vaultysclaw-sensor, vaultysclaw-hooks]
     defaults:
       run:
         working-directory: ${{ matrix.module }}

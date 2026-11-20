@@ -72,6 +72,30 @@ const RENDERERS: Record<string, Renderer> = {
     // turns enforcement off should not arrive looking like routine news.
     type: "warning",
   }),
+  "harness.tool_denied": (p) => ({
+    title: "Harness tool call refused",
+    body:
+      `${str(p.name)} (${str(p.harness)}): ${str(p.tool)} on ${str(p.resource, "no resource")} — ` +
+      `${str(p.reason, "refused")}` +
+      (typeof p.moreInBatch === "number" && p.moreInBatch > 0 ? ` (+${p.moreInBatch} more in the same report)` : ""),
+    // Warning, not failure: the gate worked. What needs a human is the agent
+    // that tried, or a policy that is narrower than the work needs.
+    type: "warning",
+  }),
+  "harness.coverage_degraded": (p) => {
+    const degraded = Array.isArray(p.degraded) ? (p.degraded as Record<string, unknown>[]) : [];
+    const host = Array.isArray(p.hostChanges) ? (p.hostChanges as unknown[]).map((h) => str(h)) : [];
+    const lines = [
+      ...degraded.map((d) => `${str(d.harness)}: ${str(d.from, "new")} → ${str(d.to)}`),
+      ...host,
+    ];
+    return {
+      title: "Harness coverage degraded",
+      body: `${str(p.name)}: ${lines.join("; ") || "coverage reduced"}.`,
+      // Failure: something on this host now runs less governed than it did.
+      type: "failure",
+    };
+  },
   "actor.deleted": (p) => ({
     title: "Actor deleted",
     body: `${str(p.name)} (${str(p.kind)}) was removed; ${num(p.revokedCertificateCount)} certificate(s) revoked.`,

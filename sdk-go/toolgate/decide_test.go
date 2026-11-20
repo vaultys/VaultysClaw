@@ -1,4 +1,4 @@
-package supervise
+package toolgate
 
 import (
 	"encoding/json"
@@ -283,7 +283,13 @@ func TestFloorNamesWhatItRefused(t *testing.T) {
 	// An operator has to be able to tell "your own grant file" from a generic
 	// floor entry, or the denial is unactionable.
 	floor := NewFloor(nil, FloorPath{Path: "/etc/vaultys/grant.token", Reason: "this supervisor's own capability grant"})
-	refused, why := floor.Refuses("/etc/vaultys/grant.token")
+	// Queried resolved, as Decide does (MapToolCall resolves every path): on
+	// macOS /etc is itself a symlink to /private/etc.
+	p, err := ResolvePath("/etc/vaultys/grant.token", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	refused, why := floor.Refuses(p)
 	if !refused {
 		t.Fatal("an extra floor path must be refused")
 	}

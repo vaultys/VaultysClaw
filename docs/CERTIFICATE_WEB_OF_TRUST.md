@@ -7,6 +7,11 @@ action") with a concrete protocol. Complements
 the Foundation → Enterprise gaps that document identifies under "Identity & Authentication" and
 "Access Control."
 
+**Planned replacement of the grant formats:** [`BISCUIT_CERTIFICATES.md`](BISCUIT_CERTIFICATES.md)
+proposes making every capability grant (and delegation, cert B) a Biscuit token bound to VaultysId,
+deprecating the `packcert` and `challenger` formats of §3.2–§3.3. The ledger, status protocol and
+trust policy described here stay.
+
 ## 1. Core principle
 
 **No party is forced offline; every party can be made untrustworthy.**

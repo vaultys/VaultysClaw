@@ -86,10 +86,10 @@ export default async function AuditLogPage({
   );
 
   return (
-    <div className="p-6 space-y-4">
+    <div className="p-6 space-y-6">
       <PageChrome
-        toolbar={{ title: "Audit Log", description: `${total} entr${total === 1 ? "y" : "ies"}` }}
-        breadcrumbs={[{ label: "Audit Log" }]}
+        toolbar={{ title: "Audit log", description: `${total} entr${total === 1 ? "y" : "ies"}` }}
+        breadcrumbs={[{ label: "Audit log" }]}
       />
 
       <AuditTimelineExplorer
@@ -102,11 +102,11 @@ export default async function AuditLogPage({
 
       <form className="flex flex-wrap items-end gap-3 border border-neutral-200/60 rounded-xl p-4 bg-background-100">
         <div>
-          <label className="block text-xs font-medium text-foreground-500 uppercase mb-1">Event type</label>
+          <label className="block text-xs text-foreground-500 mb-1">Event type</label>
           <select
             name="eventType"
             defaultValue={eventType ?? ""}
-            className="border border-neutral-200 rounded-lg px-2.5 py-1.5 text-sm bg-background"
+            className="border border-neutral-200 rounded-lg px-2.5 py-1.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400"
           >
             <option value="">All events</option>
             {eventTypes.map((t) => (
@@ -117,7 +117,7 @@ export default async function AuditLogPage({
           </select>
         </div>
         <div>
-          <label className="block text-xs font-medium text-foreground-500 uppercase mb-1">Actor DID</label>
+          <label className="block text-xs text-foreground-500 mb-1">Actor DID</label>
           <div className="w-72">
             <ActorSearchSelect
               name="actorDid"
@@ -128,7 +128,7 @@ export default async function AuditLogPage({
                 kind: actor.kind,
               }))}
               emptyLabel="All actors"
-              placeholder="Filter actors by name, kind, or DID..."
+              placeholder="Filter actors by name, kind or DID"
             />
           </div>
         </div>
@@ -136,12 +136,15 @@ export default async function AuditLogPage({
         {to && <input type="hidden" name="to" value={to} />}
         <button
           type="submit"
-          className="px-4 py-1.5 bg-primary-600 hover:bg-primary-500 text-white text-sm font-medium rounded-lg transition-colors"
+          className="rounded-lg bg-primary-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-primary-500"
         >
           Filter
         </button>
         {(eventType || actorDid || from || to) && (
-          <Link href="/admin/audit" className="text-sm text-foreground-500 hover:underline">
+          <Link
+            href="/admin/audit"
+            className="py-1.5 text-sm text-foreground-600 transition-colors hover:text-foreground"
+          >
             Clear
           </Link>
         )}

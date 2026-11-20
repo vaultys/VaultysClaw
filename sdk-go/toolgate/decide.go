@@ -1,4 +1,4 @@
-package supervise
+package toolgate
 
 import (
 	"errors"

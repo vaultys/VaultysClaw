@@ -37,17 +37,22 @@ export default async function GraphPage({
       />
 
       {data.truncated && (
-        <div className="border border-warning-200 bg-warning-50 rounded-xl px-4 py-3 text-sm text-warning-800">
-          Showing {ESTATE_NODE_CAP.toLocaleString()} of {data.totalActors.toLocaleString()} actors —
-          connected ones first, then the most recently registered. Narrow by workspace to see a
-          complete picture of one part of the estate.
+        <div className="flex gap-2.5 rounded-lg border border-neutral-200/60 bg-background-100 px-4 py-3 text-sm text-foreground-600">
+          <span aria-hidden className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-warning-500" />
+          <p>
+            Showing{" "}
+            <span className="font-mono tabular-nums">{ESTATE_NODE_CAP.toLocaleString()}</span> of{" "}
+            <span className="font-mono tabular-nums">{data.totalActors.toLocaleString()}</span>{" "}
+            actors — connected ones first, then the most recently registered. Narrow by workspace to
+            see a complete picture of one part of the estate.
+          </p>
         </div>
       )}
 
       {data.nodes.length === 0 ? (
-        <div className="border border-dashed border-neutral-300 rounded-xl p-10 text-center">
-          <h2 className="text-sm font-semibold text-foreground mb-1">No relationships recorded yet</h2>
-          <p className="text-sm text-foreground-500">
+        <div className="rounded-xl border border-dashed border-neutral-200 px-4 py-6 text-sm text-foreground-500">
+          <h2 className="font-medium text-foreground mb-1">No relationships recorded yet</h2>
+          <p>
             Set an owner, or add a link, from any Actor&apos;s detail page — the Relationships tab —
             and the graph fills in from there.
           </p>

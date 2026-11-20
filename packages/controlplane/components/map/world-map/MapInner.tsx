@@ -69,14 +69,14 @@ export function MapInner({
         <div ref={mapDivRef} style={{ width: "100%", height: "100%" }} className="rounded-l-lg" />
 
         <div className="absolute top-2 right-2 z-[1000] flex items-center gap-1">
-          <button onClick={zoomOut} className={ZOOM_BTN} title="Zoom out">
-            <Minus size={14} />
+          <button onClick={zoomOut} className={ZOOM_BTN} title="Zoom out" aria-label="Zoom out">
+            <Minus size={14} strokeWidth={1.5} />
           </button>
-          <button onClick={zoomIn} className={ZOOM_BTN} title="Zoom in">
-            <Plus size={14} />
+          <button onClick={zoomIn} className={ZOOM_BTN} title="Zoom in" aria-label="Zoom in">
+            <Plus size={14} strokeWidth={1.5} />
           </button>
-          <button onClick={resetView} className={ZOOM_BTN} title="Reset view">
-            <RotateCcw size={14} />
+          <button onClick={resetView} className={ZOOM_BTN} title="Reset view" aria-label="Reset view">
+            <RotateCcw size={14} strokeWidth={1.5} />
           </button>
         </div>
       </div>

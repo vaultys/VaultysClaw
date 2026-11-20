@@ -1,34 +1,34 @@
-import { Monitor, Wifi, Cpu, Shield, BadgeCheck, WifiOff } from "lucide-react";
 import { ActorDAO, SensorWorkloadDAO, WorkspaceDAO, ActorLinkDAO, SHADOW_THRESHOLD } from "@/db";
 import PageChrome from "@/components/layout/PageChrome";
 import SensorDirectoryPanel from "@/components/SensorDirectoryPanel";
 import { getWSServerInstance } from "@/lib/ws-server";
 import { resolveManagingActors } from "@/lib/workload-status";
 
+/** A count tile, the same shape as the Overview's: a dot only when the number carries a
+ *  state an operator should notice (connected sensors, shadow agents waiting on a look). */
 function StatCard({
   label,
   value,
-  icon: Icon,
   tone = "neutral",
 }: {
   label: string;
   value: number;
-  icon: React.ElementType;
   tone?: "neutral" | "success" | "warning";
 }) {
-  const toneClasses: Record<string, string> = {
-    neutral: "text-foreground",
-    success: "text-success-600",
-    warning: "text-warning-600",
+  const dot: Record<string, string | null> = {
+    neutral: null,
+    success: "bg-success-600",
+    warning: "bg-warning-500",
   };
+  const toneDot = dot[tone] ?? null;
   return (
-    <div className="border border-neutral-200/60 rounded-xl bg-background-100 p-4 flex items-center gap-3">
-      <div className="w-9 h-9 rounded-lg bg-background-200/60 flex items-center justify-center shrink-0">
-        <Icon className="w-4 h-4 text-foreground-500" />
+    <div className="border border-neutral-200/60 rounded-xl bg-background-100 p-5">
+      <div className="flex items-center gap-2 text-sm text-foreground-600">
+        {toneDot && <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${toneDot}`} />}
+        {label}
       </div>
-      <div>
-        <div className={`text-xl font-semibold ${toneClasses[tone]}`}>{value}</div>
-        <div className="text-xs text-foreground-500">{label}</div>
+      <div className="mt-2 font-mono text-2xl font-medium tabular-nums text-foreground">
+        {value.toLocaleString("en-US")}
       </div>
     </div>
   );
@@ -83,23 +83,21 @@ export default async function SensorsPage() {
       />
 
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <StatCard label="Sensors" value={sensors.length} icon={Monitor} />
-        <StatCard label="Online now" value={onlineCount} icon={Wifi} tone="success" />
-        <StatCard label="AI workloads" value={workloads.length} icon={Cpu} />
-        <StatCard label="Managed" value={managedCount} icon={BadgeCheck} tone="success" />
+        <StatCard label="Sensors" value={sensors.length} />
+        <StatCard label="Online now" value={onlineCount} tone={onlineCount > 0 ? "success" : "neutral"} />
+        <StatCard label="AI workloads" value={workloads.length} />
+        <StatCard label="Managed" value={managedCount} />
         <StatCard
           label="Shadow agents"
           value={shadowCount}
-          icon={Shield}
           tone={shadowCount > 0 ? "warning" : "neutral"}
         />
       </div>
 
       {sensors.length === 0 ? (
-        <div className="border border-dashed border-neutral-300 rounded-xl p-10 text-center">
-          <WifiOff className="w-8 h-8 text-foreground-400 mx-auto mb-2" />
-          <h2 className="text-sm font-semibold text-foreground mb-1">No sensors yet</h2>
-          <p className="text-sm text-foreground-500">
+        <div className="rounded-xl border border-dashed border-neutral-200 px-4 py-6 text-sm text-foreground-500">
+          <h2 className="font-medium text-foreground mb-1">No sensors yet</h2>
+          <p>
             Install vaultysclaw-sensor on a machine and approve its connection under Actors to see
             it here.
           </p>

@@ -97,6 +97,23 @@ const (
 	// derived from the unsigned half must therefore be unable to *weaken* what
 	// this host enforces — see ActorConfigPayload.
 	MsgActorConfig MessageType = "actor_config"
+	// MsgHookAudit carries a batch of tool-call decisions recorded by
+	// vaultysclaw-hooks (docs/HARNESS_HOOKS.md). Sent by a kind:"harness" Actor
+	// only after MsgAuthComplete; see HookAuditPayload.
+	MsgHookAudit MessageType = "hook_audit"
+	// MsgHookCoverage carries a vaultysclaw-hooks host's coverage report: per
+	// harness, whether it is enforcing, partial, observe-only or ungoverned.
+	// Its payload is owned by vaultysclaw-hooks' coverage package and passed
+	// through verbatim, like HookAuditPayload's events.
+	MsgHookCoverage MessageType = "hook_coverage"
+	// MsgCertStatusRequest asks the control plane for one certificate's current
+	// status (docs/CERTIFICATE_WEB_OF_TRUST.md §4.1). The payload carries a
+	// packcert token signed by this client's own identity — grant.SignStatusRequest.
+	MsgCertStatusRequest MessageType = "cert_status_request"
+	// MsgCertStatusResponse is the control plane's answer: a token signed by the
+	// control plane's key (grant.VerifyStatusResponse), so it can be persisted and
+	// re-verified offline rather than trusted because of the socket it came on.
+	MsgCertStatusResponse MessageType = "cert_status_response"
 )
 
 // Envelope is the JSON message wrapper exchanged over the WebSocket
@@ -264,6 +281,24 @@ type ActorConfigPayload struct {
 	// Trust is the org's fail mode and staleness bound — **unsigned**, like
 	// KindConfig, and subject to the same rule.
 	Trust *ActorConfigTrust `json:"trust"`
+}
+
+// HookAuditPayload is a batch of vaultysclaw-hooks audit records, mirrored by
+// packages/controlplane/lib/protocol.ts's interface of the same name.
+//
+// Each event is one spool line, passed through verbatim: the hook that wrote it
+// is the schema's owner, and re-encoding it here would be a second copy of that
+// schema to keep in step. Every event carries an `id`, so a batch re-sent after
+// a dropped connection is deduplicated by the receiver.
+type HookAuditPayload struct {
+	Events []json.RawMessage `json:"events"`
+}
+
+// CertStatusPayload is the payload of both cert-status messages, mirroring
+// packages/controlplane/lib/protocol.ts's CertStatusRequestPayload and
+// CertStatusResponsePayload: the signed token as-is.
+type CertStatusPayload struct {
+	CertToken string `json:"certToken"`
 }
 
 // ActorConfigTrust is the unsigned trust block.

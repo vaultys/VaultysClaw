@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 import { encodeDidParam } from "@/lib/actor-route";
 import { ActorGraph } from "./ActorGraph";
 import type { ActorGraphData } from "./actor-graph/types";
@@ -27,11 +28,9 @@ export function ActorEgoGraph({
 
   if (data.nodes.length <= 1) {
     return (
-      <div className="border border-dashed border-neutral-300 rounded-xl p-8 text-center">
-        <p className="text-sm text-foreground-500">
-          Nothing to draw yet — this actor has no owner, owns nothing, and has no links.
-        </p>
-      </div>
+      <p className="rounded-xl border border-dashed border-neutral-200 px-4 py-6 text-sm text-foreground-500">
+        Nothing to draw yet — this actor has no owner, owns nothing, and has no links
+      </p>
     );
   }
 
@@ -43,8 +42,8 @@ export function ActorEgoGraph({
         height={420}
         className="border border-neutral-200/60 rounded-xl overflow-hidden"
       />
-      <div className="flex items-center gap-3 text-xs text-foreground-400">
-        <span>
+      <div className="flex flex-wrap items-center gap-3 text-xs text-foreground-500">
+        <span className="tabular-nums">
           {data.nodes.length - 1} neighbour{data.nodes.length === 2 ? "" : "s"} within {depth} hop
           {depth === 1 ? "" : "s"}
         </span>
@@ -54,11 +53,21 @@ export function ActorEgoGraph({
               `/admin/actors/${encoded}?tab=relationships${depth === 1 ? "&depth=2" : ""}`
             )
           }
-          className="font-medium text-primary-600 hover:text-primary-500"
+          className="inline-flex items-center gap-1 font-medium text-primary-700 hover:underline"
         >
-          {depth === 1 ? "Show 2 hops →" : "← Back to 1 hop"}
+          {depth === 1 ? (
+            <>
+              Show 2 hops
+              <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.5} />
+            </>
+          ) : (
+            <>
+              <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.5} />
+              Back to 1 hop
+            </>
+          )}
         </button>
-        {data.truncated && <span>Truncated — too many neighbours to draw them all.</span>}
+        {data.truncated && <span>Truncated — too many neighbours to draw them all</span>}
       </div>
     </div>
   );

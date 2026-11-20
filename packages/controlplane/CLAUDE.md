@@ -105,6 +105,17 @@ the Model Registry, OIDC/Entra ID single sign-on, the Access Portal shell, and t
   endpoint that does not exist here should not advertise that it exists elsewhere) and serves the
   login branch everywhere. Gating the whole route — which it did — also locked out every human whose
   only credential *is* a browser-held key, i.e. everyone who registered through SSO.
+  **The wallet QR route (`/api/public/user/p2p-connect`) had the same hole** and is now gated the
+  same way — but since it is the only path a production install has to its first admin, both
+  routes' register branch opens with the deployment's **setup token** (`?setup=…`,
+  `lib/bootstrap-token.ts`): `CONTROLPLANE_BOOTSTRAP_TOKEN`, or one generated at boot while no human
+  exists, printed once to the server log as a `/login?setup=…` URL and stored only as a sha256.
+  Dev/simulator (`isBrowserBootstrapEnabled`) need no token. The invite routes check the invitation
+  before creating anything, so an arbitrary token no longer opens a PeerJS channel per request.
+  **A login only ever completes on a COMPLETE Challenger handshake.** The QR path used to accept a
+  wallet that went silent at STEP1 as "identity already proven"; at STEP1 only the server has
+  signed, and the peer's `pk1` is an unsigned claim — so that let anyone log in as any human whose
+  public key they knew. Never reintroduce a timeout or partial-state success path there.
   `NEXT_PUBLIC_ALLOW_DEV_LOGIN=1` is the explicit opt-in for the closed branch, used only by the
   simulator demo stack; being `NEXT_PUBLIC_` it is inlined at build time, so a production image built
   without it cannot have the path switched on by an environment variable later.
@@ -257,6 +268,27 @@ the Model Registry, OIDC/Entra ID single sign-on, the Access Portal shell, and t
   authenticated identity (`connectedBySender`), never the client-claimed `agentId` field the Go
   sensor also sets on the envelope. Also merges the batch's `Device.hostname`/`os` into the Actor's
   `kindConfig` (`ActorDAO.mergeKindConfig`) — kind-specific fields don't get their own columns.
+- **`handleHookAudit`** (also `lib/ws-server.ts`) — the second kind-specific message: a
+  `kind: "harness"` Actor running `vaultysclaw-hooks` ships its tool-call decision trail
+  (docs/HARNESS_HOOKS.md). Accepted only from an authenticated harness, attributed to the
+  connection's DID, validated by `lib/hook-audit.ts` (unknown fields dropped, strings clipped,
+  future timestamps clamped, ≤500 per batch) and stored in `HookAuditEvent` with
+  `createMany({ skipDuplicates })` on `(actorDid, eventId)` — the agent delivers at least once.
+  Shown by `components/harness/HookAuditPanel.tsx` on the Actor page, which keeps "would refuse"
+  (observe mode) visibly distinct from "blocked". **Display-only**: the host's own account of what it
+  enforced, never an input to a decision. Each *newly inserted* blocked row raises
+  `harness.tool_denied` (`createManyAndReturn` with `skipDuplicates`, so a redelivered batch raises
+  nothing), capped at `MAX_DENIAL_EVENTS_PER_BATCH` with the remainder counted in `moreInBatch` —
+  an agent retrying a refused call in a loop must not become a webhook flood. Observe-mode
+  "would refuse" rows never raise it.
+- **`handleHookCoverage`** — same gate, for `hook_coverage`: the host's per-harness level
+  (enforcing / partial / observe / ungoverned), computed on the host by the same code `doctor`
+  prints. `parseHookCoverage` reads an unknown level as *ungoverned* and only ever reports tamper
+  resistance at machine scope; the latest report per Actor lives in `HookCoverage` (one row,
+  upserted). The panel labels a report older than 30 minutes as stale rather than current. A
+  report that is worse than the previous one (`coverageDegradations`: a lower level, an
+  ungoverned harness on a first report, enforce → observe, machine → user scope) raises
+  `harness.coverage_degraded`; an uninstalled harness or an improvement raises nothing.
 - **`app/admin/sensors/{page.tsx,[did]/page.tsx}`** (ported from `packages/control-plane`'s
   fleet-monitoring page) — a list (stat cards: sensor count, online now via
   `getWSServerInstance().isConnected`, total/shadow workloads via `SHADOW_THRESHOLD =

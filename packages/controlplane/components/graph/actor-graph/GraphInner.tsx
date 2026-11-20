@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Minus, Pause, Play, Plus, RotateCcw } from "lucide-react";
+import { ArrowRight, Minus, Pause, Play, Plus, RotateCcw } from "lucide-react";
 import { useTheme } from "@/components/ThemeProvider";
 import { GraphLegend } from "./GraphLegend";
 import { GraphTooltip } from "./GraphTooltip";
@@ -55,17 +55,18 @@ export function GraphInner({
   if (!webgl) {
     return (
       <div
-        className={`border border-dashed border-neutral-300 rounded-xl p-10 text-center ${className ?? ""}`}
+        className={`rounded-xl border border-dashed border-neutral-200 px-4 py-6 text-sm text-foreground-500 ${className ?? ""}`}
       >
-        <h2 className="text-sm font-semibold text-foreground mb-1">3D graph unavailable</h2>
-        <p className="text-sm text-foreground-500">
+        <h2 className="font-medium text-foreground mb-1">3D graph unavailable</h2>
+        <p>
           This browser has no WebGL context, so the graph can&apos;t be drawn. {summary}.
         </p>
         <Link
           href="/admin/actors"
-          className="mt-3 inline-block text-sm font-medium text-primary-600 hover:text-primary-500"
+          className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-primary-700 hover:underline"
         >
-          Browse actors as a list →
+          Browse actors as a list
+          <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.5} />
         </Link>
       </div>
     );
@@ -82,13 +83,13 @@ export function GraphInner({
 
       <div className="absolute top-2 right-2 z-10 flex items-center gap-1">
         <button onClick={zoomOut} className={BTN} title="Zoom out" aria-label="Zoom out">
-          <Minus size={14} />
+          <Minus size={14} strokeWidth={1.5} />
         </button>
         <button onClick={zoomIn} className={BTN} title="Zoom in" aria-label="Zoom in">
-          <Plus size={14} />
+          <Plus size={14} strokeWidth={1.5} />
         </button>
         <button onClick={resetView} className={BTN} title="Reset view" aria-label="Reset view">
-          <RotateCcw size={14} />
+          <RotateCcw size={14} strokeWidth={1.5} />
         </button>
         <button
           onClick={togglePause}
@@ -96,7 +97,7 @@ export function GraphInner({
           title={paused ? "Resume layout" : "Pause layout"}
           aria-label={paused ? "Resume layout" : "Pause layout"}
         >
-          {paused ? <Play size={14} /> : <Pause size={14} />}
+          {paused ? <Play size={14} strokeWidth={1.5} /> : <Pause size={14} strokeWidth={1.5} />}
         </button>
       </div>
 

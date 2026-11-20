@@ -7,17 +7,11 @@ import PageChrome from "@/components/layout/PageChrome";
 import CopyableBlock from "@/components/CopyableBlock";
 import { inspectCertificate, type DecodedToken } from "@/lib/cert-inspect";
 import type { CertScope, ResourceLimits } from "@vaultysclaw/policy";
-
-const STATUS_BADGE: Record<string, string> = {
-  active: "bg-success-100 text-success-700 border-success-200",
-  revoked: "bg-danger-100 text-danger-700 border-danger-200",
-  superseded: "bg-neutral-100 text-foreground-500 border-neutral-200",
-  expired: "bg-neutral-100 text-foreground-500 border-neutral-200",
-};
+import { Badge, statusTone } from "@/components/ui/Badge";
 
 function JsonBlock({ value }: { value: unknown }) {
   return (
-    <pre className="text-xs bg-background-200/40 border border-neutral-200/60 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap break-all">
+    <pre className="font-mono text-xs bg-background-200/40 border border-neutral-200/60 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap break-all">
       {JSON.stringify(value, null, 2)}
     </pre>
   );
@@ -43,9 +37,9 @@ function SignatureAnatomy({ token, noSignedBody }: { token: DecodedToken; noSign
         {token.signedBodyBase64 ? (
           <RawToken token={token.signedBodyBase64} />
         ) : noSignedBody ? (
-          <p className="text-xs text-foreground-400">{noSignedBody}</p>
+          <p className="text-xs leading-5 text-foreground-500">{noSignedBody}</p>
         ) : (
-          <p className="text-xs text-danger-600">Could not unpack — malformed token.</p>
+          <p className="text-xs text-danger-600">Could not unpack — malformed token</p>
         )}
       </div>
       <div>
@@ -56,7 +50,7 @@ function SignatureAnatomy({ token, noSignedBody }: { token: DecodedToken; noSign
         {token.signatureBase64 ? (
           <RawToken token={token.signatureBase64} />
         ) : (
-          <p className="text-xs text-danger-600">Could not unpack — malformed token.</p>
+          <p className="text-xs text-danger-600">Could not unpack — malformed token</p>
         )}
       </div>
     </div>
@@ -93,7 +87,7 @@ export default async function CertificateDetailPage({
   const resourceLimits = cert.resourceLimits as ResourceLimits | null;
 
   return (
-    <div className="p-6 max-w-3xl space-y-8">
+    <div className="p-6 max-w-3xl space-y-6">
       <PageChrome
         toolbar={{ title: "Certificate" }}
         breadcrumbs={[
@@ -106,63 +100,65 @@ export default async function CertificateDetailPage({
         href="/admin/certificates"
         className="inline-flex items-center gap-1.5 text-sm text-foreground-500 hover:text-foreground transition-colors"
       >
-        <ArrowLeft className="w-3.5 h-3.5" />
+        <ArrowLeft className="w-3.5 h-3.5" strokeWidth={1.5} />
         Back to Certificates
       </Link>
 
-      <div className="flex items-start justify-between">
+      <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-lg font-semibold text-foreground">
+          <h1 className="text-lg font-medium text-foreground">
             {actor?.name ?? cert.agentDid}
           </h1>
           <p className="text-xs text-foreground-500 font-mono mt-0.5">{cert.agentDid}</p>
-          <p className="text-xs text-foreground-400 mt-0.5">Certificate {cert.id}</p>
+          <p className="text-xs text-foreground-500 mt-0.5">
+            Certificate <span className="font-mono">{cert.id}</span>
+          </p>
         </div>
-        <span
-          className={`text-xs px-2.5 py-1 rounded-full border shrink-0 ${STATUS_BADGE[cert.status] ?? STATUS_BADGE.expired}`}
-        >
-          {cert.status}
-        </span>
+        <Badge tone={statusTone(cert.status)}>{cert.status}</Badge>
       </div>
 
-      <section className="grid grid-cols-2 gap-4 text-sm">
+      <section className="grid grid-cols-2 gap-4 rounded-xl border border-neutral-200/60 bg-background-100 p-5 text-sm">
         <div>
-          <div className="text-xs text-foreground-500 uppercase font-medium mb-1">Capabilities</div>
-          <div>{(cert.capabilities as string[]).join(", ") || "—"}</div>
-        </div>
-        <div>
-          <div className="text-xs text-foreground-500 uppercase font-medium mb-1">Scope</div>
-          <div>{scope?.resource ?? scope?.resourcePattern ?? "Standing (unscoped)"}</div>
-        </div>
-        <div>
-          <div className="text-xs text-foreground-500 uppercase font-medium mb-1">Issued</div>
-          <div>{cert.issuedAt.toISOString()}</div>
-        </div>
-        <div>
-          <div className="text-xs text-foreground-500 uppercase font-medium mb-1">Expires</div>
-          <div className={cert.expiresAt ? "" : "text-warning-600 font-medium"}>
-            {cert.expiresAt ? cert.expiresAt.toISOString() : "Never"}
+          <div className="text-xs text-foreground-500 mb-1">Capabilities</div>
+          <div className="font-mono text-xs text-foreground-700">
+            {(cert.capabilities as string[]).join(", ") || "—"}
           </div>
         </div>
         <div>
-          <div className="text-xs text-foreground-500 uppercase font-medium mb-1">Issued by</div>
-          <div className="font-mono text-xs">{cert.issuedBy ?? "—"}</div>
+          <div className="text-xs text-foreground-500 mb-1">Scope</div>
+          <div>{scope?.resource ?? scope?.resourcePattern ?? "Standing (unscoped)"}</div>
+        </div>
+        <div>
+          <div className="text-xs text-foreground-500 mb-1">Issued</div>
+          <div className="font-mono text-xs text-foreground-700">{cert.issuedAt.toISOString()}</div>
+        </div>
+        <div>
+          <div className="text-xs text-foreground-500 mb-1">Expires</div>
+          {cert.expiresAt ? (
+            <div className="font-mono text-xs text-foreground-700">{cert.expiresAt.toISOString()}</div>
+          ) : (
+            <Badge tone="caution">Never</Badge>
+          )}
+        </div>
+        <div>
+          <div className="text-xs text-foreground-500 mb-1">Issued by</div>
+          <div className="font-mono text-xs break-all text-foreground-700">{cert.issuedBy ?? "—"}</div>
         </div>
         {resourceLimits && (
           <div>
-            <div className="text-xs text-foreground-500 uppercase font-medium mb-1">
+            <div className="text-xs text-foreground-500 mb-1">
               Resource limits
             </div>
-            <div className="text-xs">{JSON.stringify(resourceLimits)}</div>
+            <div className="font-mono text-xs text-foreground-700">{JSON.stringify(resourceLimits)}</div>
           </div>
         )}
       </section>
 
       {cert.status === "revoked" && (
-        <section className="border border-danger-200 bg-danger-50 rounded-lg p-4 text-sm">
+        <section className="rounded-lg border border-danger-200 bg-danger-50 px-4 py-3 text-sm">
           <div className="font-medium text-danger-700">Revoked</div>
           <div className="text-danger-600 text-xs mt-1">
-            {cert.revokedAt?.toISOString()} by <span className="font-mono">{cert.revokedBy}</span>
+            <span className="font-mono">{cert.revokedAt?.toISOString()}</span> by <span className="font-mono">{cert.revokedBy}</span>
           </div>
           {cert.revokedReason && <div className="text-danger-700 mt-1">{cert.revokedReason}</div>}
         </section>
@@ -173,7 +169,7 @@ export default async function CertificateDetailPage({
           Superseded by{" "}
           <Link
             href={`/admin/certificates/${cert.supersededByCertId}`}
-            className="text-primary-600 hover:underline font-mono text-xs"
+            className="text-primary-700 hover:underline font-mono text-xs"
           >
             {cert.supersededByCertId}
           </Link>
@@ -182,18 +178,18 @@ export default async function CertificateDetailPage({
 
       <section className="space-y-3">
         <div className="flex items-center gap-2">
-          <h2 className="text-sm font-semibold text-foreground-700">
+          <h2 className="text-sm font-medium text-foreground">
             {inspected.certFormat === "challenger"
               ? "Certificate (interactively co-signed)"
               : "Grant (control-plane signed)"}
           </h2>
           {inspected.grantVerified ? (
-            <span className="flex items-center gap-1 text-xs text-success-700">
-              <ShieldCheck className="w-3.5 h-3.5" /> Signature verified
+            <span className="flex items-center gap-1 text-xs text-foreground-600">
+              <ShieldCheck className="w-3.5 h-3.5 text-success-600" strokeWidth={1.5} /> Signature verified
             </span>
           ) : (
             <span className="flex items-center gap-1 text-xs text-danger-700">
-              <ShieldAlert className="w-3.5 h-3.5" /> Signature invalid
+              <ShieldAlert className="w-3.5 h-3.5" strokeWidth={1.5} /> Signature invalid
             </span>
           )}
         </div>
@@ -221,23 +217,23 @@ export default async function CertificateDetailPage({
       {inspected.certFormat === "packcert" && inspected.request && (
         <section className="space-y-3">
           <div className="flex items-center gap-2">
-            <h2 className="text-sm font-semibold text-foreground-700">
+            <h2 className="text-sm font-medium text-foreground">
               Embedded request (the co-signature)
             </h2>
             {inspected.requestVerifiedBy === "actor" && (
-              <span className="flex items-center gap-1 text-xs text-success-700">
-                <ShieldCheck className="w-3.5 h-3.5" /> Signed by the Actor itself
+              <span className="flex items-center gap-1 text-xs text-foreground-600">
+                <ShieldCheck className="w-3.5 h-3.5 text-success-600" strokeWidth={1.5} /> Signed by the Actor itself
               </span>
             )}
             {inspected.requestVerifiedBy === "control-plane" && (
               <span className="flex items-center gap-1 text-xs text-warning-700">
-                <ShieldCheck className="w-3.5 h-3.5" /> Signed by the control plane — system/admin-issued,
+                <ShieldCheck className="w-3.5 h-3.5" strokeWidth={1.5} /> Signed by the control plane — system/admin-issued,
                 not requested by the Actor
               </span>
             )}
             {inspected.requestVerifiedBy === null && (
-              <span className="flex items-center gap-1 text-xs text-foreground-400">
-                <ShieldQuestion className="w-3.5 h-3.5" /> Could not verify (no public key on record for
+              <span className="flex items-center gap-1 text-xs text-foreground-500">
+                <ShieldQuestion className="w-3.5 h-3.5" strokeWidth={1.5} /> Could not verify (no public key on record for
                 this Actor)
               </span>
             )}
@@ -255,7 +251,7 @@ export default async function CertificateDetailPage({
       )}
 
       {inspected.certFormat === "challenger" && (
-        <p className="text-xs text-foreground-400">
+        <p className="text-xs leading-5 text-foreground-500">
           This certificate was issued interactively (docs/CERTIFICATE_WEB_OF_TRUST.md §3.2b): the
           control plane and the Actor each signed in the same live exchange, so there is no
           separate embedded request token to inspect — pk1/pk2/sign1/sign2 above already show both
@@ -264,50 +260,51 @@ export default async function CertificateDetailPage({
       )}
 
       <section className="space-y-3">
-        <h2 className="text-sm font-semibold text-foreground-700">
-          Status-check history ({statusChecks.length})
-        </h2>
-        <p className="text-xs text-foreground-400">
+        <div>
+          <h2 className="flex items-baseline gap-2 text-sm font-medium text-foreground">
+            Status-check history
+            <span className="font-mono text-xs tabular-nums text-foreground-500">
+              {statusChecks.length}
+            </span>
+          </h2>
+          <p className="mt-1 text-xs leading-5 text-foreground-500">
           Every <code className="font-mono">cert_status_request</code> a connected Actor has made
           against this certificate (docs/CERTIFICATE_WEB_OF_TRUST.md §4.1) — who asked, when, and
           what status the control plane returned at that moment.
-        </p>
+          </p>
+        </div>
         <div className="overflow-x-auto border border-neutral-200/60 rounded-xl">
           <table className="w-full text-sm bg-background-100">
-            <thead className="bg-background-200/40 text-left text-xs text-foreground-500 uppercase">
+            <thead className="border-b border-neutral-200/60 text-left text-xs text-foreground-500">
               <tr>
-                <th className="px-4 py-2 font-medium">Requested by</th>
-                <th className="px-4 py-2 font-medium">Status returned</th>
-                <th className="px-4 py-2 font-medium">When</th>
+                <th className="px-4 py-2 font-normal">Requested by</th>
+                <th className="px-4 py-2 font-normal">Status returned</th>
+                <th className="px-4 py-2 font-normal">When</th>
               </tr>
             </thead>
             <tbody>
               {statusChecks.map((check) => (
-                <tr key={check.id} className="border-t border-neutral-200/60">
+                <tr key={check.id} className="border-t border-neutral-200/60 transition-colors hover:bg-background-200/40">
                   <td className="px-4 py-2.5 text-xs font-mono">
                     <Link
                       href={`/admin/actors/${encodeDidParam(check.requesterDid)}`}
-                      className="text-foreground-600 hover:text-primary-600 hover:underline"
+                      className="text-foreground-600 hover:text-primary-700 hover:underline"
                     >
                       {check.requesterDid}
                     </Link>
                   </td>
                   <td className="px-4 py-2.5">
-                    <span
-                      className={`text-xs px-2 py-0.5 rounded-full border ${STATUS_BADGE[check.status] ?? STATUS_BADGE.expired}`}
-                    >
-                      {check.status}
-                    </span>
+                    <Badge tone={statusTone(check.status)}>{check.status}</Badge>
                   </td>
-                  <td className="px-4 py-2.5 text-xs text-foreground-500">
+                  <td className="px-4 py-2.5 font-mono text-xs text-foreground-500">
                     {check.checkedAt.toISOString()}
                   </td>
                 </tr>
               ))}
               {statusChecks.length === 0 && (
                 <tr>
-                  <td colSpan={3} className="px-4 py-6 text-center text-foreground-400">
-                    No status checks recorded yet.
+                  <td colSpan={3} className="px-4 py-6 text-center text-foreground-500">
+                    No status checks recorded yet
                   </td>
                 </tr>
               )}

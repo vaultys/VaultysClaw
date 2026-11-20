@@ -55,9 +55,9 @@ export function AdminGraphView({
       />
 
       {filtered.nodes.length === 0 ? (
-        <div className="border border-dashed border-neutral-300 rounded-xl p-10 text-center">
-          <h2 className="text-sm font-semibold text-foreground mb-1">Nothing matches these filters</h2>
-          <p className="text-sm text-foreground-500">
+        <div className="rounded-xl border border-dashed border-neutral-200 px-4 py-6 text-sm text-foreground-500">
+          <h2 className="font-medium text-foreground mb-1">Nothing matches these filters</h2>
+          <p>
             {filters.connectedOnly
               ? "No actor in this selection has a relationship. Turn off “Connected only” to see isolated actors."
               : "Re-enable a kind or a relationship type to see something here."}
@@ -74,8 +74,8 @@ export function AdminGraphView({
             onNodeNavigate={(node) => router.push(graphNodeHref(node))}
           />
           {hidden > 0 && (
-            <p className="text-xs text-foreground-400">
-              {hidden} node{hidden === 1 ? "" : "s"} hidden by the current filters.
+            <p className="text-xs tabular-nums text-foreground-500">
+              {hidden} node{hidden === 1 ? "" : "s"} hidden by the current filters
             </p>
           )}
         </>

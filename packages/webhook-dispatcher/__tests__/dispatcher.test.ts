@@ -246,6 +246,40 @@ describe("renderNotification", () => {
     expect(["info", "success", "warning", "failure"]).toContain(r!.type);
   });
 
+  it("renders a refused harness tool call with what was refused and how many more", () => {
+    const r = renderNotification({
+      eventType: "harness.tool_denied",
+      occurredAt: "2026-11-12T09:41:07.000Z",
+      payload: {
+        name: "fx-macbook",
+        harness: "cursor",
+        tool: "Read",
+        resource: "file:///Users/fx/.aws/credentials",
+        reason: "refused: on the safety floor",
+        moreInBatch: 3,
+      },
+    });
+    expect(r!.body).toContain("cursor");
+    expect(r!.body).toContain(".aws/credentials");
+    expect(r!.body).toContain("+3 more");
+    expect(r!.type).toBe("warning");
+  });
+
+  it("renders degraded harness coverage as a failure, naming each change", () => {
+    const r = renderNotification({
+      eventType: "harness.coverage_degraded",
+      occurredAt: "2026-11-12T09:41:07.000Z",
+      payload: {
+        name: "fx-macbook",
+        degraded: [{ harness: "cursor", from: null, to: "ungoverned" }],
+        hostChanges: ["mode changed from enforce to observe"],
+      },
+    });
+    expect(r!.body).toContain("cursor: new → ungoverned");
+    expect(r!.body).toContain("enforce to observe");
+    expect(r!.type).toBe("failure");
+  });
+
   it("returns null for an event type with no template", () => {
     expect(renderNotification({ ...JOB, eventType: "does.not.exist" })).toBeNull();
   });

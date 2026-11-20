@@ -1,15 +1,19 @@
-// Package supervise is the tool-call interception point: it governs a coding
-// harness (Claude Code first) at the moment the harness is about to execute a
-// tool, from a signed capability grant, with no control-plane round trip
-// (docs/HARNESS_SUPERVISOR.md).
+// Package toolgate decides whether one coding-harness tool call may proceed,
+// from signed capability certificates and a signed rule set, with no I/O and no
+// control-plane round trip.
 //
-// This is tier A of that document's three tiers — the only one that sees
-// *intent* (which tool, with which arguments), and the only one an agent can
-// bypass, by rewriting the config that installs it or by shelling out. Tiers B
-// (OS confinement) and C (the existing internal/intercept egress proxy) are what
-// make a decision here binding; until tier B exists, supervision is advisory and
-// every entry point in this package says so out loud.
-package supervise
+// It is the harness-neutral core shared by every tool-call interception point:
+// vaultysclaw-sensor's supervisor (docs/HARNESS_SUPERVISOR.md) and the
+// vaultysclaw-hooks package (docs/HARNESS_HOOKS.md). A caller translates its
+// harness's own hook payload into a tool name and JSON input, MapToolCall turns
+// that into the capability-and-resource vocabulary the certificate ledger
+// speaks, and Decide renders the verdict. Neither half knows which harness, or
+// which OS, it is running under.
+//
+// Tool names are Claude Code's vocabulary (Read, Write, Bash, mcp__s__t, …),
+// which is the canonical form: an adapter for another harness renames its tools
+// into it rather than growing a second mapping table.
+package toolgate
 
 import (
 	"encoding/json"
@@ -74,7 +78,7 @@ func (a Action) RequestedAction() authz.RequestedAction {
 // denial: an unmapped tool is one this package does not yet govern, which is a
 // coverage gap to be counted, not a decision to be enforced. Decide records it
 // as such.
-var ErrUnmapped = errors.New("supervise: no capability mapping for this tool")
+var ErrUnmapped = errors.New("toolgate: no capability mapping for this tool")
 
 // ErrNoResource means the tool accesses nothing outside the harness's own
 // conversation, so there is nothing for a certificate to be scoped to.
@@ -83,7 +87,7 @@ var ErrUnmapped = errors.New("supervise: no capability mapping for this tool")
 // leave tools that will never need a mapping sitting in the coverage backlog
 // forever, quietly turning "how much is still ungoverned" into a number that
 // only goes up.
-var ErrNoResource = errors.New("supervise: this tool accesses no governed resource")
+var ErrNoResource = errors.New("toolgate: this tool accesses no governed resource")
 
 // toolInput is the union of the argument fields the mapped tools use. Decoding
 // into one struct rather than a map keeps the field names in one greppable
@@ -106,7 +110,7 @@ func MapToolCall(tool string, input json.RawMessage, cwd string) (Action, error)
 	var in toolInput
 	if len(input) > 0 {
 		if err := json.Unmarshal(input, &in); err != nil {
-			return Action{}, fmt.Errorf("supervise: parsing %s input: %w", tool, err)
+			return Action{}, fmt.Errorf("toolgate: parsing %s input: %w", tool, err)
 		}
 	}
 
@@ -198,7 +202,7 @@ var harnessInternalTools = map[string]string{
 // fileAction resolves a path and renders it as a file:// resource.
 func fileAction(tool string, cap authz.Capability, path, cwd string) (Action, error) {
 	if strings.TrimSpace(path) == "" {
-		return Action{Tool: tool}, fmt.Errorf("supervise: %s named no path", tool)
+		return Action{Tool: tool}, fmt.Errorf("toolgate: %s named no path", tool)
 	}
 	resolved, err := ResolvePath(path, cwd)
 	if err != nil {
@@ -211,7 +215,7 @@ func fileAction(tool string, cap authz.Capability, path, cwd string) (Action, er
 func bashAction(tool, command string) (Action, error) {
 	argv0 := Argv0(command)
 	if argv0 == "" {
-		return Action{Tool: tool}, fmt.Errorf("supervise: %s named no command", tool)
+		return Action{Tool: tool}, fmt.Errorf("toolgate: %s named no command", tool)
 	}
 	return Action{
 		Tool:       tool,
@@ -227,37 +231,50 @@ func bashAction(tool, command string) (Action, error) {
 // a relative path and a symlink pointing out of an authorized directory are the
 // same attack with different syntax.
 //
-// A path that does not exist yet is normal — Write creates files — so when the
-// leaf is missing its *parent* is resolved and the leaf re-joined. Walking up
-// until something exists would be wrong: it would silently accept a path several
-// non-existent directories deep as if it were shallower.
+// A path that does not exist yet is normal — Write creates files, and
+// `mkdir -p` creates whole directory chains. So the deepest ancestor that does
+// exist is resolved and the missing components are re-joined below it, in full:
+// the result is exactly as deep as the input, never shortened. That is sound
+// because a component that does not exist cannot be a symlink — the resolved
+// ancestor plus the literal tail *is* the path the file will have once created.
+//
+// Resolving only the immediate parent is not enough. A floor entry such as
+// ~/.ssh is resolved through its existing parent, the home directory, so when
+// the home directory sits behind a symlink (/var → /private/var on macOS, a
+// network-mounted /home) the entry is stored in resolved form. A request for
+// ~/.ssh/authorized_keys while ~/.ssh does not yet exist must resolve the same
+// way, or creating the directory and the key would slip past the floor.
 func ResolvePath(path, cwd string) (string, error) {
 	if !filepath.IsAbs(path) {
 		if cwd == "" {
-			return "", fmt.Errorf("supervise: cannot resolve the relative path %q without a working directory", path)
+			return "", fmt.Errorf("toolgate: cannot resolve the relative path %q without a working directory", path)
 		}
 		path = filepath.Join(cwd, path)
 	}
 	path = filepath.Clean(path)
 
-	if resolved, err := filepath.EvalSymlinks(path); err == nil {
-		return resolved, nil
-	} else if !os.IsNotExist(err) {
-		return "", fmt.Errorf("supervise: resolving %q: %w", path, err)
+	var missing []string
+	cur := path
+	for {
+		resolved, err := filepath.EvalSymlinks(cur)
+		if err == nil {
+			for i := len(missing) - 1; i >= 0; i-- {
+				resolved = filepath.Join(resolved, missing[i])
+			}
+			return resolved, nil
+		}
+		if !os.IsNotExist(err) {
+			return "", fmt.Errorf("toolgate: resolving %q: %w", path, err)
+		}
+		parent := filepath.Dir(cur)
+		if parent == cur {
+			// Not even the root resolves; the cleaned absolute path is the most
+			// honest answer, and still free of "..".
+			return path, nil
+		}
+		missing = append(missing, filepath.Base(cur))
+		cur = parent
 	}
-
-	parent, leaf := filepath.Split(path)
-	resolvedParent, err := filepath.EvalSymlinks(filepath.Clean(parent))
-	if err != nil {
-		// The parent does not exist either. Nothing can be resolved, so the
-		// cleaned absolute path is the most honest answer available — and it is
-		// still absolute and still free of "..", which is what the scope check
-		// needs. A path this deep in nonexistent directories cannot be read and
-		// can only be written after creating them, which is itself a governed
-		// write of the parent.
-		return path, nil
-	}
-	return filepath.Join(resolvedParent, leaf), nil
 }
 
 // FileURI renders an absolute path as a file:// URI, percent-encoding it so a
@@ -339,11 +356,11 @@ func splitCommand(command string) []string {
 // wire.
 func webFetchAction(tool, raw string) (Action, error) {
 	if strings.TrimSpace(raw) == "" {
-		return Action{Tool: tool}, fmt.Errorf("supervise: %s named no url", tool)
+		return Action{Tool: tool}, fmt.Errorf("toolgate: %s named no url", tool)
 	}
 	u, err := url.Parse(raw)
 	if err != nil || u.Host == "" {
-		return Action{Tool: tool}, fmt.Errorf("supervise: %s url %q is not absolute", tool, raw)
+		return Action{Tool: tool}, fmt.Errorf("toolgate: %s url %q is not absolute", tool, raw)
 	}
 	u.RawQuery, u.Fragment, u.User = "", "", nil
 	return Action{Tool: tool, Capability: CapInternetAccess, Resource: u.String()}, nil

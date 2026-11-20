@@ -10,13 +10,13 @@ export default function RegenerateSecretButton({ id }: { id: string }) {
 
   if (secret) {
     return (
-      <div className="bg-warning-50 border border-warning-200 rounded-xl p-4 space-y-3">
-        <p className="text-sm text-warning-700 font-medium">
+      <div className="space-y-3 rounded-lg border border-warning-200 bg-warning-50 px-4 py-3">
+        <p className="text-sm font-medium text-warning-700">
           Copy this signing secret now — it will not be shown again. The old secret no longer
           works.
         </p>
         <div className="flex items-center gap-2">
-          <code className="flex-1 text-xs font-mono bg-background-100 border border-neutral-200 rounded-lg px-3 py-2 overflow-x-auto">
+          <code className="flex-1 overflow-x-auto rounded-lg border border-neutral-200 bg-background-100 px-3 py-2 font-mono text-xs">
             {secret}
           </code>
           <button
@@ -25,7 +25,7 @@ export default function RegenerateSecretButton({ id }: { id: string }) {
               void navigator.clipboard.writeText(secret);
               setCopied(true);
             }}
-            className="text-xs px-3 py-2 border border-neutral-200 rounded-lg hover:bg-background-200/60 transition-colors shrink-0"
+            className="shrink-0 rounded-lg border border-neutral-200 bg-background-100 px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-background-200"
           >
             {copied ? "Copied" : "Copy"}
           </button>
@@ -46,7 +46,7 @@ export default function RegenerateSecretButton({ id }: { id: string }) {
           setSecret(newSecret);
         });
       }}
-      className="text-xs px-3 py-2 border border-neutral-200 rounded-lg hover:bg-background-200/60 transition-colors disabled:opacity-50"
+      className="rounded-lg border border-neutral-200 bg-background-100 px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-background-200 disabled:opacity-50"
     >
       {pending ? "Regenerating…" : "Regenerate secret"}
     </button>

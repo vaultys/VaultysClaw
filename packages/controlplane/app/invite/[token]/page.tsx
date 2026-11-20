@@ -1,8 +1,11 @@
 "use client";
 
 import { use, useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { QRCodeSVG } from "qrcode.react";
+import { KeyRound } from "lucide-react";
+import { BrandLogo } from "@/components/ui/BrandLogo";
 import { signIn } from "next-auth/react";
 import {
   connectWithBrowserIdentity,
@@ -13,7 +16,8 @@ import BrowserIdentityPicker from "@/components/BrowserIdentityPicker";
 import ConnectCountdown from "@/components/ConnectCountdown";
 import { useAdvancedIdentity } from "@/lib/advanced-identity";
 
-const WALLET_URL = process.env.NEXT_PUBLIC_WALLET_URL || "https://wallet.vaultys.net";
+const WALLET_URL =
+  process.env.NEXT_PUBLIC_WALLET_URL || "https://wallet.vaultys.net";
 
 /** The browser-key transport has no server-side window to inherit — see app/login/page.tsx. */
 const BROWSER_POLL_SECONDS = 180;
@@ -48,7 +52,11 @@ type Mode = "wallet" | "browser";
  * stop working outside dev. For them this page mints or reuses a browser-held key on arrival and
  * finishes on its own.
  */
-export default function InvitePage({ params }: { params: Promise<{ token: string }> }) {
+export default function InvitePage({
+  params,
+}: {
+  params: Promise<{ token: string }>;
+}) {
   const { token } = use(params);
   // `?sso=1` marks an invitation minted by an unbound SSO login (lib/sso.ts) rather
   // than one an admin sent. It changes both the copy — "you've been invited" is the
@@ -57,40 +65,50 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
   const isSsoBinding = useSearchParams().get("sso") === "1";
   const [phase, setPhase] = useState<Phase>("checking");
   const [mode, setMode] = useState<Mode>(isSsoBinding ? "browser" : "wallet");
-  const [invalidReason, setInvalidReason] = useState<InvalidReason>("not_found");
+  const [invalidReason, setInvalidReason] =
+    useState<InvalidReason>("not_found");
   const [inviteeName, setInviteeName] = useState<string>();
   const [qrUrl, setQrUrl] = useState<string>();
   /** The wallet transport's window, as the server reported it — null until a code is on screen. */
-  const [connectWindow, setWindow] = useState<{ seconds: number; deadline: number } | null>(null);
+  const [connectWindow, setWindow] = useState<{
+    seconds: number;
+    deadline: number;
+  } | null>(null);
   const [advanced] = useAdvancedIdentity();
   const cancelled = useRef(false);
 
-  const pollAndSignIn = useCallback(async (pollToken: string, key: string, windowSeconds: number) => {
-    // Bounded by the window the server is keeping, not a fixed count — see app/login/page.tsx.
-    for (let i = 0; i < windowSeconds && !cancelled.current; i++) {
-      const pollRes = await fetch(`/api/public/user/listen/${pollToken}`);
-      const { status } = await pollRes.json();
-      // Re-checked after the await: a transport switch mid-request must not let an
-      // abandoned exchange sign the browser in or overwrite the new one's phase.
-      if (cancelled.current) return;
-      if (status === 2) {
-        const signInRes = await signIn("credentials", { token: key, redirect: false });
-        if (signInRes?.ok) {
-          setPhase("success");
-          window.location.href = "/";
-        } else {
-          setPhase("failure");
+  const pollAndSignIn = useCallback(
+    async (pollToken: string, key: string, windowSeconds: number) => {
+      // Bounded by the window the server is keeping, not a fixed count — see app/login/page.tsx.
+      for (let i = 0; i < windowSeconds && !cancelled.current; i++) {
+        const pollRes = await fetch(`/api/public/user/listen/${pollToken}`);
+        const { status } = await pollRes.json();
+        // Re-checked after the await: a transport switch mid-request must not let an
+        // abandoned exchange sign the browser in or overwrite the new one's phase.
+        if (cancelled.current) return;
+        if (status === 2) {
+          const signInRes = await signIn("credentials", {
+            token: key,
+            redirect: false,
+          });
+          if (signInRes?.ok) {
+            setPhase("success");
+            window.location.href = "/";
+          } else {
+            setPhase("failure");
+          }
+          return;
         }
-        return;
+        if (status === -2) {
+          setPhase("failure");
+          return;
+        }
+        await new Promise((r) => setTimeout(r, 1000));
       }
-      if (status === -2) {
-        setPhase("failure");
-        return;
-      }
-      await new Promise((r) => setTimeout(r, 1000));
-    }
-    if (!cancelled.current) setPhase("failure");
-  }, []);
+      if (!cancelled.current) setPhase("failure");
+    },
+    []
+  );
 
   const startWallet = useCallback(async () => {
     setPhase("loading");
@@ -116,8 +134,13 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
     // own `register` field, not by this string; `verifyProtocol` (lib/user-login-channel.ts) accepts
     // either value, but only "auth" has ever been exercised against a real wallet app.
     const didParam = serverDid ? `&did=${encodeURIComponent(serverDid)}` : "";
-    setQrUrl(`${WALLET_URL}/#${connectionString}&protocol=p2p&service=auth${didParam}`);
-    setWindow({ seconds: connectWindowSeconds, deadline: Date.now() + connectWindowSeconds * 1000 });
+    setQrUrl(
+      `${WALLET_URL}/#${connectionString}&protocol=p2p&service=auth${didParam}`
+    );
+    setWindow({
+      seconds: connectWindowSeconds,
+      deadline: Date.now() + connectWindowSeconds * 1000,
+    });
     setPhase("waiting");
 
     await pollAndSignIn(pollToken, key, connectWindowSeconds);
@@ -197,153 +220,174 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
   }, [token]);
 
   const INVALID_COPY: Record<InvalidReason, string> = {
-    not_found: "This invite link could not be found.",
-    expired: "This invite link has expired.",
-    redeemed: "This invite link has already been used.",
+    not_found: "This invite link could not be found",
+    expired: "This invite link has expired",
+    redeemed: "This invite link has already been used",
   };
 
   const retry = () => (mode === "wallet" ? startWallet() : startBrowser());
 
   return (
-    <main className="min-h-screen flex items-center justify-center p-6 bg-background">
-      <div className="max-w-sm w-full text-center space-y-6">
-        <div className="flex flex-col items-center gap-3">
-          <span className="w-11 h-11 bg-primary-600 rounded-xl flex items-center justify-center shadow-lg shadow-primary-600/20 text-white text-lg font-bold">
-            V
-          </span>
-          <div>
-            <h1 className="text-xl font-semibold text-foreground">
-              {isSsoBinding
-                ? inviteeName
-                  ? `Almost there, ${inviteeName}`
-                  : "One more step"
-                : inviteeName
-                  ? `You've been invited, ${inviteeName}`
-                  : "You've been invited to VaultysClaw"}
-            </h1>
-            {phase !== "invalid" && (
-              <p className="text-sm text-foreground-500 mt-1">
+    <main className="min-h-screen bg-background">
+      <Link href="/" className="flex w-fit items-center p-6">
+        <BrandLogo className="h-7" />
+      </Link>
+
+      <div className="px-6 pb-16 pt-4 lg:pt-16">
+        <div className="mx-auto w-full max-w-sm space-y-6 rounded-xl border border-neutral-200 bg-background-100 p-8 text-center shadow-[0_8px_24px_rgba(0,0,0,0.06)]">
+          <div className="flex flex-col items-center gap-3">
+            <span className="flex h-11 w-11 items-center justify-center rounded-lg border border-neutral-200 bg-background-50 text-foreground-700">
+              <KeyRound className="h-5 w-5" strokeWidth={1.5} />
+            </span>
+            <div>
+              <h1 className="text-lg font-medium text-foreground">
                 {isSsoBinding
-                  ? "Your sign-in was verified. We're linking the VaultysID your account is built on — it's the identity every permission you're given is attached to."
-                  : mode !== "wallet"
-                    ? "Accepting with a VaultysID held by this browser"
-                    : // Same reason as app/login/page.tsx: there is no code below any more.
-                      phase === "failure"
-                      ? "That code is no longer valid — start again for a fresh one"
-                      : "Open your VaultysID app and scan the QR code below to accept"}
-              </p>
-            )}
+                  ? inviteeName
+                    ? `Almost there, ${inviteeName}`
+                    : "One more step"
+                  : inviteeName
+                    ? `You've been invited, ${inviteeName}`
+                    : "You've been invited to VaultysClaw"}
+              </h1>
+              {phase !== "invalid" && (
+                <p className="mt-1 text-sm leading-6 text-foreground-500">
+                  {isSsoBinding
+                    ? "Your sign-in was verified. We're linking the VaultysID your account is built on — it's the identity every permission you're given is attached to."
+                    : mode !== "wallet"
+                      ? "Accepting with a VaultysID held by this browser"
+                      : // Same reason as app/login/page.tsx: there is no code below any more.
+                        phase === "failure"
+                        ? "That code is no longer valid — start again for a fresh one"
+                        : "Open your VaultysID app and scan the QR code below to accept"}
+                </p>
+              )}
+            </div>
           </div>
-        </div>
 
-        {phase === "checking" && (
-          <div className="w-8 h-8 mx-auto border-4 border-primary-400 border-t-transparent rounded-full animate-spin" />
-        )}
+          {phase === "checking" && (
+            <div className="w-8 h-8 mx-auto border-4 border-primary-400 border-t-transparent rounded-full animate-spin" />
+          )}
 
-        {phase === "invalid" && (
-          <p className="text-sm text-danger-600">{INVALID_COPY[invalidReason]}</p>
-        )}
-
-        {phase === "browser-connecting" ? (
-          <div className="flex flex-col items-center gap-3 py-8">
-            <div className="w-8 h-8 border-4 border-primary-400 border-t-transparent rounded-full animate-spin" />
-            <p className="text-sm text-foreground-700 font-medium">Setting up your VaultysID…</p>
-            <p className="text-xs text-foreground-400">
-              The key is generated in this browser and never leaves it. Back it up from My identity
-              once you&apos;re in — nothing on the server can recover it.
+          {phase === "invalid" && (
+            <p className="rounded-lg border border-danger-200 bg-danger-50 px-3 py-2 text-sm text-danger-700">
+              {INVALID_COPY[invalidReason]}
             </p>
-          </div>
-        ) : mode === "wallet" && phase === "failure" ? (
-          /*
-           * The code goes away with the window that backed it. The server has already torn the
-           * channel down, so a code left on screen can only produce a scan that silently does
-           * nothing — and nothing about a dead QR looks different from a live one. The panel keeps
-           * the QR's footprint so the card doesn't jump, and puts the retry where the code was.
-           * Only the wallet transport draws this; a browser-key failure never had a code to
-           * replace, and falls through to the plain message below.
-           */
-          <div className="flex justify-center">
-            <div className="flex h-52 w-52 flex-col items-center justify-center gap-4 rounded-xl border border-dashed border-danger-200 bg-danger-50/40 px-6 text-center">
-              <p className="text-sm text-danger-600">Connection failed or timed out.</p>
+          )}
+
+          {phase === "browser-connecting" ? (
+            <div className="flex flex-col items-center gap-3 py-8">
+              <div className="w-8 h-8 border-4 border-primary-400 border-t-transparent rounded-full animate-spin" />
+              <p className="text-sm text-foreground-700 font-medium">
+                Setting up your VaultysID…
+              </p>
+              <p className="text-xs leading-5 text-foreground-500">
+                The key is generated in this browser and never leaves it. Back
+                it up from My identity once you&apos;re in — nothing on the
+                server can recover it.
+              </p>
+            </div>
+          ) : mode === "wallet" && phase === "failure" ? (
+            /*
+             * The code goes away with the window that backed it. The server has already torn the
+             * channel down, so a code left on screen can only produce a scan that silently does
+             * nothing — and nothing about a dead QR looks different from a live one. The panel keeps
+             * the QR's footprint so the card doesn't jump, and puts the retry where the code was.
+             * Only the wallet transport draws this; a browser-key failure never had a code to
+             * replace, and falls through to the plain message below.
+             */
+            <div className="flex justify-center">
+              <div className="flex h-52 w-52 flex-col items-center justify-center gap-4 rounded-xl border border-dashed border-danger-200 bg-danger-50/40 px-6 text-center">
+                <p className="text-sm text-danger-600">
+                  Connection failed or timed out
+                </p>
+                <button
+                  onClick={() => void retry()}
+                  className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-500"
+                >
+                  Try again
+                </button>
+              </div>
+            </div>
+          ) : (
+            mode === "wallet" &&
+            (phase === "loading" ||
+              phase === "waiting" ||
+              phase === "success") && (
+              <div className="flex justify-center">
+                {qrUrl ? (
+                  <div className="bg-white p-4 rounded-xl border border-neutral-200 shadow-sm">
+                    <QRCodeSVG value={qrUrl} size={200} />
+                  </div>
+                ) : (
+                  <div className="w-52 h-52 rounded-xl border border-neutral-200 bg-background-100 flex items-center justify-center">
+                    <div className="w-8 h-8 border-4 border-primary-400 border-t-transparent rounded-full animate-spin" />
+                  </div>
+                )}
+              </div>
+            )
+          )}
+
+          {phase === "waiting" && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-center gap-2 text-sm text-foreground-500">
+                <div className="w-3 h-3 border-2 border-primary-400 border-t-transparent rounded-full animate-spin" />
+                Waiting for scan…
+              </div>
+              {connectWindow && (
+                <ConnectCountdown
+                  deadline={connectWindow.deadline}
+                  totalSeconds={connectWindow.seconds}
+                />
+              )}
+            </div>
+          )}
+          {/* The wallet transport renders its own retry in place of the QR above. */}
+          {phase === "failure" && mode !== "wallet" && (
+            <div className="space-y-3">
+              <p className="text-sm text-danger-600">
+                Connection failed or timed out
+              </p>
               <button
                 onClick={() => void retry()}
-                className="px-4 py-2 bg-primary-600 hover:bg-primary-500 text-white rounded-lg text-sm font-medium transition-colors"
+                className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-500"
               >
                 Try again
               </button>
             </div>
-          </div>
-        ) : (
-          mode === "wallet" &&
-          (phase === "loading" || phase === "waiting" || phase === "success") && (
-            <div className="flex justify-center">
-              {qrUrl ? (
-                <div className="bg-white p-4 rounded-xl border border-neutral-200 shadow-sm">
-                  <QRCodeSVG value={qrUrl} size={200} />
-                </div>
-              ) : (
-                <div className="w-52 h-52 rounded-xl border border-neutral-200 bg-background-100 flex items-center justify-center">
-                  <div className="w-8 h-8 border-4 border-primary-400 border-t-transparent rounded-full animate-spin" />
-                </div>
-              )}
-            </div>
-          )
-        )}
+          )}
 
-        {phase === "waiting" && (
-          <div className="space-y-3">
-            <div className="flex items-center justify-center gap-2 text-sm text-foreground-500">
-              <div className="w-3 h-3 border-2 border-primary-400 border-t-transparent rounded-full animate-spin" />
-              Waiting for scan…
-            </div>
-            {connectWindow && (
-              <ConnectCountdown
-                deadline={connectWindow.deadline}
-                totalSeconds={connectWindow.seconds}
-              />
-            )}
-          </div>
-        )}
-        {/* The wallet transport renders its own retry in place of the QR above. */}
-        {phase === "failure" && mode !== "wallet" && (
-          <div className="space-y-3">
-            <p className="text-sm text-danger-600">Connection failed or timed out.</p>
-            <button
-              onClick={() => void retry()}
-              className="px-4 py-2 bg-primary-600 hover:bg-primary-500 text-white rounded-lg text-sm font-medium transition-colors"
-            >
-              Try again
-            </button>
-          </div>
-        )}
-
-        {/* Both transports stay reachable: someone who does hold a wallet should be
+          {/* Both transports stay reachable: someone who does hold a wallet should be
             able to bind that identity rather than a browser key, and someone whose
             wallet isn't to hand shouldn't be stuck staring at a QR code. */}
-        {phase !== "checking" && phase !== "invalid" && phase !== "success" && (
-          <div className="space-y-2">
-            <button
-              type="button"
-              onClick={() => switchMode(mode === "wallet" ? "browser" : "wallet")}
-              className="text-xs text-foreground-400 hover:text-foreground-600 transition-colors underline underline-offset-2"
-            >
-              {mode === "wallet"
-                ? "Use a VaultysID in this browser instead"
-                : "Scan with my VaultysID app instead"}
-            </button>
-            {advanced && (
-              <div>
-                <BrowserIdentityPicker
-                  onSelect={(identity) => {
-                    cancelled.current = true;
-                    setMode("browser");
-                    void startBrowser(identity);
-                  }}
-                />
+          {phase !== "checking" &&
+            phase !== "invalid" &&
+            phase !== "success" && (
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    switchMode(mode === "wallet" ? "browser" : "wallet")
+                  }
+                  className="text-xs text-foreground-500 underline underline-offset-2 transition-colors hover:text-foreground"
+                >
+                  {mode === "wallet"
+                    ? "Use a VaultysID in this browser instead"
+                    : "Scan with my VaultysID app instead"}
+                </button>
+                {advanced && (
+                  <div>
+                    <BrowserIdentityPicker
+                      onSelect={(identity) => {
+                        cancelled.current = true;
+                        setMode("browser");
+                        void startBrowser(identity);
+                      }}
+                    />
+                  </div>
+                )}
               </div>
             )}
-          </div>
-        )}
+        </div>
       </div>
     </main>
   );

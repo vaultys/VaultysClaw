@@ -16,7 +16,7 @@ const EXAMPLE_ENVELOPE = `{
 
 function CodeBlock({ children }: { children: string }) {
   return (
-    <pre className="bg-background-200 border border-neutral-200 rounded-lg p-4 text-xs font-mono text-foreground overflow-x-auto">
+    <pre className="overflow-x-auto rounded-lg border border-neutral-200/60 bg-background-200 p-4 font-mono text-xs text-foreground">
       <code>{children}</code>
     </pre>
   );
@@ -32,12 +32,12 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="bg-background-100 border border-neutral-200 rounded-xl overflow-hidden">
-      <div className="px-5 py-4 border-b border-neutral-200 flex items-center gap-2">
-        <Icon className="w-4 h-4 text-foreground-500" />
-        <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+    <section className="overflow-hidden rounded-xl border border-neutral-200/60 bg-background-100">
+      <div className="flex items-center gap-2 border-b border-neutral-200/60 px-5 py-4">
+        <Icon className="h-4 w-4 text-foreground-500" strokeWidth={1.5} />
+        <h2 className="text-sm font-medium text-foreground">{title}</h2>
       </div>
-      <div className="p-5 space-y-4 text-sm text-foreground-600 leading-relaxed">{children}</div>
+      <div className="space-y-4 p-5 text-sm leading-6 text-foreground-600">{children}</div>
     </section>
   );
 }
@@ -71,14 +71,14 @@ export default function WebhookDocsPage() {
         <ul className="space-y-1.5">
           {WEBHOOK_HEADERS.map((h) => (
             <li key={h.name}>
-              <code className="text-xs bg-background-200 px-1.5 py-0.5 rounded">{h.name}</code>
+              <code className="rounded bg-background-200 px-1.5 py-0.5 font-mono text-xs">{h.name}</code>
               {" — "}
               {h.description}
             </li>
           ))}
         </ul>
         <p>
-          Verify the signature <strong>before</strong> parsing or trusting the body — recompute the
+          Verify the signature <span className="font-medium text-foreground">before</span> parsing or trusting the body — recompute the
           HMAC with your stored signing secret and compare in constant time:
         </p>
         <CodeBlock>{VERIFY_SNIPPET_NODE}</CodeBlock>
@@ -88,14 +88,14 @@ export default function WebhookDocsPage() {
         <div className="space-y-6">
           {EVENT_DOCS.map(({ group, events }) => (
             <div key={group}>
-              <h3 className="text-xs font-semibold text-foreground-500 uppercase mb-2">{group}</h3>
+              <h3 className="mb-2 text-xs text-foreground-500">{group}</h3>
               <div className="space-y-2">
                 {events.map((e) => (
-                  <details key={e.type} className="border border-neutral-200/60 rounded-lg">
-                    <summary className="px-3 py-2 cursor-pointer text-sm font-medium text-foreground hover:bg-background-200/40">
-                      <code className="text-xs">{e.type}</code> — {e.label}
+                  <details key={e.type} className="rounded-lg border border-neutral-200/60">
+                    <summary className="cursor-pointer rounded-lg px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-background-200/40">
+                      <code className="font-mono text-xs">{e.type}</code> — {e.label}
                     </summary>
-                    <div className="px-3 pb-3 space-y-2">
+                    <div className="space-y-2 px-3 pb-3">
                       <p className="text-xs text-foreground-500">{e.description}</p>
                       <CodeBlock>{e.exampleBody}</CodeBlock>
                     </div>

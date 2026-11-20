@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { BarChart3, SlidersHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/Badge";
 
 interface AuditTimelinePoint {
   createdAt: string;
@@ -215,36 +215,32 @@ export default function AuditTimelineExplorer({
   });
 
   return (
-    <section className="overflow-hidden rounded-2xl border border-primary-200/70 bg-background-100 shadow-xl shadow-primary-900/5">
+    <section className="overflow-hidden rounded-xl border border-neutral-200/60 bg-background-100">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-200/60 px-5 py-4">
-        <div className="flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-600 text-white shadow-lg shadow-primary-600/20">
-            <BarChart3 className="h-5 w-5" />
-          </span>
-          <div>
-            <h2 className="text-sm font-semibold text-foreground">Audit explorer</h2>
-            <p className="text-xs text-foreground-500">
-              Drag the handles to inspect activity by period.
-            </p>
-          </div>
+        <div>
+          <h2 className="text-sm font-medium text-foreground">Audit explorer</h2>
+          <p className="mt-1 text-xs leading-5 text-foreground-500">
+            Drag the handles to inspect activity by period
+          </p>
         </div>
-        <div className="flex items-center gap-2 rounded-full border border-neutral-200 bg-background px-3 py-1.5 text-sm text-foreground">
-          <SlidersHorizontal className="h-4 w-4 text-primary-600" />
-          <span className="font-semibold">{selectedLabel}</span>
-          <span className="text-foreground-500">of {total} logs</span>
+        <div className="flex items-baseline gap-1.5 text-sm text-foreground">
+          <span className="font-mono font-medium tabular-nums">{selectedLabel}</span>
+          <span className="text-foreground-500">
+            of <span className="font-mono tabular-nums">{total}</span> logs
+          </span>
         </div>
       </div>
 
       <div className="px-5 py-5">
         <div ref={trackRef} className="relative h-28 border-b border-neutral-200/70">
           <div
-            className="absolute inset-y-0 rounded-lg bg-primary-100/60"
+            className="absolute inset-y-0 rounded-lg bg-primary-500/10"
             style={{ left: `${selectedLeft}%`, right: `${selectedRight}%` }}
           />
           <div className="absolute inset-x-0 bottom-0 flex h-24 items-end gap-1">
             {buckets.length === 0 && (
-              <div className="flex h-full w-full items-center justify-center text-sm text-foreground-400">
-                No audit events yet.
+              <div className="flex h-full w-full items-center justify-center text-sm text-foreground-500">
+                No audit events yet
               </div>
             )}
             {buckets.map((bucket) => {
@@ -291,7 +287,7 @@ export default function AuditTimelineExplorer({
                   else setEnd(next);
                   applyPeriod(isStart ? next : selectedStart, isStart ? selectedEnd : next);
                 }}
-                className="absolute top-1/2 z-30 flex h-8 w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-primary-200 bg-background text-primary-700 shadow-lg shadow-primary-900/15 transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-primary-400"
+                className="absolute top-1/2 z-30 flex h-8 w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-neutral-200 bg-background text-foreground-700 shadow-sm transition-colors hover:bg-background-200 focus:outline-none focus:ring-2 focus:ring-primary-500/30"
                 style={{ left: `${left}%` }}
               >
                 <span className="h-4 w-1 rounded-full bg-primary-500" />
@@ -303,17 +299,17 @@ export default function AuditTimelineExplorer({
 
         <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-xs text-foreground-500">
           <div className="flex flex-wrap items-center gap-2">
-            <span>{labelFor(minTime, maxTime - minTime, unitMs)}</span>
-            <span className="rounded-full border border-primary-200 bg-primary-50 px-2 py-0.5 font-medium text-primary-700">
+            <span className="font-mono">{labelFor(minTime, maxTime - minTime, unitMs)}</span>
+            <Badge mono tone="attention">
               {rangeLabel(selectedStart, selectedEnd, unitMs)}
-            </span>
-            <span>{labelFor(maxTime, maxTime - minTime, unitMs)}</span>
+            </Badge>
+            <span className="font-mono">{labelFor(maxTime, maxTime - minTime, unitMs)}</span>
           </div>
           <button
             type="button"
             onClick={clearPeriod}
             disabled={!from && !to}
-            className="font-medium text-primary-600 hover:underline disabled:text-foreground-300 disabled:no-underline"
+            className="font-medium text-primary-700 hover:underline disabled:text-foreground-400 disabled:no-underline"
           >
             All time
           </button>

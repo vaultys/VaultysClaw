@@ -38,19 +38,19 @@ export default function ToolbarSearch({
   return (
     <div ref={containerRef} className="relative w-full max-w-2xl">
       {/* Search bar */}
-      <div className="flex items-center gap-1.5 bg-background-100 border border-neutral-200 rounded-lg pl-2.5 pr-1 py-1 focus-within:ring-2 focus-within:ring-primary-500 transition">
+      <div className="flex items-center gap-1.5 bg-background-100 border border-neutral-200 rounded-lg pl-2.5 pr-1 py-1 focus-within:ring-2 focus-within:ring-primary-500/30 transition-shadow">
         <Search className="w-4 h-4 text-foreground-400 shrink-0" />
 
         {/* Active filter chips */}
         {chips.map((chip) => (
           <span
             key={chip.id}
-            className="flex items-center gap-1 text-xs bg-primary-100 text-primary-700 border border-primary-300 rounded px-1.5 py-0.5 whitespace-nowrap"
+            className="flex items-center gap-1 text-xs bg-background-200 text-foreground-700 border border-neutral-200 rounded px-1.5 py-0.5 whitespace-nowrap"
           >
             {chip.label}
             <button
               onClick={chip.onRemove}
-              className="hover:text-primary-900 transition-colors"
+              className="hover:text-foreground transition-colors"
               aria-label="Remove filter"
             >
               <X className="w-3 h-3" />
@@ -61,7 +61,7 @@ export default function ToolbarSearch({
         <input
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder ?? "Search…"}
+          placeholder={placeholder ?? "Search"}
           className="flex-1 min-w-[80px] bg-transparent text-sm text-foreground placeholder:text-foreground-400 focus:outline-none px-1 py-0.5"
         />
 
@@ -82,14 +82,14 @@ export default function ToolbarSearch({
 
       {/* Filter panel */}
       {open && hasPanel && (
-        <div className="absolute top-full left-0 mt-1.5 w-full min-w-[640px] bg-background-100 border border-neutral-200 rounded-xl shadow-2xl shadow-black/30 z-50 p-4">
+        <div className="absolute top-full left-0 mt-1.5 w-full min-w-[640px] bg-background-100 border border-neutral-200 rounded-xl shadow-lg z-50 p-4">
           <div className="flex gap-6">
             {filterGroups.map((group) => (
               <div
                 key={group.id}
                 className="flex-1 min-w-[180px] space-y-1"
               >
-                <div className="flex items-center gap-1.5 text-sm font-semibold text-foreground mb-2">
+                <div className="flex items-center gap-1.5 text-sm font-medium text-foreground mb-2">
                   {group.icon}
                   {group.label}
                 </div>
@@ -99,7 +99,7 @@ export default function ToolbarSearch({
                     onClick={opt.onToggle}
                     className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-sm text-left transition-colors ${
                       opt.active
-                        ? "text-primary-700 bg-primary-50"
+                        ? "text-foreground bg-background-200"
                         : "text-foreground-700 hover:bg-background-200"
                     }`}
                   >
@@ -115,7 +115,7 @@ export default function ToolbarSearch({
                 {group.onClear && (
                   <button
                     onClick={group.onClear}
-                    className="w-full text-left text-xs text-primary-500 hover:text-primary-400 px-2 py-1 mt-1 border-t border-neutral-200 pt-2"
+                    className="w-full text-left text-xs text-foreground-600 hover:text-foreground px-2 py-1 mt-1 border-t border-neutral-200 pt-2"
                   >
                     Clear
                   </button>

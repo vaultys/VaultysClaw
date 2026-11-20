@@ -1,5 +1,11 @@
-import { CheckCircle2, XCircle, HelpCircle } from "lucide-react";
+import { Badge } from "@/components/ui/Badge";
 import { checkIntegrationsHealth, DISPATCHER_QUEUE_PREFIX } from "@/lib/integrations-health";
+
+const STATE_BADGE = {
+  ok: { tone: "positive", label: "ok" },
+  error: { tone: "negative", label: "error" },
+  unconfigured: { tone: "muted", label: "not configured" },
+} as const;
 
 function StatusPill({
   label,
@@ -10,20 +16,14 @@ function StatusPill({
   state: "ok" | "error" | "unconfigured";
   detail?: string;
 }) {
-  const Icon = state === "ok" ? CheckCircle2 : state === "error" ? XCircle : HelpCircle;
-  const classes =
-    state === "ok"
-      ? "bg-success-100 text-success-700 border-success-200"
-      : state === "error"
-        ? "bg-danger-100 text-danger-700 border-danger-200"
-        : "bg-neutral-100 text-foreground-500 border-neutral-200";
+  const badge = STATE_BADGE[state];
   return (
-    <div className={`flex items-start gap-2 px-3 py-2 rounded-lg border text-xs ${classes}`}>
-      <Icon className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-      <div>
-        <div className="font-medium">{label}</div>
-        {detail && <div className="opacity-80 mt-0.5">{detail}</div>}
+    <div className="rounded-lg border border-neutral-200/60 bg-background-100 px-4 py-3">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-sm font-medium text-foreground">{label}</span>
+        <Badge tone={badge.tone}>{badge.label}</Badge>
       </div>
+      {detail && <div className="mt-1 text-xs leading-5 text-foreground-500">{detail}</div>}
     </div>
   );
 }
@@ -39,15 +39,15 @@ export default async function HealthPanel() {
   const health = await checkIntegrationsHealth();
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
       <StatusPill
         label="Redis"
         state={!health.redis.configured ? "unconfigured" : health.redis.ok ? "ok" : "error"}
         detail={
           !health.redis.configured
-            ? "REDIS_URL not set — nothing is enqueued at all."
+            ? "REDIS_URL not set — nothing is enqueued at all"
             : health.redis.ok
-              ? "Reachable."
+              ? "Reachable"
               : `Unreachable: ${health.redis.error}`
         }
       />
@@ -56,9 +56,9 @@ export default async function HealthPanel() {
         state={!health.apprise.configured ? "unconfigured" : health.apprise.ok ? "ok" : "error"}
         detail={
           !health.apprise.configured
-            ? "Delivery service URL not set — channels can't be created or notified."
+            ? "Delivery service URL not set — channels can't be created or notified"
             : health.apprise.ok
-              ? "Reachable."
+              ? "Reachable"
               : `Unreachable: ${health.apprise.error}`
         }
       />
@@ -67,12 +67,12 @@ export default async function HealthPanel() {
         state={!health.dispatcher.checked ? "unconfigured" : health.dispatcher.ok ? "ok" : "error"}
         detail={
           !health.dispatcher.checked
-            ? "Depends on Redis being configured first."
+            ? "Depends on Redis being configured first"
             : health.dispatcher.error
               ? `Couldn't check: ${health.dispatcher.error}`
               : health.dispatcher.ok
-                ? `${health.dispatcher.workerCount} worker${health.dispatcher.workerCount === 1 ? "" : "s"} attached.`
-                : `No worker attached to this queue — events are queuing up but never delivered. Run: pnpm controlplane:webhook:dev (prefix "${DISPATCHER_QUEUE_PREFIX}").`
+                ? `${health.dispatcher.workerCount} worker${health.dispatcher.workerCount === 1 ? "" : "s"} attached`
+                : `No worker attached to this queue — events are queuing up but never delivered. Run: pnpm controlplane:webhook:dev (prefix "${DISPATCHER_QUEUE_PREFIX}")`
         }
       />
     </div>

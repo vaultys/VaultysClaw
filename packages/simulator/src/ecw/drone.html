@@ -5,76 +5,94 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>SENTINELLE · Console drone</title>
     <style>
+      /* Same direction as the fleet page: navy ink neutrals, one gold accent for the selection.
+         Here the rich colour is the verdict — a pressed button fills green or red, and the drone's
+         picture follows its state — so everything around it stays quiet. */
       :root {
-        --bg: #070d14;
-        --panel: #0d1722;
-        --panel-2: #122030;
-        --line: #1d3044;
-        --text: #e3edf5;
-        --muted: #7f97ab;
-        --ok: #34d399;
-        --ok-bg: #0c3a2a;
-        --deny: #f43f5e;
-        --deny-bg: #47121e;
-        --warn: #fbbf24;
-        --accent: #38bdf8;
-        --hijack: #fb923c;
-        --human: #a3e635;
-        font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
+        --bg: #071217;
+        --panel: #0e1c23;
+        --raised: #152932;
+        --line: rgba(238, 242, 243, 0.08);
+        --line-2: rgba(238, 242, 243, 0.14);
+        --text: #eef2f3;
+        --text-2: #bac8cd;
+        --muted: #8ca0a7;
+        --accent: #e3b341;
+        --on-accent: #1b1405;
+        --ok: #4cc38a;
+        --ok-bg: #10291f;
+        --deny: #e5484d;
+        --deny-bg: #2e1215;
+        --warn: #f0883e;
+        --fleet: #38bdf8;
+        --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+        --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-family: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, sans-serif;
         color: var(--text);
         background: var(--bg);
       }
       * { box-sizing: border-box; }
-      body { margin: 0; background: var(--bg); }
+      body { margin: 0; background: var(--bg); font-size: 14px; line-height: 1.5; }
       a { color: var(--accent); text-decoration: none; }
-      header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 22px; border-bottom: 1px solid var(--line); background: #08121c; }
-      header strong { font-size: 16px; letter-spacing: 0.6px; }
-      nav.top { display: flex; gap: 6px; }
-      nav.top a { padding: 7px 13px; border-radius: 8px; color: var(--muted); font-size: 13.5px; border: 1px solid transparent; }
-      nav.top a.active { color: var(--text); background: var(--panel-2); border-color: var(--line); }
-      .tag { font-size: 10.5px; text-transform: uppercase; letter-spacing: 1px; color: var(--warn); border: 1px solid #5c4813; padding: 4px 8px; border-radius: 6px; }
+      a:hover { text-decoration: underline; text-underline-offset: 3px; }
+      code { font-family: var(--mono); }
+      :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+      .ic { width: 16px; height: 16px; flex: none; stroke: currentColor; fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; vertical-align: -3px; }
+      header { display: flex; align-items: center; justify-content: space-between; gap: 16px; height: 56px; padding: 0 24px; border-bottom: 1px solid var(--line); background: var(--bg); }
+      header strong { font-size: 16px; font-weight: 600; }
+      header strong em { font-style: normal; font-weight: 400; color: var(--text-2); }
+      nav.top { display: flex; gap: 4px; }
+      nav.top a { height: 32px; display: inline-flex; align-items: center; padding: 0 12px; border-radius: 8px; color: var(--text-2); font-size: 14px; transition: background-color 120ms var(--ease), color 120ms var(--ease); }
+      nav.top a:hover { color: var(--text); background: var(--panel); text-decoration: none; }
+      nav.top a.active { color: var(--text); background: var(--raised); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06); }
+      .tag { font-family: var(--mono); font-size: 12px; color: var(--muted); }
 
       /* The drone being driven: picture, name, status — the one place to look for "how is it?" */
-      .dronebar { display: grid; grid-template-columns: auto 190px 1fr auto; gap: 20px; align-items: center; padding: 10px 22px; border-bottom: 1px solid var(--line); background: #0a141e; }
-      .picks { display: flex; flex-direction: column; gap: 6px; }
-      .pick { display: flex; align-items: center; gap: 10px; font: inherit; color: var(--muted); background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 6px 12px 6px 8px; cursor: pointer; text-align: left; min-width: 190px; }
-      .pick svg { width: 46px; height: 26px; }
-      .pick b { display: block; color: var(--text); font-size: 13.5px; }
-      .pick small { font-size: 11px; }
-      .pick.on { border-color: var(--accent); background: #0c2233; box-shadow: 0 0 0 1px var(--accent); }
+      .dronebar { display: grid; grid-template-columns: auto 192px 1fr auto; gap: 24px; align-items: center; padding: 12px 24px; border-bottom: 1px solid var(--line); background: var(--panel); }
+      .picks { display: flex; flex-direction: column; gap: 4px; }
+      .pick { display: flex; align-items: center; gap: 12px; font: inherit; color: var(--muted); background: transparent; border: 1px solid var(--line); border-radius: 8px; padding: 4px 12px 4px 8px; cursor: pointer; text-align: left; min-width: 192px; transition: background-color 120ms var(--ease), border-color 120ms var(--ease); }
+      .pick:hover { background: var(--raised); }
+      .pick svg { width: 44px; height: 24px; }
+      .pick b { display: block; color: var(--text); font-size: 14px; font-weight: 500; }
+      .pick small { font-size: 12px; }
+      .pick.on { border-color: rgba(227, 179, 65, 0.6); background: var(--raised); }
       .pick .dot { width: 8px; height: 8px; border-radius: 50%; margin-left: auto; }
-      .stage { position: relative; width: 190px; height: 104px; }
-      .stage svg.craft { width: 190px; height: 104px; overflow: visible; }
-      .halo { position: absolute; inset: -6px; border-radius: 16px; pointer-events: none; opacity: 0; }
-      .halo.ok { animation: halo 1.6s ease-out; box-shadow: 0 0 0 3px var(--ok), 0 0 34px var(--ok); }
-      .halo.deny { animation: halo 1.6s ease-out; box-shadow: 0 0 0 3px var(--deny), 0 0 34px var(--deny); }
+      .stage { position: relative; width: 192px; height: 104px; }
+      .stage svg.craft { width: 192px; height: 104px; overflow: visible; }
+      /* After a decision: a ring that fades, in the verdict's colour. No blur, no glow. */
+      .halo { position: absolute; inset: -4px; border-radius: 12px; pointer-events: none; opacity: 0; }
+      .halo.ok { animation: halo 1.6s var(--ease); box-shadow: 0 0 0 2px var(--ok); }
+      .halo.deny { animation: halo 1.6s var(--ease); box-shadow: 0 0 0 2px var(--deny); }
       @keyframes halo { 0% { opacity: 1; } 100% { opacity: 0; } }
-      .who-drone h1 { margin: 0; font-size: 26px; letter-spacing: 1px; }
-      .who-drone small { color: var(--muted); font-size: 12.5px; }
-      .status { display: inline-block; margin-top: 6px; font-size: 13px; font-weight: 800; letter-spacing: 1px; padding: 5px 11px; border-radius: 7px; }
-      .status.good { background: var(--ok-bg); color: var(--ok); border: 1px solid #1e5a46; }
-      .status.bad { background: var(--deny-bg); color: var(--deny); border: 1px solid #6b1f30; }
-      .status.wait { background: #2a220c; color: var(--warn); border: 1px solid #5c4813; }
-      .status.hijack { background: #3a1d08; color: var(--hijack); border: 1px solid #7c3d12; }
-      .proof { font-size: 12.5px; color: var(--muted); text-align: right; }
-      .proof b { color: var(--text); font-weight: 600; }
-      .bar { height: 6px; background: #1a2a3a; border-radius: 4px; overflow: hidden; margin: 6px 0 8px auto; width: 190px; }
+      .who-drone h1 { margin: 0; font-size: 28px; line-height: 1.15; font-weight: 500; }
+      .who-drone small { color: var(--text-2); font-size: 13px; }
+      /* The seal: how this demonstrator marks a signed, checked state — a status, a verdict, a validation. */
+      .seal { display: inline-flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 13px; font-weight: 500; padding: 4px 10px; border-radius: 6px; border: 1.5px solid currentColor; }
+      .status { margin-top: 8px; }
+      .status.good { color: var(--ok); }
+      .status.bad { color: var(--deny); }
+      .status.wait { color: var(--muted); }
+      .status.hijack { color: var(--warn); }
+      .proof { font-size: 13px; color: var(--text-2); text-align: right; }
+      .proof b { color: var(--text); font-weight: 500; }
+      .proof #staple { font-family: var(--mono); font-size: 12px; font-variant-numeric: tabular-nums; }
+      .bar { height: 4px; background: var(--raised); border-radius: 2px; overflow: hidden; margin: 8px 0 8px auto; width: 192px; }
       .bar i { display: block; height: 100%; background: var(--ok); transition: width 0.5s linear; }
-      .trust { font-size: 13.5px; font-weight: 800; }
+      .trust { font-size: 14px; font-weight: 500; }
 
       /* The drone pictures. Colour follows the drone's state through --c. */
-      .craft { --c: var(--accent); }
-      .craft.wait { --c: var(--warn); }
+      .craft { --c: var(--fleet); }
+      .craft.wait { --c: var(--muted); }
       .craft.bad { --c: var(--deny); }
-      .craft.hijack { --c: var(--hijack); animation: glitch 0.35s steps(2) infinite; }
+      .craft.hijack { --c: var(--warn); animation: glitch 0.35s steps(2) infinite; }
       @keyframes glitch { 50% { opacity: 0.55; transform: translateX(1px); } }
-      .craft .metal { fill: #22344a; stroke: #3b5672; stroke-width: 1.5; }
-      .craft .dark { fill: #121d29; stroke: #2c4157; stroke-width: 1.5; }
+      .craft .metal { fill: #1c3440; stroke: #34505d; stroke-width: 1.5; }
+      .craft .dark { fill: #0e1c23; stroke: #29424e; stroke-width: 1.5; }
       .craft .glow { fill: var(--c); }
       .craft .line { stroke: var(--c); stroke-width: 2; fill: none; }
       .craft .shadow { fill: #000; opacity: 0.45; transform-origin: 100px 102px; transition: transform 0.8s, opacity 0.8s; }
       .craft.bad .metal { fill: #3a2228; }
-      .craft .body-g { transition: transform 0.9s cubic-bezier(0.3, 0.7, 0.3, 1); }
+      .craft .body-g { transition: transform 0.9s var(--ease); }
       .craft.air.up .body-g { transform: translateY(-16px); animation: bob 2.2s ease-in-out infinite; }
       .craft.air.up .shadow { transform: scale(0.65); opacity: 0.25; }
       @keyframes bob { 0%, 100% { transform: translateY(-16px); } 50% { transform: translateY(-21px); } }
@@ -87,134 +105,153 @@
       @keyframes roll { to { transform: rotate(360deg); } }
       .craft.ground.up .hull-g { animation: rumble 0.25s linear infinite; }
       @keyframes rumble { 50% { transform: translateY(-0.8px); } }
-      .road { stroke: #2c4157; stroke-width: 2; stroke-dasharray: 14 10; }
+      .road { stroke: #29424e; stroke-width: 2; stroke-dasharray: 14 10; }
       .craft.ground.up .road { animation: road 0.5s linear infinite; }
       @keyframes road { to { stroke-dashoffset: 24; } }
       .flash { fill: #fff; opacity: 0; }
       .flash.go { animation: flash 0.7s ease-out; }
       @keyframes flash { 0% { opacity: 0.95; } 100% { opacity: 0; } }
+      @media (prefers-reduced-motion: reduce) { .craft *, .craft { animation: none !important; } }
 
-      .tabs { display: flex; gap: 2px; padding: 0 22px; border-bottom: 1px solid var(--line); background: #08121c; }
-      .tab { position: relative; font: inherit; background: none; border: 0; border-bottom: 3px solid transparent; color: var(--muted); padding: 11px 30px 9px 16px; cursor: pointer; text-align: left; }
-      .tab b { display: block; font-size: 15px; color: inherit; }
-      .tab small { font-size: 11px; }
-      .tab:hover { color: var(--text); }
+      .tabs { display: flex; gap: 4px; padding: 0 24px; border-bottom: 1px solid var(--line); background: var(--bg); }
+      .tab { position: relative; font: inherit; background: none; border: 0; border-bottom: 2px solid transparent; color: var(--muted); padding: 12px 32px 10px 16px; cursor: pointer; text-align: left; transition: color 120ms var(--ease), border-color 120ms var(--ease); }
+      .tab b { display: block; font-size: 15px; font-weight: 500; color: inherit; }
+      .tab small { font-size: 12px; }
+      .tab:hover { color: var(--text-2); }
       .tab.on { color: var(--text); border-bottom-color: var(--accent); }
-      .tab.t-prep.on { border-bottom-color: var(--warn); }
-      .tab.human.on { border-bottom-color: var(--human); }
-      .tab.attack.on { border-bottom-color: var(--deny); }
-      .tab.drone.on { border-bottom-color: var(--muted); }
-      /* Which context the drone is currently taking its orders from. */
-      .tab.live::after { content: ""; position: absolute; top: 16px; right: 12px; width: 8px; height: 8px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 8px var(--ok); }
-      .tab.attack.live::after { background: var(--deny); box-shadow: 0 0 8px var(--deny); }
+      /* Which context the drone is currently taking its orders from: live, so it may show it. */
+      .tab.live::after { content: ""; position: absolute; top: 18px; right: 12px; width: 8px; height: 8px; border-radius: 50%; background: var(--ok); }
+      .tab.attack.live::after { background: var(--deny); }
 
-      main { padding: 14px 22px 26px; display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; align-items: start; }
+      main { padding: 24px; display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 24px; align-items: start; max-width: 1600px; margin: 0 auto; }
       body[data-tab="prep"] main { grid-template-columns: 1fr; }
       body[data-tab="prep"] .side { display: none; }
-      .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
-      .panel h2 { margin: 0 0 10px; font-size: 12px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted); font-weight: 600; }
-      .col { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
-      .view { display: none; flex-direction: column; gap: 14px; }
+      .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 20px; }
+      .panel h2 { margin: 0 0 12px; font-size: 14px; font-weight: 500; color: var(--text); }
+      .col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+      .view { display: none; flex-direction: column; gap: 16px; }
       .view.on { display: flex; }
-      .context { display: flex; align-items: center; gap: 12px; font-size: 14px; color: var(--muted); }
-      .context b { color: var(--text); font-size: 15.5px; }
-      .context .ico { font-size: 22px; width: 38px; height: 38px; display: grid; place-items: center; border-radius: 10px; background: var(--panel-2); border: 1px solid var(--line); }
-      .chips { display: flex; flex-wrap: wrap; gap: 6px; }
-      .chips span { font-size: 11.5px; padding: 3px 8px; border-radius: 6px; background: var(--ok-bg); color: var(--ok); border: 1px solid #1e5a46; }
-      .chips span.lost { background: var(--deny-bg); color: var(--deny); border-color: #6b1f30; text-decoration: line-through; }
+      .context { display: flex; align-items: center; gap: 12px; font-size: 14px; color: var(--text-2); }
+      .context b { color: var(--text); font-size: 15px; font-weight: 500; }
+      .context code { font-size: 13px; color: var(--text); }
+      .context .ico { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 8px; background: var(--raised); border: 1px solid var(--line); color: var(--text-2); }
+      .context .ico .ic { width: 18px; height: 18px; vertical-align: 0; }
+      .chips { display: flex; flex-wrap: wrap; gap: 4px; }
+      .chips span { font-family: var(--mono); font-size: 12px; padding: 2px 8px; border-radius: 4px; color: var(--text-2); border: 1px solid var(--line-2); }
+      .chips span.lost { color: var(--deny); border-color: rgba(229, 72, 77, 0.4); text-decoration: line-through; }
 
       /* Buttons: neutral until pressed, then the result fills them — green or red, impossible to miss. */
-      .group { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin: 12px 0 8px; }
+      .group { font-size: 13px; color: var(--muted); margin: 20px 0 8px; }
       .group:first-child { margin-top: 0; }
-      .actions { display: grid; grid-template-columns: repeat(auto-fill, minmax(178px, 1fr)); gap: 9px; }
-      .act { position: relative; text-align: left; background: var(--panel-2); border: 2px solid var(--line); color: var(--text); border-radius: 11px; padding: 11px 12px 10px; cursor: pointer; font: inherit; min-height: 76px; transition: background 0.25s, border-color 0.25s, transform 0.08s; }
-      .act:hover { border-color: #3d5d7c; }
-      .act:active { transform: scale(0.97); }
-      .act b { font-size: 15px; display: block; margin-bottom: 4px; padding-right: 8px; }
-      .act code { font-size: 10.5px; color: var(--muted); }
-      .act .hint { display: block; margin-top: 5px; font-size: 11px; color: var(--muted); }
-      .act .hint .y { color: #6fc9a5; }
-      .act .hint .n { color: #c98593; }
-      .act .res { display: none; margin-top: 6px; font-size: 13px; font-weight: 900; letter-spacing: 0.6px; }
-      .act.ok { background: var(--ok-bg); border-color: var(--ok); }
-      .act.deny { background: var(--deny-bg); border-color: var(--deny); }
-      .act.ok .res, .act.deny .res { display: block; }
+      .actions { display: grid; grid-template-columns: repeat(auto-fill, minmax(176px, 1fr)); gap: 8px; }
+      .act { position: relative; text-align: left; background: var(--raised); border: 1.5px solid var(--line-2); color: var(--text); border-radius: 10px; padding: 12px; cursor: pointer; font: inherit; min-height: 76px; transition: background-color 250ms var(--ease), border-color 250ms var(--ease), transform 80ms var(--ease); }
+      .act:hover { border-color: rgba(238, 242, 243, 0.28); }
+      .act:active { transform: scale(0.98); }
+      .act b { font-size: 15px; font-weight: 500; display: block; margin-bottom: 4px; padding-right: 8px; }
+      .act code { font-size: 12px; color: var(--muted); }
+      .act .hint { display: block; margin-top: 4px; font-size: 12px; color: var(--muted); }
+      .act .hint .y { color: #79b99b; }
+      .act .hint .n { color: #c98a8d; }
+      .act .res { display: none; margin-top: 8px; font-size: 14px; font-weight: 600; }
+      .act.ok { background: #143d2b; border-color: var(--ok); }
+      .act.deny { background: #47181c; border-color: var(--deny); }
+      .act.ok .res, .act.deny .res { display: flex; align-items: center; gap: 8px; }
       .act.ok .res { color: var(--ok); }
-      .act.deny .res { color: #ff8197; }
+      .act.deny .res { color: #f08a8d; }
       .act.ok .hint, .act.deny .hint { display: none; }
-      .act.ok code, .act.deny code { color: #b6c7d4; }
-      .act.fresh { animation: pulse 1.4s ease-out 2; }
-      @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.55); } 100% { box-shadow: 0 0 0 14px rgba(255, 255, 255, 0); } }
-      .act.evil { border-style: dashed; border-color: #8a2a3d; }
+      .act.ok code, .act.deny code { color: var(--text-2); }
+      .act.evil { border-style: dashed; border-color: rgba(229, 72, 77, 0.5); }
 
-      .switch { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-      .switch button { text-align: left; background: var(--panel-2); border: 2px solid var(--line); color: var(--text); border-radius: 10px; padding: 11px 12px; cursor: pointer; font: inherit; }
-      .switch b { display: block; font-size: 15px; margin-bottom: 3px; }
-      .switch small { color: var(--muted); font-size: 12px; line-height: 1.4; display: block; }
+      .switch { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+      .switch button { text-align: left; background: var(--raised); border: 1.5px solid var(--line-2); color: var(--text); border-radius: 10px; padding: 12px; cursor: pointer; font: inherit; transition: background-color 120ms var(--ease), border-color 120ms var(--ease); }
+      .switch b { display: block; font-size: 15px; font-weight: 500; margin-bottom: 4px; }
+      .switch small { color: var(--text-2); font-size: 13px; line-height: 1.4; display: block; }
       .switch button.on { border-color: var(--deny); background: var(--deny-bg); }
 
       /* The verdict: the other place to look. */
-      .verdict { font-size: 30px; font-weight: 900; letter-spacing: 1px; margin: 2px 0 2px; }
+      .verdict { font-size: 22px; margin: 8px 0; }
       .verdict.ok { color: var(--ok); }
       .verdict.deny { color: var(--deny); }
-      #tracePanel.ok { animation: panelOk 1.6s ease-out; }
-      #tracePanel.deny { animation: panelDeny 1.6s ease-out; }
-      @keyframes panelOk { 0% { background: #12553c; border-color: var(--ok); } 100% { background: var(--panel); } }
-      @keyframes panelDeny { 0% { background: #6a1626; border-color: var(--deny); } 100% { background: var(--panel); } }
-      .steps { list-style: none; padding: 0; margin: 10px 0 0; }
-      .steps li { display: grid; grid-template-columns: 24px 1fr; gap: 8px; padding: 8px 0; border-top: 1px solid #142334; font-size: 12.5px; color: #b8c8d6; }
-      .steps li span:first-child { font-size: 15px; text-align: center; }
-      .steps li b { display: block; font-size: 11.5px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.6px; }
+      .verdict .ic { width: 20px; height: 20px; stroke-width: 2; vertical-align: -4px; }
+      #tracePanel.ok { animation: panelOk 1.6s var(--ease); }
+      #tracePanel.deny { animation: panelDeny 1.6s var(--ease); }
+      @keyframes panelOk { 0% { background: #153a2b; border-color: var(--ok); } 100% { background: var(--panel); } }
+      @keyframes panelDeny { 0% { background: #461a1d; border-color: var(--deny); } 100% { background: var(--panel); } }
+      .steps { list-style: none; padding: 0; margin: 12px 0 0; }
+      .steps li { display: grid; grid-template-columns: 20px 1fr; gap: 8px; padding: 8px 0; border-top: 1px solid var(--line); font-size: 13px; color: var(--text-2); }
+      .steps li > span:first-child { padding-top: 2px; color: var(--muted); }
+      .steps li .y { color: var(--ok); }
+      .steps li .n { color: var(--deny); }
+      .steps li b { display: block; font-size: 13px; color: var(--text); font-weight: 500; }
 
-      .revoke { width: 100%; padding: 14px; font: inherit; font-size: 15px; font-weight: 800; letter-spacing: 1px; border-radius: 10px; border: 0; background: var(--deny); color: white; cursor: pointer; }
-      .revoke:disabled { background: #3a1820; color: #a16a77; cursor: default; }
-      .linkbtn { font: inherit; font-size: 12px; background: none; border: 0; color: var(--muted); text-decoration: underline; cursor: pointer; padding: 0; margin-top: 10px; }
-      .timeline { margin-top: 10px; font-size: 13px; }
-      .timeline div { padding: 6px 0; border-top: 1px solid #142334; display: flex; justify-content: space-between; gap: 10px; }
-      .timeline div span:last-child { font-variant-numeric: tabular-nums; font-weight: 800; }
+      .revoke { width: 100%; height: 44px; font: inherit; font-size: 15px; font-weight: 500; border-radius: 10px; border: 0; background: var(--deny); color: #fff; cursor: pointer; transition: background-color 120ms var(--ease), transform 80ms var(--ease); }
+      .revoke:hover:not(:disabled) { background: #d23c41; }
+      .revoke:active:not(:disabled) { transform: scale(0.98); }
+      .revoke:disabled { background: var(--raised); color: var(--muted); cursor: default; }
+      .linkbtn { font: inherit; font-size: 13px; background: none; border: 0; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; padding: 0; margin-top: 12px; text-align: left; }
+      .linkbtn:hover { color: var(--text-2); }
+      .timeline { margin-top: 12px; font-size: 13px; color: var(--text-2); }
+      .timeline div { padding: 8px 0; border-top: 1px solid var(--line); display: flex; justify-content: space-between; gap: 12px; }
+      .timeline div span:last-child { font-family: var(--mono); font-variant-numeric: tabular-nums; font-weight: 500; color: var(--text); }
 
       /* Mission prep: two enrolments, each a stepper the eye can follow top to bottom. */
       .prep { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-      .prep .panel { padding: 18px 20px; }
-      .prep h3 { margin: 0 0 4px; font-size: 19px; }
-      .prep .sub { color: var(--muted); font-size: 13px; margin: 0 0 14px; }
-      .prep-head { display: flex; align-items: center; gap: 14px; margin-bottom: 6px; }
-      .prep-head svg { width: 120px; height: 66px; }
-      .prep-head .ico { font-size: 40px; width: 120px; text-align: center; }
+      .prep .panel { padding: 24px; }
+      .prep h3 { margin: 0 0 4px; font-size: 20px; font-weight: 500; }
+      .prep .sub { color: var(--text-2); font-size: 14px; margin: 0 0 16px; }
+      .prep-head { display: flex; align-items: center; gap: 16px; margin-bottom: 8px; }
+      .prep-head svg { width: 120px; height: 64px; }
+      .prep-head .ico { width: 120px; display: grid; place-items: center; color: var(--text-2); }
+      .prep-head .ico .ic { width: 40px; height: 40px; stroke-width: 1.25; }
       .stepper { list-style: none; margin: 0; padding: 0; }
-      .stepper li { display: grid; grid-template-columns: 34px 1fr; gap: 12px; padding: 11px 0; border-top: 1px solid #142334; }
-      .stepper .n { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 14px; background: var(--panel-2); color: var(--muted); border: 2px solid var(--line); }
+      .stepper li { display: grid; grid-template-columns: 32px 1fr; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); }
+      .stepper .n { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-family: var(--mono); font-size: 13px; background: var(--raised); color: var(--muted); border: 1.5px solid var(--line-2); }
+      .stepper .n .ic { vertical-align: 0; stroke-width: 2; width: 14px; height: 14px; }
       .stepper li.done .n { background: var(--ok-bg); color: var(--ok); border-color: var(--ok); }
-      .stepper li.now .n { color: var(--warn); border-color: var(--warn); animation: now 1.2s ease-in-out infinite; }
-      @keyframes now { 50% { box-shadow: 0 0 0 6px rgba(251, 191, 36, 0.18); } }
-      .stepper b { display: block; font-size: 14.5px; }
+      .stepper li.now .n { color: var(--accent); border-color: var(--accent); }
+      .stepper b { display: block; font-size: 15px; font-weight: 500; }
       .stepper li:not(.done):not(.now) b { color: var(--muted); }
-      .stepper small { display: block; color: var(--muted); font-size: 12px; margin-top: 3px; word-break: break-all; }
-      .go { margin-top: 8px; font: inherit; font-size: 14px; font-weight: 800; padding: 9px 16px; border-radius: 9px; border: 0; background: var(--accent); color: #04131e; cursor: pointer; }
-      .go:disabled { background: #1c3245; color: #5c7890; cursor: default; }
-      .ready { margin-top: 12px; padding: 10px 12px; border-radius: 9px; background: var(--ok-bg); border: 1px solid var(--ok); color: var(--ok); font-weight: 700; font-size: 14px; display: none; }
-      .ready.on { display: block; }
+      .stepper small { display: block; color: var(--text-2); font-size: 13px; margin-top: 4px; word-break: break-all; }
+      .go { margin-top: 12px; font: inherit; font-size: 14px; font-weight: 500; height: 36px; padding: 0 16px; border-radius: 8px; border: 0; background: var(--accent); color: var(--on-accent); cursor: pointer; transition: background-color 120ms var(--ease), transform 80ms var(--ease); }
+      .go:hover:not(:disabled) { background: #eec259; }
+      .go:active:not(:disabled) { transform: scale(0.98); }
+      .go:disabled { background: var(--raised); color: var(--muted); cursor: default; }
+      .ready { margin-top: 12px; padding: 12px; border-radius: 8px; background: var(--ok-bg); border: 1px solid rgba(76, 195, 138, 0.5); color: var(--ok); font-weight: 500; font-size: 14px; display: none; align-items: center; gap: 8px; }
+      .ready.on { display: flex; }
 
-      dl { display: grid; grid-template-columns: 100px 1fr; gap: 8px 12px; margin: 0; font-size: 13px; }
+      /* A renewed identity waiting in the control plane's approval queue: the first thing to see. */
+      .pending { display: none; border: 1.5px solid var(--accent); background: #1e1a0d; border-radius: 14px; padding: 20px; }
+      .pending.on { display: block; }
+      .pending h3 { margin: 0 0 4px; font-size: 17px; font-weight: 500; color: var(--accent); }
+      .pending p { margin: 0 0 12px; font-size: 14px; color: var(--text-2); }
+      .pending .stepper li { border-top-color: rgba(227, 179, 65, 0.16); padding: 8px 0; }
+      .pending .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 8px; }
+      .pending .go { margin-top: 0; text-decoration: none; display: inline-flex; align-items: center; }
+
+      dl { display: grid; grid-template-columns: 96px 1fr; gap: 8px 12px; margin: 0; font-size: 14px; }
       dt { color: var(--muted); }
       dd { margin: 0; word-break: break-all; }
-      .peers { display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
-      .peers div { display: flex; justify-content: space-between; padding: 6px 10px; border-radius: 6px; background: var(--panel-2); }
-      .feed { max-height: 260px; overflow: auto; font-size: 12.5px; }
-      .feed div { padding: 6px 0; border-bottom: 1px solid #142334; }
-      .feed time { color: var(--muted); margin-right: 6px; }
-      .feed .deny b { color: var(--deny); } .feed .ok b { color: var(--ok); } .feed .alert b { color: var(--warn); } .feed .info b { color: var(--accent); }
-      .note { font-size: 12.5px; color: var(--muted); line-height: 1.5; margin: 8px 0 0; }
-      .error { display: none; padding: 10px 12px; border-radius: 8px; background: var(--deny-bg); border: 1px solid #6b1f30; color: #fecdd3; font-size: 13px; }
+      dd#did { font-family: var(--mono); font-size: 12px; color: var(--text-2); }
+      .peers { display: flex; flex-direction: column; gap: 4px; font-size: 14px; }
+      .peers div { display: flex; justify-content: space-between; padding: 8px 12px; border-radius: 8px; background: var(--raised); }
+      .feed { max-height: 260px; overflow: auto; font-size: 13px; color: var(--text-2); }
+      .feed div { padding: 8px 0; border-bottom: 1px solid var(--line); }
+      .feed time { font-family: var(--mono); font-size: 12px; color: var(--muted); margin-right: 8px; }
+      .feed b { font-weight: 500; color: var(--text); }
+      .feed .deny b { color: var(--deny); } .feed .ok b { color: var(--ok); } .feed .alert b { color: var(--warn); }
+      .note { font-size: 13px; color: var(--text-2); line-height: 1.5; margin: 8px 0 0; }
+      .note b { color: var(--text); font-weight: 500; }
+      .error { display: none; padding: 12px; border-radius: 8px; background: var(--deny-bg); border: 1px solid rgba(229, 72, 77, 0.4); color: #f4b4b6; font-size: 13px; }
       @media (max-width: 1150px) { main { grid-template-columns: 1fr; } .prep { grid-template-columns: 1fr; } .dronebar { grid-template-columns: 1fr 1fr; } .tag { display: none; } }
     </style>
   </head>
   <body data-tab="c2">
     <header>
-      <strong>VAULTYSCLAW · OPÉRATION SENTINELLE</strong>
+      <strong>VaultysClaw <em>· Opération Sentinelle</em></strong>
       <nav class="top">
         <a href="/">Flotte</a>
         <a href="/drone" class="active">Console drone</a>
+        <a href="/enrolement">Enrôlement CIM</a>
         <a id="console" href="#" target="_blank" rel="noopener">Control plane ↗</a>
       </nav>
       <span class="tag">Démonstrateur · données fictives</span>
@@ -226,7 +263,7 @@
       <div class="who-drone">
         <h1 id="name">RAPACE-07</h1>
         <small id="role">–</small><br />
-        <span class="status wait" id="status">…</span>
+        <span class="seal status wait" id="status">…</span>
       </div>
       <div class="proof">
         <b>Preuve de statut</b> · <span id="staple">–</span>
@@ -246,6 +283,11 @@
     <main>
       <div class="col">
         <div class="error" id="error"></div>
+        <section class="pending" id="pending">
+          <h3 id="pending-title">Nouvelle identité en attente d'approbation</h3>
+          <p>Tant qu'un administrateur ne l'a pas approuvée dans le control plane, ce drone n'a aucun droit : toute action est refusée.</p>
+          <ol class="stepper" id="pending-steps"></ol>
+        </section>
 
         <!-- Préparation de mission -->
         <section class="view" data-view="prep">
@@ -253,26 +295,26 @@
             <div class="panel">
               <div class="prep-head"><div id="enroll-craft"></div><div><h3 id="enroll-name">RAPACE-09</h3><p class="sub" style="margin: 0">Un drone neuf, mis sous tension pour la mission</p></div></div>
               <ol class="stepper" id="enroll-steps"></ol>
-              <div class="ready" id="enroll-ready">✓ Enrôlé : il rejoint la flotte (vue flotte)</div>
+              <div class="ready" id="enroll-ready"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>Enrôlé : il rejoint la flotte (vue flotte)</div>
               <button class="linkbtn" id="enroll-reset">Recommencer avec un drone neuf</button>
             </div>
             <div class="panel">
-              <div class="prep-head"><div class="ico">🧍</div><div><h3 id="human-name">Nouveau pilote</h3><p class="sub" style="margin: 0">Une personne rejoint la mission</p></div></div>
+              <div class="prep-head"><div class="ico"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="7" r="4"/><path d="M5 21v-2a7 7 0 0 1 14 0v2"/></svg></div><div><h3 id="human-name">Nouveau pilote</h3><p class="sub" style="margin: 0">Une personne rejoint la mission</p></div></div>
               <ol class="stepper" id="human-steps"></ol>
-              <div class="ready" id="human-ready">✓ Enrôlé : son certificat est dans le registre</div>
+              <div class="ready" id="human-ready"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>Enrôlé : son certificat est dans le registre</div>
             </div>
           </div>
         </section>
 
         <!-- C2 -->
         <section class="view" data-view="c2">
-          <div class="context"><span class="ico">⬢</span><span><b>C2 SENTINELLE</b> · ordres signés avec la clé du C2 (<code>fleet:command</code> : tous les ordres)</span></div>
+          <div class="context"><span class="ico"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4.9 16.1a10 10 0 0 1 0-14.2M19.1 1.9a10 10 0 0 1 0 14.2M7.8 13.2a6 6 0 0 1 0-8.4M16.2 4.8a6 6 0 0 1 0 8.4"/><circle cx="12" cy="9" r="2"/><path d="M12 11v11"/></svg></span><span><b>C2 Sentinelle</b> · ordres signés avec la clé du C2 (<code>fleet:command</code> : tous les ordres)</span></div>
           <div class="panel"><div id="c2-actions"></div></div>
         </section>
 
         <!-- Humain -->
         <section class="view" data-view="human">
-          <div class="context"><span class="ico">🧍</span><span><b id="pilot-name">Pilote</b> · son terminal signe avec sa propre clé (<code>fleet:command.flight</code> : déplacements seulement)</span></div>
+          <div class="context"><span class="ico"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="7" r="4"/><path d="M5 21v-2a7 7 0 0 1 14 0v2"/></svg></span><span><b id="pilot-name">Pilote</b> · son terminal signe avec sa propre clé (<code>fleet:command.flight</code> : déplacements seulement)</span></div>
           <div class="panel"><div id="human-actions"></div></div>
         </section>
 
@@ -291,7 +333,7 @@
             <h2>Identité</h2>
             <dl>
               <dt>Acteur</dt><dd><a id="drone-actor" target="_blank" rel="noopener">dans le control plane ↗</a></dd>
-              <dt>DID</dt><dd id="did" style="font-size: 11.5px; color: var(--muted)">–</dd>
+              <dt>DID</dt><dd id="did">–</dd>
               <dt>Certificat</dt><dd id="cert-full">–</dd>
             </dl>
           </div>
@@ -300,8 +342,8 @@
           <div class="panel"><h2>Journal</h2><div class="feed" id="feed"></div></div>
           <div class="panel">
             <h2>Modèle de sécurité</h2>
-            <p class="note" style="margin: 0"><b style="color: var(--text)">Deux décisions par ordre :</b> l'émetteur doit avoir le droit de l'ordonner, le drone d'avoir le droit de le faire — vérifiées par signature, hors ligne.</p>
-            <p class="note"><b style="color: var(--text)">Limite assumée :</b> un tiers peut compromettre un drone via son outil de communication ; jusqu'à la révocation, il agit avec les droits de ce drone — d'où le moindre privilège.</p>
+            <p class="note" style="margin: 0"><b>Deux décisions par ordre :</b> l'émetteur doit avoir le droit de l'ordonner, le drone d'avoir le droit de le faire — vérifiées par signature, hors ligne.</p>
+            <p class="note"><b>Limite assumée :</b> un tiers peut compromettre un drone via son outil de communication ; jusqu'à la révocation, il agit avec les droits de ce drone — d'où le moindre privilège.</p>
           </div>
         </section>
       </div>
@@ -309,13 +351,13 @@
       <div class="col side">
         <section class="panel" id="tracePanel">
           <h2>Décision</h2>
-          <div id="trace" style="color: var(--muted); font-size: 14px">Appuyez sur une action : la décision s'affiche ici.</div>
+          <div id="trace" style="color: var(--text-2)">Appuyez sur une action : la décision s'affiche ici.</div>
         </section>
         <section class="panel">
           <h2>Réponse à incident</h2>
-          <button class="revoke" id="revoke">RÉVOQUER LE CERTIFICAT</button>
+          <button class="revoke" id="revoke">Révoquer le certificat</button>
           <div class="timeline" id="timeline"></div>
-          <button class="linkbtn" id="reset">Réinitialiser ce drone (identité neuve)</button>
+          <button class="linkbtn" id="reset">Réinitialiser ce drone (identité neuve, à approuver dans le control plane)</button>
         </section>
       </div>
     </main>
@@ -325,6 +367,13 @@
       const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
       const secs = (ms) => (ms / 1000).toFixed(1).replace(".", ",") + " s";
       const short = (did) => (did ? did.slice(0, 22) + "…" + did.slice(-6) : "–");
+      const ICON = {
+        check: '<path d="M5 12l5 5 9-10"/>',
+        x: '<path d="M6 6l12 12M18 6L6 18"/>',
+        ban: '<circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/>',
+        alert: '<path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18h.01"/>',
+      };
+      const ic = (name) => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${ICON[name]}</svg>`;
       const MODE_OF_TAB = { c2: "operator", human: "pilot" };
       const TAB_OF_MODE = { operator: "c2", pilot: "human", radio: "attack", compromised: "attack" };
       const MODE_LABEL = { operator: "C2", pilot: "pilote", radio: "attaquant radio", compromised: "drone compromis" };
@@ -332,7 +381,6 @@
       let busy = false;
       let lastTraceAt = null;
       let lastKey = null;
-      let freshAction = null;
 
       // Only touch the DOM when the markup changed: re-rendering a button every poll can swallow a
       // click that lands between mousedown and mouseup, and would restart its animations.
@@ -402,7 +450,7 @@
        *  audience, before the click, which check will refuse it. */
       function button(a, mode, who, extra = {}) {
         const last = a.last && a.last.mode === mode ? a.last : null;
-        const cls = [last ? (last.allowed ? "ok" : "deny") : "", extra.evil ? "evil" : "", freshAction === a.id && last ? "fresh" : ""].join(" ");
+        const cls = [last ? (last.allowed ? "ok" : "deny") : "", extra.evil ? "evil" : ""].join(" ");
         const yn = (y, t) => `<span class="${y ? "y" : "n"}">${t} ${y ? "✓" : "✕"}</span>`;
         const hints = [];
         if (who === "pilot") hints.push(yn(a.pilotCan, "pilote"));
@@ -410,7 +458,7 @@
         return `<button class="act ${cls}" data-id="${esc(a.id)}" ${extra.forge ? 'data-forge="1"' : ""} ${extra.replay ? 'data-replay="1"' : ""}>
           <b>${esc(extra.label || a.label)}</b><code>${esc(extra.code || a.capability)}</code>
           ${hints.length ? `<span class="hint">${hints.join(" · ")}</span>` : ""}
-          <span class="res">${last ? (last.allowed ? "✓ EXÉCUTÉ" : "⛔ REFUSÉ") : ""}</span>
+          <span class="res">${last ? (last.allowed ? `${ic("check")}Exécuté` : `${ic("ban")}Refusé`) : ""}</span>
         </button>`;
       }
       function grid(actions, mode, who) {
@@ -428,7 +476,7 @@
       }
 
       function stepper(id, steps) {
-        set(id, steps.map((s, i) => `<li class="${s.state}"><span class="n">${s.state === "done" ? "✓" : i + 1}</span><div><b>${s.title}</b>${s.detail ? `<small>${s.detail}</small>` : ""}${s.chips ? `<div class="chips" style="margin-top: 6px">${s.chips.map((c) => `<span>${esc(c)}</span>`).join("")}</div>` : ""}${s.action ?? ""}</div></li>`).join(""));
+        set(id, steps.map((s, i) => `<li class="${s.state}"><span class="n">${s.state === "done" ? ic("check") : i + 1}</span><div><b>${s.title}</b>${s.detail ? `<small>${s.detail}</small>` : ""}${s.chips ? `<div class="chips" style="margin-top: 6px">${s.chips.map((c) => `<span>${esc(c)}</span>`).join("")}</div>` : ""}${s.action ?? ""}</div></li>`).join(""));
       }
 
       function renderPrep(s) {
@@ -489,7 +537,7 @@
           "picks",
           Object.values(s.consoles)
             .map((c) => {
-              const tone = c.status === "certifié" ? (c.mode === "compromised" ? "var(--hijack)" : "var(--ok)") : c.status === "révoqué" || c.status === "isolé" ? "var(--deny)" : "var(--warn)";
+              const tone = c.status === "certifié" ? (c.mode === "compromised" ? "var(--warn)" : "var(--ok)") : c.status === "révoqué" || c.status === "isolé" ? "var(--deny)" : "var(--muted)";
               return `<button class="pick ${c.key === s.selected ? "on" : ""}" data-key="${esc(c.key)}">${craftSvg(c.type)}<span><b>${esc(c.label)}</b><small>${esc(c.typeLabel)}</small></span><span class="dot" style="background: ${tone}"></span></button>`;
             })
             .join("")
@@ -511,23 +559,30 @@
         document.getElementById("name").textContent = sp.label;
         document.getElementById("role").textContent = `${sp.typeLabel} · ${sp.flight === "ground" ? "à la base" : sp.flight === "patrol" ? "en patrouille" : sp.type === "air" ? "en vol" : "sur le terrain"}`;
         const st = document.getElementById("status");
-        st.textContent = compromised ? "COMPROMIS" : sp.status.toUpperCase();
-        st.className = "status " + (compromised ? "hijack" : sp.status === "certifié" ? "good" : bad ? "bad" : "wait");
+        st.textContent = compromised ? "compromis" : sp.status;
+        st.className = "seal status " + (compromised ? "hijack" : sp.status === "certifié" ? "good" : bad ? "bad" : "wait");
         if (sp.staple) {
           const left = Math.max(0, s.ttlSeconds * 1000 - sp.staple.ageMs);
-          document.getElementById("staple").textContent = sp.staple.status === "active" ? `active · ${secs(sp.staple.ageMs)}` : "RÉVOQUÉE";
+          document.getElementById("staple").textContent = sp.staple.status === "active" ? `active · ${secs(sp.staple.ageMs)}` : "révoquée";
           const bar = document.getElementById("stapleBar");
           bar.style.width = (100 * left) / (s.ttlSeconds * 1000) + "%";
           bar.style.background = sp.staple.status === "active" ? "var(--ok)" : "var(--deny)";
+        } else {
+          // A new identity has no certificate yet, so no proof: never show the previous one's.
+          document.getElementById("staple").textContent = sp.pending || !sp.capabilities.length ? "aucune — pas encore de certificat" : "première vérification en cours…";
+          document.getElementById("stapleBar").style.width = "0";
         }
         const recent = s.links.filter((l) => l.from === sp.key && l.type !== "command");
         const trust = document.getElementById("trust");
         if (sp.isolatedAt) {
-          trust.textContent = "⛔ Isolé de la flotte";
+          trust.textContent = "Isolé de la flotte";
           trust.style.color = "var(--deny)";
+        } else if (sp.pending || !sp.staple) {
+          trust.textContent = "Pas encore dans la flotte";
+          trust.style.color = "var(--muted)";
         } else if (recent.length) {
           const ok = recent.filter((l) => l.ok).length;
-          trust.textContent = ok === recent.length ? "✓ La flotte lui fait confiance" : `⚠ ${recent.length - ok} pair(s) le refusent`;
+          trust.textContent = ok === recent.length ? "La flotte lui fait confiance" : `${recent.length - ok} pair(s) le refusent`;
           trust.style.color = ok === recent.length ? "var(--ok)" : "var(--deny)";
         }
 
@@ -535,7 +590,6 @@
         const t = sp.trace;
         if (t && t.at !== lastTraceAt) {
           lastTraceAt = t.at;
-          freshAction = t.action;
           const halo = document.getElementById("halo");
           halo.className = "halo";
           void halo.offsetWidth;
@@ -574,7 +628,7 @@
         const peers = {};
         for (const l of s.links) if (l.from === sp.key) peers[l.to] = l;
         const names = Object.fromEntries(s.members.map((m) => [m.key, m.label]));
-        const rows = Object.entries(peers).map(([k, l]) => `<div><span>${esc(names[k])}</span><span style="color: ${l.ok ? "var(--ok)" : "var(--deny)"}; font-weight: 700">${l.ok ? "✓ accepte" : "✕ refuse"}</span></div>`);
+        const rows = Object.entries(peers).map(([k, l]) => `<div><span>${esc(names[k])}</span><span style="color: ${l.ok ? "var(--ok)" : "var(--deny)"}">${l.ok ? "accepte" : "refuse"}</span></div>`);
         if (rows.length) set("peers", rows.join(""));
         set(
           "feed",
@@ -589,28 +643,46 @@
         if (t)
           set(
             "trace",
-            `<div style="color: var(--muted); font-size: 12.5px">${esc(sp.label)} · ${esc(t.label)} · ${esc(MODE_LABEL[t.mode])}</div>
-            <div class="verdict ${t.allowed ? "ok" : "deny"}">${t.allowed ? "✓ EXÉCUTÉ" : "⛔ REFUSÉ"}</div>
-            <div style="font-size: 14px">${esc(t.summary)}</div>
-            <ul class="steps">${t.steps.map((x) => `<li><span>${x.ok === null ? "•" : x.ok ? "✅" : "⛔"}</span><span><b>${esc(x.layer)}</b>${esc(x.detail)}</span></li>`).join("")}</ul>`
+            `<div style="color: var(--muted); font-size: 13px">${esc(sp.label)} · ${esc(t.label)} · ${esc(MODE_LABEL[t.mode])}</div>
+            <div class="seal verdict ${t.allowed ? "ok" : "deny"}">${t.allowed ? `${ic("check")}Exécuté` : `${ic("ban")}Refusé`}</div>
+            <div style="color: var(--text)">${esc(t.summary)}</div>
+            <ul class="steps">${t.steps.map((x) => `<li><span class="${x.ok === null ? "" : x.ok ? "y" : "n"}">${x.ok === null ? "·" : ic(x.ok ? "check" : "x")}</span><span><b>${esc(x.layer)}</b>${esc(x.detail)}</span></li>`).join("")}</ul>`
           );
         else set("trace", `<span style="color: var(--muted)">Appuyez sur une action : la décision s'affiche ici.</span>`);
         const revoked = Boolean(sp.revokedAt);
         const rv = document.getElementById("revoke");
         rv.disabled = revoked || sp.status !== "certifié";
-        rv.textContent = revoked ? "CERTIFICAT RÉVOQUÉ" : `RÉVOQUER ${sp.label}`;
+        rv.textContent = revoked ? "Certificat révoqué" : `Révoquer ${sp.label}`;
         let tl = "";
         if (revoked) {
           tl += `<div><span>Révoqué</span><span>${new Date(sp.revokedAt).toLocaleTimeString("fr-FR")}</span></div>`;
           if (sp.lastActiveAgeMs !== null) {
             const left = s.ttlSeconds * 1000 - sp.lastActiveAgeMs;
-            tl += `<div><span>Dernière preuve valide ${left > 0 ? "expire dans" : "expirée depuis"}</span><span style="color: ${left > 0 ? "var(--warn)" : "var(--deny)"}">${secs(Math.abs(left))}</span></div>`;
+            tl += `<div><span>Dernière preuve valide ${left > 0 ? "expire dans" : "expirée depuis"}</span><span style="color: ${left > 0 ? "var(--accent)" : "var(--deny)"}">${secs(Math.abs(left))}</span></div>`;
           }
           tl += sp.isolatedAt
             ? `<div><span>Isolé de la flotte</span><span style="color: var(--deny)">+${secs(sp.isolatedAt - sp.revokedAt)}</span></div>`
-            : `<div><span>Isolement de la flotte</span><span style="color: var(--warn)">en cours…</span></div>`;
+            : `<div><span>Isolement de la flotte</span><span style="color: var(--accent)">en cours…</span></div>`;
         }
         set("timeline", tl);
+
+        // A renewed identity: onboarding goes through the control plane's approval queue.
+        const pend = document.getElementById("pending");
+        pend.classList.toggle("on", Boolean(sp.pending) && tab !== "prep");
+        if (sp.pending) {
+          document.getElementById("pending-title").textContent = `${sp.label} · identité neuve en attente d'approbation`;
+          stepper("pending-steps", [
+            { title: "Identité neuve générée à bord", detail: `${short(sp.did)} — l'ancienne reste révoquée dans le registre`, state: "done" },
+            { title: "Demande d'enregistrement reçue par le control plane", detail: "Elle apparaît dans la file « Pending approval » de la console", state: "done" },
+            {
+              title: "Un administrateur l'approuve dans le control plane",
+              detail: "Il choisit les droits accordés ; le certificat est remis aussitôt au drone connecté",
+              state: "now",
+              action: `<div class="row"><a class="go" id="pending-console" href="${esc(sp.pending.queueUrl)}" target="_blank" rel="noopener">Ouvrir la file d'attente ↗</a><button class="linkbtn" id="pending-here" style="margin: 0">ou approuver ici (raccourci du stand)</button></div>`,
+            },
+            { title: "Certificat remis par échange signé", detail: "", state: "" },
+          ]);
+        }
 
         renderPrep(s);
       }
@@ -651,6 +723,7 @@
         if (e.target.closest("#enroll-approve")) return post("/enroll/approve");
         if (e.target.closest("#enroll-invite")) return post("/enroll/invite");
         if (e.target.closest("#enroll-reset")) return post("/enroll/reset");
+        if (e.target.closest("#pending-here")) return post("/approve");
         const act = e.target.closest(".act");
         if (act) return act.dataset.replay ? post("/replay") : post("/action", { id: act.dataset.id, forge: Boolean(act.dataset.forge) });
       });

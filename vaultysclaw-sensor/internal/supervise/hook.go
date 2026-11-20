@@ -38,13 +38,21 @@ type ClaudeHookInput struct {
 // The reason string reaches the model's context, which is the point: a bare
 // failure makes an agent retry-loop, a reasoned refusal makes it route around.
 type ClaudeHookOutput struct {
-	HookSpecificOutput ClaudeHookDecision `json:"hookSpecificOutput"`
+	HookSpecificOutput *ClaudeHookDecision `json:"hookSpecificOutput,omitempty"`
+	// SystemMessage is shown to the user without taking any decision. It is how
+	// a fail-open pass stays loud: the harness's normal permission flow still
+	// runs, and the user is told the supervisor did not judge the call.
+	SystemMessage string `json:"systemMessage,omitempty"`
 }
 
-// ClaudeHookDecision carries the verdict. "allow" and "deny" are terminal;
-// this shim never emits "ask", because an interactive prompt is phase 4's
-// `assist` mode and pretending to have it would make a governed refusal look
-// like an ordinary permission question.
+// ClaudeHookDecision carries a refusal. This shim only ever emits "deny".
+//
+// Never "allow": in Claude Code a PreToolUse "allow" bypasses the permission
+// system, so answering it for every call a certificate permits would silently
+// remove the user's own approval prompts. A permitted call gets no output at
+// all, which leaves the harness's normal flow in charge. Never "ask" either: an
+// interactive prompt is phase 4's `assist` mode, and pretending to have it would
+// make a governed refusal look like an ordinary permission question.
 type ClaudeHookDecision struct {
 	HookEventName            string `json:"hookEventName"`
 	PermissionDecision       string `json:"permissionDecision"`
@@ -61,12 +69,14 @@ type ClaudeHookDecision struct {
 // can equally well remove the hook that calls it. Making a broken supervisor
 // wedge the harness would buy no safety and would guarantee the first thing an
 // operator does about it is turn the supervisor off. What it must never do is
-// fail open *silently*, so the reason travels with the pass and the exit code
-// stays 0 only because a non-zero one would be read as a denial.
+// fail open *silently*, so the reason travels with the pass as a systemMessage
+// shown to the user — never as an "allow", which would also skip the user's own
+// permission prompt — and the exit code stays 0 only because a non-zero one
+// would be read as a denial.
 func RunClaudeHook(socketPath string, in io.Reader, out io.Writer) error {
 	var payload ClaudeHookInput
 	if err := json.NewDecoder(in).Decode(&payload); err != nil {
-		return writeClaudeDecision(out, "allow", "vaultysclaw: passing — the hook payload could not be parsed: "+err.Error())
+		return writeClaudeWarning(out, "vaultysclaw: passing — the hook payload could not be parsed: "+err.Error())
 	}
 
 	resp, err := Ask(socketPath, Request{
@@ -76,25 +86,28 @@ func RunClaudeHook(socketPath string, in io.Reader, out io.Writer) error {
 		Session: payload.SessionID,
 	})
 	if err != nil {
-		return writeClaudeDecision(out, "allow", "vaultysclaw: passing ungoverned — "+err.Error())
+		return writeClaudeWarning(out, "vaultysclaw: passing ungoverned — "+err.Error())
 	}
 
 	if resp.Allowed {
-		// An allow carries no reason: Claude Code surfaces it, and narrating
-		// every permitted tool call would bury the refusals that matter.
-		return writeClaudeDecision(out, "allow", "")
+		// No output: "no objection", not "allow". See ClaudeHookDecision.
+		return nil
 	}
-	return writeClaudeDecision(out, "deny", "vaultysclaw: "+resp.Reason)
+	return writeClaudeDeny(out, "vaultysclaw: "+resp.Reason)
 }
 
-func writeClaudeDecision(out io.Writer, decision, reason string) error {
+func writeClaudeDeny(out io.Writer, reason string) error {
 	return json.NewEncoder(out).Encode(ClaudeHookOutput{
-		HookSpecificOutput: ClaudeHookDecision{
+		HookSpecificOutput: &ClaudeHookDecision{
 			HookEventName:            "PreToolUse",
-			PermissionDecision:       decision,
+			PermissionDecision:       "deny",
 			PermissionDecisionReason: reason,
 		},
 	})
+}
+
+func writeClaudeWarning(out io.Writer, message string) error {
+	return json.NewEncoder(out).Encode(ClaudeHookOutput{SystemMessage: message})
 }
 
 // Ask sends one request to the daemon and returns its decision. Exported

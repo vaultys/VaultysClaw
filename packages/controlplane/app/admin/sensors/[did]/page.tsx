@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 import { ActorDAO, SensorWorkloadDAO, WorkspaceDAO } from "@/db";
 import PageChrome from "@/components/layout/PageChrome";
+import { Badge, statusTone } from "@/components/ui/Badge";
 import { decodeDidParam, encodeDidParam } from "@/lib/actor-route";
 import { getWSServerInstance } from "@/lib/ws-server";
 import { computeWorkloadStatus, resolveManagingActors } from "@/lib/workload-status";
@@ -45,67 +46,63 @@ export default async function SensorDetailPage({
         href="/admin/sensors"
         className="inline-flex items-center gap-1.5 text-sm text-foreground-500 hover:text-foreground transition-colors"
       >
-        <ArrowLeft className="w-3.5 h-3.5" />
+        <ArrowLeft className="w-3.5 h-3.5" strokeWidth={1.5} />
         Back to Sensors
       </Link>
 
       <div className="flex items-start justify-between gap-6">
         <div className="min-w-0">
-          <h1 className="text-lg font-semibold text-foreground">
+          <h1 className="text-lg font-medium text-foreground">
             {actor.name || kindConfig.hostname || "Device"}
           </h1>
           <p className="text-xs text-foreground-500 font-mono mt-0.5 break-all">{actor.did}</p>
         </div>
         <Link
           href={`/admin/actors/${encodeDidParam(did)}`}
-          className="text-xs text-primary-600 hover:underline shrink-0"
+          className="inline-flex shrink-0 items-center gap-1 text-xs text-primary-700 hover:underline"
         >
-          Full Actor page →
+          Full Actor page
+          <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.5} />
         </Link>
       </div>
 
       <section className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2 xl:grid-cols-4">
         <div>
-          <div className="text-xs text-foreground-500 uppercase font-medium mb-1">OS</div>
+          <div className="text-xs text-foreground-500 mb-1">OS</div>
           <div>{kindConfig.os ?? "—"}</div>
         </div>
         <div>
-          <div className="text-xs text-foreground-500 uppercase font-medium mb-1">Workspace</div>
+          <div className="text-xs text-foreground-500 mb-1">Workspace</div>
           <div>{workspace?.name ?? "—"}</div>
         </div>
         <div>
-          <div className="text-xs text-foreground-500 uppercase font-medium mb-1">Status</div>
-          <span
-            className={`text-xs px-2 py-0.5 rounded-full border ${
-              online
-                ? "bg-success-100 text-success-700 border-success-200"
-                : "bg-neutral-100 text-foreground-500 border-neutral-200"
-            }`}
-          >
-            ● {online ? "Online" : "Offline"}
-          </span>
+          <div className="text-xs text-foreground-500 mb-1">Status</div>
+          <Badge tone={online ? "positive" : "muted"}>{online ? "Online" : "Offline"}</Badge>
         </div>
         <div>
-          <div className="text-xs text-foreground-500 uppercase font-medium mb-1">Last seen</div>
-          <div>{actor.lastSeen.toISOString()}</div>
+          <div className="text-xs text-foreground-500 mb-1">Last seen</div>
+          <div className="font-mono text-xs tabular-nums text-foreground-700">
+            {actor.lastSeen.toISOString()}
+          </div>
         </div>
       </section>
 
       <section>
-        <h2 className="text-sm font-semibold text-foreground-700 mb-3">
-          AI/agent workloads ({workloads.length})
+        <h2 className="mb-3 flex items-baseline gap-2 text-sm font-medium text-foreground">
+          AI/agent workloads
+          <span className="font-mono text-xs tabular-nums text-foreground-500">{workloads.length}</span>
         </h2>
         <div className="overflow-x-auto border border-neutral-200/60 rounded-xl">
           <table className="w-full text-sm bg-background-100">
-            <thead className="bg-background-200/40 text-left text-xs text-foreground-500 uppercase">
+            <thead className="border-b border-neutral-200/60 bg-background-200/40 text-left text-xs text-foreground-500">
               <tr>
-                <th className="px-4 py-2 font-medium">Process</th>
-                <th className="px-4 py-2 font-medium">Provider</th>
-                <th className="px-4 py-2 font-medium">AI conf.</th>
-                <th className="px-4 py-2 font-medium">Agent conf.</th>
-                <th className="px-4 py-2 font-medium">Status</th>
-                <th className="px-4 py-2 font-medium">MCP</th>
-                <th className="px-4 py-2 font-medium">Last seen</th>
+                <th className="px-4 py-2 font-normal">Process</th>
+                <th className="px-4 py-2 font-normal">Provider</th>
+                <th className="px-4 py-2 font-normal text-right">AI conf.</th>
+                <th className="px-4 py-2 font-normal text-right">Agent conf.</th>
+                <th className="px-4 py-2 font-normal">Status</th>
+                <th className="px-4 py-2 font-normal">MCP</th>
+                <th className="px-4 py-2 font-normal">Last seen</th>
               </tr>
             </thead>
             <tbody>
@@ -115,39 +112,35 @@ export default async function SensorDetailPage({
                 const status = computeWorkloadStatus(w, managingActors);
                 const managingActor = w.identityEvidence ? managingActors.get(w.identityEvidence) : undefined;
                 return (
-                  <tr key={w.id} className="border-t border-neutral-200/60 align-top">
+                  <tr key={w.id} className="border-t border-neutral-200/60 align-top transition-colors hover:bg-background-200/40">
                     <td className="px-4 py-2.5">
                       <div className="font-medium text-foreground">{w.processName}</div>
                       {w.processCommand && (
-                        <div className="max-w-4xl truncate text-xs font-mono text-foreground-400">
+                        <div className="max-w-4xl truncate text-xs font-mono text-foreground-500">
                           {w.processCommand}
                         </div>
                       )}
                       {reasons.length > 0 && (
-                        <div className="text-xs text-foreground-400 mt-0.5">{reasons.join(" · ")}</div>
+                        <div className="text-xs text-foreground-500 mt-0.5">{reasons.join(" · ")}</div>
                       )}
                     </td>
                     <td className="px-4 py-2.5 text-foreground-500">{w.provider ?? "—"}</td>
-                    <td className="px-4 py-2.5 text-foreground-700">{w.aiConfidence.toFixed(2)}</td>
-                    <td className="px-4 py-2.5 text-foreground-700">{w.agentConfidence.toFixed(2)}</td>
+                    <td className="px-4 py-2.5 text-right font-mono text-xs tabular-nums text-foreground-700">
+                      {w.aiConfidence.toFixed(2)}
+                    </td>
+                    <td className="px-4 py-2.5 text-right font-mono text-xs tabular-nums text-foreground-700">
+                      {w.agentConfidence.toFixed(2)}
+                    </td>
                     <td className="px-4 py-2.5">
-                      <span
-                        className={`text-xs px-2 py-0.5 rounded-full border ${
-                          status === "managed"
-                            ? "bg-success-100 text-success-700 border-success-200"
-                            : status === "shadow"
-                              ? "bg-warning-100 text-warning-700 border-warning-200"
-                              : "bg-neutral-100 text-foreground-500 border-neutral-200"
-                        }`}
-                      >
+                      <Badge tone={statusTone(status)}>
                         {status === "managed" ? "Managed" : status === "shadow" ? "Shadow" : "Observed"}
-                      </span>
+                      </Badge>
                       {managingActor && (
-                        <div className="text-xs text-foreground-400 mt-1">
+                        <div className="text-xs text-foreground-500 mt-1">
                           by{" "}
                           <Link
                             href={`/admin/actors/${encodeDidParam(managingActor.did)}`}
-                            className="hover:text-primary-600 hover:underline"
+                            className="hover:text-primary-700 hover:underline"
                           >
                             {managingActor.name}
                           </Link>
@@ -157,7 +150,7 @@ export default async function SensorDetailPage({
                     <td className="px-4 py-2.5 text-foreground-500">
                       {w.isMcp ? mcpServers.join(", ") || "yes" : "—"}
                     </td>
-                    <td className="px-4 py-2.5 text-xs text-foreground-500">
+                    <td className="px-4 py-2.5 font-mono text-xs tabular-nums text-foreground-500">
                       {w.lastSeen.toISOString()}
                     </td>
                   </tr>
@@ -165,8 +158,8 @@ export default async function SensorDetailPage({
               })}
               {workloads.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-6 text-center text-foreground-400">
-                    No AI workloads detected on this device yet.
+                  <td colSpan={7} className="px-4 py-6 text-center text-foreground-500">
+                    No AI workloads detected on this device yet
                   </td>
                 </tr>
               )}

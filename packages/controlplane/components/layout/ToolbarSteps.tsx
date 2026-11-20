@@ -24,20 +24,20 @@ export default function ToolbarSteps({ steps }: { steps: ToolbarStepsConfig }) {
             onClick={clickable ? () => onStepClick(i) : undefined}
             title={clickable ? `Back to ${s.label}` : undefined}
             className={cn(
-              "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-colors whitespace-nowrap",
-              clickable && "cursor-pointer hover:bg-primary-200",
+              "flex items-center gap-1.5 px-2 py-1 rounded-md border text-xs font-medium transition-colors whitespace-nowrap",
+              clickable && "cursor-pointer hover:bg-background-200",
               !clickable && "cursor-default",
               i < current
-                ? "bg-primary-100 text-primary-600"
+                ? "border-transparent text-foreground-600"
                 : i === current
-                  ? "bg-primary-600 text-white"
-                  : "bg-background-200 text-foreground-400 border border-neutral-200"
+                  ? "border-neutral-200 bg-background-100 text-foreground"
+                  : "border-transparent text-foreground-400"
             )}
           >
             {i < current ? (
-              <Check size={11} />
+              <Check size={12} strokeWidth={1.5} className="text-primary-600" />
             ) : (
-              <span className="w-3.5 h-3.5 flex items-center justify-center text-[10px] font-bold">
+              <span className="w-3.5 h-3.5 flex items-center justify-center font-mono text-xs">
                 {i + 1}
               </span>
             )}
@@ -48,7 +48,7 @@ export default function ToolbarSteps({ steps }: { steps: ToolbarStepsConfig }) {
               className={cn(
                 "w-5 h-px mx-1",
                 i < current
-                  ? "bg-primary-300"
+                  ? "bg-primary-600"
                   : "bg-neutral-200"
               )}
             />

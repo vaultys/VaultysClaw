@@ -365,7 +365,7 @@ const fenceUniforms = { time: { value: 0 }, color: { value: new THREE.Color(C.fl
   scene.add(edge);
   const tag = document.createElement("div");
   tag.className = "lbl zone";
-  tag.textContent = "ZONE AUTORISÉE · GÉORÉPERAGE";
+  tag.textContent = "Zone autorisée · géorepérage";
   const o = new CSS2DObject(tag);
   o.position.set(x0 + 150, terrainHeight(x0 + 150, z0) + 54, z0);
   scene.add(o);
@@ -391,7 +391,7 @@ const AI_ALT = 190;
   scene.add(rim);
   const tag = document.createElement("div");
   tag.className = "lbl zone ai";
-  tag.innerHTML = "AGENTS IA<br><span>processus, hors carte</span>";
+  tag.innerHTML = "Agents IA<br><span>processus, hors carte</span>";
   const o = new CSS2DObject(tag);
   o.position.set(AI_X - 520, AI_ALT + 10, -300);
   scene.add(o);
@@ -915,7 +915,7 @@ window.addEventListener("fleet-state", (ev) => {
     e.color.setHex(color);
     e.hijacked = hijacked;
     const text =
-      m.label + (BAD.has(m.status) ? ` · ${m.status.toUpperCase()}` : hijacked ? " · COMPROMIS" : m.enrolling ? " · EN ATTENTE D'ENRÔLEMENT" : "");
+      m.label + (BAD.has(m.status) ? ` · ${m.status}` : hijacked ? " · compromis" : m.enrolling ? " · en attente d'enrôlement" : "");
     if (e.div.textContent !== text) e.div.textContent = text;
     e.div.classList.toggle("bad", BAD.has(m.status));
     e.div.classList.toggle("hijacked", hijacked);
@@ -926,7 +926,7 @@ window.addEventListener("fleet-state", (ev) => {
   ATTACKER.target = s.attacker.target;
   const held = s.attacker.target && s.members.find((m) => m.key === s.attacker.target);
   const doing = s.attacker.activity === "control" && held ? `contrôle ${held.label}` : ACTIVITY[s.attacker.activity];
-  const atk = `TIERS · LIEN RADIO<br><span>${doing}</span>`;
+  const atk = `Tiers · lien radio<br><span>${doing}</span>`;
   if (ATTACKER.div.innerHTML !== atk) ATTACKER.div.innerHTML = atk;
 
   // The first state only marks what is already in flight; replaying it would fire a volley of
@@ -1148,7 +1148,7 @@ focusBtn.onclick = () => {
 function setRotation(on) {
   controls.autoRotate = on;
   orbitBtn.classList.toggle("on", on);
-  orbitBtn.textContent = on ? "⏸ Pause rotation" : "▶ Reprendre rotation";
+  orbitBtn.querySelector("span").textContent = on ? "Pause rotation" : "Reprendre la rotation";
   orbitBtn.title = on ? "Arrêter la rotation automatique (Espace)" : "Relancer la rotation automatique (Espace)";
   try {
     localStorage.setItem("ecw.rotate", on ? "1" : "0");

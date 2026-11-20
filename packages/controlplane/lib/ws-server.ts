@@ -37,13 +37,20 @@ import {
   CapabilityCertificateDAO,
   CertStatusCheckDAO,
   SensorWorkloadDAO,
+  HookAuditDAO,
+  HookCoverageDAO,
   ServerIdentityDAO,
   CustomCapabilityDAO,
 } from "@/db";
 import { persistChallengerCertificate, selectRedeliverableCertificate } from "./certificates";
 import { isRegisterableKind, MAX_KIND_LENGTH } from "./actor-kinds";
 import { recordEvent } from "./audit";
-import { buildAdminUrl } from "./webhook-payloads";
+import {
+  actorAdminUrl,
+  buildAdminUrl,
+  harnessCoverageDegradedPayload,
+  harnessToolDeniedPayload,
+} from "./webhook-payloads";
 import { WsSender, type AgentSender } from "./agent-sender";
 import { buildActorConfig } from "./actor-config";
 import {
@@ -73,7 +80,15 @@ import type {
   RegisterPayload,
   RegistrationPendingPayload,
   SensorTelemetryPayload,
+  HookAuditPayload,
+  HookCoveragePayload,
 } from "./protocol";
+import {
+  coverageDegradations,
+  MAX_DENIAL_EVENTS_PER_BATCH,
+  parseHookAuditBatch,
+  parseHookCoverage,
+} from "./hook-audit";
 
 const logger = pino({ name: "ws-server" });
 const Buf = vCrypto.Buffer;
@@ -466,6 +481,12 @@ export class ControlPlaneWSServer {
         return;
       case "sensor_telemetry":
         void this.handleSensorTelemetry(sender, message.payload as SensorTelemetryPayload);
+        return;
+      case "hook_audit":
+        void this.handleHookAudit(sender, message.payload as HookAuditPayload);
+        return;
+      case "hook_coverage":
+        void this.handleHookCoverage(sender, message.payload as HookCoveragePayload);
         return;
       default:
         this.sendError(sender, `Unhandled message type: ${message.type}`);
@@ -1070,6 +1091,98 @@ export class ControlPlaneWSServer {
       accepted++;
     }
     logger.info({ deviceDid, accepted }, "Sensor telemetry accepted");
+  }
+
+  /**
+   * A vaultysclaw-hooks agent's audit trail (docs/HARNESS_HOOKS.md): what its
+   * hooks decided on this host. Accepted only from an authenticated
+   * `kind: "harness"` Actor, attributed to the connection's own DID (never a
+   * client-claimed field), validated and capped by `lib/hook-audit.ts`, and
+   * stored idempotently — the agent re-sends a batch whose delivery it could
+   * not confirm.
+   *
+   * Display-only data. Nothing here authorizes or revokes anything; it is the
+   * host's own account of what it enforced.
+   */
+  /**
+   * A vaultysclaw-hooks host's coverage report (docs/HARNESS_HOOKS.md §6). Same
+   * gate as `hook_audit`: an authenticated `harness` Actor, attributed to the
+   * connection's DID. Display-only — the host's own account of itself.
+   */
+  private async handleHookCoverage(sender: AgentSender, payload: HookCoveragePayload): Promise<void> {
+    const did = this.connectedBySender.get(sender);
+    if (!did) {
+      this.sendError(sender, "Not authenticated");
+      return;
+    }
+    const actor = await ActorDAO.findByDid(did);
+    if (!actor || actor.kind !== "harness") {
+      logger.warn({ did, kind: actor?.kind }, "hook_coverage from a non-harness Actor ignored");
+      return;
+    }
+    const report = parseHookCoverage(payload);
+    if (!report) {
+      logger.warn({ did }, "Malformed hook_coverage ignored");
+      return;
+    }
+    try {
+      const before = await HookCoverageDAO.get(did);
+      await HookCoverageDAO.upsert(did, report);
+      const { vendors, host } = coverageDegradations(before, report);
+      if (vendors.length > 0 || host.length > 0) {
+        const performedBy = { did, name: actor.name };
+        await recordEvent({
+          eventType: "harness.coverage_degraded",
+          payload: {
+            ...harnessCoverageDegradedPayload(actor, report, vendors, host),
+            adminUrl: actorAdminUrl(did),
+          },
+          performedBy,
+          targetType: "actor",
+          targetId: did,
+        });
+      }
+    } catch (err) {
+      logger.error({ err, did }, "Failed to store hook coverage");
+    }
+  }
+
+  private async handleHookAudit(sender: AgentSender, payload: HookAuditPayload): Promise<void> {
+    const did = this.connectedBySender.get(sender);
+    if (!did) {
+      this.sendError(sender, "Not authenticated");
+      return;
+    }
+    const actor = await ActorDAO.findByDid(did);
+    if (!actor || actor.kind !== "harness") {
+      logger.warn({ did, kind: actor?.kind }, "hook_audit from a non-harness Actor ignored");
+      return;
+    }
+    const { accepted, rejected, truncated } = parseHookAuditBatch(payload?.events);
+    try {
+      const inserted = await HookAuditDAO.insertMany(did, accepted);
+      logger.info(
+        { did, inserted: inserted.length, duplicates: accepted.length - inserted.length, rejected, truncated },
+        "Hook audit accepted"
+      );
+      // Only rows that are new: a batch re-sent after a dropped connection
+      // inserts nothing and so raises nothing twice.
+      const denied = inserted.filter((e) => e.blocked);
+      const raised = denied.slice(0, MAX_DENIAL_EVENTS_PER_BATCH);
+      const performedBy = { did, name: actor.name };
+      for (const [i, e] of raised.entries()) {
+        const more = i === raised.length - 1 ? denied.length - raised.length : 0;
+        await recordEvent({
+          eventType: "harness.tool_denied",
+          payload: { ...harnessToolDeniedPayload(actor, e, more), adminUrl: actorAdminUrl(did) },
+          performedBy,
+          targetType: "actor",
+          targetId: did,
+        });
+      }
+    } catch (err) {
+      logger.error({ err, did }, "Failed to store hook audit batch");
+    }
   }
 
   // ─── Send helpers ────────────────────────────────────────────────────────

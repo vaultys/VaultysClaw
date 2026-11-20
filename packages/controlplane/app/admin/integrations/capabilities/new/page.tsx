@@ -22,14 +22,14 @@ export default function NewCapabilityPage() {
         ]}
       />
 
-      <div className="rounded-xl border border-neutral-200/60 bg-background-100 p-4 text-xs text-foreground-500 space-y-1.5">
+      <div className="space-y-1.5 rounded-lg border border-neutral-200/60 bg-background-100 px-4 py-3 text-sm text-foreground-600">
         <p>
-          A capability here is a <strong>name</strong>, not behaviour. The control plane governs who
+          A capability here is a name, not behaviour. The control plane governs who
           may hold it and issues it in signed certificates; what it actually permits is decided by
           the application that binds an operation to it.
         </p>
         <p>
-          Removing a capability later <strong>revokes every grant of it</strong>, so pick the name
+          Removing a capability later <span className="font-medium text-foreground">revokes every grant of it</span>, so pick the name
           deliberately — it cannot be renamed afterwards.
         </p>
       </div>
@@ -45,9 +45,9 @@ export default function NewCapabilityPage() {
             required
             placeholder="acme:invoice.approve"
             pattern="[a-zA-Z0-9][a-zA-Z0-9-]{1,31}:[a-zA-Z0-9][a-zA-Z0-9._-]{1,63}"
-            className="w-full rounded-lg border border-neutral-200/60 bg-background-100 px-3 py-2 text-sm font-mono"
+            className="w-full rounded-lg border border-neutral-200 bg-background px-3 py-2 text-sm focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500/30 font-mono"
           />
-          <p className="mt-1 text-xs text-foreground-400">
+          <p className="mt-1 text-xs text-foreground-500">
             <code>vendor:action</code>. Lowercase; vendor 2&ndash;32 characters of{" "}
             <code>a&ndash;z 0&ndash;9 -</code>, action 2&ndash;64 of <code>a&ndash;z 0&ndash;9 . _ -</code>.
             The colon is what stops a custom name ever colliding with a built-in. Immutable once
@@ -64,25 +64,25 @@ export default function NewCapabilityPage() {
             name="label"
             required
             placeholder="Approve invoices"
-            className="w-full rounded-lg border border-neutral-200/60 bg-background-100 px-3 py-2 text-sm"
+            className="w-full rounded-lg border border-neutral-200 bg-background px-3 py-2 text-sm focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500/30"
           />
-          <p className="mt-1 text-xs text-foreground-400">
-            Shown wherever this capability is offered or displayed.
+          <p className="mt-1 text-xs text-foreground-500">
+            Shown wherever this capability is offered or displayed
           </p>
         </div>
 
         <div>
           <label htmlFor="description" className="block text-sm font-medium text-foreground mb-1">
-            Description <span className="text-foreground-400 font-normal">(optional)</span>
+            Description <span className="text-foreground-500 font-normal">(optional)</span>
           </label>
           <textarea
             id="description"
             name="description"
             rows={2}
-            placeholder="Marks an invoice approved in the Acme ERP."
-            className="w-full rounded-lg border border-neutral-200/60 bg-background-100 px-3 py-2 text-sm"
+            placeholder="Marks an invoice approved in the Acme ERP"
+            className="w-full rounded-lg border border-neutral-200 bg-background px-3 py-2 text-sm focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500/30"
           />
-          <p className="mt-1 text-xs text-foreground-400">
+          <p className="mt-1 text-xs text-foreground-500">
             What holding this actually lets an application do &mdash; the thing an admin needs when
             deciding whether to grant it.
           </p>
@@ -90,29 +90,29 @@ export default function NewCapabilityPage() {
 
         <div>
           <label htmlFor="group" className="block text-sm font-medium text-foreground mb-1">
-            Group <span className="text-foreground-400 font-normal">(optional)</span>
+            Group <span className="text-foreground-500 font-normal">(optional)</span>
           </label>
           <input
             id="group"
             name="group"
             placeholder="Finance"
-            className="w-full rounded-lg border border-neutral-200/60 bg-background-100 px-3 py-2 text-sm"
+            className="w-full rounded-lg border border-neutral-200 bg-background px-3 py-2 text-sm focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500/30"
           />
-          <p className="mt-1 text-xs text-foreground-400">
-            Groups capabilities in the issuance form, independently of vendor.
+          <p className="mt-1 text-xs text-foreground-500">
+            Groups capabilities in the issuance form, independently of vendor
           </p>
         </div>
 
         <div className="flex items-center gap-2 pt-2">
           <button
             type="submit"
-            className="rounded-lg bg-primary-600 px-3 py-2 text-sm font-medium text-white hover:bg-primary-700"
+            className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-500"
           >
             Add capability
           </button>
           <Link
             href="/admin/integrations?tab=capabilities"
-            className="rounded-lg border border-neutral-200/60 px-3 py-2 text-sm text-foreground-500 hover:text-foreground"
+            className="rounded-lg border border-neutral-200 bg-background-100 px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-background-200"
           >
             Cancel
           </Link>

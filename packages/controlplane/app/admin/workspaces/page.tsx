@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Plus } from "lucide-react";
 import { WorkspaceDAO, ActorDAO, CapabilityCertificateDAO } from "@/db";
 import PageChrome from "@/components/layout/PageChrome";
+import { Badge } from "@/components/ui/Badge";
 import { categoryForKind } from "@/lib/actor-kinds";
 import type { CertScope } from "@vaultysclaw/policy";
 
@@ -62,7 +63,7 @@ export default async function WorkspacesPage() {
           <Link
             key={w.id}
             href={`/admin/workspaces/${w.id}`}
-            className="border border-neutral-200/60 rounded-xl bg-background-100 p-4 hover:border-primary-300 transition-colors"
+            className="border border-neutral-200/60 rounded-xl bg-background-100 p-5 hover:border-neutral-300 transition-colors"
           >
             <div className="flex items-center gap-2 mb-2">
               <span
@@ -71,15 +72,13 @@ export default async function WorkspacesPage() {
               />
               <div className="font-medium text-foreground">{w.name}</div>
               {w.isDefault && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded-full border border-neutral-200 text-foreground-500 uppercase">
-                  Default
-                </span>
+                <Badge tone="muted">Default</Badge>
               )}
             </div>
             {w.description && (
               <p className="text-xs text-foreground-500 mb-3 line-clamp-2">{w.description}</p>
             )}
-            <div className="flex gap-4 text-xs text-foreground-500">
+            <div className="flex gap-4 text-xs tabular-nums text-foreground-500">
               <span>
                 {actorsByWorkspace.get(w.id) ?? 0} actor
                 {(actorsByWorkspace.get(w.id) ?? 0) === 1 ? "" : "s"}
@@ -92,7 +91,9 @@ export default async function WorkspacesPage() {
           </Link>
         ))}
         {workspaces.length === 0 && (
-          <p className="text-sm text-foreground-400 col-span-full">No workspaces yet.</p>
+          <p className="col-span-full rounded-xl border border-dashed border-neutral-200 px-4 py-6 text-sm text-foreground-500">
+            No workspaces yet
+          </p>
         )}
       </div>
     </div>

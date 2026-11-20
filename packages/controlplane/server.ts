@@ -12,6 +12,8 @@ import { WebSocketServer } from "ws";
 import pino from "pino";
 import { ServerIdentityDAO, WorkspaceDAO } from "./db";
 import { ControlPlaneWSServer, setWSServerInstance } from "./lib/ws-server";
+import { ensureBootstrapToken } from "./lib/bootstrap-token";
+import { UserLoginChannel } from "./lib/user-login-channel";
 
 const logger = pino({ name: "controlplane" });
 
@@ -28,6 +30,19 @@ async function main() {
   await ServerIdentityDAO.ensureServerIdentity();
   const workspace = await WorkspaceDAO.ensureDefault();
   logger.info({ workspace: workspace.slug }, "Default workspace ready");
+
+  // No human yet: the first one to register becomes admin, so registration needs the setup token
+  // (lib/bootstrap-token.ts). Printed once, here, and nowhere else.
+  const setupUrl = await ensureBootstrapToken(
+    await UserLoginChannel.hasAnyHuman(),
+    process.env.APP_URL || process.env.NEXTAUTH_URL || `http://localhost:${PORT}`
+  );
+  if (setupUrl) {
+    logger.warn(
+      { setupUrl },
+      "No administrator yet — open this one-time setup URL to register the first admin. It changes on every restart until an admin exists."
+    );
+  }
 
   const httpServer = createServer((req, res) => {
     handle(req, res, parse(req.url!, true)).catch((err) => {

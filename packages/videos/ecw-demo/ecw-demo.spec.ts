@@ -16,7 +16,14 @@ import { defineVideo } from "../factory";
  * ffmpeg built with libass — and the page already says whose screen it is (header, active tab).
  */
 
-type Console = { status: string; flight: string; mode: string; revokedAt: number | null; staple: { status: string } | null };
+type Console = {
+  status: string;
+  flight: string;
+  mode: string;
+  revokedAt: number | null;
+  staple: { status: string } | null;
+  pending: { inConsole: boolean } | null;
+};
 type State = {
   consoles: Record<string, Console>;
   enrolment: { drone: { runtime: string; approvedAt: number | null }; human: { invite: { url: string } | null } };
@@ -45,8 +52,12 @@ async function cleanSlate(api: APIRequestContext) {
   const { post, state } = await presenter(api);
   for (const key of DRONES) {
     const c = (await state()).consoles[key];
-    if (c.revokedAt || c.status !== "certifié") await post("/reset", { key });
+    if (c.revokedAt || (c.status !== "certifié" && !c.pending)) await post("/reset", { key });
     await post("/mode", { key, mode: "operator" });
+    // A renewed identity waits for an administrator in the console. The film has none signed in,
+    // so it uses the stand shortcut — the console path is the demonstrator's to show, not this setup's.
+    await expect.poll(async () => (await state()).consoles[key].status !== "connexion", { timeout: 30_000 }).toBe(true);
+    if ((await state()).consoles[key].pending) await post("/approve", { key });
   }
   await post("/enroll/reset");
   await expect

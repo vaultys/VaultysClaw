@@ -21,20 +21,17 @@ export default async function WelcomePage() {
   if (actor.humanProfile?.profileCompletedAt) redirect("/");
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-background">
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-primary-50/80 via-background to-background" />
-      <div className="pointer-events-none absolute left-1/2 top-[-160px] h-[500px] w-[900px] -translate-x-1/2 rounded-full bg-primary-400/10 blur-3xl" />
-
-      <div className="relative z-10 flex min-h-screen items-center justify-center p-6">
-        <div className="w-full max-w-sm rounded-2xl border border-neutral-200 bg-background-100 p-8 shadow-xl shadow-primary-950/5">
+    <main className="min-h-screen bg-background">
+      <div className="flex min-h-screen items-center justify-center p-6">
+        <div className="w-full max-w-sm rounded-xl border border-neutral-200 bg-background-100 p-8 shadow-[0_8px_24px_rgba(0,0,0,0.06)]">
           <div className="flex flex-col items-center gap-3 text-center">
-            <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-600 text-white shadow-lg shadow-primary-600/20">
-              <UserPlus className="h-5 w-5" />
+            <span className="flex h-11 w-11 items-center justify-center rounded-lg border border-neutral-200 bg-background-50 text-foreground-700">
+              <UserPlus className="h-5 w-5" strokeWidth={1.5} />
             </span>
             <div>
-              <h1 className="text-lg font-semibold text-foreground">Welcome to VaultysClaw</h1>
+              <h1 className="text-lg font-medium text-foreground">Name your VaultysID</h1>
               <p className="mt-1 text-sm text-foreground-500">
-                Let&apos;s put a name to your VaultysID.
+                Shown to admins on the ledger and in the audit log
               </p>
             </div>
           </div>
@@ -60,7 +57,7 @@ export default async function WelcomePage() {
                 type="email"
                 name="email"
                 defaultValue={actor.humanProfile?.email ?? ""}
-                placeholder="Used for email notifications — optional"
+                placeholder="For email notifications"
                 className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background"
               />
             </div>

@@ -20,6 +20,8 @@ out
 
 # Testing
 coverage
+# …but not vaultysclaw-hooks' coverage package, which is source, not a report.
+!vaultysclaw-hooks/internal/coverage/
 .nyc_output
 
 # Misc

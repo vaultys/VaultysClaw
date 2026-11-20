@@ -92,20 +92,30 @@ func TestHookEndToEndOverTheSocket(t *testing.T) {
 		if err := RunClaudeHook(socket, bytes.NewReader(payload), &out); err != nil {
 			t.Fatalf("hook failed: %v", err)
 		}
+		if out.Len() == 0 {
+			// A permitted call: no decision, so Claude Code's own permission
+			// flow still runs.
+			return ClaudeHookDecision{}
+		}
 		var decoded ClaudeHookOutput
 		if err := json.Unmarshal(out.Bytes(), &decoded); err != nil {
 			t.Fatalf("hook wrote unparseable output %q: %v", out.String(), err)
 		}
+		if decoded.HookSpecificOutput == nil {
+			t.Fatalf("hook wrote output with no decision: %q", out.String())
+		}
 		if decoded.HookSpecificOutput.HookEventName != "PreToolUse" {
 			t.Errorf("hookEventName = %q, want PreToolUse", decoded.HookSpecificOutput.HookEventName)
 		}
-		return decoded.HookSpecificOutput
+		return *decoded.HookSpecificOutput
 	}
 
-	t.Run("an in-scope edit is allowed", func(t *testing.T) {
+	t.Run("an in-scope edit is not objected to, and not auto-approved", func(t *testing.T) {
+		// "allow" would bypass Claude Code's permission prompt; a permitted call
+		// must leave that prompt in charge by saying nothing.
 		got := run("Edit", `{"file_path":"`+repo+`/main.go"}`)
-		if got.PermissionDecision != "allow" {
-			t.Fatalf("decision = %q (%s), want allow", got.PermissionDecision, got.PermissionDecisionReason)
+		if got.PermissionDecision != "" {
+			t.Fatalf("decision = %q (%s), want no decision at all", got.PermissionDecision, got.PermissionDecisionReason)
 		}
 	})
 
@@ -155,11 +165,11 @@ func TestHookFailsOpenLoudlyWhenTheDaemonIsGone(t *testing.T) {
 	if err := json.Unmarshal(out.Bytes(), &decoded); err != nil {
 		t.Fatal(err)
 	}
-	if decoded.HookSpecificOutput.PermissionDecision != "allow" {
-		t.Errorf("decision = %q, want allow", decoded.HookSpecificOutput.PermissionDecision)
+	if decoded.HookSpecificOutput != nil {
+		t.Errorf("a fail-open pass must take no decision (an \"allow\" would skip the user's prompt), got %+v", *decoded.HookSpecificOutput)
 	}
-	if !strings.Contains(decoded.HookSpecificOutput.PermissionDecisionReason, "ungoverned") {
-		t.Errorf("reason = %q, want it to say the call went ungoverned", decoded.HookSpecificOutput.PermissionDecisionReason)
+	if !strings.Contains(decoded.SystemMessage, "ungoverned") {
+		t.Errorf("systemMessage = %q, want it to say the call went ungoverned", decoded.SystemMessage)
 	}
 }
 

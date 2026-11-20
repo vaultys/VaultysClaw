@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { UserLoginChannel } from "@/lib/user-login-channel";
-import { isBrowserBootstrapEnabled } from "@/lib/browser-bootstrap";
+import { isBootstrapRegistrationAllowed } from "@/lib/bootstrap-token";
 
 /**
  * GET /api/public/user/connect — create a certificate for the classic
@@ -18,14 +18,18 @@ import { isBrowserBootstrapEnabled } from "@/lib/browser-bootstrap";
  * registration gives a browser-held key to, since that key is the only
  * credential they have.
  *
+ * Outside dev/simulator the register branch opens only with the deployment's setup token
+ * (`?setup=…`, see `lib/bootstrap-token.ts`) — the same gate as the wallet QR route.
+ *
  * 404 rather than 403 on the closed branch: an endpoint that does not exist in
  * this environment should not advertise that it exists in another.
  */
-export async function GET() {
+export async function GET(req: Request) {
   const hasHuman = await UserLoginChannel.hasAnyHuman();
 
   if (!hasHuman) {
-    if (!isBrowserBootstrapEnabled()) return new NextResponse(null, { status: 404 });
+    const setup = new URL(req.url).searchParams.get("setup");
+    if (!(await isBootstrapRegistrationAllowed(setup))) return new NextResponse(null, { status: 404 });
     const cert = await UserLoginChannel.createRegistrationCertificate();
     return NextResponse.json({ key: cert.key, token: cert.connection });
   }

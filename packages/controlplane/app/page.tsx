@@ -21,7 +21,7 @@ export default async function HomePage() {
   return (
     <main className="min-h-screen flex items-center justify-center p-6 bg-background">
       <div className="max-w-md text-center space-y-2">
-        <h1 className="text-lg font-semibold text-foreground">Signed in</h1>
+        <h1 className="text-lg font-medium text-foreground">Signed in</h1>
         <p className="text-sm text-foreground-500 break-all font-mono">{session.user.did}</p>
         <p className="text-sm text-foreground-500 pt-2">
           You don&apos;t hold a certificate granting access to the admin console or the Access

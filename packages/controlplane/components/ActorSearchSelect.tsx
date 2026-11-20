@@ -15,7 +15,7 @@ const MAX_VISIBLE_RESULTS = 60;
 
 function shortDid(did: string): string {
   if (did.length <= 26) return did;
-  return `${did.slice(0, 14)}...${did.slice(-8)}`;
+  return `${did.slice(0, 14)}…${did.slice(-8)}`;
 }
 
 function actorLabel(actor: ActorSearchOption): string {
@@ -31,9 +31,9 @@ export default function ActorSearchSelect({
   name,
   defaultValue = "",
   required = false,
-  placeholder = "Search actors by name, kind, or DID...",
+  placeholder = "Search actors by name, kind, or DID",
   emptyLabel = "No actor selected",
-  noResultsLabel = "No actors match your search.",
+  noResultsLabel = "No actors match your search",
   onValueChange,
 }: {
   actors: ActorSearchOption[];
@@ -124,15 +124,16 @@ export default function ActorSearchSelect({
           )}
         </span>
         <ChevronDown
-          className={cn("h-4 w-4 shrink-0 text-foreground-400 transition-transform", open && "rotate-180")}
+          strokeWidth={1.5}
+          className={cn("h-4 w-4 shrink-0 text-foreground-500 transition-transform", open && "rotate-180")}
         />
       </button>
 
       {open && (
-        <div className="absolute left-0 right-0 top-full z-50 mt-1.5 overflow-hidden rounded-xl border border-neutral-200 bg-background-100 shadow-2xl shadow-black/20">
+        <div className="absolute left-0 right-0 top-full z-50 mt-1.5 overflow-hidden rounded-lg border border-neutral-200 bg-background-100 shadow-lg">
           <div className="border-b border-neutral-200/60 p-2">
             <div className="flex items-center gap-2 rounded-lg border border-neutral-200 bg-background px-2.5 py-1.5">
-              <Search className="h-4 w-4 shrink-0 text-foreground-400" />
+              <Search className="h-4 w-4 shrink-0 text-foreground-500" strokeWidth={1.5} />
               <input
                 ref={inputRef}
                 type="search"
@@ -148,7 +149,7 @@ export default function ActorSearchSelect({
                   aria-label="Clear search"
                   className="rounded p-0.5 text-foreground-400 transition-colors hover:bg-background-200 hover:text-foreground"
                 >
-                  <X className="h-3.5 w-3.5" />
+                  <X className="h-3.5 w-3.5" strokeWidth={1.5} />
                 </button>
               )}
             </div>
@@ -168,7 +169,7 @@ export default function ActorSearchSelect({
                 aria-selected={value === ""}
               >
                 <span className="flex h-5 w-5 items-center justify-center">
-                  {value === "" && <Check className="h-4 w-4 text-primary-600" />}
+                  {value === "" && <Check className="h-4 w-4 text-primary-600" strokeWidth={1.5} />}
                 </span>
                 <span>{emptyLabel}</span>
               </button>
@@ -191,7 +192,7 @@ export default function ActorSearchSelect({
                   aria-selected={selected}
                 >
                   <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center">
-                    {selected && <Check className="h-4 w-4 text-primary-600" />}
+                    {selected && <Check className="h-4 w-4 text-primary-600" strokeWidth={1.5} />}
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-medium text-foreground">
@@ -207,7 +208,7 @@ export default function ActorSearchSelect({
             })}
 
             {filteredActors.length === 0 && (
-              <div className="px-3 py-6 text-center text-sm text-foreground-400">
+              <div className="px-3 py-6 text-center text-sm text-foreground-500">
                 {noResultsLabel}
               </div>
             )}

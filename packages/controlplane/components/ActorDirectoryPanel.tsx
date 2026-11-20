@@ -34,7 +34,7 @@ function searchableText(actor: ActorDirectoryRow): string {
 
 function shortDid(did: string): string {
   if (did.length <= 32) return did;
-  return `${did.slice(0, 18)}...${did.slice(-10)}`;
+  return `${did.slice(0, 18)}…${did.slice(-10)}`;
 }
 
 export default function ActorDirectoryPanel({
@@ -125,7 +125,7 @@ export default function ActorDirectoryPanel({
             Search actors
           </label>
           <div className="flex items-center gap-2 rounded-lg border border-neutral-200 bg-background px-3 py-2">
-            <Search className="h-4 w-4 shrink-0 text-foreground-400" />
+            <Search className="h-4 w-4 shrink-0 text-foreground-500" strokeWidth={1.5} />
             <input
               type="search"
               value={query}
@@ -134,7 +134,7 @@ export default function ActorDirectoryPanel({
                 setQuickOpen(true);
               }}
               onFocus={() => setQuickOpen(true)}
-              placeholder="Search by name, kind, or DID..."
+              placeholder="Search by name, kind, or DID"
               className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-foreground-400"
             />
             {query && (
@@ -147,7 +147,7 @@ export default function ActorDirectoryPanel({
                 aria-label="Clear actor search"
                 className="rounded p-0.5 text-foreground-400 transition-colors hover:bg-background-200 hover:text-foreground"
               >
-                <X className="h-3.5 w-3.5" />
+                <X className="h-3.5 w-3.5" strokeWidth={1.5} />
               </button>
             )}
           </div>
@@ -155,9 +155,9 @@ export default function ActorDirectoryPanel({
           {quickOpen && quickResults.length > 0 && (
             <div
               onMouseLeave={() => setQuickOpen(false)}
-              className="absolute left-0 right-0 top-full z-40 mt-1.5 overflow-hidden rounded-xl border border-neutral-200 bg-background-100 shadow-2xl shadow-black/20"
+              className="absolute left-0 right-0 top-full z-40 mt-1.5 overflow-hidden rounded-lg border border-neutral-200 bg-background-100 shadow-lg"
             >
-              <div className="border-b border-neutral-200/60 px-3 py-2 text-xs font-medium uppercase tracking-wider text-foreground-500">
+              <div className="border-b border-neutral-200/60 px-3 py-2 text-xs font-medium text-foreground-500">
                 Quick jump
               </div>
               <div className="max-h-80 overflow-y-auto py-1">
@@ -177,7 +177,7 @@ export default function ActorDirectoryPanel({
                     </span>
                     <span className="flex shrink-0 items-center gap-2">
                       <ActorKindBadge kind={actor.kind} />
-                      <ArrowRight className="h-3.5 w-3.5 text-foreground-400" />
+                      <ArrowRight className="h-3.5 w-3.5 text-foreground-500" strokeWidth={1.5} />
                     </span>
                   </Link>
                 ))}
@@ -205,19 +205,17 @@ export default function ActorDirectoryPanel({
                 className={cn(
                   "flex min-w-max items-center gap-2 border-b-2 px-3.5 py-2.5 text-sm font-medium transition-colors",
                   active
-                    ? "border-primary-600 text-primary-700"
+                    ? "border-primary-600 text-foreground"
                     : "border-transparent text-foreground-500 hover:border-neutral-300 hover:text-foreground"
                 )}
                 title={tab.description}
               >
-                <Icon className="h-4 w-4" />
+                <Icon className="h-4 w-4" strokeWidth={1.5} />
                 <span>{tab.label}</span>
                 <span
                   className={cn(
-                    "rounded-full border px-2 py-0.5 text-xs",
-                    active
-                      ? "border-primary-200 bg-primary-50 text-primary-700"
-                      : "border-neutral-200 bg-background-100 text-foreground-500"
+                    "font-mono text-xs tabular-nums",
+                    active ? "text-foreground-700" : "text-foreground-500"
                   )}
                 >
                   {tab.count}
@@ -244,7 +242,7 @@ export default function ActorDirectoryPanel({
                   setQuery("");
                   setQuickOpen(false);
                 }}
-                className="font-medium text-primary-600 hover:underline"
+                className="font-medium text-primary-700 hover:underline"
               >
                 Clear filters
               </button>
@@ -252,29 +250,32 @@ export default function ActorDirectoryPanel({
           </div>
 
           <section>
-            <h2 className="mb-3 text-sm font-semibold text-foreground-700">
-              {activeTitle} ({filteredActors.length})
+            <h2 className="mb-3 text-sm font-medium text-foreground">
+              {activeTitle}{" "}
+              <span className="font-mono text-xs tabular-nums text-foreground-500">
+                {filteredActors.length}
+              </span>
             </h2>
             <div className="overflow-x-auto rounded-xl border border-neutral-200/60">
               <table className="w-full bg-background-100 text-sm">
-                <thead className="bg-background-200/40 text-left text-xs uppercase text-foreground-500">
+                <thead className="border-b border-neutral-200/60 text-left text-xs text-foreground-500">
                   <tr>
-                    <th className="px-4 py-2 font-medium">Name</th>
-                    <th className="px-4 py-2 font-medium">Kind</th>
-                    <th className="px-4 py-2 font-medium">DID</th>
-                    <th className="px-4 py-2 font-medium">Registered</th>
+                    <th className="px-4 py-2 font-normal">Name</th>
+                    <th className="px-4 py-2 font-normal">Kind</th>
+                    <th className="px-4 py-2 font-normal">DID</th>
+                    <th className="px-4 py-2 font-normal">Registered</th>
                   </tr>
                 </thead>
                 <tbody>
                   {visibleRows.map((actor) => (
                     <tr
                       key={actor.did}
-                      className="border-t border-neutral-200/60 hover:bg-background-200/30"
+                      className="border-t border-neutral-200/60 transition-colors hover:bg-background-200/40"
                     >
                       <td className="px-4 py-2.5 text-foreground">
                         <Link
                           href={`/admin/actors/${encodeDidParam(actor.did)}`}
-                          className="hover:text-primary-600 hover:underline"
+                          className="hover:text-primary-700 hover:underline"
                         >
                           {actor.name}
                         </Link>
@@ -285,12 +286,12 @@ export default function ActorDirectoryPanel({
                       <td className="px-4 py-2.5 font-mono text-xs text-foreground-500">
                         <Link
                           href={`/admin/actors/${encodeDidParam(actor.did)}`}
-                          className="hover:text-primary-600 hover:underline"
+                          className="hover:text-primary-700 hover:underline"
                         >
                           {actor.did}
                         </Link>
                       </td>
-                      <td className="px-4 py-2.5 text-xs text-foreground-500">
+                      <td className="px-4 py-2.5 font-mono text-xs text-foreground-500">
                         {actor.registeredAt}
                       </td>
                     </tr>
@@ -299,9 +300,9 @@ export default function ActorDirectoryPanel({
                     <tr>
                       <td
                         colSpan={4}
-                        className="px-4 py-6 text-center text-foreground-400"
+                        className="px-4 py-6 text-center text-foreground-500"
                       >
-                        No actors match this search.
+                        No actors match this search
                       </td>
                     </tr>
                   )}

@@ -1,0 +1,423 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bastion — VaultysClaw</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<script>
+(function(){var k="vc-dir-bastion",p=new URLSearchParams(location.search).get("theme"),s=null;
+try{s=localStorage.getItem(k)}catch(e){}
+document.documentElement.dataset.theme=p||s||"light";})();
+</script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;overflow-x:hidden}
+img{display:block;max-width:100%}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+a{color:inherit}
+.logo{display:inline-flex}
+.logo img{height:100%;width:auto}
+[data-theme="dark"] .logo-on-light{display:none}
+[data-theme="light"] .logo-on-dark{display:none}
+.tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+/* Presentation chrome — not part of the direction */
+.dock{position:fixed;right:16px;bottom:16px;z-index:100;display:flex;align-items:center;gap:4px;padding:4px;border-radius:999px;background:rgba(10,18,22,.92);color:#fff;font:500 12px/1 system-ui,sans-serif;box-shadow:0 8px 30px rgba(0,0,0,.25),0 0 0 1px rgba(255,255,255,.14)}
+.dock a,.dock button{display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border-radius:999px;border:0;background:transparent;color:#fff;text-decoration:none;white-space:nowrap}
+.dock a:hover,.dock button:hover{background:rgba(255,255,255,.12)}
+.dock .dname{padding:0 8px;opacity:.65}
+.dock svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+@media (max-width:600px){.dock .dname{display:none}}
+
+:root{--r:6px;--r-lg:10px}
+[data-theme="light"]{
+  --bg:#F4F3EF;--surface:#FFFFFF;--surface-2:#F9F8F5;--sidebar:#FFFFFF;
+  --border:#E3E0D8;--border-strong:#CFCAC0;
+  --ink:#16323D;--text:#24363D;--text-2:#56676D;--muted:#8B979B;
+  --primary:#D35400;--primary-hover:#B04404;--primary-soft:#FFF1E6;--primary-text:#B04404;--on-primary:#fff;
+  --navy:#16323D;--navy-soft:#E8EFF1;
+  --success:#1F7A55;--success-soft:#E4F2EB;--warning:#8F6B00;--warning-soft:#FAF0CC;--danger:#B42318;--danger-soft:#FCE8E6;
+  --shadow:0 1px 2px rgba(22,50,61,.06),0 0 0 1px var(--border);
+  --focus:0 0 0 3px rgba(211,84,0,.25);
+}
+[data-theme="dark"]{
+  --bg:#0B171C;--surface:#10212A;--surface-2:#0D1C23;--sidebar:#08131A;
+  --border:#1D3540;--border-strong:#2A4653;
+  --ink:#EEF3F4;--text:#D3DEE1;--text-2:#9AAEB5;--muted:#6C848C;
+  --primary:#E5650F;--primary-hover:#F58D46;--primary-soft:rgba(229,101,15,.14);--primary-text:#F7A065;--on-primary:#fff;
+  --navy:#8CB1BF;--navy-soft:rgba(140,177,191,.12);
+  --success:#52C495;--success-soft:rgba(82,196,149,.12);--warning:#E3C155;--warning-soft:rgba(227,193,85,.12);--danger:#F27A6E;--danger-soft:rgba(242,122,110,.13);
+  --shadow:0 0 0 1px var(--border);
+  --focus:0 0 0 3px rgba(229,101,15,.35);
+  color-scheme:dark;
+}
+body{background:var(--bg);color:var(--text);font:400 14px/1.5 "IBM Plex Sans",sans-serif}
+.mono{font-family:"IBM Plex Mono",monospace;font-size:.92em}
+.ic{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.crenel{display:block;height:6px;background:var(--primary);-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='6'%3E%3Cpath d='M0 0h8v4h8v2H0z'/%3E%3C/svg%3E") repeat-x;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='6'%3E%3Cpath d='M0 0h8v4h8v2H0z'/%3E%3C/svg%3E") repeat-x}
+
+/* Shell */
+.app{display:grid;grid-template-columns:244px minmax(0,1fr);min-height:100vh}
+.side{background:var(--sidebar);border-right:1px solid var(--border);display:flex;flex-direction:column;position:sticky;top:0;height:100vh}
+.side .brand{height:64px;display:flex;align-items:center;padding:0 20px;border-bottom:1px solid var(--border)}
+.side .brand .logo{height:24px}
+.org{margin:14px 12px 6px;display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:var(--surface-2);font-weight:500;color:var(--ink)}
+.org .sq{width:22px;height:22px;border-radius:4px;background:var(--navy);color:var(--bg);display:grid;place-items:center;font-size:11px;font-weight:600}
+[data-theme="dark"] .org .sq{background:#16323D;color:#EEF3F4}
+.org .ic{margin-left:auto;width:14px;height:14px;color:var(--muted)}
+.nav{padding:8px 12px;display:flex;flex-direction:column;gap:1px;flex:1}
+.nav .sec{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:14px 10px 6px}
+.nav a{position:relative;display:flex;align-items:center;gap:11px;padding:8px 10px;border-radius:var(--r);text-decoration:none;color:var(--text-2);font-weight:500}
+.nav a:hover{background:var(--surface-2);color:var(--ink)}
+.nav a.on{background:var(--primary-soft);color:var(--ink)}
+.nav a.on .ic{color:var(--primary)}
+.nav a.on::before{content:"";position:absolute;left:-12px;top:8px;bottom:8px;width:3px;border-radius:0 3px 3px 0;background:var(--primary)}
+.nav .count{margin-left:auto;font:600 11px/1 "IBM Plex Mono",monospace;padding:3px 6px;border-radius:4px;background:var(--primary);color:var(--on-primary)}
+.side .foot{padding:12px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:10px}
+.ks-mini{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-2);padding:8px 10px;border-radius:var(--r);background:var(--surface-2);border:1px solid var(--border)}
+.ks-mini .dot{width:7px;height:7px;border-radius:50%;background:var(--success)}
+.ks-mini b{color:var(--ink);font-weight:600}
+
+.main{min-width:0;display:flex;flex-direction:column}
+.top{height:64px;display:flex;align-items:center;gap:16px;padding:0 28px;border-bottom:1px solid var(--border);background:var(--surface)}
+.crumbs{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:13px;min-width:0}
+.crumbs b{color:var(--ink);font-weight:600}
+.crumbs .ic{width:14px;height:14px}
+.search{margin-left:auto;display:flex;align-items:center;gap:8px;width:300px;padding:7px 10px;border:1px solid var(--border);border-radius:var(--r);background:var(--surface-2);color:var(--muted);font-size:13px}
+.search kbd{margin-left:auto;font:500 11px "IBM Plex Mono",monospace;border:1px solid var(--border);border-radius:4px;padding:1px 5px;background:var(--surface)}
+.iconbtn{display:grid;place-items:center;width:36px;height:36px;border-radius:var(--r);border:1px solid transparent;background:none;color:var(--text-2);position:relative}
+.iconbtn:hover{background:var(--surface-2);border-color:var(--border)}
+.iconbtn .pip{position:absolute;top:8px;right:9px;width:7px;height:7px;border-radius:50%;background:var(--primary);box-shadow:0 0 0 2px var(--surface)}
+.me{display:flex;align-items:center;gap:10px;padding-left:12px;border-left:1px solid var(--border)}
+.avatar{width:32px;height:32px;border-radius:50%;background:var(--navy);color:#fff;display:grid;place-items:center;font-size:12px;font-weight:600}
+[data-theme="dark"] .avatar{background:#264C5C}
+.me .who{line-height:1.2}.me .who b{display:block;color:var(--ink);font-weight:500;font-size:13px}.me .who span{font-size:11px;color:var(--muted)}
+
+.content{padding:28px;display:flex;flex-direction:column;gap:24px;max-width:1440px;width:100%}
+.phead{display:flex;align-items:flex-end;gap:24px;flex-wrap:wrap}
+.phead h1{font-size:26px;line-height:1.2;font-weight:600;color:var(--ink);letter-spacing:-.01em}
+.phead p{color:var(--text-2);margin-top:4px}
+.phead .crenel{width:72px;margin-bottom:12px}
+.phead .acts{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:0 14px;border-radius:var(--r);border:1px solid transparent;font-weight:500;font-size:13.5px;white-space:nowrap;text-decoration:none;transition:background .15s,border-color .15s}
+.btn .ic{width:16px;height:16px}
+.btn-primary{background:var(--primary);color:var(--on-primary)}
+.btn-primary:hover{background:var(--primary-hover)}
+.btn-secondary{background:var(--surface);border-color:var(--border-strong);color:var(--ink)}
+.btn-secondary:hover{background:var(--surface-2)}
+.btn-ghost{background:transparent;color:var(--text-2)}
+.btn-ghost:hover{background:var(--surface-2);color:var(--ink)}
+.btn-danger{background:var(--danger);color:#fff}
+[data-theme="dark"] .btn-danger{background:#C9372C}
+.btn-danger-outline{background:transparent;color:var(--danger);border-color:color-mix(in srgb,var(--danger) 40%,transparent)}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.btn-sm{height:30px;padding:0 10px;font-size:12.5px}
+.btn:focus-visible{outline:none;box-shadow:var(--focus)}
+
+/* Cards */
+.card{background:var(--surface);border-radius:var(--r-lg);box-shadow:var(--shadow)}
+.card-h{display:flex;align-items:center;gap:10px;padding:16px 20px;border-bottom:1px solid var(--border)}
+.card-h h2{font-size:14px;font-weight:600;color:var(--ink)}
+.card-h .sub{color:var(--muted);font-size:12.5px}
+.card-h a{margin-left:auto;font-size:13px;color:var(--primary-text);text-decoration:none;font-weight:500;display:inline-flex;align-items:center;gap:4px}
+.card-h a .ic{width:14px;height:14px}
+
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+.kpi{padding:18px 20px 16px;display:flex;flex-direction:column;gap:6px;position:relative;overflow:hidden}
+.kpi .lab{display:flex;align-items:center;gap:8px;color:var(--text-2);font-weight:500;font-size:13px}
+.kpi .lab .ic{width:16px;height:16px;color:var(--muted)}
+.kpi .val{font-size:30px;font-weight:600;color:var(--ink);letter-spacing:-.02em;line-height:1.15;font-variant-numeric:tabular-nums}
+.kpi .val small{font-size:16px;color:var(--muted);font-weight:500}
+.kpi .sub{font-size:12.5px;color:var(--text-2);display:flex;align-items:center;gap:6px}
+.kpi .sub .t{width:6px;height:6px;border-radius:50%;background:var(--muted)}
+.kpi.warning .sub .t{background:var(--warning)}.kpi.danger .sub .t{background:var(--danger)}.kpi.attention .sub .t{background:var(--primary)}
+.kpi svg.spark{position:absolute;right:16px;top:18px;width:84px;height:28px;fill:none;stroke:var(--navy);stroke-width:1.5;opacity:.5}
+.kpi.attention{box-shadow:0 0 0 1px color-mix(in srgb,var(--primary) 45%,var(--border))}
+.kpi.attention .val{color:var(--primary-text)}
+.kpi.attention svg.spark{stroke:var(--primary);opacity:.8}
+
+.grid2{display:grid;grid-template-columns:minmax(0,2fr) minmax(320px,1fr);gap:16px;align-items:start}
+.stack{display:flex;flex-direction:column;gap:16px}
+
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;font-weight:500;font-size:12px;color:var(--muted);padding:10px 14px;background:var(--surface-2);border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:12px 14px;border-bottom:1px solid var(--border);vertical-align:middle;white-space:nowrap}
+tr:last-child td{border-bottom:0}
+th:first-child,td:first-child{padding-left:20px}
+tbody tr:hover td{background:var(--surface-2)}
+.who{display:flex;align-items:center;gap:10px}
+.kindic{width:28px;height:28px;border-radius:6px;display:grid;place-items:center;background:var(--navy-soft);color:var(--navy);flex:none}
+.kindic .ic{width:15px;height:15px}
+.who b{font-weight:500;color:var(--ink);display:block}
+.who span{font-size:11.5px;color:var(--muted)}
+.caps{display:flex;gap:4px;flex-wrap:wrap;max-width:220px}
+td.capc{white-space:normal}
+.cap{font:500 11.5px/1 "IBM Plex Mono",monospace;padding:4px 6px;border-radius:4px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-2)}
+.cap.custom{border-style:dashed;color:var(--navy)}
+.never{color:var(--warning);font-weight:600}
+.exp-note{display:block;font-size:11.5px;color:var(--warning)}
+.revoked-row td{color:var(--muted)}
+.revoked-row .who b{text-decoration:line-through;text-decoration-color:var(--danger)}
+
+.badge{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:4px;font-size:12px;font-weight:500}
+.badge::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.b-active{background:var(--success-soft);color:var(--success)}
+.b-expiring{background:var(--warning-soft);color:var(--warning)}
+.b-revoked{background:var(--danger-soft);color:var(--danger)}
+.b-pending{background:var(--primary-soft);color:var(--primary-text)}
+.b-neutral{background:var(--navy-soft);color:var(--navy)}
+.b-neutral::before{display:none}
+
+.pending{padding:18px 20px;display:flex;flex-direction:column;gap:14px;border-top:3px solid var(--primary);border-radius:var(--r-lg)}
+.pending .row{display:flex;align-items:center;gap:12px}
+.pending .kindic{width:40px;height:40px;background:var(--primary-soft);color:var(--primary-text)}
+.pending .kindic .ic{width:20px;height:20px}
+.pending h3{font-size:15px;font-weight:600;color:var(--ink)}
+.pending .meta{font-size:12px;color:var(--muted)}
+.pending .kv{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:12.5px}
+.pending .kv dt{color:var(--muted)}.pending .kv dd{color:var(--text)}
+.pending .acts{display:flex;gap:8px}
+.pending .acts .btn-primary{flex:1}
+.pending .more{font-size:12.5px;color:var(--text-2);display:flex;align-items:center;gap:6px;padding-top:12px;border-top:1px solid var(--border)}
+.pending .more a{margin-left:auto;color:var(--primary-text);font-weight:500;text-decoration:none}
+.hint{font-size:11.5px;color:var(--warning);display:flex;align-items:center;gap:5px}
+.hint .ic{width:13px;height:13px}
+
+.feed{list-style:none;padding:6px 0}
+.feed li{display:grid;grid-template-columns:28px 1fr auto;gap:12px;padding:10px 20px;align-items:start}
+.feed .fi{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:var(--surface-2);border:1px solid var(--border);color:var(--text-2)}
+.feed .fi .ic{width:14px;height:14px}
+.feed .success .fi{color:var(--success)}.feed .danger .fi{color:var(--danger)}.feed .attention .fi{color:var(--primary)}
+.feed .t1{font-size:13px;color:var(--text)}.feed .t1 b{font-weight:600;color:var(--ink)}
+.feed .t2{font-size:12px;color:var(--muted);margin-top:2px}
+.feed time{font:500 11.5px "IBM Plex Mono",monospace;color:var(--muted);padding-top:2px}
+.feed .evt{font:500 11px "IBM Plex Mono",monospace;color:var(--muted)}
+
+/* Component sheet */
+.sheet{padding:40px 28px 96px;border-top:1px solid var(--border);background:var(--surface-2)}
+.sheet-in{max-width:1440px;display:flex;flex-direction:column;gap:20px}
+.sheet h2{font-size:20px;font-weight:600;color:var(--ink);display:flex;align-items:center;gap:12px}
+.sheet h2 .crenel{width:40px}
+.sheet .lead{color:var(--text-2);max-width:720px}
+.sgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.sc{padding:20px;display:flex;flex-direction:column;gap:14px}
+.sc h3{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.row-w{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.field{display:flex;flex-direction:column;gap:6px;font-size:13px}
+.field label{font-weight:500;color:var(--ink)}
+.field .help{font-size:12px;color:var(--muted)}
+.input{height:36px;padding:0 12px;border-radius:var(--r);border:1px solid var(--border-strong);background:var(--surface);color:var(--ink);width:100%}
+.input::placeholder{color:var(--muted)}
+.input:focus{outline:none;border-color:var(--primary);box-shadow:var(--focus)}
+.input.err{border-color:var(--danger)}
+.field .errt{font-size:12px;color:var(--danger)}
+.fields{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.check{display:flex;align-items:center;gap:8px;font-size:13px}
+.check i{width:16px;height:16px;border-radius:4px;background:var(--primary);display:grid;place-items:center;color:#fff}
+.check i .ic{width:12px;height:12px;stroke-width:3}
+.check i.off{background:var(--surface);border:1px solid var(--border-strong)}
+.ks{display:flex;align-items:center;gap:16px;padding:14px 18px;border-radius:var(--r-lg);background:var(--danger);color:#fff;flex-wrap:wrap}
+[data-theme="dark"] .ks{background:#3A1412;color:#FFD9D4;box-shadow:inset 0 0 0 1px #7A2A23}
+.ks .ksi{width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.16);display:grid;place-items:center;flex:none}
+.ks b{font-weight:600;display:block}
+.ks span{font-size:12.5px;opacity:.9}
+.ks .btn{margin-left:auto;background:#fff;color:#8E1B12}
+[data-theme="dark"] .ks .btn{background:#FFD9D4;color:#3A1412}
+.swatches{display:flex;flex-wrap:wrap;gap:8px}
+.sw{width:64px}
+.sw i{display:block;height:40px;border-radius:6px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.08)}
+.sw span{display:block;font:500 10.5px/1.3 "IBM Plex Mono",monospace;color:var(--muted);margin-top:4px}
+.type-s .t1{font-size:26px;font-weight:600;color:var(--ink);letter-spacing:-.01em}
+.type-s .t2{font-size:14px;color:var(--text)}
+.type-s .t3{font:500 12.5px "IBM Plex Mono",monospace;color:var(--text-2)}
+
+@media (max-width:1180px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.grid2{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:860px){
+  .app{grid-template-columns:minmax(0,1fr)}.side,.main{min-width:0}
+  .side{position:static;height:auto;border-right:0;border-bottom:1px solid var(--border)}
+  .side .brand{height:56px}
+  .org,.side .foot,.nav .sec{display:none}
+  .nav{flex-direction:row;overflow-x:auto;padding:8px 12px;gap:4px}
+  .nav a{white-space:nowrap}
+  .nav a.on::before{display:none}
+  .search{display:none}.me .who{display:none}
+  .top{padding:0 16px}.content{padding:20px 16px}.sheet{padding:32px 16px 96px}
+  .sgrid,.fields{grid-template-columns:minmax(0,1fr)}
+}
+@media (max-width:520px){.kpis{grid-template-columns:minmax(0,1fr)}.phead .acts{margin-left:0}}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><symbol id="i-overview" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></symbol><symbol id="i-actors" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></symbol><symbol id="i-sensors" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2"/><path d="M4.93 19.07a10 10 0 0 1 0-14.14"/><path d="M7.76 16.24a6 6 0 0 1 0-8.49"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></symbol><symbol id="i-map" viewBox="0 0 24 24"><path d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3z"/><path d="M9 3v15"/><path d="M15 6v15"/></symbol><symbol id="i-graph" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.59 13.51l6.83 3.98"/><path d="M15.41 6.51l-6.82 3.98"/></symbol><symbol id="i-certs" viewBox="0 0 24 24"><path d="M2 18v3c0 .6.4 1 1 1h4v-3h3v-3h2l1.4-1.4a6.5 6.5 0 1 0-4-4Z"/><circle cx="16.5" cy="7.5" r=".5"/></symbol><symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></symbol><symbol id="i-plug" viewBox="0 0 24 24"><path d="M12 22v-5"/><path d="M9 8V2"/><path d="M15 8V2"/><path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z"/></symbol><symbol id="i-audit" viewBox="0 0 24 24"><path d="M8 21h12a2 2 0 0 0 2-2v-2H10v2a2 2 0 1 1-4 0V5a2 2 0 1 0-4 0v3h4"/><path d="M19 17V5a2 2 0 0 0-2-2H4"/><path d="M15 8h-5"/><path d="M15 12h-5"/></symbol><symbol id="i-settings" viewBox="0 0 24 24"><path d="M4 21v-7"/><path d="M4 10V3"/><path d="M12 21v-9"/><path d="M12 8V3"/><path d="M20 21v-5"/><path d="M20 12V3"/><path d="M1 14h6"/><path d="M9 8h6"/><path d="M17 16h6"/></symbol><symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol><symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></symbol><symbol id="i-moon" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></symbol><symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol><symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol><symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></symbol><symbol id="i-bot" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><path d="M8 16h.01"/><path d="M16 16h.01"/></symbol><symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></symbol><symbol id="i-power" viewBox="0 0 24 24"><path d="M12 2v10"/><path d="M18.4 6.6a9 9 0 1 1-12.77.04"/></symbol><symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></symbol><symbol id="i-chevron" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol><symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol><symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></symbol><symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></symbol><symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol><symbol id="i-device" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3"/></symbol><symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol><symbol id="i-filter" viewBox="0 0 24 24"><path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/></symbol><symbol id="i-more" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></symbol></svg>
+
+<div class="app">
+  <aside class="side">
+    <div class="brand"><span class="logo "><img class="logo-on-light" src="../../packages/controlplane/public/brand/vaultysclaw-logo.png" alt="VaultysClaw"><img class="logo-on-dark" src="../../packages/controlplane/public/brand/vaultysclaw-logo-dark.png" alt="VaultysClaw"></span></div>
+    <div class="org"><span class="sq">NL</span>Northwind Labs<svg class="ic " aria-hidden="true"><use href="#i-down"/></svg></div>
+    <nav class="nav"><div class="sec">Monitor</div><a href="#" class="on"><svg class="ic " aria-hidden="true"><use href="#i-overview"/></svg><span>Overview</span></a><a href="#" class=""><svg class="ic " aria-hidden="true"><use href="#i-actors"/></svg><span>Actors</span><span class="count">23</span></a><a href="#" class=""><svg class="ic " aria-hidden="true"><use href="#i-sensors"/></svg><span>Sensors</span></a><a href="#" class=""><svg class="ic " aria-hidden="true"><use href="#i-map"/></svg><span>Map</span></a><a href="#" class=""><svg class="ic " aria-hidden="true"><use href="#i-graph"/></svg><span>Graph</span></a><div class="sec">Trust</div><a href="#" class=""><svg class="ic " aria-hidden="true"><use href="#i-certs"/></svg><span>Certificates</span></a><a href="#" class=""><svg class="ic " aria-hidden="true"><use href="#i-globe"/></svg><span>Workspaces</span></a><div class="sec">Configure</div><a href="#" class=""><svg class="ic " aria-hidden="true"><use href="#i-plug"/></svg><span>Integrations</span></a><a href="#" class=""><svg class="ic " aria-hidden="true"><use href="#i-audit"/></svg><span>Audit Log</span></a><a href="#" class=""><svg class="ic " aria-hidden="true"><use href="#i-settings"/></svg><span>Settings</span></a></nav>
+    <div class="foot">
+      <div class="ks-mini"><span class="dot"></span>Kill switch <b>Disarmed</b></div>
+    </div>
+  </aside>
+  <div class="main">
+    <header class="top">
+      <div class="crumbs">Northwind Labs<svg class="ic " aria-hidden="true"><use href="#i-chevron"/></svg><b>Overview</b></div>
+      <div class="search"><svg class="ic " aria-hidden="true"><use href="#i-search"/></svg>Search actors, DIDs, certificates…<kbd>⌘K</kbd></div>
+      <button class="iconbtn" aria-label="Notifications"><svg class="ic " aria-hidden="true"><use href="#i-bell"/></svg><span class="pip"></span></button>
+      <div class="me"><span class="avatar">CD</span><div class="who"><b>Claire Dubois</b><span class="mono">did:vaultys:9xK2…f41Q</span></div></div>
+    </header>
+    <main class="content">
+      <div class="phead">
+        <div><span class="crenel"></span><h1>Overview</h1><p>Trust posture, onboarding progress, and the next useful action.</p></div>
+        <div class="acts"><a class="btn btn-secondary" href="#"><svg class="ic " aria-hidden="true"><use href="#i-user"/></svg>Invite a human</a><a class="btn btn-primary" href="#"><svg class="ic " aria-hidden="true"><use href="#i-plus"/></svg>Issue certificate</a></div>
+      </div>
+      <section class="kpis"><div class="card kpi ">
+  <div class="lab"><svg class="ic " aria-hidden="true"><use href="#i-actors"/></svg>Actors</div>
+  <svg class="spark" viewBox="0 0 100 28" preserveAspectRatio="none"><path d="M0.0 26.0 L9.1 22.5 L18.2 23.7 L27.3 18.4 L36.4 16.6 L45.5 14.9 L54.5 12.0 L63.6 13.1 L72.7 9.6 L81.8 7.3 L90.9 4.9 L100.0 2.0"/></svg>
+  <div class="val">7,214</div>
+  <div class="sub"><span class="t"></span>+128 this week</div>
+</div><div class="card kpi warning">
+  <div class="lab"><svg class="ic " aria-hidden="true"><use href="#i-certs"/></svg>Active certificates</div>
+  <svg class="spark" viewBox="0 0 100 28" preserveAspectRatio="none"><path d="M0.0 26.0 L9.1 24.0 L18.2 25.0 L27.3 20.0 L36.4 16.0 L45.5 17.0 L54.5 14.0 L63.6 11.0 L72.7 9.0 L81.8 6.0 L90.9 4.0 L100.0 2.0"/></svg>
+  <div class="val">6,748</div>
+  <div class="sub"><span class="t"></span>412 expire within 14 days</div>
+</div><div class="card kpi attention">
+  <div class="lab"><svg class="ic " aria-hidden="true"><use href="#i-clock"/></svg>Pending approvals</div>
+  <svg class="spark" viewBox="0 0 100 28" preserveAspectRatio="none"><path d="M0.0 26.0 L9.1 19.6 L18.2 24.4 L27.3 16.4 L36.4 10.0 L45.5 14.8 L54.5 6.8 L63.6 11.6 L72.7 3.6 L81.8 8.4 L90.9 5.2 L100.0 2.0"/></svg>
+  <div class="val">23</div>
+  <div class="sub"><span class="t"></span>Oldest waiting 2 h 14 min</div>
+</div><div class="card kpi danger">
+  <div class="lab"><svg class="ic " aria-hidden="true"><use href="#i-sensors"/></svg>Sensors online</div>
+  <svg class="spark" viewBox="0 0 100 28" preserveAspectRatio="none"><path d="M0.0 26.0 L9.1 23.8 L18.2 20.5 L27.3 21.6 L36.4 17.3 L45.5 15.1 L54.5 16.2 L63.6 11.8 L72.7 9.6 L81.8 10.7 L90.9 6.4 L100.0 2.0"/></svg>
+  <div class="val">186 <small>/ 201</small></div>
+  <div class="sub"><span class="t"></span>14 shadow AI workloads</div>
+</div></section>
+      <div class="grid2">
+        <div class="card">
+          <div class="card-h"><h2>Certificates</h2><span class="sub">Recently issued or changing state</span><a href="#">Open ledger <svg class="ic " aria-hidden="true"><use href="#i-arrow"/></svg></a></div>
+          <div class="tablewrap"><table>
+            <thead><tr><th>Actor</th><th>Status</th><th>Capabilities</th><th>Scope</th><th>Expires</th></tr></thead>
+            <tbody><tr class="">
+  <td><div class="who"><span class="kindic"><svg class="ic " aria-hidden="true"><use href="#i-bot"/></svg></span><div><b>invoice-triage-agent</b><span>Agent · <span class="mono">cert_8f2a91</span></span></div></div></td>
+  <td><span class="badge b-active">Active</span></td>
+  <td class="capc"><div class="caps"><span class="cap ">api_call</span><span class="cap ">mail_send</span><span class="cap ">knowledge_search</span></div></td>
+  <td><span class="mono">workspace:finance-ops</span></td>
+  <td>28 Oct 2027</td>
+</tr><tr class="">
+  <td><div class="who"><span class="kindic"><svg class="ic " aria-hidden="true"><use href="#i-sensors"/></svg></span><div><b>orbit-sensor-lyon-3</b><span>Sensor · <span class="mono">cert_3c77e0</span></span></div></div></td>
+  <td><span class="badge b-expiring">Expiring</span></td>
+  <td class="capc"><div class="caps"><span class="cap ">process_read</span></div></td>
+  <td><span class="mono">standing</span></td>
+  <td>9 Nov 2026<span class="exp-note">in 11 days</span></td>
+</tr><tr class="">
+  <td><div class="who"><span class="kindic"><svg class="ic " aria-hidden="true"><use href="#i-user"/></svg></span><div><b>Claire Dubois</b><span>Human · <span class="mono">cert_d1904b</span></span></div></div></td>
+  <td><span class="badge b-active">Active</span></td>
+  <td class="capc"><div class="caps"><span class="cap ">admin_console_access</span></div></td>
+  <td><span class="mono">org-wide</span></td>
+  <td><span class="never">Never</span></td>
+</tr><tr class="revoked-row">
+  <td><div class="who"><span class="kindic"><svg class="ic " aria-hidden="true"><use href="#i-bot"/></svg></span><div><b>legacy-scraper-02</b><span>Agent · <span class="mono">cert_51ab3e</span></span></div></div></td>
+  <td><span class="badge b-revoked">Revoked</span></td>
+  <td class="capc"><div class="caps"><span class="cap ">internet_access</span><span class="cap ">browser_control</span></div></td>
+  <td><span class="mono">workspace:growth</span></td>
+  <td>—</td>
+</tr><tr class="">
+  <td><div class="who"><span class="kindic"><svg class="ic " aria-hidden="true"><use href="#i-device"/></svg></span><div><b>build-bot-k8s</b><span>Device · <span class="mono">cert_9e0c42</span></span></div></div></td>
+  <td><span class="badge b-expiring">Expiring</span></td>
+  <td class="capc"><div class="caps"><span class="cap ">code_execution</span><span class="cap custom">acme:deploy</span></div></td>
+  <td><span class="mono">workspace:platform</span></td>
+  <td>14 Nov 2026<span class="exp-note">in 16 days</span></td>
+</tr><tr class="">
+  <td><div class="who"><span class="kindic"><svg class="ic " aria-hidden="true"><use href="#i-plug"/></svg></span><div><b>research-assistant</b><span>MCP · <span class="mono">cert_aa17f3</span></span></div></div></td>
+  <td><span class="badge b-active">Active</span></td>
+  <td class="capc"><div class="caps"><span class="cap ">knowledge_search</span><span class="cap ">file_read</span></div></td>
+  <td><span class="mono">workspace:r-d-sandbox</span></td>
+  <td>3 Mar 2027</td>
+</tr></tbody>
+          </table></div>
+        </div>
+        <div class="stack">
+          <div class="card pending">
+            <div class="row"><span class="kindic"><svg class="ic " aria-hidden="true"><use href="#i-device"/></svg></span><div><h3>ci-runner-eu-07</h3><div class="meta">Requested registration · 5 min ago</div></div><span class="badge b-pending" style="margin-left:auto">Pending</span></div>
+            <dl class="kv"><dt>DID</dt><dd class="mono">did:vaultys:3q8Fh…k2Lw</dd><dt>Kind</dt><dd>Device</dd><dt>Origin</dt><dd>10.42.7.19 · Frankfurt</dd><dt>Requests</dt><dd><div class="caps" style="flex-wrap:wrap"><span class="cap ">code_execution</span><span class="cap ">api_call</span><span class="cap custom">acme:deploy</span></div></dd></dl>
+            <div class="hint"><svg class="ic " aria-hidden="true"><use href="#i-alert"/></svg>acme:deploy is a custom capability — granted to 3 actors today</div>
+            <div class="acts"><button class="btn btn-primary"><svg class="ic " aria-hidden="true"><use href="#i-check"/></svg>Approve pending registration</button><button class="btn btn-secondary">Deny</button></div>
+            <div class="more"><svg class="ic " aria-hidden="true"><use href="#i-clock"/></svg>22 more waiting<a href="#">Review queue</a></div>
+          </div>
+          <div class="card">
+            <div class="card-h"><h2>Recent activity</h2><a href="#">Audit log <svg class="ic " aria-hidden="true"><use href="#i-arrow"/></svg></a></div>
+            <ul class="feed"><li class="success"><span class="fi"><svg class="ic " aria-hidden="true"><use href="#i-certs"/></svg></span><div><div class="t1">Certificate issued · <b>invoice-triage-agent</b></div><div class="t2">api_call, mail_send, knowledge_search · Finance Ops · by Claire Dubois</div><div class="evt">certificate.issued</div></div><time>14:32</time></li><li class="attention"><span class="fi"><svg class="ic " aria-hidden="true"><use href="#i-bot"/></svg></span><div><div class="t1">Registration requested · <b>ci-runner-eu-07</b></div><div class="t2">device · 10.42.7.19 · Frankfurt</div><div class="evt">actor.registration_requested</div></div><time>14:29</time></li><li class="danger"><span class="fi"><svg class="ic " aria-hidden="true"><use href="#i-x"/></svg></span><div><div class="t1">Certificate revoked · <b>legacy-scraper-02</b></div><div class="t2">Reason: key exposure in a public repository · by Marc Lefèvre</div><div class="evt">certificate.revoked</div></div><time>14:11</time></li><li class="success"><span class="fi"><svg class="ic " aria-hidden="true"><use href="#i-check"/></svg></span><div><div class="t1">Actor approved · <b>orbit-sensor-lyon-3</b></div><div class="t2">Granted process_read · by Claire Dubois</div><div class="evt">actor.approved</div></div><time>13:58</time></li><li class="neutral"><span class="fi"><svg class="ic " aria-hidden="true"><use href="#i-globe"/></svg></span><div><div class="t1">Workspace updated · <b>R&D Sandbox</b></div><div class="t2">Trust policy · failMode open → closed · by Amara Okafor</div><div class="evt">workspace.updated</div></div><time>13:40</time></li><li class="neutral"><span class="fi"><svg class="ic " aria-hidden="true"><use href="#i-power"/></svg></span><div><div class="t1">Kill switch disarmed · <b>Payments workspace</b></div><div class="t2">Suspended for 41 min · 318 grants restored · by Marc Lefèvre</div><div class="evt">killswitch.disarmed</div></div><time>12:05</time></li></ul>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<section class="sheet">
+  <div class="sheet-in">
+    <h2><span class="crenel"></span>Component sheet</h2>
+    <p class="lead">Orange is reserved for action and attention — primary buttons, the active route, the approval queue. Status never uses orange: warnings are ochre, so "needs you" and "going wrong" can't be confused.</p>
+    <div class="sgrid">
+      <div class="card sc"><h3>Buttons</h3>
+        <div class="row-w"><button class="btn btn-primary"><svg class="ic " aria-hidden="true"><use href="#i-check"/></svg>Approve</button><button class="btn btn-secondary">Review capabilities</button><button class="btn btn-ghost">Cancel</button><button class="btn btn-danger"><svg class="ic " aria-hidden="true"><use href="#i-x"/></svg>Revoke certificate</button><button class="btn btn-primary" disabled>Issuing…</button></div>
+        <div class="row-w"><button class="btn btn-sm btn-primary">Issue</button><button class="btn btn-sm btn-secondary">Export</button><button class="btn btn-sm btn-danger-outline">Deny</button></div>
+      </div>
+      <div class="card sc"><h3>Badges</h3>
+        <div class="row-w"><span class="badge b-active">Active</span><span class="badge b-expiring">Expiring</span><span class="badge b-revoked">Revoked</span><span class="badge b-pending">Pending</span></div>
+        <div class="row-w"><span class="badge b-neutral">Agent</span><span class="badge b-neutral">Human</span><span class="badge b-neutral">Sensor</span><span class="badge b-neutral">Device</span><span class="badge b-neutral">MCP</span><span class="cap">process_read</span><span class="cap custom">acme:deploy</span></div>
+      </div>
+      <div class="card sc"><h3>Inputs</h3>
+        <div class="fields">
+          <div class="field"><label>Certificate scope</label><input class="input" value="workspace:finance-ops"><span class="help">Leave empty for a standing grant.</span></div>
+          <div class="field"><label>Revocation reason</label><input class="input err" placeholder="Required"><span class="errt">A reason is required to revoke.</span></div>
+          <div class="field"><label>Search</label><input class="input" placeholder="did:vaultys:…"></div>
+          <div class="field"><label>Expiry</label><select class="input"><option>1 year</option><option>90 days</option><option>Never</option></select></div>
+        </div>
+        <div class="row-w"><span class="check"><i><svg class="ic " aria-hidden="true"><use href="#i-check"/></svg></i>non_delegatable</span><span class="check"><i class="off"></i>I understand this grant never expires</span></div>
+      </div>
+      <div class="card sc"><h3>Palette &amp; type</h3>
+        <div class="swatches">
+          <div class="sw"><i style="background:#D35400"></i><span>Orange 600 action</span></div>
+          <div class="sw"><i style="background:#FFF1E6"></i><span>Orange 50 tint</span></div>
+          <div class="sw"><i style="background:#16323D"></i><span>Navy 700 ink</span></div>
+          <div class="sw"><i style="background:#F4F3EF"></i><span>Stone bg</span></div>
+          <div class="sw"><i style="background:#0B171C"></i><span>Navy-black</span></div>
+          <div class="sw"><i style="background:#1F7A55"></i><span>Success</span></div>
+          <div class="sw"><i style="background:#8F6B00"></i><span>Ochre warn</span></div>
+          <div class="sw"><i style="background:#B42318"></i><span>Danger</span></div>
+        </div>
+        <div class="type-s"><div class="t1">IBM Plex Sans 600</div><div class="t2">Body 14/21 — certificates are signed artefacts, not session state.</div><div class="t3">IBM Plex Mono · did:vaultys:3q8Fh…k2Lw</div></div>
+      </div>
+    </div>
+    <div class="ks">
+      <span class="ksi"><svg class="ic " aria-hidden="true"><use href="#i-power"/></svg></span>
+      <div><b>Kill switch armed — organization-wide</b><span>Every non-human grant is suspended since 14:02 UTC by Marc Lefèvre · “Suspected credential leak in CI”. Humans keep console access.</span></div>
+      <button class="btn">Disarm</button>
+    </div>
+  </div>
+</section>
+
+<div class="dock" role="toolbar" aria-label="Mockup controls">
+  <span class="dname">01 · Bastion</span>
+  <button type="button" id="themeToggle" aria-label="Toggle light and dark mode"></button>
+</div>
+<script>
+(function(){var k="vc-dir-bastion",r=document.documentElement,b=document.getElementById("themeToggle");
+var sun='<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>';
+var moon='<svg viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>';
+function paint(){var d=r.dataset.theme==="dark";b.innerHTML=(d?sun:moon)+(d?"Light mode":"Dark mode");}
+b.addEventListener("click",function(){r.dataset.theme=r.dataset.theme==="dark"?"light":"dark";try{localStorage.setItem(k,r.dataset.theme)}catch(e){}paint();});
+paint();
+var c=document.querySelectorAll("[data-clock]");if(c.length){var t=function(){var d=new Date(),s=d.toISOString().slice(11,19)+" UTC";c.forEach(function(n){n.textContent=s});};t();setInterval(t,1000);}
+})();
+</script>
+</body>
+</html>

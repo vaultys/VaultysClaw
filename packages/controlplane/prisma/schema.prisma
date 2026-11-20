@@ -75,6 +75,8 @@ model Actor {
   certificates    CapabilityCertificate[]
   humanProfile    User?
   sensorWorkloads SensorWorkload[]
+  hookAuditEvents HookAuditEvent[]
+  hookCoverage    HookCoverage?
   linksFrom       ActorLink[]              @relation("ActorLinkFrom")
   linksTo         ActorLink[]              @relation("ActorLinkTo")
   ownedActors     Actor[]                  @relation("ActorOwnership")
@@ -355,6 +357,60 @@ model SensorWorkload {
 
   @@unique([deviceDid, fingerprint])
   @@index([deviceDid])
+}
+
+// ─── Hook audit ───────────────────────────────────────────────────────────────
+// What a `kind: "harness"` Actor running vaultysclaw-hooks decided, one row per
+// hook event (docs/HARNESS_HOOKS.md). Append-only and display-only: these rows
+// are the host's own account of itself, never an input to an authorization
+// decision. Delivery is at-least-once, so (actorDid, eventId) is unique and a
+// re-sent batch is absorbed by `createMany({ skipDuplicates })`.
+// Never carries a tool's arguments, a prompt or file contents — the hook does
+// not record them, and lib/hook-audit.ts drops any field it does not know.
+
+model HookAuditEvent {
+  id           String   @id @default(cuid())
+  actorDid     String
+  eventId      String
+  occurredAt   DateTime
+  receivedAt   DateTime @default(now())
+  vendor       String
+  event        String
+  kind         String
+  mode         String
+  session      String?
+  cwd          String?
+  tool         String?
+  capability   String?
+  resource     String?
+  decided      Boolean  @default(false)
+  blocked      Boolean  @default(false)
+  wouldDeny    Boolean  @default(false)
+  unmapped     Boolean  @default(false)
+  floorRefused Boolean  @default(false)
+  ruleId       String?
+  certId       String?
+  reason       String?
+  error        String?
+
+  actor Actor @relation(fields: [actorDid], references: [did], onDelete: Cascade)
+
+  @@unique([actorDid, eventId])
+  @@index([actorDid, occurredAt])
+}
+
+/// The latest coverage report from a vaultysclaw-hooks host (lib/hook-audit.ts
+/// parseHookCoverage). One row per Actor, replaced on every report.
+model HookCoverage {
+  actorDid        String   @id
+  reportedAt      DateTime
+  mode            String
+  scope           String
+  tamperResistant Boolean
+  /// HookCoverageVendor[]
+  vendors         Json
+
+  actor Actor @relation(fields: [actorDid], references: [did], onDelete: Cascade)
 }
 
 // ─── Actor relationships ──────────────────────────────────────────────────────

@@ -34,7 +34,7 @@ export default function TemplateForm({
           required
           defaultValue={template?.name}
           placeholder="Coding agent — standard"
-          className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background"
+          className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400"
         />
       </div>
 
@@ -47,7 +47,7 @@ export default function TemplateForm({
           name="description"
           defaultValue={template?.description ?? ""}
           placeholder="What this template is for, and who should get it"
-          className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background"
+          className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400"
         />
       </div>
 
@@ -58,11 +58,11 @@ export default function TemplateForm({
           name="allowedDomains"
           defaultValue={template?.allowedDomains.join(", ") ?? ""}
           placeholder="api.anthropic.com, github.com"
-          className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background"
+          className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400"
         />
-        <p className="text-xs text-foreground-400 mt-1">
-          Leaving this empty means <strong>no domain limit</strong>, which a supervised harness with
-          confinement set to <code>require</code> cannot express — it will refuse to launch.
+        <p className="text-xs leading-5 text-foreground-500 mt-1">
+          Leaving this empty means <span className="font-medium text-foreground-700">no domain limit</span>, which a supervised harness with
+          confinement set to <code className="font-mono">require</code> cannot express — it will refuse to launch.
         </p>
       </div>
 
@@ -74,13 +74,13 @@ export default function TemplateForm({
       <div className="flex gap-2 pt-2">
         <button
           type="submit"
-          className="px-4 py-2 bg-primary-600 hover:bg-primary-500 text-white text-sm font-medium rounded-lg transition-colors"
+          className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-500"
         >
           {template ? "Save template" : "Create template"}
         </button>
         <a
           href="/admin/certificates/templates"
-          className="px-4 py-2 border border-neutral-200 text-sm rounded-lg hover:bg-neutral-50"
+          className="rounded-lg border border-neutral-200 bg-background-100 px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-background-200"
         >
           Cancel
         </a>

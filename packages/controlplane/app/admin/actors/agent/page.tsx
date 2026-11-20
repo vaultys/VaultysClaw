@@ -12,6 +12,7 @@ import {
   Terminal,
 } from "lucide-react";
 import PageChrome from "@/components/layout/PageChrome";
+import { Badge } from "@/components/ui/Badge";
 import { getWSServerInstance } from "@/lib/ws-server";
 
 type CodeExampleKey = "typescript" | "go";
@@ -91,11 +92,11 @@ const setupOptions: SetupOption[] = [
     body:
       "For agents already running in Node.js or TypeScript. The SDK owns identity, registration, reconnects, certificate delivery, and local permission checks.",
     items: [
-      "Choose a stable actor name and kind.",
-      "Use the detected Actor WebSocket endpoint for controlPlaneWsUrl.",
-      "Store the identity file on persistent disk.",
-      "Declare the capabilities the agent will request.",
-      "Start the process, then approve it from the pending queue.",
+      "Choose a stable actor name and kind",
+      "Use the detected Actor WebSocket endpoint for controlPlaneWsUrl",
+      "Store the identity file on persistent disk",
+      "Declare the capabilities the agent will request",
+      "Start the process, then approve it from the pending queue",
     ],
     code: "typescript",
   },
@@ -106,10 +107,10 @@ const setupOptions: SetupOption[] = [
     body:
       "For daemons, CLIs, sensors, and infrastructure agents that should keep a compact runtime and reconnect without operator help.",
     items: [
-      "Load or create one VaultysId identity per deployed agent.",
-      "Point CollectorURL at the detected Admin HTTP endpoint.",
-      "Request only the capabilities this process can actually use.",
-      "Gate behavior on the capabilities that were granted.",
+      "Load or create one VaultysId identity per deployed agent",
+      "Point CollectorURL at the detected Admin HTTP endpoint",
+      "Request only the capabilities this process can actually use",
+      "Gate behavior on the capabilities that were granted",
     ],
     code: "go",
   },
@@ -120,10 +121,10 @@ const setupOptions: SetupOption[] = [
     body:
       "Use the shipped binaries when the agent is really an observed workload, local machine sensor, or supervised coding harness.",
     items: [
-      "Install the component on the host that owns the blast radius.",
-      "Keep its identity and capability state files across restarts.",
-      "Start it once so it appears as pending approval.",
-      "Approve the narrow capability set needed for that host.",
+      "Install the component on the host that owns the blast radius",
+      "Keep its identity and capability state files across restarts",
+      "Start it once so it appears as pending approval",
+      "Approve the narrow capability set needed for that host",
     ],
   },
   {
@@ -133,10 +134,10 @@ const setupOptions: SetupOption[] = [
     body:
       "For third-party tools that cannot embed an SDK. Register an interception point and route the tool's traffic through it.",
     items: [
-      "Define the traffic zone the proxy will govern.",
-      "Register the proxy as the actor, not the off-the-shelf tool.",
-      "Issue certificates to the proxy for the allowed operations.",
-      "Remember that everything behind one proxy shares that boundary.",
+      "Define the traffic zone the proxy will govern",
+      "Register the proxy as the actor, not the off-the-shelf tool",
+      "Issue certificates to the proxy for the allowed operations",
+      "Remember that everything behind one proxy shares that boundary",
     ],
   },
 ];
@@ -170,7 +171,7 @@ const requirements = [
 
 function CodeBlock({ children }: { children: string }) {
   return (
-    <pre className="overflow-x-auto rounded-lg border border-neutral-200 bg-background-200 p-4 text-xs text-foreground">
+    <pre className="overflow-x-auto rounded-lg border border-neutral-200/60 bg-background-200 p-4 font-mono text-xs text-foreground">
       <code>{children}</code>
     </pre>
   );
@@ -186,10 +187,10 @@ function Section({
   children: ReactNode;
 }) {
   return (
-    <section className="overflow-hidden rounded-xl border border-neutral-200 bg-background-100">
-      <div className="flex items-center gap-2 border-b border-neutral-200 px-5 py-4">
-        <Icon className="h-4 w-4 text-foreground-500" />
-        <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+    <section className="overflow-hidden rounded-xl border border-neutral-200/60 bg-background-100">
+      <div className="flex items-center gap-2 border-b border-neutral-200/60 px-5 py-4">
+        <Icon className="h-4 w-4 text-foreground-500" strokeWidth={1.5} />
+        <h2 className="text-sm font-medium text-foreground">{title}</h2>
       </div>
       <div className="p-5">{children}</div>
     </section>
@@ -229,49 +230,49 @@ export default async function AddAgentPage() {
             comes from this request&apos;s host, and the actor WebSocket port is read from the
             running server. If the page is rendered without a live WebSocket server, it falls back
             to{" "}
-            <code className="rounded bg-background-200 px-1.5 py-0.5 text-xs">
+            <code className="rounded bg-background-200 px-1.5 py-0.5 font-mono text-xs">
               CONTROLPLANE_WS_PORT
             </code>{" "}
             and then the default port. For a local instance running on{" "}
-            <code className="rounded bg-background-200 px-1.5 py-0.5 text-xs">
+            <code className="rounded bg-background-200 px-1.5 py-0.5 font-mono text-xs">
               http://localhost:3003
             </code>{" "}
             with WebSocket port{" "}
-            <code className="rounded bg-background-200 px-1.5 py-0.5 text-xs">
+            <code className="rounded bg-background-200 px-1.5 py-0.5 font-mono text-xs">
               8083
             </code>
             , start the control plane with{" "}
-            <code className="rounded bg-background-200 px-1.5 py-0.5 text-xs">
+            <code className="rounded bg-background-200 px-1.5 py-0.5 font-mono text-xs">
               CONTROLPLANE_PORT=3003
             </code>{" "}
             and{" "}
-            <code className="rounded bg-background-200 px-1.5 py-0.5 text-xs">
+            <code className="rounded bg-background-200 px-1.5 py-0.5 font-mono text-xs">
               CONTROLPLANE_WS_PORT=8083
             </code>
             .
           </p>
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <div className="rounded-lg border border-neutral-200 bg-background p-4">
-              <div className="text-xs font-medium uppercase text-foreground-500">
+            <div className="rounded-lg border border-neutral-200/60 bg-background p-4">
+              <div className="text-xs text-foreground-500">
                 Admin HTTP
               </div>
-              <code className="mt-2 block break-all text-sm text-foreground">
+              <code className="mt-2 block break-all font-mono text-sm text-foreground">
                 {httpUrl}
               </code>
               <p className="mt-2 text-xs leading-5 text-foreground-500">
-                Use this for Go SDK <code>CollectorURL</code> and HTTP-facing tooling.
+                Use this for Go SDK <code className="font-mono">CollectorURL</code> and HTTP-facing tooling
               </p>
             </div>
-            <div className="rounded-lg border border-neutral-200 bg-background p-4">
-              <div className="text-xs font-medium uppercase text-foreground-500">
+            <div className="rounded-lg border border-neutral-200/60 bg-background p-4">
+              <div className="text-xs text-foreground-500">
                 Actor WebSocket
               </div>
-              <code className="mt-2 block break-all text-sm text-foreground">
+              <code className="mt-2 block break-all font-mono text-sm text-foreground">
                 {wsUrl}
               </code>
               <p className="mt-2 text-xs leading-5 text-foreground-500">
-                Use this for TypeScript SDK <code>controlPlaneWsUrl</code>.
+                Use this for TypeScript SDK <code className="font-mono">controlPlaneWsUrl</code>
               </p>
             </div>
           </div>
@@ -285,18 +286,16 @@ export default async function AddAgentPage() {
             return (
               <article
                 key={option.title}
-                className="rounded-lg border border-neutral-200 bg-background p-4"
+                className="rounded-lg border border-neutral-200/60 bg-background p-4"
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="flex items-center gap-2">
-                    <Icon className="h-4 w-4 text-primary-600" />
-                    <h3 className="text-sm font-semibold text-foreground">
+                    <Icon className="h-4 w-4 text-foreground-500" strokeWidth={1.5} />
+                    <h3 className="text-sm font-medium text-foreground">
                       {option.title}
                     </h3>
                   </div>
-                  <span className="rounded-full border border-neutral-200 bg-background-200 px-2 py-0.5 text-xs text-foreground-500">
-                    {option.badge}
-                  </span>
+                  <Badge mono>{option.badge}</Badge>
                 </div>
                 <p className="mt-3 text-sm leading-6 text-foreground-600">
                   {option.body}
@@ -304,7 +303,7 @@ export default async function AddAgentPage() {
                 <ul className="mt-3 space-y-2 text-sm text-foreground-600">
                   {option.items.map((item) => (
                     <li key={item} className="flex gap-2">
-                      <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success-600" />
+                      <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-foreground-500" strokeWidth={1.5} />
                       <span>{item}</span>
                     </li>
                   ))}
@@ -328,10 +327,10 @@ export default async function AddAgentPage() {
               return (
                 <div
                   key={item.title}
-                  className="rounded-lg border border-neutral-200 bg-background p-4"
+                  className="rounded-lg border border-neutral-200/60 bg-background p-4"
                 >
-                  <Icon className="h-4 w-4 text-foreground-500" />
-                  <h3 className="mt-3 text-sm font-semibold text-foreground">
+                  <Icon className="h-4 w-4 text-foreground-500" strokeWidth={1.5} />
+                  <h3 className="mt-3 text-sm font-medium text-foreground">
                     {item.title}
                   </h3>
                   <p className="mt-2 text-sm leading-6 text-foreground-600">
@@ -346,21 +345,21 @@ export default async function AddAgentPage() {
         <Section icon={CheckCircle2} title="What happens next">
           <ol className="space-y-3 text-sm leading-6 text-foreground-600">
             <li>
-              <span className="font-medium text-foreground">1. Start the agent.</span>{" "}
+              <span className="font-medium text-foreground">1. Start the agent</span>{" "}
               It connects, proves its DID, and requests capabilities.
             </li>
             <li>
-              <span className="font-medium text-foreground">2. Review pending approval.</span>{" "}
+              <span className="font-medium text-foreground">2. Review pending approval</span>{" "}
               The request appears on the Actors page with editable capabilities.
             </li>
             <li>
-              <span className="font-medium text-foreground">3. Deliver the grant.</span>{" "}
+              <span className="font-medium text-foreground">3. Deliver the grant</span>{" "}
               If the agent is online, the certificate exchange runs immediately.
             </li>
           </ol>
           <Link
             href="/admin/actors"
-            className="mt-5 inline-flex items-center rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-primary-500"
+            className="mt-5 inline-flex items-center rounded-lg bg-primary-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-primary-500"
           >
             Review pending agents
           </Link>

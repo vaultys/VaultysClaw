@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, ArrowLeft } from "lucide-react";
 import { CustomCapabilityDAO } from "@/db";
 import PageChrome from "@/components/layout/PageChrome";
 import { updateCapabilityAction, deleteCapabilityAction } from "../actions";
@@ -32,19 +32,19 @@ export default async function CapabilityDetailPage({
         ]}
       />
 
-      <section className="rounded-xl border border-neutral-200/60 bg-background-100 p-4 space-y-3">
-        <h2 className="text-sm font-semibold text-foreground">Registry entry</h2>
+      <section className="space-y-3 rounded-xl border border-neutral-200/60 bg-background-100 p-5">
+        <h2 className="text-sm font-medium text-foreground">Registry entry</h2>
         <dl className="grid grid-cols-[8rem_1fr] gap-y-2 text-sm">
           <dt className="text-foreground-500">Name</dt>
           <dd className="font-mono text-foreground">{capability.name}</dd>
           <dt className="text-foreground-500">Vendor</dt>
-          <dd className="text-foreground">{capability.vendor}</dd>
+          <dd className="font-mono text-foreground">{capability.vendor}</dd>
           <dt className="text-foreground-500">Action</dt>
-          <dd className="text-foreground">{capability.action}</dd>
+          <dd className="font-mono text-foreground">{capability.action}</dd>
           <dt className="text-foreground-500">Active grants</dt>
-          <dd className="text-foreground">
+          <dd className="tabular-nums text-foreground">
             {affectedGrants === 0 ? (
-              <span className="text-foreground-400">None</span>
+              <span className="text-foreground-500">None</span>
             ) : (
               <>
                 {affectedGrants} certificate{affectedGrants === 1 ? "" : "s"}
@@ -52,17 +52,17 @@ export default async function CapabilityDetailPage({
             )}
           </dd>
           <dt className="text-foreground-500">Created</dt>
-          <dd className="text-foreground-500 text-xs">
+          <dd className="font-mono text-xs text-foreground-500">
             {capability.createdAt.toISOString()} by{" "}
             <span className="font-mono">{capability.createdBy}</span>
           </dd>
         </dl>
       </section>
 
-      <section className="rounded-xl border border-neutral-200/60 bg-background-100 p-4 space-y-4">
+      <section className="space-y-4 rounded-xl border border-neutral-200/60 bg-background-100 p-5">
         <div>
-          <h2 className="text-sm font-semibold text-foreground">Presentation</h2>
-          <p className="mt-1 text-xs text-foreground-400">
+          <h2 className="text-sm font-medium text-foreground">Presentation</h2>
+          <p className="mt-1 text-xs leading-5 text-foreground-500">
             The name is immutable &mdash; renaming would silently change which grants resolve, so it
             is expressed as delete-and-recreate, which is what it actually is.
           </p>
@@ -79,7 +79,7 @@ export default async function CapabilityDetailPage({
               name="label"
               required
               defaultValue={capability.label}
-              className="w-full rounded-lg border border-neutral-200/60 bg-background-100 px-3 py-2 text-sm"
+              className="w-full rounded-lg border border-neutral-200 bg-background px-3 py-2 text-sm focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500/30"
             />
           </div>
           <div>
@@ -91,7 +91,7 @@ export default async function CapabilityDetailPage({
               name="description"
               rows={2}
               defaultValue={capability.description ?? ""}
-              className="w-full rounded-lg border border-neutral-200/60 bg-background-100 px-3 py-2 text-sm"
+              className="w-full rounded-lg border border-neutral-200 bg-background px-3 py-2 text-sm focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500/30"
             />
           </div>
           <div>
@@ -102,25 +102,25 @@ export default async function CapabilityDetailPage({
               id="group"
               name="group"
               defaultValue={capability.group ?? ""}
-              className="w-full rounded-lg border border-neutral-200/60 bg-background-100 px-3 py-2 text-sm"
+              className="w-full rounded-lg border border-neutral-200 bg-background px-3 py-2 text-sm focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500/30"
             />
           </div>
           <button
             type="submit"
-            className="rounded-lg bg-primary-600 px-3 py-2 text-sm font-medium text-white hover:bg-primary-700"
+            className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-500"
           >
             Save
           </button>
         </form>
       </section>
 
-      <section className="rounded-xl border border-warning-200 bg-warning-50/40 p-4 space-y-3">
+      <section className="space-y-3 rounded-xl border border-danger-200 bg-danger-50 p-5">
         <div className="flex items-start gap-2">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning-600" />
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-danger-700" strokeWidth={1.5} />
           <div>
-            <h2 className="text-sm font-semibold text-foreground">Delete this capability</h2>
-            <p className="mt-1 text-xs text-foreground-500">
-              This is a <strong>mass revoke</strong>, not a tidy-up.{" "}
+            <h2 className="text-sm font-medium text-danger-700">Delete this capability</h2>
+            <p className="mt-1 text-xs leading-5 text-foreground-600">
+              This is a <span className="font-medium text-foreground">mass revoke</span>, not a tidy-up.{" "}
               {affectedGrants === 0 ? (
                 <>
                   No certificate currently carries it, so nothing loses authority today &mdash; but
@@ -128,9 +128,9 @@ export default async function CapabilityDetailPage({
                 </>
               ) : (
                 <>
-                  <strong>
+                  <span className="font-medium tabular-nums text-foreground">
                     {affectedGrants} active certificate{affectedGrants === 1 ? "" : "s"}
-                  </strong>{" "}
+                  </span>{" "}
                   carr{affectedGrants === 1 ? "ies" : "y"} this capability. Each will be revoked, and
                   every holder stops resolving it on its next status check even if the revocation
                   does not reach it.
@@ -142,7 +142,7 @@ export default async function CapabilityDetailPage({
 
         <form action={deleteCapabilityAction} className="space-y-2">
           <input type="hidden" name="id" value={capability.id} />
-          <label htmlFor="confirmName" className="block text-xs font-medium text-foreground">
+          <label htmlFor="confirmName" className="block text-sm font-medium text-foreground">
             Type <code className="font-mono">{capability.name}</code> to confirm
           </label>
           <input
@@ -151,11 +151,11 @@ export default async function CapabilityDetailPage({
             required
             autoComplete="off"
             placeholder={capability.name}
-            className="w-full max-w-sm rounded-lg border border-neutral-200/60 bg-background-100 px-3 py-2 text-sm font-mono"
+            className="w-full max-w-sm rounded-lg border border-neutral-200 bg-background px-3 py-2 text-sm focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500/30 font-mono"
           />
           <button
             type="submit"
-            className="rounded-lg bg-danger-600 px-3 py-2 text-sm font-medium text-white hover:bg-danger-700"
+            className="rounded-lg bg-danger-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-danger-500"
           >
             Delete and revoke {affectedGrants > 0 ? `${affectedGrants} grant${affectedGrants === 1 ? "" : "s"}` : "capability"}
           </button>
@@ -164,9 +164,10 @@ export default async function CapabilityDetailPage({
 
       <Link
         href="/admin/integrations?tab=capabilities"
-        className="inline-block text-xs text-primary-600 hover:underline"
+        className="inline-flex items-center gap-1.5 text-xs text-primary-700 hover:underline"
       >
-        &larr; Back to capabilities
+        <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.5} />
+        Back to capabilities
       </Link>
     </div>
   );

@@ -13,7 +13,6 @@ import {
 import IdentityBackupPanel from "./IdentityBackupPanel";
 import { TYPE_META, TYPE_ORDER, typeMeta } from "./browser-identity-meta";
 
-
 type View = "list" | "choose-type" | "backup";
 
 /**
@@ -28,7 +27,8 @@ type View = "list" | "choose-type" | "backup";
  * lib/browser-connect.ts's doc comment). A full-screen modal (portaled to document.body) rather
  * than an inline dropdown — this is a deliberate, occasional action, not something that needs to
  * compete for space with the QR code underneath.
- */export default function BrowserIdentityPicker({
+ */
+export default function BrowserIdentityPicker({
   onSelect,
 }: {
   onSelect: (identity: BrowserIdData) => void;
@@ -75,7 +75,7 @@ type View = "list" | "choose-type" | "backup";
           setIdentities(listBrowserIdentities());
           setOpen(true);
         }}
-        className="text-xs text-foreground-400 hover:text-foreground-600 transition-colors underline underline-offset-2"
+        className="text-xs text-foreground-500 underline underline-offset-2 transition-colors hover:text-foreground"
       >
         Use a different VaultysID
       </button>
@@ -98,13 +98,14 @@ type View = "list" | "choose-type" | "backup";
                 setView("list");
                 setError(null);
               }}
-              className="rounded-lg p-1.5 text-foreground-400 transition-colors hover:bg-background-200 hover:text-foreground"
+              aria-label="Back"
+              className="rounded-lg p-1.5 text-foreground-500 transition-colors hover:bg-background-200 hover:text-foreground"
             >
-              <ArrowLeft className="h-4 w-4" />
+              <ArrowLeft className="h-4 w-4" strokeWidth={1.5} />
             </button>
           )}
           <div>
-            <h2 className="text-lg font-semibold text-foreground">
+            <h2 className="text-lg font-medium text-foreground">
               {view === "list"
                 ? "VaultysIDs in this browser"
                 : view === "backup"
@@ -113,19 +114,20 @@ type View = "list" | "choose-type" | "backup";
             </h2>
             <p className="mt-0.5 text-sm text-foreground-500">
               {view === "list"
-                ? "Choose which one to connect as."
+                ? "Choose which one to connect as"
                 : view === "backup"
-                  ? "These files hold private keys, so they are always encrypted."
-                  : "Real generation — passkey/hardware trigger an actual browser prompt."}
+                  ? "These files hold private keys, so they are always encrypted"
+                  : "Passkey and hardware keys trigger an actual browser prompt"}
             </p>
           </div>
         </div>
         <button
           type="button"
           onClick={close}
-          className="rounded-lg p-2 text-foreground-400 transition-colors hover:bg-background-200 hover:text-foreground"
+          aria-label="Close"
+          className="rounded-lg p-2 text-foreground-500 transition-colors hover:bg-background-200 hover:text-foreground"
         >
-          <X className="h-5 w-5" />
+          <X className="h-4 w-4" strokeWidth={1.5} />
         </button>
       </div>
 
@@ -140,8 +142,8 @@ type View = "list" | "choose-type" | "backup";
           <>
             <div className="space-y-1">
               {identities.length === 0 && (
-                <p className="px-3 py-10 text-center text-sm text-foreground-400">
-                  No identities stored yet — generate one below.
+                <p className="rounded-xl border border-dashed border-neutral-200 px-4 py-6 text-sm text-foreground-500">
+                  No identities stored yet — generate one below
                 </p>
               )}
               {identities.map((identity) => {
@@ -149,21 +151,19 @@ type View = "list" | "choose-type" | "backup";
                 return (
                   <div
                     key={identity.did}
-                    className="group flex items-center gap-3 rounded-xl px-3 py-3 transition-colors hover:bg-background-100"
+                    className="group flex items-center gap-3 rounded-lg px-4 py-3 transition-colors hover:bg-background-100"
                   >
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary-100 text-primary-600">
-                      <meta.icon className="h-4.5 w-4.5" />
-                    </span>
+                    <meta.icon className="h-4 w-4 shrink-0 text-foreground-500" strokeWidth={1.5} />
                     <button
                       type="button"
                       onClick={() => onSelect(identity)}
                       title={identity.did}
                       className="min-w-0 flex-1 text-left"
                     >
-                      <div className="truncate font-mono text-sm text-foreground group-hover:text-primary-600">
+                      <div className="truncate font-mono text-sm text-foreground group-hover:text-primary-700">
                         {identity.did}
                       </div>
-                      <div className="text-xs text-foreground-400">{meta.label}</div>
+                      <div className="text-xs text-foreground-500">{meta.label}</div>
                     </button>
                     <button
                       type="button"
@@ -172,9 +172,9 @@ type View = "list" | "choose-type" | "backup";
                         setIdentities(listBrowserIdentities());
                       }}
                       title="Forget this identity"
-                      className="shrink-0 rounded-lg p-2 text-foreground-300 opacity-0 transition-colors hover:bg-danger-50 hover:text-danger-600 group-hover:opacity-100"
+                      className="shrink-0 rounded-lg p-2 text-foreground-500 opacity-0 transition-[color,background-color,opacity] hover:bg-background-200 hover:text-danger-700 focus:opacity-100 group-hover:opacity-100"
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className="h-4 w-4" strokeWidth={1.5} />
                     </button>
                   </div>
                 );
@@ -184,9 +184,9 @@ type View = "list" | "choose-type" | "backup";
             <button
               type="button"
               onClick={() => setView("choose-type")}
-              className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-neutral-300 py-3 text-sm font-medium text-foreground-700 transition-colors hover:border-primary-400 hover:bg-primary-50 hover:text-primary-600"
+              className="mt-6 flex w-full items-center justify-center gap-2 rounded-lg border border-neutral-200 bg-background-100 px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-background-200"
             >
-              <Plus className="h-4 w-4" />
+              <Plus className="h-4 w-4" strokeWidth={1.5} />
               Generate new identity
             </button>
 
@@ -196,9 +196,9 @@ type View = "list" | "choose-type" | "backup";
                 setView("backup");
                 setError(null);
               }}
-              className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-medium text-foreground-500 transition-colors hover:bg-background-100 hover:text-foreground"
+              className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-foreground-600 transition-colors hover:bg-background-100 hover:text-foreground"
             >
-              <Download className="h-4 w-4" />
+              <Download className="h-4 w-4" strokeWidth={1.5} />
               Back up or restore identities
             </button>
           </>
@@ -218,18 +218,16 @@ type View = "list" | "choose-type" | "backup";
                   type="button"
                   disabled={busy !== null}
                   onClick={() => handleGenerate(type)}
-                  className="flex w-full items-center gap-4 rounded-xl border border-neutral-200 p-4 text-left transition-colors hover:border-primary-400 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="flex w-full items-center gap-4 rounded-lg border border-neutral-200 bg-background-100 px-4 py-3 text-left transition-colors hover:border-neutral-300 hover:bg-background-200 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary-100 text-primary-600">
-                    {isBusy ? (
-                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-400 border-t-transparent" />
-                    ) : (
-                      <meta.icon className="h-4.5 w-4.5" />
-                    )}
-                  </span>
+                  {isBusy ? (
+                    <span className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-primary-400 border-t-transparent" />
+                  ) : (
+                    <meta.icon className="h-4 w-4 shrink-0 text-foreground-500" strokeWidth={1.5} />
+                  )}
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-medium text-foreground">{meta.label}</div>
-                    <div className="text-xs text-foreground-500">{meta.description}</div>
+                    <div className="mt-0.5 text-xs leading-5 text-foreground-500">{meta.description}</div>
                   </div>
                 </button>
               );

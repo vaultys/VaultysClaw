@@ -40,8 +40,10 @@ and `@msgpack/msgpack`. Import via `@vaultysclaw/policy`.
 - `packages/trust` — imports the capability/scope types; `resolvePermission`
   decides over them.
 - `packages/sdk` — verifies what it receives with no DB in the loop.
-- `sdk-go/grant` — the Go port of the packcert verification, held to this package
-  by `conformance/grant-fixture.json`.
+- `sdk-go/grant` — the Go port of the packcert verification and of the cert-status
+  exchange, held to this package by `conformance/grant-fixture.json`,
+  `status-fixture.json` and (Go → TS, `__tests__/status-conformance.test.ts`)
+  `status-request-fixture.json`.
 
 Persistence, distribution and UI intentionally stay in `packages/controlplane` —
 this package is the engine, not the plumbing.

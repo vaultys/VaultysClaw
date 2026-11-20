@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { authOptions } from "@/lib/auth-config";
 import SignOutButton from "@/components/SignOutButton";
+import { BrandLogo } from "@/components/ui/BrandLogo";
 
 /**
  * "My identity" — gated on holding a session and nothing else.
@@ -28,7 +29,7 @@ export default async function IdentityLayout({ children }: { children: React.Rea
             className="flex items-center gap-1.5 text-sm text-foreground-500 transition-colors hover:text-foreground"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
-            VaultysClaw
+            <BrandLogo className="h-5" />
           </Link>
         </div>
         <SignOutButton />

@@ -3,6 +3,7 @@ import { Bot, UserPlus } from "lucide-react";
 import { ActorDAO, PendingRegistrationDAO, CustomCapabilityDAO } from "@/db";
 import PageChrome from "@/components/layout/PageChrome";
 import { ActorKindBadge } from "@/components/ActorKindBadge";
+import { Badge } from "@/components/ui/Badge";
 import ActorDirectoryPanel from "@/components/ActorDirectoryPanel";
 import {
   AGENT_CAPABILITIES,
@@ -38,7 +39,7 @@ export default async function ActorsPage({
     : undefined;
 
   return (
-    <div className="p-6 space-y-10">
+    <div className="p-6 space-y-6">
       <PageChrome
         toolbar={{
           title: "Actors",
@@ -58,7 +59,7 @@ export default async function ActorsPage({
               id: "add-agent",
               label: "Add agent",
               variant: "default",
-              icon: <Bot className="w-3.5 h-3.5" />,
+              icon: <Bot className="w-3.5 h-3.5" strokeWidth={1.5} />,
               href: "/admin/actors/agent",
             },
             {
@@ -66,7 +67,7 @@ export default async function ActorsPage({
               id: "invite-human",
               label: "Invite human",
               variant: "primary",
-              icon: <UserPlus className="w-3.5 h-3.5" />,
+              icon: <UserPlus className="w-3.5 h-3.5" strokeWidth={1.5} />,
               href: "/admin/actors/invite",
             },
           ],
@@ -87,16 +88,19 @@ export default async function ActorsPage({
           <div className="space-y-6">
             <section>
               <div className="mb-3">
-                <h2 className="text-sm font-semibold text-foreground-700">
-                  Pending approval ({pending.length})
+                <h2 className="text-sm font-medium text-foreground">
+                  Pending approval{" "}
+                  <span className="font-mono text-xs tabular-nums text-foreground-500">
+                    {pending.length}
+                  </span>
                 </h2>
                 <p className="mt-1 text-xs leading-5 text-foreground-500">
                   Review requested capabilities before allowing the actor into
-                  the trust graph.
+                  the trust graph
                 </p>
               </div>
               {pending.length === 0 && (
-                <div className="rounded-xl border border-dashed border-neutral-300 bg-background-100 px-4 py-5 text-sm text-foreground-500">
+                <div className="rounded-xl border border-dashed border-neutral-200 px-4 py-6 text-sm text-foreground-500">
                   Nothing pending. New agents, devices, and servers will appear
                   here when they request registration.
                 </div>
@@ -105,7 +109,7 @@ export default async function ActorsPage({
                 {pending.map((reg) => (
                   <form
                     key={reg.id}
-                    className="border border-neutral-200/60 rounded-xl bg-background-100 p-4 flex flex-col gap-3"
+                    className="border border-neutral-200/60 rounded-xl bg-background-100 p-5 flex flex-col gap-3"
                     action={approveRegistrationAction}
                   >
                     <input type="hidden" name="registrationId" value={reg.id} />
@@ -168,7 +172,7 @@ export default async function ActorsPage({
                                     className="accent-primary-600"
                                   />
                                   <span>{cap.label}</span>
-                                  <code className="text-xs text-foreground-400">
+                                  <code className="font-mono text-xs text-foreground-500">
                                     {cap.name}
                                   </code>
                                 </label>
@@ -198,7 +202,7 @@ export default async function ActorsPage({
                                 first &mdash;{" "}
                                 <Link
                                   href="/admin/integrations/capabilities/new"
-                                  className="text-primary-600 hover:underline"
+                                  className="text-primary-700 hover:underline"
                                 >
                                   add it
                                 </Link>
@@ -207,7 +211,7 @@ export default async function ActorsPage({
                             );
                           })()}
                           {reg.kind === "sensor" && (
-                            <p className="text-xs text-foreground-400">
+                            <p className="text-xs leading-5 text-foreground-500">
                               Sensors only have this one capability today —
                               approving with it checked starts a live
                               certificate exchange the sensor gates its process
@@ -218,7 +222,7 @@ export default async function ActorsPage({
                           {reg.kind !== "sensor" &&
                             (reg.requestedCapabilities as string[]).length ===
                               0 && (
-                              <p className="text-xs text-foreground-400">
+                              <p className="text-xs leading-5 text-foreground-500">
                                 No capabilities requested yet — approving now
                                 grants none unless checked below.
                               </p>
@@ -236,7 +240,7 @@ export default async function ActorsPage({
                       <button
                         type="submit"
                         formAction={denyRegistrationAction}
-                        className="px-3 py-1.5 border border-neutral-200 text-foreground text-sm font-medium rounded-lg hover:bg-background-200 transition-colors"
+                        className="px-3 py-1.5 border border-neutral-200 bg-background text-foreground-700 text-sm font-medium rounded-lg hover:bg-background-200 hover:text-foreground transition-colors"
                       >
                         Deny
                       </button>
@@ -248,10 +252,13 @@ export default async function ActorsPage({
 
             {awaitingDelivery.length > 0 && (
               <section>
-                <h2 className="text-sm font-semibold text-foreground-700 mb-3">
-                  Approved, awaiting delivery ({awaitingDelivery.length})
+                <h2 className="text-sm font-medium text-foreground">
+                  Approved, awaiting delivery{" "}
+                  <span className="font-mono text-xs tabular-nums text-foreground-500">
+                    {awaitingDelivery.length}
+                  </span>
                 </h2>
-                <p className="text-xs text-foreground-400 mb-3">
+                <p className="mt-1 mb-3 text-xs leading-5 text-foreground-500">
                   Approved — the certificate is delivered via a live exchange
                   the next time each agent is connected
                   (docs/CERTIFICATE_WEB_OF_TRUST.md §3.2b), not written
@@ -261,7 +268,7 @@ export default async function ActorsPage({
                   {awaitingDelivery.map((reg) => (
                     <div
                       key={reg.id}
-                      className="border border-warning-200 bg-warning-50 rounded-xl p-4 flex items-center justify-between gap-3"
+                      className="border border-neutral-200/60 bg-background-100 rounded-xl px-4 py-3 flex items-center justify-between gap-3"
                     >
                       <div>
                         <div className="flex items-center gap-2">
@@ -275,13 +282,13 @@ export default async function ActorsPage({
                         </div>
                         <div className="text-xs text-foreground-600 mt-1">
                           Granting:{" "}
-                          {(reg.assignedCapabilities as string[]).join(", ") ||
-                            "—"}
+                          <span className="font-mono">
+                            {(reg.assignedCapabilities as string[]).join(", ") ||
+                              "—"}
+                          </span>
                         </div>
                       </div>
-                      <span className="text-xs px-2.5 py-1 rounded-full border shrink-0 bg-warning-100 text-warning-700 border-warning-200">
-                        waiting for connection
-                      </span>
+                      <Badge tone="attention">Waiting for connection</Badge>
                     </div>
                   ))}
                 </div>

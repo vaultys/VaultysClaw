@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { ChevronDown, X } from "lucide-react";
 import {
   splitSrtBlock,
   serializeSrtBlock,
@@ -88,7 +89,7 @@ export default function SrtBuilder({
         />
         <ListEditor
           label="Deny write"
-          hint="Readable but never modifiable."
+          hint="Readable but never modifiable"
           placeholder="./config/production.json"
           values={lists.denyWrite}
           onChange={(denyWrite) => setLists({ ...lists, denyWrite })}
@@ -117,19 +118,23 @@ export default function SrtBuilder({
         onChange={(deniedDomains) => setLists({ ...lists, deniedDomains })}
       />
 
-      <div className="border border-neutral-200 rounded-lg">
+      <div className="border border-neutral-200/60 rounded-lg">
         <button
           type="button"
           onClick={() => setRawOpen(!rawOpen)}
-          className="w-full flex items-center justify-between px-3 py-2 text-sm text-foreground-700"
+          aria-expanded={rawOpen}
+          className="w-full flex items-center justify-between rounded-lg px-3 py-2 text-sm text-foreground-700 transition-colors hover:bg-background-200/40"
         >
           <span>
             Other srt settings{" "}
             {Object.keys(extras).length > 0 && (
-              <span className="text-foreground-400">({Object.keys(extras).join(", ")})</span>
+              <span className="font-mono text-xs text-foreground-500">({Object.keys(extras).join(", ")})</span>
             )}
           </span>
-          <span className="text-foreground-400">{rawOpen ? "−" : "+"}</span>
+          <ChevronDown
+            className={`h-4 w-4 text-foreground-500 transition-transform ${rawOpen ? "rotate-180" : ""}`}
+            strokeWidth={1.5}
+          />
         </button>
         {rawOpen && (
           <div className="px-3 pb-3">
@@ -139,10 +144,10 @@ export default function SrtBuilder({
               value={rawText}
               onChange={(e) => applyRaw(e.target.value)}
               placeholder={'{\n  "ignoreViolations": { "npm": ["/private/tmp"] }\n}'}
-              className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background font-mono"
+              className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background font-mono focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400"
             />
-            {rawError && <p className="text-xs text-danger-600 mt-1">{rawError}</p>}
-            <p className="text-xs text-foreground-400 mt-1">
+            {rawError && <p className="text-xs text-danger-700 mt-1">{rawError}</p>}
+            <p className="text-xs leading-5 text-foreground-500 mt-1">
               Anything srt accepts that has no field above. Kept verbatim, validated by srt at
               launch rather than here — a setting this console has never heard of still reaches it.
             </p>
@@ -202,12 +207,12 @@ function ListEditor({
               add();
             }
           }}
-          className="flex-1 border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background font-mono"
+          className="flex-1 border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background font-mono focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400"
         />
         <button
           type="button"
           onClick={add}
-          className="px-3 py-2 text-sm border border-neutral-200 rounded-lg hover:bg-neutral-50"
+          className="rounded-lg border border-neutral-200 bg-background-100 px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-background-200"
         >
           Add
         </button>
@@ -217,22 +222,22 @@ function ListEditor({
           {values.map((entry) => (
             <li
               key={entry}
-              className="flex items-center justify-between gap-2 text-xs font-mono bg-neutral-50 border border-neutral-200 rounded px-2 py-1"
+              className="flex items-center justify-between gap-2 rounded-lg border border-neutral-200/60 bg-background-200/40 px-2 py-1 font-mono text-xs text-foreground-700"
             >
               <span className="truncate">{entry}</span>
               <button
                 type="button"
                 onClick={() => onChange(values.filter((v) => v !== entry))}
-                className="text-foreground-400 hover:text-danger-600 shrink-0"
+                className="shrink-0 text-foreground-500 transition-colors hover:text-danger-700"
                 aria-label={`Remove ${entry}`}
               >
-                ×
+                <X className="h-3.5 w-3.5" strokeWidth={1.5} />
               </button>
             </li>
           ))}
         </ul>
       )}
-      <p className="text-xs text-foreground-400 mt-1">{hint}</p>
+      <p className="text-xs leading-5 text-foreground-500 mt-1">{hint}</p>
     </div>
   );
 }

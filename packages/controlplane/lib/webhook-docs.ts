@@ -10,6 +10,8 @@ import {
   actorPayload,
   actorDeletedPayload,
   harnessConfigPayload,
+  harnessCoverageDegradedPayload,
+  harnessToolDeniedPayload,
   certificatePayload,
   customCapabilityPayload,
   modelPayload,
@@ -116,6 +118,43 @@ const EXAMPLE_PAYLOADS: Record<string, Record<string, unknown>> = {
         { id: "no-docker", subject: "any", resources: ["exec://docker"], effect: "deny" },
       ],
     }
+  ),
+  "harness.tool_denied": harnessToolDeniedPayload(
+    { ...sampleActor, kind: "harness", name: "fx-macbook" },
+    {
+      eventId: "9f2c4e1a0b7d4c3e8a1f5b6c7d8e9f01",
+      occurredAt: new Date("2026-11-12T09:41:07.000Z"),
+      vendor: "cursor",
+      tool: "Read",
+      capability: "file_read",
+      resource: "file:///Users/fx/.aws/credentials",
+      reason: "refused: on the safety floor (/Users/fx/.aws)",
+      floorRefused: true,
+      ruleId: null,
+      certId: null,
+    },
+    0
+  ),
+  "harness.coverage_degraded": harnessCoverageDegradedPayload(
+    { ...sampleActor, kind: "harness", name: "fx-macbook" },
+    {
+      mode: "enforce",
+      scope: "machine",
+      tamperResistant: true,
+      vendors: [
+        { vendor: "claude-code", level: "enforcing", reasons: [] },
+        { vendor: "cursor", level: "ungoverned", reasons: ["the decision hook is not installed; tool calls are only watched"] },
+      ],
+    },
+    [
+      {
+        vendor: "cursor",
+        from: "partial",
+        to: "ungoverned",
+        reasons: ["the decision hook is not installed; tool calls are only watched"],
+      },
+    ],
+    []
   ),
   "proxy.config_updated": proxyConfigPayload(
     { ...sampleActor, kind: "proxy", name: "edge-proxy-paris" },

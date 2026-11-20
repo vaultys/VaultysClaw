@@ -100,17 +100,17 @@ function Panel({
   detail: string;
 }) {
   const style = {
-    good: { box: "border-success-200 bg-success-50", text: "text-success-700", Icon: CheckCircle2 },
-    warn: { box: "border-warning-200 bg-warning-50", text: "text-warning-700", Icon: AlertTriangle },
-    bad: { box: "border-danger-200 bg-danger-50", text: "text-danger-700", Icon: XCircle },
+    good: { box: "border-neutral-200/60 bg-background-100", title: "text-foreground", icon: "text-success-600", Icon: CheckCircle2 },
+    warn: { box: "border-warning-200 bg-warning-50", title: "text-warning-700", icon: "text-warning-700", Icon: AlertTriangle },
+    bad: { box: "border-danger-200 bg-danger-50", title: "text-danger-700", icon: "text-danger-700", Icon: XCircle },
   }[tone];
 
   return (
-    <div className={`flex items-start gap-2.5 rounded-lg border p-3 ${style.box}`}>
-      <style.Icon className={`mt-0.5 h-4 w-4 shrink-0 ${style.text}`} />
+    <div className={`flex items-start gap-3 rounded-lg border px-4 py-3 ${style.box}`}>
+      <style.Icon className={`mt-0.5 h-4 w-4 shrink-0 ${style.icon}`} strokeWidth={1.5} />
       <div>
-        <div className={`text-sm font-medium ${style.text}`}>{title}</div>
-        <p className="mt-0.5 text-xs text-foreground-600">{detail}</p>
+        <div className={`text-sm font-medium ${style.title}`}>{title}</div>
+        <p className="mt-0.5 text-xs leading-5 text-foreground-600">{detail}</p>
       </div>
     </div>
   );

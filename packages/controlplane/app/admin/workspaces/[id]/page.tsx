@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 import { WorkspaceDAO, ActorDAO, CapabilityCertificateDAO, SrtTemplateDAO, KillSwitchDAO } from "@/db";
 import PageChrome from "@/components/layout/PageChrome";
 import { ActorKindBadge } from "@/components/ActorKindBadge";
+import { Badge } from "@/components/ui/Badge";
 import ActorSearchSelect from "@/components/ActorSearchSelect";
 import DeleteWorkspacePanel from "@/components/DeleteWorkspacePanel";
 import KillSwitchPanel from "@/components/KillSwitchPanel";
@@ -44,15 +45,9 @@ function TabLink({ id, active, label }: { id: string; active: boolean; label: st
 /** Where an effective trust-policy value came from — see `lib/trust-policy.ts`. */
 function SourceBadge({ source }: { source: "workspace" | "org" }) {
   return (
-    <span
-      className={`text-[10px] px-1.5 py-0.5 rounded-full border uppercase tracking-wide ${
-        source === "workspace"
-          ? "border-primary-200 text-primary-700 bg-primary-100/50"
-          : "border-neutral-200 text-foreground-500"
-      }`}
-    >
+    <Badge tone={source === "workspace" ? "neutral" : "muted"}>
       {source === "workspace" ? "This workspace" : "Inherited"}
-    </span>
+    </Badge>
   );
 }
 
@@ -134,17 +129,15 @@ export default async function WorkspaceDetailPage({
         href="/admin/workspaces"
         className="inline-flex items-center gap-1.5 text-sm text-foreground-500 hover:text-foreground transition-colors"
       >
-        <ArrowLeft className="w-3.5 h-3.5" />
+        <ArrowLeft className="w-3.5 h-3.5" strokeWidth={1.5} />
         Back to Workspaces
       </Link>
 
       <div className="flex items-center gap-2">
         <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: workspace.color }} />
-        <h1 className="text-lg font-semibold text-foreground">{workspace.name}</h1>
+        <h1 className="text-lg font-medium text-foreground">{workspace.name}</h1>
         {workspace.isDefault && (
-          <span className="text-[10px] px-1.5 py-0.5 rounded-full border border-neutral-200 text-foreground-500 uppercase">
-            Default
-          </span>
+          <Badge tone="muted">Default</Badge>
         )}
       </div>
 
@@ -156,8 +149,8 @@ export default async function WorkspaceDetailPage({
 
       {activeTab === "overview" && (
         <section className="space-y-4 max-w-lg">
-          <div className="border border-neutral-200/60 rounded-xl bg-background-100 p-4 space-y-3">
-            <h2 className="text-sm font-semibold text-foreground">Identity</h2>
+          <div className="border border-neutral-200/60 rounded-xl bg-background-100 p-5 space-y-3">
+            <h2 className="text-sm font-medium text-foreground">Identity</h2>
             <dl className="text-sm space-y-1.5">
               <div className="flex gap-2">
                 <dt className="text-foreground-500 w-28 shrink-0">Slug</dt>
@@ -165,7 +158,9 @@ export default async function WorkspaceDetailPage({
               </div>
               <div className="flex gap-2">
                 <dt className="text-foreground-500 w-28 shrink-0">Created</dt>
-                <dd>{workspace.createdAt.toISOString().slice(0, 10)}</dd>
+                <dd className="font-mono text-xs pt-0.5 tabular-nums text-foreground-700">
+                  {workspace.createdAt.toISOString().slice(0, 10)}
+                </dd>
               </div>
               {workspace.description && (
                 <div className="flex gap-2">
@@ -185,10 +180,10 @@ export default async function WorkspaceDetailPage({
               <Link
                 key={stat.label}
                 href={`?tab=${stat.tab}`}
-                className="border border-neutral-200/60 rounded-xl bg-background-100 p-4 hover:border-primary-300 transition-colors"
+                className="border border-neutral-200/60 rounded-xl bg-background-100 p-4 hover:border-neutral-300 transition-colors"
               >
-                <div className="text-xl font-semibold text-foreground">{stat.value}</div>
-                <div className="text-xs text-foreground-500">{stat.label}</div>
+                <div className="font-mono text-xl font-medium tabular-nums text-foreground">{stat.value}</div>
+                <div className="mt-1 text-xs text-foreground-500">{stat.label}</div>
               </Link>
             ))}
           </div>
@@ -197,18 +192,18 @@ export default async function WorkspaceDetailPage({
               admin reading a summary should not be able to cut a fleet off by
               mis-clicking inside it. */}
           <div
-            className={`border rounded-xl p-4 ${
+            className={`border rounded-xl p-5 ${
               killSwitch
                 ? "border-danger-200 bg-danger-100/50"
                 : "border-neutral-200/60 bg-background-100"
             }`}
           >
             <h2
-              className={`text-sm font-semibold ${
+              className={`text-sm font-medium ${
                 killSwitch ? "text-danger-700" : "text-foreground"
               }`}
             >
-              Kill switch {killSwitch ? "ARMED" : "disarmed"}
+              Kill switch {killSwitch ? "armed" : "disarmed"}
             </h2>
             {killSwitch ? (
               <dl className="text-xs text-foreground-600 space-y-1 mt-2">
@@ -222,7 +217,7 @@ export default async function WorkspaceDetailPage({
                 </div>
                 <div>
                   <dt className="inline font-medium">Armed at: </dt>
-                  <dd className="inline">{killSwitch.armedAt.toISOString()}</dd>
+                  <dd className="inline font-mono tabular-nums">{killSwitch.armedAt.toISOString()}</dd>
                 </div>
               </dl>
             ) : (
@@ -230,8 +225,12 @@ export default async function WorkspaceDetailPage({
                 Every non-human Actor in this workspace is authorized normally.
               </p>
             )}
-            <Link href="?tab=settings" className="text-xs text-primary-600 hover:underline">
-              {killSwitch ? "Disarm in Settings →" : "Arm in Settings →"}
+            <Link
+              href="?tab=settings"
+              className="mt-3 inline-flex items-center gap-1 text-xs text-primary-700 hover:underline"
+            >
+              {killSwitch ? "Disarm in Settings" : "Arm in Settings"}
+              <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.5} />
             </Link>
           </div>
 
@@ -239,13 +238,13 @@ export default async function WorkspaceDetailPage({
               Actors are actually pushed. Each field says where it came from,
               because "closed" alone can't distinguish a deliberate local choice
               from an org default that may change under it. */}
-          <div className="border border-neutral-200/60 rounded-xl bg-background-100 p-4 space-y-3">
-            <h2 className="text-sm font-semibold text-foreground">Trust policy in force</h2>
+          <div className="border border-neutral-200/60 rounded-xl bg-background-100 p-5 space-y-3">
+            <h2 className="text-sm font-medium text-foreground">Trust policy in force</h2>
             <dl className="text-sm space-y-2">
               <div className="flex gap-2 items-baseline">
                 <dt className="text-foreground-500 w-28 shrink-0">Fail mode</dt>
                 <dd className="flex items-center gap-2">
-                  <span className="text-foreground">
+                  <span className="font-mono text-xs text-foreground">
                     {trustPolicy.failClosed ? "closed" : "open"}
                   </span>
                   <SourceBadge source={trustPolicy.source.failMode} />
@@ -254,7 +253,7 @@ export default async function WorkspaceDetailPage({
               <div className="flex gap-2 items-baseline">
                 <dt className="text-foreground-500 w-28 shrink-0">Staple TTL</dt>
                 <dd className="flex items-center gap-2">
-                  <span className="text-foreground">
+                  <span className="font-mono text-xs tabular-nums text-foreground">
                     {trustPolicy.stapleTtlSeconds < 0
                       ? "unbounded"
                       : `${trustPolicy.stapleTtlSeconds}s`}
@@ -263,14 +262,18 @@ export default async function WorkspaceDetailPage({
                 </dd>
               </div>
             </dl>
-            <p className="text-xs text-foreground-400">
+            <p className="text-xs leading-5 text-foreground-500">
               An interception point (<span className="font-mono">proxy</span>,{" "}
               <span className="font-mono">harness</span>) keeps the staleness bound from its own
               config — it decides offline and cannot run a live query — but the fail mode above
               applies to it too.
             </p>
-            <Link href="?tab=settings" className="text-xs text-primary-600 hover:underline">
-              Change in Settings →
+            <Link
+              href="?tab=settings"
+              className="inline-flex items-center gap-1 text-xs text-primary-700 hover:underline"
+            >
+              Change in Settings
+              <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.5} />
             </Link>
           </div>
         </section>
@@ -299,12 +302,12 @@ export default async function WorkspaceDetailPage({
           />
 
           <section className="space-y-3">
-            <h2 className="text-sm font-semibold text-foreground-700">Trust policy</h2>
-            <p className="text-xs text-foreground-400">
+            <h2 className="text-sm font-medium text-foreground">Trust policy</h2>
+            <p className="text-xs leading-5 text-foreground-500">
               What this workspace&apos;s verifiers do when they can&apos;t reach the control plane
               (docs/CERTIFICATE_WEB_OF_TRUST.md §5). Each field inherits the
               organization&apos;s{" "}
-              <Link href="/admin/settings" className="text-primary-600 hover:underline">
+              <Link href="/admin/settings" className="text-primary-700 hover:underline">
                 default
               </Link>{" "}
               independently until you set it here. Saving re-pushes the policy to this
@@ -326,10 +329,10 @@ export default async function WorkspaceDetailPage({
           </section>
 
           <section className="space-y-3">
-            <h2 className="text-sm font-semibold text-foreground-700">Workspace identity</h2>
+            <h2 className="text-sm font-medium text-foreground">Workspace identity</h2>
             <form
               action={updateWorkspaceAction}
-              className="space-y-4 border border-neutral-200/60 rounded-xl bg-background-100 p-4"
+              className="space-y-4 border border-neutral-200/60 rounded-xl bg-background-100 p-5"
             >
               <input type="hidden" name="id" value={workspace.id} />
               <div>
@@ -339,7 +342,7 @@ export default async function WorkspaceDetailPage({
                   name="name"
                   defaultValue={workspace.name}
                   required
-                  className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background"
+                  className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400"
                 />
               </div>
               <div>
@@ -350,7 +353,7 @@ export default async function WorkspaceDetailPage({
                   name="description"
                   rows={3}
                   defaultValue={workspace.description ?? ""}
-                  className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background"
+                  className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400"
                 />
               </div>
               <div>
@@ -372,7 +375,7 @@ export default async function WorkspaceDetailPage({
           </section>
 
           {workspace.isDefault ? (
-            <p className="text-xs text-foreground-400">
+            <p className="text-xs leading-5 text-foreground-500">
               The default workspace cannot be deleted — the control plane recreates it at boot
               (<span className="font-mono">WorkspaceDAO.ensureDefault</span>), and everything that
               falls back to it would point at nothing in the meantime.
@@ -392,21 +395,21 @@ export default async function WorkspaceDetailPage({
         <section className="space-y-4">
           <div className="overflow-x-auto border border-neutral-200/60 rounded-xl">
             <table className="w-full text-sm bg-background-100">
-              <thead className="bg-background-200/40 text-left text-xs text-foreground-500 uppercase">
+              <thead className="border-b border-neutral-200/60 bg-background-200/40 text-left text-xs text-foreground-500">
                 <tr>
-                  <th className="px-4 py-2 font-medium">Name</th>
-                  <th className="px-4 py-2 font-medium">Kind</th>
-                  <th className="px-4 py-2 font-medium">DID</th>
-                  <th className="px-4 py-2 font-medium">Actions</th>
+                  <th className="px-4 py-2 font-normal">Name</th>
+                  <th className="px-4 py-2 font-normal">Kind</th>
+                  <th className="px-4 py-2 font-normal">DID</th>
+                  <th className="px-4 py-2 font-normal">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {workspaceActors.map((a) => (
-                  <tr key={a.did} className="border-t border-neutral-200/60">
+                  <tr key={a.did} className="border-t border-neutral-200/60 transition-colors hover:bg-background-200/40">
                     <td className="px-4 py-2.5">
                       <Link
                         href={`/admin/actors/${encodeDidParam(a.did)}`}
-                        className="text-foreground hover:text-primary-600 hover:underline"
+                        className="text-foreground hover:text-primary-700 hover:underline"
                       >
                         {a.name}
                       </Link>
@@ -421,7 +424,7 @@ export default async function WorkspaceDetailPage({
                         <input type="hidden" name="workspaceId" value="" />
                         <button
                           type="submit"
-                          className="text-xs px-2 py-1 border border-neutral-200 text-foreground-600 rounded hover:bg-background-200 transition-colors"
+                          className="rounded-lg border border-neutral-200 px-2.5 py-1 text-xs font-medium text-foreground-600 transition-colors hover:bg-background-200 hover:text-foreground"
                         >
                           Remove from workspace
                         </button>
@@ -431,8 +434,8 @@ export default async function WorkspaceDetailPage({
                 ))}
                 {workspaceActors.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="px-4 py-6 text-center text-foreground-400">
-                      No actors assigned to this workspace yet.
+                    <td colSpan={4} className="px-4 py-6 text-center text-foreground-500">
+                      No actors assigned to this workspace yet
                     </td>
                   </tr>
                 )}
@@ -443,7 +446,7 @@ export default async function WorkspaceDetailPage({
           {unassignedActors.length > 0 && (
             <form
               action={assignActorWorkspaceAction}
-              className="flex items-end gap-2 border border-neutral-200/60 rounded-xl bg-background-100 p-4"
+              className="flex items-end gap-2 border border-neutral-200/60 rounded-xl bg-background-100 p-5"
             >
               <input type="hidden" name="workspaceId" value={workspace.id} />
               <div className="flex-1">
@@ -474,40 +477,40 @@ export default async function WorkspaceDetailPage({
 
       {activeTab === "access" && (
         <section className="space-y-4">
-          <p className="text-xs text-foreground-400">
+          <p className="text-xs leading-5 text-foreground-500">
             Workspace-level admin/member management, expressed as scoped certificates
             (<code className="font-mono">CertScope.resource = &quot;workspace:{workspace.id}&quot;</code>)
             rather than a separate role table (docs/CERTIFICATE_WEB_OF_TRUST.md §3.3).
           </p>
           <div className="overflow-x-auto border border-neutral-200/60 rounded-xl">
             <table className="w-full text-sm bg-background-100">
-              <thead className="bg-background-200/40 text-left text-xs text-foreground-500 uppercase">
+              <thead className="border-b border-neutral-200/60 bg-background-200/40 text-left text-xs text-foreground-500">
                 <tr>
-                  <th className="px-4 py-2 font-medium">Human</th>
-                  <th className="px-4 py-2 font-medium">Capabilities</th>
-                  <th className="px-4 py-2 font-medium">Certificate</th>
+                  <th className="px-4 py-2 font-normal">Human</th>
+                  <th className="px-4 py-2 font-normal">Capabilities</th>
+                  <th className="px-4 py-2 font-normal">Certificate</th>
                 </tr>
               </thead>
               <tbody>
                 {workspaceAccessCerts.map((cert) => {
                   const actor = actorByDid.get(cert.agentDid);
                   return (
-                    <tr key={cert.id} className="border-t border-neutral-200/60">
+                    <tr key={cert.id} className="border-t border-neutral-200/60 transition-colors hover:bg-background-200/40">
                       <td className="px-4 py-2.5">
                         <Link
                           href={`/admin/actors/${encodeDidParam(cert.agentDid)}`}
-                          className="text-foreground hover:text-primary-600 hover:underline"
+                          className="text-foreground hover:text-primary-700 hover:underline"
                         >
                           {actor?.name ?? cert.agentDid}
                         </Link>
                       </td>
-                      <td className="px-4 py-2.5 text-foreground-700">
+                      <td className="px-4 py-2.5 font-mono text-xs text-foreground-700">
                         {(cert.capabilities as string[]).join(", ") || "—"}
                       </td>
                       <td className="px-4 py-2.5">
                         <Link
                           href={`/admin/certificates/${cert.id}`}
-                          className="text-xs text-primary-600 hover:underline font-mono"
+                          className="text-xs text-primary-700 hover:underline font-mono"
                         >
                           {cert.id.slice(0, 8)}
                         </Link>
@@ -517,8 +520,8 @@ export default async function WorkspaceDetailPage({
                 })}
                 {workspaceAccessCerts.length === 0 && (
                   <tr>
-                    <td colSpan={3} className="px-4 py-6 text-center text-foreground-400">
-                      No workspace-scoped grants yet.
+                    <td colSpan={3} className="px-4 py-6 text-center text-foreground-500">
+                      No workspace-scoped grants yet
                     </td>
                   </tr>
                 )}
@@ -527,21 +530,26 @@ export default async function WorkspaceDetailPage({
           </div>
           <Link
             href={`/admin/certificates/new?resource=${encodeURIComponent(`workspace:${workspace.id}`)}`}
-            className="text-sm text-primary-600 hover:underline"
+            className="inline-flex items-center gap-1 text-sm text-primary-700 hover:underline"
           >
-            Issue a workspace-scoped certificate →
+            Issue a workspace-scoped certificate
+            <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.5} />
           </Link>
         </section>
       )}
 
       {activeTab === "confinement" && (
-        <section className="space-y-4 border border-neutral-200/60 rounded-xl bg-background-100 p-4 max-w-lg">
+        <section className="space-y-4 border border-neutral-200/60 rounded-xl bg-background-100 p-5 max-w-lg">
           <div>
-            <h2 className="text-sm font-semibold text-foreground mb-1">Confinement templates</h2>
-            <p className="text-xs text-foreground-500">
+            <h2 className="text-sm font-medium text-foreground mb-1">Confinement templates</h2>
+            <p className="text-xs leading-5 text-foreground-500">
               Reusable tier-B settings offered when issuing a certificate to an actor in this
-              workspace; the one marked <strong>Default</strong> is pre-selected. A template{" "}
-              <strong>grants nothing and enforces nothing on its own</strong> — the signed
+              workspace; the one marked <span className="font-medium text-foreground-700">Default</span>{" "}
+              is pre-selected. A template{" "}
+              <span className="font-medium text-foreground-700">
+                grants nothing and enforces nothing on its own
+              </span>{" "}
+              — the signed
               certificate is the artefact, and editing a template never reaches back into grants
               already issued.
             </p>
@@ -553,10 +561,10 @@ export default async function WorkspaceDetailPage({
             allTemplates={allTemplates}
           />
 
-          <p className="text-xs text-foreground-400 pt-2 border-t border-neutral-200/60">
+          <p className="text-xs leading-5 text-foreground-500 pt-3 border-t border-neutral-200/60">
             Templates themselves are created under{" "}
-            <Link href="/admin/certificates/templates" className="text-primary-600 hover:underline">
-              Certificates → Confinement templates
+            <Link href="/admin/certificates/templates" className="text-primary-700 hover:underline">
+              Certificates / Confinement templates
             </Link>
             .
           </p>
@@ -564,8 +572,8 @@ export default async function WorkspaceDetailPage({
       )}
 
       {activeTab === "budgets" && (
-        <section className="border border-dashed border-neutral-300 rounded-xl p-6 text-center">
-          <h2 className="text-sm font-semibold text-foreground mb-1">Budgets & Model Access</h2>
+        <section className="border border-dashed border-neutral-200 rounded-xl p-6 text-center">
+          <h2 className="text-sm font-medium text-foreground mb-1">Budgets & Model Access</h2>
           <p className="text-sm text-foreground-500">
             Token budgets, router keys, and allowed models — not ported into this rebuild yet
             (docs/REBUILD_ARCHITECTURE.md §8, step 4+). See{" "}

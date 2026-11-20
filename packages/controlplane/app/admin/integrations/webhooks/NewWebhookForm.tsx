@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 import { CONTROLPLANE_WEBHOOK_EVENTS } from "@/lib/webhook-events";
 import { createWebhookAction } from "../actions";
 
@@ -35,12 +36,12 @@ export default function NewWebhookForm() {
   if (created) {
     return (
       <div className="space-y-4 max-w-2xl">
-        <div className="bg-warning-50 border border-warning-200 rounded-xl p-4 space-y-3">
-          <p className="text-sm text-warning-700 font-medium">
-            Copy this signing secret now — it will not be shown again.
+        <div className="space-y-3 rounded-lg border border-warning-200 bg-warning-50 px-4 py-3">
+          <p className="text-sm font-medium text-warning-700">
+            Copy this signing secret now — it will not be shown again
           </p>
           <div className="flex items-center gap-2">
-            <code className="flex-1 text-xs font-mono bg-background-100 border border-neutral-200 rounded-lg px-3 py-2 overflow-x-auto">
+            <code className="flex-1 overflow-x-auto rounded-lg border border-neutral-200 bg-background-100 px-3 py-2 font-mono text-xs">
               {created.secret}
             </code>
             <button
@@ -49,7 +50,7 @@ export default function NewWebhookForm() {
                 void navigator.clipboard.writeText(created.secret);
                 setCopied(true);
               }}
-              className="text-xs px-3 py-2 border border-neutral-200 rounded-lg hover:bg-background-200/60 transition-colors shrink-0"
+              className="shrink-0 rounded-lg border border-neutral-200 bg-background-100 px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-background-200"
             >
               {copied ? "Copied" : "Copy"}
             </button>
@@ -57,9 +58,10 @@ export default function NewWebhookForm() {
         </div>
         <Link
           href={`/admin/integrations/webhooks/${created.id}`}
-          className="inline-block text-sm text-primary-600 hover:underline"
+          className="inline-flex items-center gap-1.5 text-sm text-primary-700 hover:underline"
         >
-          Done — view webhook →
+          Done, view webhook
+          <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.5} />
         </Link>
       </div>
     );
@@ -68,7 +70,7 @@ export default function NewWebhookForm() {
   return (
     <form action={handleSubmit} className="space-y-6 max-w-2xl">
       {error && (
-        <div className="bg-danger-50 border border-danger-200 rounded-lg px-3 py-2 text-sm text-danger-700">
+        <div className="rounded-lg border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-700">
           {error}
         </div>
       )}
@@ -80,7 +82,7 @@ export default function NewWebhookForm() {
           name="name"
           required
           placeholder="e.g. Ops SIEM"
-          className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background"
+          className="w-full rounded-lg border border-neutral-200 bg-background px-3 py-2 text-sm focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500/30"
         />
       </div>
 
@@ -89,7 +91,7 @@ export default function NewWebhookForm() {
         <input
           type="text"
           name="description"
-          className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background"
+          className="w-full rounded-lg border border-neutral-200 bg-background px-3 py-2 text-sm focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500/30"
         />
       </div>
 
@@ -100,16 +102,16 @@ export default function NewWebhookForm() {
           name="url"
           required
           placeholder="https://example.com/webhooks/vaultysclaw"
-          className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm bg-background font-mono"
+          className="w-full rounded-lg border border-neutral-200 bg-background px-3 py-2 text-sm focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500/30 font-mono"
         />
       </div>
 
       <div>
         <label className="block text-sm font-medium text-foreground mb-1.5">Events</label>
-        <div className="border border-neutral-200 rounded-lg divide-y divide-neutral-200/60">
+        <div className="divide-y divide-neutral-200/60 rounded-lg border border-neutral-200">
           {EVENT_GROUPS.map((group) => (
             <div key={group} className="p-3">
-              <div className="text-xs font-semibold text-foreground-500 uppercase mb-2">{group}</div>
+              <div className="mb-2 text-xs text-foreground-500">{group}</div>
               <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm">
                 {CONTROLPLANE_WEBHOOK_EVENTS.filter((e) => e.group === group).map((e) => (
                   <label key={e.type} className="flex items-center gap-1.5 text-foreground-700" title={e.description}>
@@ -127,7 +129,7 @@ export default function NewWebhookForm() {
         <button
           type="submit"
           disabled={pending}
-          className="px-4 py-2 bg-primary-600 hover:bg-primary-500 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-colors"
+          className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-500 disabled:opacity-50"
         >
           {pending ? "Creating…" : "Create webhook"}
         </button>

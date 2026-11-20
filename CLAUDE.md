@@ -27,9 +27,10 @@ Outside the pnpm workspace:
 
 | Directory | Description |
 |---|---|
-| `sdk-go/` | Go client SDK — `authz` (a port of `resolvePermission`), `grant` (offline packcert verification), `rules` (signed rule sets). |
+| `sdk-go/` | Go client SDK — `authz` (a port of `resolvePermission`), `grant` (offline packcert verification), `rules` (signed rule sets), `toolgate` (the harness-neutral tool-call decision shared by the sensor's supervisor and `vaultysclaw-hooks`). |
 | `vaultysclaw-sensor/` | Go workload sensor: detects local AI/agent processes and reports classified telemetry to the control plane. Also hosts the tier-1 interception proxy. What it recognises as AI is data, not code: the built-in rules are `internal/config/default-catalog.yaml` (embedded), extended by a hot-reloadable operator catalog. Add a newly-released harness to a catalog file, never to the detector — see `vaultysclaw-sensor/docs/DETECTION_CATALOG.md`. |
-| `conformance/` | The TS↔Go contract. `permission-vectors.json` (37 cases) is run by **both** `packages/trust` and `sdk-go/authz`; `capability-names.json` (31 cases) by **both** `packages/policy` and `sdk-go/capability`; `grant-fixture.json`, `rules-fixture.json` and `kindconfig-fixture.json` are TypeScript-signed fixtures the Go side verifies. Never change a fixture without re-running both suites. |
+| `vaultysclaw-hooks/` | OS-agnostic tool-call gate: installs a hook into each coding harness's own hook system and allows or blocks every tool call from the distributed certificates. No sandbox, no daemon. Claude Code, Codex, Cursor, Gemini CLI, Copilot CLI and Cline; `install`/`doctor`, plus `enroll`/`agent` for the control-plane connection. See `docs/HARNESS_HOOKS.md` and [its CLAUDE.md](vaultysclaw-hooks/CLAUDE.md). |
+| `conformance/` | The TS↔Go contract. `permission-vectors.json` (37 cases) is run by **both** `packages/trust` and `sdk-go/authz`; `capability-names.json` (31 cases) by **both** `packages/policy` and `sdk-go/capability`; `grant-fixture.json`, `rules-fixture.json`, `kindconfig-fixture.json` and `status-fixture.json` are TypeScript-signed fixtures the Go side verifies; `status-request-fixture.json` is Go-signed and verified by `packages/policy`. Never change a fixture without re-running both suites. |
 | `docs-site/` | Docusaurus documentation site. |
 
 ## Commands
@@ -71,6 +72,7 @@ pnpm --filter @vaultysclaw/controlplane test
 pnpm --filter @vaultysclaw/webhook-dispatcher test
 cd sdk-go && go test ./...                           # the Go half of conformance
 cd vaultysclaw-sensor && go test ./...
+cd vaultysclaw-hooks && go test ./...
 ```
 
 The dispatcher must point at the **same Postgres the control plane writes to**, not just one with
@@ -138,7 +140,7 @@ on a missing `PrismaClient` export.
 
 Clients connect to the control plane via WebSocket. Messages follow the typed envelope in
 `packages/controlplane/lib/protocol.ts` — deliberately small: identity, registration, the
-certificate/status protocol, `actor_config`, and `sensor_telemetry`.
+certificate/status protocol, `actor_config`, `sensor_telemetry`, and `hook_audit` / `hook_coverage` (vaultysclaw-hooks' decision trail and per-harness coverage).
 
 **Actor lifecycle**:
 
@@ -252,6 +254,7 @@ Note `stripSensitive` matches the substring `apikey` case-insensitively, so a bo
 | `APPRISE_API_URL` | controlplane, webhook-dispatcher | Self-hosted Apprise API base URL. Unset turns Notification Channels off entirely; webhook delivery is unaffected. |
 | `NEXTAUTH_URL` / `APP_URL` | controlplane | Browser-facing base URL; used to build `adminUrl` deep links (`APP_URL` wins) |
 | `NEXTAUTH_SECRET` | controlplane | NextAuth session secret |
+| `CONTROLPLANE_BOOTSTRAP_TOKEN` | controlplane | First-admin setup token. While no human exists, registration requires `/login?setup=<token>`; unset, one is generated at boot and printed in the server log (`lib/bootstrap-token.ts`). |
 | `CONTROLPLANE_PORT` / `CONTROLPLANE_WS_PORT` | controlplane | HTTP + WebSocket ports (defaults 3001 / 8081) |
 | `LITELLM_BASE_URL` / `LITELLM_MASTER_KEY` | controlplane | Deployment-time **fallback** for the Model Registry. The `Setting` rows an admin edits under Integrations → Models win, and the master key is stored encrypted there (`lib/vault.ts`). |
 
